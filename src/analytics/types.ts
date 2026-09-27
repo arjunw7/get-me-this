@@ -50,6 +50,7 @@ export type AnalyticsCaptureResult =
         | "unknown-key"
         | "invalid-enum-value"
         | "invalid-property-type"
+        | "invalid-context"
         | "send-failed";
       /** Safe identifier: the property name or event name only, never a value. */
       readonly detail: string;
@@ -63,12 +64,15 @@ export type AnalyticsCaptureResult =
 export interface ServerAnalytics {
   /**
    * Validates the payload against the catalog and, when the server lane is
-   * configured, captures and flushes it. Never throws; a rejected payload or
-   * a delivery failure is reported through the result.
+   * configured, captures and flushes it. Generic over the catalog event
+   * name: unknown names and unsupported properties fail TypeScript
+   * compilation, while runtime validation still guards untyped or dynamic
+   * callers. Never throws; a rejected payload or a delivery failure is
+   * reported through the result.
    */
-  capture(
-    event: AnalyticsEventName,
-    properties: unknown,
+  capture<E extends AnalyticsEventName>(
+    event: E,
+    properties: EventProperties<E>,
     context: ServerCaptureContext,
   ): Promise<AnalyticsCaptureResult>;
   /** Explicit, idempotent application-controlled shutdown. */

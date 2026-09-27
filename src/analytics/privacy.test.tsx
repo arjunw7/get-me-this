@@ -92,15 +92,27 @@ describe("sanitizeClientEventForSend (before_send)", () => {
     expect(sanitizeClientEventForSend(null)).toBeNull();
   });
 
-  it("sanitizes pageview URLs to approved route templates and drops referrers", () => {
+  it("rebuilds pageviews from an explicit allowlist: sanitized template plus nothing else", () => {
     const result = sanitizeClientEventForSend({
       event: "$pageview",
       properties: {
         $current_url:
           "https://app.getmethis.test/invite/SECRETTOKEN123?email=user@example.com",
         $pathname: "/invite/SECRETTOKEN123",
+        // SDK-enriched pageview properties that must never pass through:
+        $initial_current_url:
+          "https://app.getmethis.test/invite/SECRETTOKEN123?otp=123456",
+        $initial_pathname: "/invite/SECRETTOKEN123",
+        $initial_referrer: "https://evil.example/leak?token=SECRETTOKEN123",
         $referrer: "https://evil.example/leak?token=SECRETTOKEN123",
+        $referring_domain: "evil.example",
         $raw_event_path: "/invite/SECRETTOKEN123",
+        $utm_source: "arjun",
+        $utm_campaign: "SECRETCAMPAIGN",
+        $utm_content: "wishlist-note-secret",
+        $gclid: "SECRETCAMPAIGN",
+        $fragment: "#SECRETTOKEN123",
+        $search: "?email=user@example.com",
         $lib: "web",
       },
     });
@@ -110,9 +122,11 @@ describe("sanitizeClientEventForSend (before_send)", () => {
       properties: {
         $current_url: "https://app.getmethis.test/invite/:token",
         $pathname: "/invite/:token",
-        $lib: "web",
       },
     });
+    expect(JSON.stringify(result)).not.toContain("SECRETTOKEN123");
+    expect(JSON.stringify(result)).not.toContain("user@example.com");
+    expect(JSON.stringify(result)).not.toContain("arjun");
   });
 
   it("sanitizes pageleave URLs the same way", () => {
@@ -121,12 +135,39 @@ describe("sanitizeClientEventForSend (before_send)", () => {
       properties: {
         $current_url: `https://app.getmethis.test/groups/${GROUP_UUID}?note=SECRETTOKEN`,
         $pathname: `/groups/${GROUP_UUID}`,
+        $initial_pathname: `/groups/${GROUP_UUID}`,
+        $referrer: "https://evil.example/?utm_source=arjun",
+        $raw_event_path: `/groups/${GROUP_UUID}`,
       },
     });
     expect(result?.properties).toEqual({
       $current_url: "https://app.getmethis.test/groups/:groupId",
       $pathname: "/groups/:groupId",
     });
+  });
+
+  it("drops unknown client event names unless explicitly approved", () => {
+    for (const unknown of [
+      "$custom_event",
+      "$feature_flag_called",
+      "$exception",
+      "$web_vitals",
+      "$dead_click",
+      "$rageclick",
+      "$heatmap",
+    ]) {
+      expect(
+        sanitizeClientEventForSend({
+          event: unknown,
+          properties: { secret: "SECRETTOKEN123" },
+        }),
+      ).toBeNull();
+    }
+
+    for (const approved of ["$identify", "$opt_in", "$opt_out"]) {
+      const event = { event: approved, properties: { benign: true } };
+      expect(sanitizeClientEventForSend(event)).toEqual(event);
+    }
   });
 
   it("reduces autocapture events to the approved property allowlist", () => {

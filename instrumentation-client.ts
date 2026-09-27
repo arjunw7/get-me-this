@@ -1,11 +1,16 @@
 /**
- * Next.js client instrumentation hook (supported by the pinned Next.js
- * 16.3.6; `onRouterTransition` runs in the browser on every route
- * transition). This is the single supported entry point that initializes
- * the client analytics lane and captures one sanitized pageview per route
- * change. The pinned posthog-js (1.434.15) has no Next.js-specific
- * subpath exports (no posthog-js/next, no posthog-js/init), so this
- * official Next.js mechanism is the integration point of record.
+ * Next.js client instrumentation hook. This is the single supported entry
+ * point that initializes the client analytics lane and captures one
+ * sanitized pageview per route transition. The pinned posthog-js
+ * (1.434.15) has no Next.js-specific subpath exports (no posthog-js/next,
+ * no posthog-js/init), so this official Next.js mechanism is the
+ * integration point of record.
+ *
+ * The pinned Next.js 16.3.6 client runtime discovers the exported hook by
+ * the exact name `onRouterTransitionStart` and calls it as
+ * `onRouterTransitionStart(href, navigationType, details)` on every router
+ * transition; the discovery wiring is proven by
+ * `tests/e2e/instrumentation-hook.spec.ts` against the production build.
  */
 import {
   captureSanitizedPageview,
@@ -22,6 +27,10 @@ void initClientAnalytics();
  * to an approved route template (src/analytics/privacy.ts); query strings,
  * fragments, and unlisted route segments are never emitted.
  */
-export function onRouterTransition(path: string): void {
-  captureSanitizedPageview(path);
+export function onRouterTransitionStart(
+  href: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- signature fixed by the pinned Next.js runtime
+  _navigationType: "push" | "replace" | null,
+): void {
+  captureSanitizedPageview(href);
 }

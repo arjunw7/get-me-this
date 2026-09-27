@@ -41,8 +41,37 @@ Entry points inspected from the installed packages at implementation time:
 | `unit-tests.txt` | The unit suite detail: 107 tests across 14 files, including the analytics boundary matrices. |
 | `tests-fail-without-implementation.txt` | The analytics test files run with the implementation sources removed: 7 of 8 files fail, proving the tests would fail without the implementation; sources restored afterwards. |
 | `no-network-proof.txt` | How the no-network property is proven: SDKs mocked before initialization, every browser transport (fetch, XHR, sendBeacon, image beacons) stubbed to fail, and the unconfigured lanes constructing nothing. |
-| `browser-suites.txt` | `pnpm test:e2e` (6 passed) and `pnpm test:visual` (2 passed) demonstrating the visually unchanged result; no baseline files changed. |
-| `type-level-boundary.txt` | The `tsc --noEmit` output passing with the `@ts-expect-error` boundary tests active, plus the compiled failure demonstration. |
+| `browser-suites.txt` | `pnpm test:e2e` (10 passed, including the integration-level `instrumentation-hook.spec.ts` Next.js hook-discovery checks) and `pnpm test:visual` (2 passed) demonstrating the visually unchanged result; no baseline files changed. |
+| `type-level-boundary.txt` | The `tsc --noEmit` output passing with the `@ts-expect-error` boundary tests active against the real `ServerAnalytics.capture()` surface, plus the compiled failure demonstration. |
+
+## Independent-review fixes (round 1)
+
+The five blocking review findings were fixed on this branch:
+
+1. The unsupported `onRouterTransition` export was replaced with
+   `onRouterTransitionStart`, the exact hook name the pinned Next.js
+   16.3.6 runtime discovers and invokes; `tests/e2e/instrumentation-hook.spec.ts`
+   proves discovery against the production build. Consented users get one
+   sanitized initial pageview after asynchronous initialization, one per
+   navigation, the current pageview on post-init consent grant, with
+   consecutive-duplicate suppression across those paths.
+2. `ServerAnalytics.capture()` is generic over the event name and accepts
+   `EventProperties<E>`; the no-op, configured adapter, and memory sink all
+   implement the typed signature while runtime validation still guards
+   untyped callers. Compile-time tests run against the real exported
+   surface.
+3. Pageview sanitization rebuilds page events from an explicit property
+   allowlist (sanitized route template + current URL only) — SDK-enriched
+   properties (`$initial_*`, `$referrer`, `$raw_event_path`, UTM/attribution)
+   never pass through — and unknown client event names are dropped unless
+   explicitly approved.
+4. `identifyAuthenticatedUser()` is consent-aware (no-op while pending or
+   denied); withdrawal stops capture via the supported API and resets the
+   authenticated identity.
+5. PostHog counts as configured only with both token and host (token-only,
+   host-only, and neither all return the true no-op adapter); identity
+   context is runtime-validated as UUIDs with a safe `invalid-context`
+   failure that never reaches PostHog.
 
 ## Acceptance criteria coverage
 

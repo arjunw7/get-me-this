@@ -1,15 +1,25 @@
 /**
  * Catalog tests: the ten server-authoritative business events and their
  * exact allowed values, matching docs/analytics/tracking-plan.md, plus the
- * complete active ISO 4217 currency allowlist. Type-level tests prove that
- * unknown event names and unsupported properties fail TypeScript
- * compilation.
+ * complete active ISO 4217 currency allowlist. Compile-time tests prove,
+ * against the REAL exported ServerAnalytics.capture() surface, that unknown
+ * event names, missing properties, invalid enum values, and extra
+ * object-literal properties fail TypeScript compilation.
  */
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import type { AnalyticsEventName } from "./event-definitions";
-import type { EventProperties } from "./types";
+import type { ServerAnalytics, EventProperties } from "./types";
 import { EVENT_DEFINITIONS, SUPPORTED_CURRENCIES } from "./event-definitions";
+
+// The compile-time boundary is exercised through the actual exported
+// analytics surface; the server-only guard is mocked so the test can import
+// it in a Node environment (its client-bundle behaviour is proven
+// separately in server-only-guard.test.ts and by the production build).
+vi.mock("server-only", () => ({}));
+
+const USER_UUID = "00000000-0000-4000-8000-000000000000";
+const CONTEXT = { distinctId: USER_UUID };
 
 const TRACKING_PLAN_EVENTS = [
   "auth_completed",
@@ -164,18 +174,14 @@ describe("currency allowlist", () => {
   });
 });
 
-// The compile-time boundary is exercised through a typed capture function:
-// the same shape the server adapter's callers see. It is a runtime no-op;
-// only its signature matters.
-function captureTyped<E extends AnalyticsEventName>(
-  event: E,
-  properties: EventProperties<E>,
-): void {
-  void event;
-  void properties;
-}
+describe("typed event boundary (compile-time, real ServerAnalytics surface)", () => {
+  let analytics: ServerAnalytics;
 
-describe("typed event boundary (compile-time)", () => {
+  beforeAll(async () => {
+    const { getServerAnalytics } = await import("./server");
+    analytics = getServerAnalytics();
+  });
+
   it("derives the exact payload type for a catalog event", () => {
     expectTypeOf<EventProperties<"auth_completed">>().toEqualTypeOf<{
       readonly method: "email";
@@ -192,27 +198,43 @@ describe("typed event boundary (compile-time)", () => {
     }>();
   });
 
+  it("accepts a valid catalog payload on the real capture surface", () => {
+    void analytics.capture(
+      "auth_completed",
+      { method: "email", is_new_user: true },
+      CONTEXT,
+    );
+  });
+
   it("rejects unknown event names at compile time", () => {
     // @ts-expect-error "group_deleted" is not a catalog event.
-    captureTyped("group_deleted", {});
+    analytics.capture("group_deleted", {}, CONTEXT);
   });
 
   it("rejects unsupported property values at compile time", () => {
-    captureTyped("invite_sent", {
-      // @ts-expect-error "sms" is not an approved channel.
-      channel: "sms",
-      group_member_count_bucket: "1-4",
-    });
+    analytics.capture(
+      "invite_sent",
+      {
+        // @ts-expect-error "sms" is not an approved channel.
+        channel: "sms",
+        group_member_count_bucket: "1-4",
+      },
+      CONTEXT,
+    );
   });
 
-  it("rejects missing and extra properties at compile time", () => {
+  it("rejects missing and extra object-literal properties at compile time", () => {
     // @ts-expect-error "was_authenticated" is required.
-    captureTyped("invite_accepted", {});
+    analytics.capture("invite_accepted", {}, CONTEXT);
 
-    captureTyped("invite_accepted", {
-      was_authenticated: true,
-      // @ts-expect-error "group_name" is not an allowed property.
-      group_name: "Arjun's birthday",
-    });
+    analytics.capture(
+      "invite_accepted",
+      {
+        was_authenticated: true,
+        // @ts-expect-error "group_name" is not an allowed property.
+        group_name: "Arjun's birthday",
+      },
+      CONTEXT,
+    );
   });
 });

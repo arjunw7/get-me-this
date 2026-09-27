@@ -7,28 +7,37 @@
  * referenced by client analytics code.
  *
  * Lifecycle contract:
- * - Unconfigured (missing NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) returns a TRUE
- *   no-op adapter: nothing is captured, retained, or sent.
+ * - PostHog counts as configured ONLY when both the project token and the
+ *   host are present. Any partial configuration returns a TRUE no-op
+ *   adapter: nothing is captured, retained, or sent, and no SDK client is
+ *   constructed.
  * - Configured captures through one safely managed posthog-node client and
  *   awaits `flush()` after every capture. No batching behaviour is claimed.
  * - No signal listeners are installed. Shutdown is explicit, idempotent,
  *   and owned by application lifecycle code.
+ *
+ * Identity context contract: `distinctId` and the optional group id are
+ * runtime-validated as UUIDs before capture. Invalid identifiers —
+ * including emails and names — return a safe `invalid-context` failure and
+ * never reach PostHog.
  */
 import "server-only";
 
 import { PostHog } from "posthog-node";
 
-import { validateAnalyticsEvent } from "./validation";
+import { isUuid, validateAnalyticsEvent } from "./validation";
 import type {
   AnalyticsCaptureResult,
+  EventProperties,
   ServerAnalytics,
   ServerCaptureContext,
 } from "./types";
+import type { AnalyticsEventName } from "./event-definitions";
+
+type CaptureFailure = Extract<AnalyticsCaptureResult, { ok: false }>;
 
 /** Logs a safe identifier (event/property names only). Never a payload value. */
-function logRejection(
-  result: Extract<AnalyticsCaptureResult, { ok: false }>,
-): void {
+function logRejection(result: CaptureFailure): void {
   console.warn(
     `[analytics] capture rejected: ${result.code} (${result.detail})`,
   );
@@ -42,9 +51,40 @@ const sendFailure = (): AnalyticsCaptureResult => ({
   detail: "posthog-node capture or flush threw",
 });
 
+/** Runtime context validation for untyped or dynamic callers. */
+function validateContext(
+  context: ServerCaptureContext,
+): CaptureFailure | undefined {
+  if (typeof context?.distinctId !== "string" || !isUuid(context.distinctId)) {
+    return {
+      ok: false,
+      code: "invalid-context",
+      // Safe identifier: the context key only, never the value.
+      detail: "context.distinctId must be an internal UUID",
+    };
+  }
+  if (context.group && !isUuid(context.group.id)) {
+    return {
+      ok: false,
+      code: "invalid-context",
+      detail: "context.group.id must be an internal group UUID",
+    };
+  }
+  return undefined;
+}
+
 /** True no-op adapter for the unconfigured server lane. Retains nothing. */
 const NOOP_SERVER_ANALYTICS: ServerAnalytics = {
-  async capture(event, properties) {
+  async capture<E extends AnalyticsEventName>(
+    event: E,
+    properties: EventProperties<E>,
+    context: ServerCaptureContext,
+  ): Promise<AnalyticsCaptureResult> {
+    const contextFailure = validateContext(context);
+    if (contextFailure) {
+      logRejection(contextFailure);
+      return contextFailure;
+    }
     const validated = validateAnalyticsEvent(event, properties);
     if (!validated.ok) {
       logRejection(validated.failure);
@@ -66,19 +106,24 @@ let managedClient: ManagedClient | undefined;
 
 function createConfiguredServerAnalytics(
   token: string,
-  host: string | undefined,
+  host: string,
 ): ServerAnalytics {
   // One safely managed client for the whole server process. Every capture is
   // followed by an awaited flush, so no queued event outlives its request.
-  const client = new PostHog(token, host ? { host } : {});
+  const client = new PostHog(token, { host });
   let shutdownPromise: Promise<void> | undefined;
 
   return {
-    async capture(
-      event,
-      properties,
+    async capture<E extends AnalyticsEventName>(
+      event: E,
+      properties: EventProperties<E>,
       context: ServerCaptureContext,
     ): Promise<AnalyticsCaptureResult> {
+      const contextFailure = validateContext(context);
+      if (contextFailure) {
+        logRejection(contextFailure);
+        return contextFailure;
+      }
       const validated = validateAnalyticsEvent(event, properties);
       if (!validated.ok) {
         logRejection(validated.failure);
@@ -121,11 +166,13 @@ export function getServerAnalytics(): ServerAnalytics {
   const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
   const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 
-  if (!token) {
+  if (!token || !host) {
+    // Token-only, host-only, or empty configuration is unconfigured: a true
+    // no-op adapter, and no SDK client is constructed.
     return NOOP_SERVER_ANALYTICS;
   }
 
-  const configurationKey = `${token}|${host ?? ""}`;
+  const configurationKey = `${token}|${host}`;
   if (managedClient && managedClient.configurationKey === configurationKey) {
     return managedClient.analytics;
   }

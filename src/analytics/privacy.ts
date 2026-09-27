@@ -95,12 +95,22 @@ const AUTOCAPTURE_ALLOWED_PROPERTIES: readonly string[] = [
   "$el_classes",
 ];
 
-/** Properties removed from page events; a sanitized template is emitted instead. */
-const PAGE_URL_PROPERTIES: readonly string[] = [
-  "$current_url",
-  "$pathname",
-  "$referrer",
-  "$raw_event_path",
+/**
+ * The only client event names this application approves. posthog-js can
+ * automatically generate other event types; anything not on this list is
+ * dropped in before_send rather than passed through. ($pageleave is in the
+ * approved set only so the SDK's own pageleave could never leak a raw URL —
+ * the client lane itself disables automatic pageleave capture and emits no
+ * pageleave of its own.)
+ */
+const APPROVED_CLIENT_EVENT_NAMES: readonly string[] = [
+  "$pageview",
+  "$pageleave",
+  "$autocapture",
+  "$copy_autocapture",
+  "$identify",
+  "$opt_in",
+  "$opt_out",
 ];
 
 type ClientEvent = {
@@ -110,9 +120,13 @@ type ClientEvent = {
 
 /**
  * `before_send` sanitizer for the pinned posthog-js. Supported signature:
- * `(CaptureResult | null) => CaptureResult | null`. Returns the event with
- * only approved route templates and properties, or null to pass null
- * through untouched.
+ * `(CaptureResult | null) => CaptureResult | null`. Page events are rebuilt
+ * from an explicit property allowlist — sanitized route templates plus
+ * nothing else — so PostHog-enriched pageview properties
+ * ($initial_current_url, $initial_pathname, $initial_referrer, $referrer,
+ * $raw_event_path, query/UTM/attribution properties, and any other
+ * URL-like SDK property) can never pass through. Unknown client event
+ * names are dropped.
  */
 export function sanitizeClientEventForSend<T extends ClientEvent | null>(
   event: T,
@@ -122,31 +136,35 @@ export function sanitizeClientEventForSend<T extends ClientEvent | null>(
   }
 
   const eventName = event.event;
-  const properties = { ...(event.properties ?? {}) };
+
+  // Unknown client event names are dropped unless explicitly approved.
+  if (
+    typeof eventName !== "string" ||
+    !APPROVED_CLIENT_EVENT_NAMES.includes(eventName)
+  ) {
+    return null as T;
+  }
 
   if (eventName === "$pageview" || eventName === "$pageleave") {
     const currentUrl =
-      typeof properties.$current_url === "string"
-        ? properties.$current_url
+      typeof event.properties?.$current_url === "string"
+        ? event.properties.$current_url
         : "/";
-    properties.$current_url = sanitizeRouteUrl(
-      currentUrl,
-      originOf(currentUrl),
-    );
-    if (typeof properties.$pathname === "string") {
-      properties.$pathname = sanitizeRoutePath(properties.$pathname);
-    }
-    for (const key of PAGE_URL_PROPERTIES) {
-      if (key !== "$current_url" && key !== "$pathname") {
-        delete properties[key];
-      }
-    }
-    // A referrer may be an external page with user content; only the
-    // sanitized current route is ever emitted.
-    return { ...event, properties };
+    // The emitted properties are ONLY the sanitized route template and the
+    // derived current URL; every SDK-enriched pageview property
+    // ($initial_*, $referrer, $raw_event_path, UTM/attribution, …) is
+    // discarded here, never filtered selectively.
+    return {
+      ...event,
+      properties: {
+        $current_url: sanitizeRouteUrl(currentUrl, originOf(currentUrl)),
+        $pathname: sanitizeRoutePath(currentUrl),
+      },
+    };
   }
 
   if (eventName === "$autocapture" || eventName === "$copy_autocapture") {
+    const properties = { ...(event.properties ?? {}) };
     const allowed: Record<string, unknown> = {};
     for (const key of AUTOCAPTURE_ALLOWED_PROPERTIES) {
       if (key in properties) {
@@ -156,7 +174,9 @@ export function sanitizeClientEventForSend<T extends ClientEvent | null>(
     return { ...event, properties: allowed };
   }
 
-  return { ...event, properties };
+  // $identify, $opt_in, $opt_out are SDK identity/consent bookkeeping; they
+  // carry no user content in this application and pass through unchanged.
+  return { ...event, properties: { ...(event.properties ?? {}) } };
 }
 
 /**

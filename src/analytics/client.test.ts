@@ -207,39 +207,93 @@ describe("client analytics lane", () => {
     beforeEach(() => {
       process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = "phc-test-token";
       process.env.NEXT_PUBLIC_POSTHOG_HOST = "https://eu.i.posthog.test";
+      // jsdom's document is at "/" — the initial route for the tests below.
+      window.history.replaceState(null, "", "/");
     });
 
-    it("opts in on grant and captures exactly one sanitized pageview per route", async () => {
+    it("captures one sanitized initial pageview after asynchronous initialization", async () => {
       const client = await importClient();
       await client.initClientAnalytics();
 
       client.setAnalyticsConsent("granted");
-      expect(posthogMock.opt_in_capturing).toHaveBeenCalledTimes(1);
-      expect(window.localStorage.getItem(CONSENT_KEY)).toBe("granted");
-
-      // A synthetic invitation token must never leave the browser.
+      // The consent grant itself emits the current sanitized pageview.
+      posthogMock.capture.mockClear();
       client.captureSanitizedPageview(
         "/invite/SECRETTOKEN123?email=user@example.com",
       );
-      // Same route again: exactly one pageview, no duplicates.
-      client.captureSanitizedPageview("/invite/SECRETTOKEN123");
+
       expect(posthogMock.capture).toHaveBeenCalledTimes(1);
       expect(posthogMock.capture).toHaveBeenCalledWith("$pageview", {
         $current_url: `${window.location.origin}/invite/:token`,
         $pathname: "/invite/:token",
       });
-
-      // A different route gets its own single pageview.
-      client.captureSanitizedPageview(`/groups/${GROUP_UUID}`);
-      expect(posthogMock.capture).toHaveBeenCalledTimes(2);
       expect(JSON.stringify(posthogMock.capture.mock.calls)).not.toContain(
         "SECRETTOKEN123",
       );
+    });
+
+    it("emits exactly one pageview per navigation with no duplicates across initial, navigations, and a post-init consent grant", async () => {
+      const client = await importClient();
+
+      // Consented user: the initial pageview is emitted once the async SDK
+      // initialization completes.
+      client.setAnalyticsConsent("granted");
+      await client.initClientAnalytics();
+
+      // jsdom starts at "/", so the initial pageview is "/" exactly once.
+      const initialCalls = posthogMock.capture.mock.calls.filter(
+        ([name, properties]) =>
+          name === "$pageview" &&
+          (properties as { $pathname?: string }).$pathname === "/",
+      );
+      expect(initialCalls).toHaveLength(1);
+
+      // One sanitized pageview per subsequent navigation. Re-emitting the
+      // initial route to the hook does not duplicate it (consecutive
+      // dedupe); navigating back to "/" later is a legitimate new pageview.
+      client.captureSanitizedPageview(
+        "/invite/SECRETTOKEN123?email=user@example.com",
+      );
+      client.captureSanitizedPageview("/invite/SECRETTOKEN123");
+      client.captureSanitizedPageview(`/groups/${GROUP_UUID}`);
+      client.captureSanitizedPageview("/");
+
+      expect(posthogMock.capture).toHaveBeenCalledTimes(4);
+      expect(
+        posthogMock.capture.mock.calls.map(
+          ([, properties]) => (properties as { $pathname: string }).$pathname,
+        ),
+      ).toEqual(["/", "/invite/:token", "/groups/:groupId", "/"]);
+
       // The client lane emits only pageviews — never a business event, and
-      // no duplicate $pageleave.
+      // no $pageleave at all.
       for (const call of posthogMock.capture.mock.calls) {
         expect(call[0]).toBe("$pageview");
       }
+      expect(JSON.stringify(posthogMock.capture.mock.calls)).not.toContain(
+        "SECRETTOKEN123",
+      );
+    });
+
+    it("captures the current sanitized pageview when consent is granted after initialization", async () => {
+      const client = await importClient();
+      await client.initClientAnalytics();
+      expect(posthogMock.capture).not.toHaveBeenCalled();
+
+      client.setAnalyticsConsent("granted");
+      expect(posthogMock.opt_in_capturing).toHaveBeenCalledTimes(1);
+      expect(window.localStorage.getItem(CONSENT_KEY)).toBe("granted");
+
+      // Exactly one pageview: the current route at grant time ("/").
+      expect(posthogMock.capture).toHaveBeenCalledTimes(1);
+      expect(posthogMock.capture).toHaveBeenCalledWith("$pageview", {
+        $current_url: `${window.location.origin}/`,
+        $pathname: "/",
+      });
+
+      // Granting consent again (idempotent choice) must not duplicate it.
+      client.setAnalyticsConsent("granted");
+      expect(posthogMock.capture).toHaveBeenCalledTimes(1);
     });
 
     it("re-applies granted consent when the SDK initializes afterwards", async () => {
@@ -271,11 +325,11 @@ describe("client analytics lane", () => {
       await client.initClientAnalytics();
       client.setAnalyticsConsent("granted");
       client.captureSanitizedPageview("/onboarding");
-      expect(posthogMock.capture).toHaveBeenCalledTimes(1);
+      expect(posthogMock.capture).toHaveBeenCalledTimes(2);
 
       client.setAnalyticsConsent("denied");
       client.captureSanitizedPageview("/auth/callback");
-      expect(posthogMock.capture).toHaveBeenCalledTimes(1);
+      expect(posthogMock.capture).toHaveBeenCalledTimes(2);
       expect(posthogMock.opt_out_capturing).toHaveBeenCalledTimes(1);
     });
   });
@@ -286,10 +340,22 @@ describe("client analytics lane", () => {
       process.env.NEXT_PUBLIC_POSTHOG_HOST = "https://eu.i.posthog.test";
     });
 
-    it("identifies exactly once with the Supabase user UUID and never aliases", async () => {
+    it("does nothing while consent is pending or denied, and identifies once when granted", async () => {
       const client = await importClient();
       await client.initClientAnalytics();
 
+      // Pending: no identify.
+      expect(client.getAnalyticsConsent()).toBe("pending");
+      expect(client.identifyAuthenticatedUser(USER_UUID)).toBe(false);
+      expect(posthogMock.identify).not.toHaveBeenCalled();
+
+      // Denied: still no identify.
+      client.setAnalyticsConsent("denied");
+      expect(client.identifyAuthenticatedUser(USER_UUID)).toBe(false);
+      expect(posthogMock.identify).not.toHaveBeenCalled();
+
+      // Granted: identify exactly once.
+      client.setAnalyticsConsent("granted");
       expect(client.identifyAuthenticatedUser(USER_UUID)).toBe(true);
       expect(posthogMock.identify).toHaveBeenCalledTimes(1);
       expect(posthogMock.identify).toHaveBeenCalledWith(USER_UUID);
@@ -301,9 +367,28 @@ describe("client analytics lane", () => {
       expect(posthogMock.alias).not.toHaveBeenCalled();
     });
 
+    it("stops identity on consent withdrawal and resets it so it cannot survive for a later shared-browser user", async () => {
+      const client = await importClient();
+      await client.initClientAnalytics();
+      client.setAnalyticsConsent("granted");
+      expect(client.identifyAuthenticatedUser(USER_UUID)).toBe(true);
+
+      client.setAnalyticsConsent("denied");
+      // Withdrawal stops capture via the supported API and resets the
+      // authenticated identity.
+      expect(posthogMock.opt_out_capturing).toHaveBeenCalledTimes(1);
+      expect(posthogMock.reset).toHaveBeenCalledTimes(1);
+
+      // A later identify in the withdrawn state is refused.
+      const SECOND_USER = "22222222-2222-4222-8222-222222222222";
+      expect(client.identifyAuthenticatedUser(SECOND_USER)).toBe(false);
+      expect(posthogMock.identify).toHaveBeenCalledTimes(1);
+    });
+
     it("refuses non-UUID identifiers such as emails and display names", async () => {
       const client = await importClient();
       await client.initClientAnalytics();
+      client.setAnalyticsConsent("granted");
 
       expect(client.identifyAuthenticatedUser("user@example.com")).toBe(false);
       expect(client.identifyAuthenticatedUser("Arjun Wadhwa")).toBe(false);
@@ -314,8 +399,9 @@ describe("client analytics lane", () => {
       const client = await importClient();
       await client.initClientAnalytics();
       client.setAnalyticsConsent("granted");
-      client.identifyAuthenticatedUser(USER_UUID);
       client.captureSanitizedPageview("/onboarding");
+      posthogMock.capture.mockClear();
+      client.identifyAuthenticatedUser(USER_UUID);
 
       client.resetAnalyticsOnLogout();
       expect(posthogMock.reset).toHaveBeenCalledTimes(1);
@@ -328,7 +414,7 @@ describe("client analytics lane", () => {
       const SECOND_USER = "22222222-2222-4222-8222-222222222222";
       expect(client.identifyAuthenticatedUser(SECOND_USER)).toBe(true);
       client.captureSanitizedPageview("/onboarding");
-      expect(posthogMock.capture).toHaveBeenCalledTimes(2);
+      expect(posthogMock.capture).toHaveBeenCalledTimes(1);
     });
   });
 

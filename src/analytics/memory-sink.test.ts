@@ -48,8 +48,21 @@ describe("createMemoryAnalyticsSink", () => {
   it("is deterministic: timestamps come only from the injected clock", async () => {
     let tick = 0;
     const sink = createMemoryAnalyticsSink({ clock: () => 100 + tick++ });
-    await sink.capture("group_created", {}, CONTEXT);
-    await sink.capture("invite_sent", {}, CONTEXT);
+    await sink.capture(
+      "group_created",
+      {
+        occasion_type: "birthday",
+        gifting_mode: "draw_names",
+        currency: "INR",
+        has_budget_cap: false,
+      },
+      CONTEXT,
+    );
+    await sink.capture(
+      "invite_sent",
+      { channel: "link", group_member_count_bucket: "1-4" },
+      CONTEXT,
+    );
     expect(sink.readEvents().map((entry) => entry.recordedAt)).toEqual([
       100, 101,
     ]);

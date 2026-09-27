@@ -118,3 +118,15 @@ export function isAnalyticsEventName(
 ): event is AnalyticsEventName {
   return Object.hasOwn(EVENT_DEFINITIONS, event);
 }
+
+/**
+ * Shared UUID check for identity context. Analytics distinct ids and group
+ * ids must be internal UUIDs — never an email, display name, or other
+ * identifier.
+ */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}

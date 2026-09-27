@@ -8,19 +8,20 @@
  * (timestamps come from an injected clock).
  */
 import type { AnalyticsEventName } from "./event-definitions";
+import type { EventProperties } from "./types";
 import type { ServerCaptureContext } from "./types";
 
 export interface MemorySinkEntry {
   readonly event: AnalyticsEventName;
-  readonly properties: unknown;
+  readonly properties: EventProperties<AnalyticsEventName>;
   readonly context: ServerCaptureContext;
   readonly recordedAt: number;
 }
 
 export interface MemoryAnalyticsSink {
-  capture(
-    event: AnalyticsEventName,
-    properties: unknown,
+  capture<E extends AnalyticsEventName>(
+    event: E,
+    properties: EventProperties<E>,
     context: ServerCaptureContext,
   ): Promise<{ ok: true; delivered: false }>;
   readEvents(): readonly MemorySinkEntry[];

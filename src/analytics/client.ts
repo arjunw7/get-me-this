@@ -18,11 +18,23 @@
  * - `identify(supabase user UUID)` is called exactly once after
  *   authentication — the pinned SDK links anonymous history during
  *   identify, so no separate `alias()` call is made;
+ * - identify does nothing while consent is pending or denied;
+ * - withdrawing consent stops capture (and recording, which is already
+ *   disabled) via the supported SDK APIs and resets the authenticated
+ *   identity so it cannot survive for a later shared-browser user;
  * - `reset()` is called on logout so identities cannot leak between users
  *   of a shared browser; consent is re-applied because reset clears it.
+ *
+ * Pageview contract: the initial pageview is captured after the
+ * asynchronous SDK initialization completes (when consent is already
+ * granted), every subsequent navigation emits exactly one sanitized
+ * pageview, and granting consent after initialization captures the current
+ * sanitized pageview. Deduplication by route template prevents duplicates
+ * across all of those paths.
  */
 import type { AutocaptureConfig, PostHog, PostHogConfig } from "posthog-js";
 
+import { isUuid } from "./validation";
 import {
   SENSITIVE_BLOCK_CLASS,
   SENSITIVE_MASK_CLASS,
@@ -75,7 +87,16 @@ export function getAnalyticsConsent(): AnalyticsConsentChoice | "pending" {
   return stored === "granted" || stored === "denied" ? stored : "pending";
 }
 
-/** Persists the consent choice and applies it to a loaded SDK. */
+/**
+ * Persists the consent choice and applies it to a loaded SDK.
+ *
+ * Granting consent after initialization captures the current sanitized
+ * pageview. Withdrawal (or denial) stops capture via the supported
+ * `opt_out_capturing()` API — session recording is disabled outright and
+ * consent-gated, so no recording can continue — and, when an identity was
+ * active, resets it so the authenticated identity cannot survive for a
+ * later user of the same shared browser.
+ */
 export function setAnalyticsConsent(choice: AnalyticsConsentChoice): void {
   if (typeof window !== "undefined") {
     window.localStorage.setItem(CLIENT_ANALYTICS_CONSENT_STORAGE_KEY, choice);
@@ -83,25 +104,32 @@ export function setAnalyticsConsent(choice: AnalyticsConsentChoice): void {
   if (posthog && initialized) {
     if (choice === "granted") {
       posthog.opt_in_capturing();
+      captureSanitizedPageview(window.location.pathname);
     } else {
       posthog.opt_out_capturing();
+      if (identifiedThisSession) {
+        posthog.reset();
+        identifiedThisSession = false;
+        lastPageviewPath = undefined;
+      }
     }
   }
 }
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
  * Identifies the authenticated user by the internal Supabase user UUID.
  * Never an email address or display name; called at most once per session
- * (until logout). Returns whether an identify was emitted.
+ * (until logout or consent withdrawal). Consent-aware: does nothing while
+ * consent is pending or denied. Returns whether an identify was emitted.
  */
 export function identifyAuthenticatedUser(userId: string): boolean {
   if (!posthog || !initialized || identifiedThisSession) {
     return false;
   }
-  if (!UUID_PATTERN.test(userId)) {
+  if (getAnalyticsConsent() !== "granted") {
+    return false;
+  }
+  if (!isUuid(userId)) {
     // Analytics must never receive an email, display name, or other
     // identifier masquerading as a UUID. Fail closed.
     console.warn("[analytics] identify rejected: distinct id is not a UUID");
@@ -230,6 +258,9 @@ export async function initClientAnalytics(): Promise<boolean> {
 
   if (getAnalyticsConsent() === "granted") {
     sdk.opt_in_capturing();
+    // Initial pageview: emitted once, after the asynchronous SDK
+    // initialization has completed, for the route the browser is on.
+    captureSanitizedPageview(window.location.pathname);
   }
 
   return true;

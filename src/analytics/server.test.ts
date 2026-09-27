@@ -10,8 +10,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AnalyticsEventName } from "./event-definitions";
-
 const callOrder: string[] = [];
 const posthogNodeInstance = vi.hoisted(() => ({
   capture: vi.fn(() => {
@@ -34,9 +32,13 @@ const PostHogConstructor = vi.hoisted(() =>
 vi.mock("server-only", () => ({}));
 vi.mock("posthog-node", () => ({ PostHog: PostHogConstructor }));
 
-const VALID_PAYLOAD = { method: "email", is_new_user: true };
+const VALID_PAYLOAD = { method: "email", is_new_user: true } as const;
 const DISTINCT_ID = "00000000-0000-4000-8000-000000000000";
 const GROUP_ID = "11111111-1111-4111-8111-111111111111";
+// Runtime negative test payload: deliberately invalid for the runtime
+// validator, so it is cast past the compile-time boundary.
+const MISSING_IS_NEW_USER = { method: "email" } as never;
+const UNKNOWN_EVENT = "group_deleted" as never;
 
 const ENV_KEYS = [
   "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN",
@@ -83,7 +85,33 @@ describe("server analytics lane", () => {
   });
 
   describe("unconfigured: true no-op adapter", () => {
-    it("constructs no posthog-node client and makes no network request", async () => {
+    it("treats token-only configuration as unconfigured and constructs no client", async () => {
+      process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = "phc-test-token";
+      const { getServerAnalytics } = await importServer();
+      const analytics = getServerAnalytics();
+
+      const result = await analytics.capture("auth_completed", VALID_PAYLOAD, {
+        distinctId: DISTINCT_ID,
+      });
+      expect(result).toEqual({ ok: true, delivered: false });
+      expect(PostHogConstructor).not.toHaveBeenCalled();
+      expect(posthogNodeInstance.capture).not.toHaveBeenCalled();
+      expect(posthogNodeInstance.flush).not.toHaveBeenCalled();
+    });
+
+    it("treats host-only configuration as unconfigured and constructs no client", async () => {
+      process.env.NEXT_PUBLIC_POSTHOG_HOST = "https://eu.i.posthog.test";
+      const { getServerAnalytics } = await importServer();
+      const analytics = getServerAnalytics();
+
+      const result = await analytics.capture("auth_completed", VALID_PAYLOAD, {
+        distinctId: DISTINCT_ID,
+      });
+      expect(result).toEqual({ ok: true, delivered: false });
+      expect(PostHogConstructor).not.toHaveBeenCalled();
+    });
+
+    it("constructs no posthog-node client and makes no network request with neither variable", async () => {
       const { getServerAnalytics } = await importServer();
       const analytics = getServerAnalytics();
       expect(PostHogConstructor).not.toHaveBeenCalled();
@@ -104,7 +132,7 @@ describe("server analytics lane", () => {
       // Runtime invalidation proof for a name the compile-time boundary
       // would already reject.
       const unknownEvent = await analytics.capture(
-        "group_deleted" as AnalyticsEventName,
+        UNKNOWN_EVENT,
         {},
         {
           distinctId: DISTINCT_ID,
@@ -114,7 +142,7 @@ describe("server analytics lane", () => {
 
       const missingKey = await analytics.capture(
         "auth_completed",
-        { method: "email" },
+        MISSING_IS_NEW_USER,
         {
           distinctId: DISTINCT_ID,
         },
@@ -127,6 +155,24 @@ describe("server analytics lane", () => {
       const { getServerAnalytics } = await importServer();
       await expect(getServerAnalytics().shutdown()).resolves.toBeUndefined();
       expect(posthogNodeInstance.shutdown).not.toHaveBeenCalled();
+    });
+
+    it("rejects invalid identity context in every mode", async () => {
+      const { getServerAnalytics } = await importServer();
+      const analytics = getServerAnalytics();
+
+      for (const invalidId of ["user@example.com", "Arjun Wadhwa", ""]) {
+        const result = await analytics.capture(
+          "auth_completed",
+          VALID_PAYLOAD,
+          { distinctId: invalidId },
+        );
+        expect(result).toMatchObject({ ok: false, code: "invalid-context" });
+        if (invalidId.length > 0) {
+          // The rejected identifier value never appears in the failure.
+          expect(JSON.stringify(result)).not.toContain(invalidId);
+        }
+      }
     });
   });
 
@@ -169,6 +215,39 @@ describe("server analytics lane", () => {
       });
       expect(posthogNodeInstance.flush).toHaveBeenCalledTimes(1);
       expect(callOrder).toEqual(["capture", "flush"]);
+    });
+
+    it("rejects invalid identity context before anything reaches PostHog", async () => {
+      const { getServerAnalytics } = await importServer();
+      const analytics = getServerAnalytics();
+
+      for (const invalidId of ["user@example.com", "Arjun Wadhwa", ""]) {
+        const result = await analytics.capture(
+          "auth_completed",
+          VALID_PAYLOAD,
+          { distinctId: invalidId },
+        );
+        expect(result).toMatchObject({ ok: false, code: "invalid-context" });
+        if (invalidId.length > 0) {
+          expect(JSON.stringify(result)).not.toContain(invalidId);
+        }
+      }
+
+      const invalidGroup = await analytics.capture(
+        "auth_completed",
+        VALID_PAYLOAD,
+        {
+          distinctId: DISTINCT_ID,
+          group: { id: "not-a-uuid" },
+        },
+      );
+      expect(invalidGroup).toMatchObject({
+        ok: false,
+        code: "invalid-context",
+      });
+
+      expect(posthogNodeInstance.capture).not.toHaveBeenCalled();
+      expect(posthogNodeInstance.flush).not.toHaveBeenCalled();
     });
 
     it("awaits flush before resolving each concurrent capture", async () => {
@@ -232,9 +311,11 @@ describe("server analytics lane", () => {
       const { getServerAnalytics } = await importServer();
       const analytics = getServerAnalytics();
 
+      // Runtime negative test: an incomplete payload is deliberately cast
+      // past the compile-time boundary to prove the runtime validator.
       const result = await analytics.capture(
         "group_created",
-        { occasion_type: "secret_party" },
+        { occasion_type: "secret_party" } as never,
         {
           distinctId: DISTINCT_ID,
         },

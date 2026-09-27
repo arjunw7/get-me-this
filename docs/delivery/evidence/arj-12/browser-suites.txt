@@ -1,12 +1,19 @@
-$ pnpm test:e2e
+$ pnpm test:e2e — includes the integration-level hook-discovery spec
 exit: 0
 
-  6 passed (5.0s)
+  10 passed (5.2s)
+
+instrumentation-hook.spec.ts proves (against the production build, not a direct unit call):
+  1. the pinned Next.js 16.3.6 runtime invokes the hook by the exact exported name
+     onRouterTransitionStart?.(href, navigationType, details);
+  2. the build compiled instrumentation-client.ts into a client chunk — the chunk
+     carrying the module's unique consent-storage-key string also carries the
+     exported onRouterTransitionStart hook name, proving discovery and wiring.
 
 $ pnpm test:visual
 exit: 0
 
-  2 passed (2.1s)
+  2 passed (2.4s)
 
 $ git status --short tests/visual   # no baseline files changed
 (no output: visually unchanged, demonstrated by the passing comparisons)

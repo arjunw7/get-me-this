@@ -1,4 +1,4 @@
-$ pnpm typecheck  # with the @ts-expect-error boundary tests active
+$ pnpm typecheck  # with the @ts-expect-error boundary tests active against the real ServerAnalytics surface
 exit: 0
 Generating route types...
 ✓ Types generated successfully
