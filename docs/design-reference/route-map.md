@@ -8,6 +8,17 @@
 
 The prototype route and production route may differ internally, but they must represent the same user state. Every implemented row must eventually name a deterministic fixture and approved screenshots at mobile and desktop widths.
 
+## Frozen baseline status
+
+- Immutable source: `magic-patterns-v18/source/`
+- Artifact manifest: `magic-patterns-v18/artifact-manifest.json`
+- Candidate screenshots: `baselines/v18/`
+- Review checklist: `review-checklist.md`
+- Capture widths: 390px and 1440px
+- Fixture: the deterministic mock data embedded in the V18 artifact
+
+The current Magic Patterns editor is on V20. The mutable deployed prototype may therefore differ from these screenshots. Until the product owner explicitly approves a newer version, the V18 source and screenshots in this repository win.
+
 ## Public and identity routes
 
 | State | Prototype route | Intended production route | Required comparison |
@@ -60,3 +71,21 @@ For each changed route:
 - Production accessibility, security, real loading behavior, and framework conventions take precedence over prototype shortcuts.
 - If the live prototype and frozen Version 18 screenshot differ, stop and ask which change is approved before updating a baseline.
 
+## Baseline filename map
+
+| Route/state family | Baseline prefix |
+| --- | --- |
+| Landing | `landing` |
+| Email entry | `auth-home`, `auth-wishlist`, `auth-create-group` |
+| OTP | `verify-default`, `verify-error`, `verify-expired` |
+| Magic link | `confirm-valid`, `confirm-expired` |
+| Onboarding | `onboarding` |
+| Invitation | `invite-valid` |
+| Home | `home-active`, `home-new-account` |
+| Wishlist | `wishlist-filled`, `wishlist-empty`, `wishlist-reorder`, `edit-profile-sheet` |
+| Add item | `add-initial`, `add-empty-error`, `add-loading`, `add-extracted-review`, `add-manual-fallback` |
+| Groups | `groups-list`, `create-group`, `create-group-validation`, `create-group-created`, `group-room-secret` |
+| Gifting | `gifting-secret`, `gifting-everyone`, `gifting-browse`, `gifting-mode-sheet` |
+| Account | `account-menu`, `logout-confirmation` |
+
+Each prefix has `--mobile-390x844.png` and `--desktop-1440x1000.png` variants.
