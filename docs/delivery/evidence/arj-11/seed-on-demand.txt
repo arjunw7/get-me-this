@@ -1,0 +1,15 @@
+# ARJ-11 — synthetic seed command
+# source: recorded lifecycle run of 2026-09-27T14:38:22Z
+
+STEP: cycle 1: apply seed on demand to the running stack
+COMMAND: pnpm db:seed
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 db:seed /home/factory-user/worktrees/arj-11
+> bash scripts/db-seed.sh
+
+DO
+NOTICE:  002d seed: non-persistent placeholder, no rows were written.
+EXIT_CODE: 0
+
+===================================================================

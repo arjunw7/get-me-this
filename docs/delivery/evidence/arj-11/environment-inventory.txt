@@ -1,0 +1,29 @@
+# ARJ-11 — environment-variable inventory (names and classification only)
+# source: .env.example at commit ead32af
+
+Values are never present in .env.example, this file, or any commit.
+Local development values are produced by pnpm db:start / pnpm db:status
+and belong in the git-ignored .env.local.
+
+BROWSER-EXPOSED (public clients)
+
+  NEXT_PUBLIC_SUPABASE_URL
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
+  NEXT_PUBLIC_POSTHOG_HOST
+
+SERVER-ONLY (never sent to browser code)
+
+  SUPABASE_SERVICE_ROLE_KEY
+  RESEND_API_KEY
+
+## Classification rules
+
+* NEXT_PUBLIC_* values are inlined into the client bundle by Next.js and may
+  only hold data intended for public clients. The Supabase project URL and
+  publishable key are the only Supabase values usable in browser code.
+* Server-only values (SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY) are read by
+  server code only. The service-role key bypasses Row Level Security and must
+  never reach a client bundle, fixture, commit, log, screenshot, or PR body.
+* No Supabase value is required by the current foundation: pnpm verify and
+  the local stack both run without any environment file.

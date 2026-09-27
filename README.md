@@ -38,9 +38,46 @@ Typefaces are vendored locally under [`app/fonts`](app/fonts/README.md) with the
 
 The route at `/` is a deterministic component fixture, not a product page. It renders the type scale, colour swatches, every button variant and state, field states including error and disabled, links, surface elevations, and the responsive gutter behaviour.
 
+## Local Supabase
+
+Database work uses a local Supabase stack. It requires Docker (Desktop or Engine)
+to be installed and running; nothing in this repository links to or mutates a
+hosted Supabase project.
+
+```bash
+pnpm db:start   # start the local stack in Docker
+pnpm db:reset   # rebuild the local database from committed migrations, then seed
+pnpm db:seed    # apply supabase/seed.sql to a running stack without resetting
+pnpm test:db    # run the pgTAP suites in supabase/tests/ locally
+pnpm db:status  # print local URLs and ports (contains local credentials)
+pnpm db:stop    # stop the stack
+```
+
+`pnpm db:reset` applies `supabase/seed.sql` automatically, so the seed does not
+need a separate command after a reset. The seed is currently a non-persistent
+placeholder that writes no rows.
+
+`pnpm verify` deliberately does not touch Supabase: it runs formatting checks,
+linting, strict TypeScript checking, unit tests, and the production build, and it
+stays usable on a machine with no Docker daemon, no running stack, and no
+environment variables. Database verification is the separate, explicit
+`pnpm test:db` command. Without Docker, the database commands exit non-zero with
+an explanatory message instead of silently substituting another check.
+
+Migration rules, forward-fix guidance, and environment-variable classification
+are documented in [`supabase/README.md`](supabase/README.md).
+
 ## Environment
 
-Copy `.env.example` to `.env.local` when local configuration is needed. The design foundation fixture does not require environment variables, network access, or service credentials. `RESEND_API_KEY` is server-only and must never be exposed to browser code.
+Copy `.env.example` to `.env.local` when local configuration is needed. The
+design foundation fixture does not require environment variables, network
+access, or service credentials.
+
+`.env.example` separates values that may reach browser code (`NEXT_PUBLIC_*`)
+from server-only credentials such as `RESEND_API_KEY` and
+`SUPABASE_SERVICE_ROLE_KEY`. Server-only values must never be exposed to browser
+code, committed, or captured in logs, fixtures, or screenshots. Local Supabase
+values come from `pnpm db:status` and are never committed.
 
 Start with:
 

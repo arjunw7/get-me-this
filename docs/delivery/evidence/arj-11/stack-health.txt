@@ -1,0 +1,23 @@
+# ARJ-11 local stack health (allowlisted)
+
+captured: 2026-09-27T14:38:17Z (UTC)
+command: pnpm db:start  (supabase start)
+exit code: 0
+
+Only container name, health status, and published local ports are recorded.
+Supabase API keys, tokens, and connection strings are deliberately omitted.
+
+supabase_analytics_get-me-this       Up 13 seconds (healthy)      0.0.0.0:54327->4000/tcp, [::]:54327->4000/tcp
+supabase_auth_get-me-this            Up 13 seconds (healthy)      9999/tcp
+supabase_db_get-me-this              Up 24 seconds (healthy)      0.0.0.0:54322->5432/tcp, [::]:54322->5432/tcp
+supabase_edge_runtime_get-me-this    Up 12 seconds                
+supabase_inbucket_get-me-this        Up 13 seconds (healthy)      1025/tcp, 1110/tcp, 0.0.0.0:54324->8025/tcp, [::]:54324->8025/tcp
+supabase_kong_get-me-this            Up 13 seconds (healthy)      8001/tcp, 8088/tcp, 8443-8444/tcp, 0.0.0.0:54321->8000/tcp, [::]:54321->8000/tcp
+supabase_pg_meta_get-me-this         Up 11 seconds (healthy)      8080/tcp
+supabase_realtime_get-me-this        Up 12 seconds (healthy)      4000/tcp
+supabase_rest_get-me-this            Up 12 seconds                3000/tcp
+supabase_storage_get-me-this         Up 12 seconds (healthy)      5000/tcp
+supabase_studio_get-me-this          Up 11 seconds (healthy)      0.0.0.0:54323->3000/tcp, [::]:54323->3000/tcp
+supabase_vector_get-me-this          Up 13 seconds (healthy)      
+
+container count: 12

@@ -1,0 +1,220 @@
+# ARJ-11 — start/stop/reset/test lifecycle, reproducibility and degradation
+# source: recorded lifecycle run of 2026-09-27T14:38:22Z to 2026-09-27T14:40:56Z
+
+## Step results
+
+- cycle 1: stop any running stack  -> exit 0
+- cycle 1: start local Supabase  -> exit 0
+- cycle 1: reset from committed migrations (seed applied automatically)  -> exit 0
+- cycle 1: apply seed on demand to the running stack  -> exit 0
+- cycle 1: pgTAP database tests  -> exit 0
+- cycle 1: stop the stack  -> exit 0
+- cycle 2: start again (fresh containers)  -> exit 0
+- cycle 2: reset again from empty local database  -> exit 0
+- cycle 2: pgTAP database tests again  -> exit 0
+- cycle 2: stop the stack  -> exit 0
+- degradation: seed with Docker reachable but stack stopped  -> exit 1
+- degradation: pgTAP tests with stack stopped  -> exit 1
+- verification: pnpm verify with Supabase stopped  -> exit 0
+
+Two full cycles (stop, start, reset, test, stop) both produced exit 0,
+which shows the database is rebuilt from committed migrations and the
+tests are reproducible rather than dependent on leftover state.
+
+## Cycle details (credential-bearing lines removed)
+
+STEP: cycle 1: stop any running stack
+COMMAND: pnpm db:stop
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 db:stop /home/factory-user/worktrees/arj-11
+> supabase stop
+
+Stopping containers...
+Stopped supabase local development setup.
+Local data are backed up to docker volume. Use docker to show them: docker volume ls --filter label=com.supabase.cli.project=get-me-this
+EXIT_CODE: 0
+
+===================================================================
+STEP: cycle 1: start local Supabase
+COMMAND: pnpm db:start
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 db:start /home/factory-user/worktrees/arj-11
+> supabase start
+
+Starting database from backup...
+Starting containers...
+Waiting for health checks...
+Started supabase local development setup.
+
+╭──────────────────────────────────────╮
+├─────────┬────────────────────────────┤
+╰─────────┴────────────────────────────╯
+
+╭──────────────────────────────────────────────────────╮
+├────────────────┬─────────────────────────────────────┤
+╰────────────────┴─────────────────────────────────────╯
+
+╭───────────────────────────────────────────────────────────────╮
+├─────┬─────────────────────────────────────────────────────────┤
+╰─────┴─────────────────────────────────────────────────────────╯
+
+╭──────────────────────────────────────────────────────────────╮
+├─────────────┬────────────────────────────────────────────────┤
+╰─────────────┴────────────────────────────────────────────────╯
+
+╭───────────────────────────────────────────────────────────────────────────────╮
+├────────────┬──────────────────────────────────────────────────────────────────┤
+╰────────────┴──────────────────────────────────────────────────────────────────╯
+Local dev security notice
+All services bind to 0.0.0.0 (network-accessible, not just localhost)
+API keys and JWT secrets are shared defaults. Do not use in production
+Studio, pgMeta (/pg/*), and analytics have no authentication
+
+EXIT_CODE: 0
+
+===================================================================
+STEP: cycle 1: reset from committed migrations (seed applied automatically)
+COMMAND: pnpm db:reset
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 db:reset /home/factory-user/worktrees/arj-11
+> supabase db reset --local
+
+Resetting local database...
+Recreating database...
+Initialising schema...
+Seeding globals from roles.sql...
+Applying migration 20260927000000_baseline.sql...
+Seeding data from supabase/seed.sql...
+Restarting containers...
+Finished supabase db reset on branch main.
+EXIT_CODE: 0
+
+===================================================================
+STEP: cycle 1: apply seed on demand to the running stack
+COMMAND: pnpm db:seed
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 db:seed /home/factory-user/worktrees/arj-11
+> bash scripts/db-seed.sh
+
+DO
+NOTICE:  002d seed: non-persistent placeholder, no rows were written.
+EXIT_CODE: 0
+
+===================================================================
+STEP: cycle 1: pgTAP database tests
+COMMAND: pnpm test:db
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 test:db /home/factory-user/worktrees/arj-11
+> supabase test db --local
+
+Connecting to local database...
+/home/factory-user/worktrees/arj-11/supabase/tests/smoke.sql .. ok
+All tests successful.
+Files=1, Tests=6,  0 wallclock secs ( 0.01 usr +  0.01 sys =  0.02 CPU)
+Result: PASS
+EXIT_CODE: 0
+
+===================================================================
+STEP: cycle 1: stop the stack
+COMMAND: pnpm db:stop
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 db:stop /home/factory-user/worktrees/arj-11
+> supabase stop
+
+Stopping containers...
+Stopped supabase local development setup.
+Local data are backed up to docker volume. Use docker to show them: docker volume ls --filter label=com.supabase.cli.project=get-me-this
+EXIT_CODE: 0
+
+===================================================================
+STEP: cycle 2: start again (fresh containers)
+COMMAND: pnpm db:start
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 db:start /home/factory-user/worktrees/arj-11
+> supabase start
+
+Starting database from backup...
+Starting containers...
+Waiting for health checks...
+Started supabase local development setup.
+
+╭──────────────────────────────────────╮
+├─────────┬────────────────────────────┤
+╰─────────┴────────────────────────────╯
+
+╭──────────────────────────────────────────────────────╮
+├────────────────┬─────────────────────────────────────┤
+╰────────────────┴─────────────────────────────────────╯
+
+╭───────────────────────────────────────────────────────────────╮
+├─────┬─────────────────────────────────────────────────────────┤
+╰─────┴─────────────────────────────────────────────────────────╯
+
+╭──────────────────────────────────────────────────────────────╮
+├─────────────┬────────────────────────────────────────────────┤
+╰─────────────┴────────────────────────────────────────────────╯
+
+╭───────────────────────────────────────────────────────────────────────────────╮
+├────────────┬──────────────────────────────────────────────────────────────────┤
+╰────────────┴──────────────────────────────────────────────────────────────────╯
+Local dev security notice
+All services bind to 0.0.0.0 (network-accessible, not just localhost)
+API keys and JWT secrets are shared defaults. Do not use in production
+Studio, pgMeta (/pg/*), and analytics have no authentication
+
+EXIT_CODE: 0
+
+===================================================================
+STEP: cycle 2: reset again from empty local database
+COMMAND: pnpm db:reset
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 db:reset /home/factory-user/worktrees/arj-11
+> supabase db reset --local
+
+Resetting local database...
+Recreating database...
+Initialising schema...
+Seeding globals from roles.sql...
+Applying migration 20260927000000_baseline.sql...
+Seeding data from supabase/seed.sql...
+Restarting containers...
+Finished supabase db reset on branch main.
+EXIT_CODE: 0
+
+===================================================================
+STEP: cycle 2: pgTAP database tests again
+COMMAND: pnpm test:db
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 test:db /home/factory-user/worktrees/arj-11
+> supabase test db --local
+
+Connecting to local database...
+/home/factory-user/worktrees/arj-11/supabase/tests/smoke.sql .. ok
+All tests successful.
+Files=1, Tests=6,  1 wallclock secs ( 0.01 usr  0.01 sys +  0.01 cusr  0.00 csys =  0.03 CPU)
+Result: PASS
+EXIT_CODE: 0
+
+===================================================================
+STEP: cycle 2: stop the stack
+COMMAND: pnpm db:stop
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 db:stop /home/factory-user/worktrees/arj-11
+> supabase stop
+
+Stopping containers...
+Stopped supabase local development setup.
+Local data are backed up to docker volume. Use docker to show them: docker volume ls --filter label=com.supabase.cli.project=get-me-this
+EXIT_CODE: 0
+
+===================================================================
