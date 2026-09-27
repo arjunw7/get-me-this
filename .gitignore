@@ -14,6 +14,11 @@ node_modules/
 .idea/
 playwright-report/
 test-results/
+# Baseline mismatch/update artifacts are transient; only approved PNGs and the
+# manifest are committed.
+tests/visual/baselines/**/*-actual.png
+tests/visual/baselines/**/*-diff.png
+tests/visual/baselines/**/*-previous.png
 coverage/
 .superpowers/
 
