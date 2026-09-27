@@ -1,0 +1,37 @@
+
+> get-me-this@0.1.0 test:visual /home/factory-user/get-me-this
+> pnpm build && pnpm exec playwright test tests/visual
+
+
+> get-me-this@0.1.0 build /home/factory-user/get-me-this
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.mjs took 12ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 147ms
+  Running TypeScript ...
+  Finished TypeScript in 1699ms ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/3) ...
+✓ Generating static pages using 3 workers (3/3) in 159ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+└ ƒ /health
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+Running 2 tests using 2 workers
+
+  ✓  1 [mobile] › tests/visual/fixture.visual.spec.ts:19:5 › design foundation fixture is visually stable (489ms)
+  ✓  2 [desktop] › tests/visual/fixture.visual.spec.ts:19:5 › design foundation fixture is visually stable (722ms)
+
+  2 passed (2.3s)
+visual exit=0

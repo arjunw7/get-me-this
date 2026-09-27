@@ -1,0 +1,29 @@
+# GitHub Actions pinning provenance (ARJ-13 / 002e)
+
+Resolved at implementation time (2026-09-27) from the GitHub API
+(/releases/latest -> /commits/<tag>) for each official repository. Every
+resolved release commit is GPG-verified ("verified": true, reason "valid")
+and signed by GitHub (web-flow). Each workflow reference uses the full
+immutable commit SHA with the release version in a trailing comment.
+
+- actions/checkout v7.0.1
+  SHA: 3d3c42e5aac5ba805825da76410c181273ba90b1
+  Provenance: https://github.com/actions/checkout/releases/tag/v7.0.1
+  Release commit: prep v7.0.1 release (#2531), verified signature
+
+- actions/setup-node v7.0.0
+  SHA: 820762786026740c76f36085b0efc47a31fe5020
+  Provenance: https://github.com/actions/setup-node/releases/tag/v7.0.0
+  Release commit: Migrate to ESM and upgrade dependencies (#1574), verified signature
+
+- pnpm/action-setup v6.1.0
+  SHA: ea17c68df8912ef543352723c149a84f56e3d413
+  Provenance: https://github.com/pnpm/action-setup/releases/tag/v6.1.0
+  Release commit: feat: support pnpm v12 (#288), verified signature
+  Note: v6.1.0 supports pnpm v10 (the repository pins pnpm@10.28.0); v12
+  support is irrelevant here but confirms the action is actively maintained.
+
+The workflow never uses pull_request_target, runs with
+permissions: contents: read, checks out with persist-credentials: false,
+sets a 30-minute job timeout, and cancels superseded runs only for pull
+requests (cancel-in-progress is false for main pushes).

@@ -1,0 +1,47 @@
+
+> get-me-this@0.1.0 test:e2e /home/factory-user/get-me-this
+> pnpm build && pnpm exec playwright test tests/e2e
+
+
+> get-me-this@0.1.0 build /home/factory-user/get-me-this
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.mjs took 11ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 154ms
+  Running TypeScript ...
+  Finished TypeScript in 1828ms ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/3) ...
+✓ Generating static pages using 3 workers (3/3) in 113ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+└ ƒ /health
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+Running 12 tests using 2 workers
+
+  ✓   1 [mobile] › tests/e2e/accessibility.spec.ts:23:5 › clean fixture has no WCAG A/AA violations at both viewports (839ms)
+  ✓   3 [mobile] › tests/e2e/fixture.spec.ts:9:5 › renders the deterministic design foundation fixture (235ms)
+  ✓   4 [mobile] › tests/e2e/health.spec.ts:9:5 › /health returns the liveness response (38ms)
+  ✓   5 [mobile] › tests/e2e/instrumentation-hook.spec.ts:36:7 › Next.js instrumentation-client hook discovery › the pinned Next.js runtime invokes the exported onRouterTransitionStart hook (3ms)
+  ✓   6 [mobile] › tests/e2e/instrumentation-hook.spec.ts:47:7 › Next.js instrumentation-client hook discovery › the production build bundles the instrumentation module with its exported hook (3ms)
+  ✓   2 [mobile] › tests/e2e/accessibility.spec.ts:35:5 › axe detects an injected violation and clears after it is removed (1.4s)
+  ✓   7 [desktop] › tests/e2e/accessibility.spec.ts:23:5 › clean fixture has no WCAG A/AA violations at both viewports (858ms)
+  ✓   9 [desktop] › tests/e2e/fixture.spec.ts:9:5 › renders the deterministic design foundation fixture (225ms)
+  ✓  10 [desktop] › tests/e2e/health.spec.ts:9:5 › /health returns the liveness response (20ms)
+  ✓  11 [desktop] › tests/e2e/instrumentation-hook.spec.ts:36:7 › Next.js instrumentation-client hook discovery › the pinned Next.js runtime invokes the exported onRouterTransitionStart hook (3ms)
+  ✓  12 [desktop] › tests/e2e/instrumentation-hook.spec.ts:47:7 › Next.js instrumentation-client hook discovery › the production build bundles the instrumentation module with its exported hook (3ms)
+  ✓   8 [desktop] › tests/e2e/accessibility.spec.ts:35:5 › axe detects an injected violation and clears after it is removed (1.3s)
+
+  12 passed (5.0s)
+e2e exit=0

@@ -83,6 +83,23 @@ an explanatory message instead of silently substituting another check.
 Migration rules, forward-fix guidance, and environment-variable classification
 are documented in [`supabase/README.md`](supabase/README.md).
 
+## Continuous integration and Railway previews
+
+Every pull request runs the [`CI` workflow](.github/workflows/ci.yml) on
+GitHub: `pnpm install --frozen-lockfile` followed by the same `pnpm verify`
+command used locally, from a clean `ubuntu-24.04` environment. A failing
+verification command fails the check, and the check is required on `main`, so
+it blocks merging. Superseded pull-request runs are canceled automatically;
+runs for direct pushes to `main` always run to completion.
+
+Merged foundation slices also deploy to a Railway preview per pull request.
+Previews are ephemeral staging deployments that wait for the green CI check and
+are destroyed when the pull request closes or merges. The `/health` endpoint
+returns exactly `{"status":"ok"}` as the deployment liveness signal. Required
+external Railway setup, environment-variable classification, and the
+no-write-access verification steps are documented in
+[`docs/ops/railway-previews.md`](docs/ops/railway-previews.md).
+
 ## Environment
 
 Copy `.env.example` to `.env.local` when local configuration is needed. The
