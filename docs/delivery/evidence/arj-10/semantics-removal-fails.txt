@@ -1,0 +1,413 @@
+
+> get-me-this@0.1.0 test /home/factory-user/get-me-this
+> vitest run
+
+
+ RUN  v5.0.2 /home/factory-user/get-me-this
+
+ ✓ src/ui/styles.test.ts (16 tests) 11ms
+ ✓ src/foundation/design-tokens.test.ts (4 tests) 6ms
+ ✓ src/foundation/design-fixture.test.ts (5 tests) 4ms
+ ✓ src/ui/button.test.tsx (4 tests) 176ms
+ ❯ src/ui/text-field.test.tsx (9 tests | 9 failed) 202ms
+   ❯ TextField (7)
+     × programmatically associates the persistent label with the control 35ms
+     × announces the hint through aria-describedby 7ms
+     × announces the error and marks the control invalid only when present 5ms
+     × combines the hint and the error into one description 4ms
+     × renders as a textbox for assistive technology 127ms
+     × accepts typed input when enabled 7ms
+     × rejects typing when disabled 3ms
+   ❯ TextAreaField (2)
+     × associates the label with a multiline textbox 10ms
+     × announces an error through aria-describedby 4ms
+ ✓ src/visual-baseline-manifest.test.ts (2 tests) 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/ui/text-field.test.tsx > TextField > programmatically associates the persistent label with the control
+TestingLibraryElementError: Found a label with the text of: Item name, however no form control was found associated to that label. Make sure you're using the "for" attribute or "aria-labelledby" attribute correctly.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"font-display text-label text-content-primary"[39m
+      [36m>[39m
+        [0mItem name[0m
+      [36m</label>[39m
+      [36m<input[39m
+        [33mclass[39m=[32m"block w-full rounded-control px-3.5 font-body text-body text-content-primary placeholder:text-content-muted border-[length:var(--border-strong)] transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted h-control-md border-outline-strong bg-surface-raised"[39m
+        [33mid[39m=[32m"item"[39m
+        [33mvalue[39m=[32m""[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getAllByLabelText node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/queries/label-text.js:108:40
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/ui/text-field.test.tsx:12:26
+     10|     render(<TextField id="item" label="Item name" defaultValue="" />);
+     11|
+     12|     const field = screen.getByLabelText("Item name");
+       |                          ^
+     13|     expect(field).toBeEnabled();
+     14|     expect(field.tagName).toBe("INPUT");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  src/ui/text-field.test.tsx > TextField > announces the hint through aria-describedby
+TestingLibraryElementError: Found a label with the text of: Item name, however no form control was found associated to that label. Make sure you're using the "for" attribute or "aria-labelledby" attribute correctly.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"font-display text-label text-content-primary"[39m
+      [36m>[39m
+        [0mItem name[0m
+      [36m</label>[39m
+      [36m<input[39m
+        [33mclass[39m=[32m"block w-full rounded-control px-3.5 font-body text-body text-content-primary placeholder:text-content-muted border-[length:var(--border-strong)] transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted h-control-md border-outline-strong bg-surface-raised"[39m
+        [33mid[39m=[32m"item"[39m
+        [33mvalue[39m=[32m""[39m
+      [36m/>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-caption text-content-secondary"[39m
+        [33mid[39m=[32m"item-hint"[39m
+      [36m>[39m
+        [0mPlaceholders are examples, never labels.[0m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getAllByLabelText node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/queries/label-text.js:108:40
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/ui/text-field.test.tsx:27:19
+     25|     );
+     26|
+     27|     expect(screen.getByLabelText("Item name")).toHaveAccessibleDescrip…
+       |                   ^
+     28|       "Placeholders are examples, never labels.",
+     29|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  src/ui/text-field.test.tsx > TextField > announces the error and marks the control invalid only when present
+TestingLibraryElementError: Found a label with the text of: Price, however no form control was found associated to that label. Make sure you're using the "for" attribute or "aria-labelledby" attribute correctly.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"font-display text-label text-content-primary"[39m
+      [36m>[39m
+        [0mPrice[0m
+      [36m</label>[39m
+      [36m<input[39m
+        [33mclass[39m=[32m"block w-full rounded-control px-3.5 font-body text-body text-content-primary placeholder:text-content-muted border-[length:var(--border-strong)] transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted h-control-md border-outline-strong bg-surface-raised"[39m
+        [33mid[39m=[32m"price"[39m
+        [33mvalue[39m=[32m"twelve"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getAllByLabelText node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/queries/label-text.js:108:40
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/ui/text-field.test.tsx:37:19
+     35|     );
+     36|
+     37|     expect(screen.getByLabelText("Price")).not.toHaveAttribute("aria-i…
+       |                   ^
+     38|
+     39|     rerender(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  src/ui/text-field.test.tsx > TextField > combines the hint and the error into one description
+TestingLibraryElementError: Found a label with the text of: Price, however no form control was found associated to that label. Make sure you're using the "for" attribute or "aria-labelledby" attribute correctly.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"font-display text-label text-content-primary"[39m
+      [36m>[39m
+        [0mPrice[0m
+      [36m</label>[39m
+      [36m<input[39m
+        [33mclass[39m=[32m"block w-full rounded-control px-3.5 font-body text-body text-content-primary placeholder:text-content-muted border-[length:var(--border-strong)] transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted h-control-md border-feedback-error bg-feedback-error-soft"[39m
+        [33mid[39m=[32m"price"[39m
+        [33mvalue[39m=[32m"twelve"[39m
+      [36m/>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-caption text-content-secondary"[39m
+        [33mid[39m=[32m"price-hint"[39m
+      [36m>[39m
+        [0mOriginal currency stays visible.[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-caption font-bold text-feedback-error"[39m
+        [33mid[39m=[32m"price-error"[39m
+      [36m>[39m
+        [0mNumbers only, please.[0m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getAllByLabelText node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/queries/label-text.js:108:40
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/ui/text-field.test.tsx:64:19
+     62|     );
+     63|
+     64|     expect(screen.getByLabelText("Price")).toHaveAccessibleDescription(
+       |                   ^
+     65|       "Original currency stays visible. Numbers only, please.",
+     66|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  src/ui/text-field.test.tsx > TextField > renders as a textbox for assistive technology
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Item name"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "":
+  [36m<input[39m
+    [33mclass[39m=[32m"block w-full rounded-control px-3.5 font-body text-body text-content-primary placeholder:text-content-muted border-[length:var(--border-strong)] transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted h-control-md border-outline-strong bg-surface-raised"[39m
+    [33mid[39m=[32m"item"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"font-display text-label text-content-primary"[39m
+      [36m>[39m
+        [0mItem name[0m
+      [36m</label>[39m
+      [36m<input[39m
+        [33mclass[39m=[32m"block w-full rounded-control px-3.5 font-body text-body text-content-primary placeholder:text-content-muted border-[length:var(--border-strong)] transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted h-control-md border-outline-strong bg-surface-raised"[39m
+        [33mid[39m=[32m"item"[39m
+        [33mvalue[39m=[32m""[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/ui/text-field.test.tsx:73:14
+     71|
+     72|     expect(
+     73|       screen.getByRole("textbox", { name: "Item name" }),
+       |              ^
+     74|     ).toBeInTheDocument();
+     75|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  src/ui/text-field.test.tsx > TextField > accepts typed input when enabled
+TestingLibraryElementError: Found a label with the text of: Item name, however no form control was found associated to that label. Make sure you're using the "for" attribute or "aria-labelledby" attribute correctly.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"font-display text-label text-content-primary"[39m
+      [36m>[39m
+        [0mItem name[0m
+      [36m</label>[39m
+      [36m<input[39m
+        [33mclass[39m=[32m"block w-full rounded-control px-3.5 font-body text-body text-content-primary placeholder:text-content-muted border-[length:var(--border-strong)] transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted h-control-md border-outline-strong bg-surface-raised"[39m
+        [33mid[39m=[32m"item"[39m
+        [33mvalue[39m=[32m""[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getAllByLabelText node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/queries/label-text.js:108:40
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/ui/text-field.test.tsx:80:26
+     78|     render(<TextField id="item" label="Item name" defaultValue="" />);
+     79|
+     80|     const field = screen.getByLabelText("Item name");
+       |                          ^
+     81|     await userEvent.type(field, "Mushroom ceramic lamp");
+     82|     expect(field).toHaveValue("Mushroom ceramic lamp");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  src/ui/text-field.test.tsx > TextField > rejects typing when disabled
+TestingLibraryElementError: Found a label with the text of: Currency, however no form control was found associated to that label. Make sure you're using the "for" attribute or "aria-labelledby" attribute correctly.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"font-display text-label text-content-primary"[39m
+      [36m>[39m
+        [0mCurrency[0m
+      [36m</label>[39m
+      [36m<input[39m
+        [33mclass[39m=[32m"block w-full rounded-control px-3.5 font-body text-body text-content-primary placeholder:text-content-muted border-[length:var(--border-strong)] transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted h-control-md border-outline-strong bg-surface-raised"[39m
+        [33mdisabled[39m=[32m""[39m
+        [33mid[39m=[32m"currency"[39m
+        [33mvalue[39m=[32m"INR"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getAllByLabelText node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/queries/label-text.js:108:40
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/ui/text-field.test.tsx:90:26
+     88|     );
+     89|
+     90|     const field = screen.getByLabelText("Currency");
+       |                          ^
+     91|     expect(field).toBeDisabled();
+     92|     await userEvent.type(field, "USD", { pointerEventsCheck: 0 });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  src/ui/text-field.test.tsx > TextAreaField > associates the label with a multiline textbox
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Note for your people"
+
+Here are the accessible roles:
+
+  textbox:
+
+  Name "":
+  [36m<textarea[39m
+    [33mclass[39m=[32m"block w-full rounded-control px-3.5 font-body text-body text-content-primary placeholder:text-content-muted border-[length:var(--border-strong)] transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted min-h-32 resize-y py-3 border-outline-strong bg-surface-raised"[39m
+    [33mid[39m=[32m"note"[39m
+    [33mplaceholder[39m=[32m"Anything they should know?"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"font-display text-label text-content-primary"[39m
+      [36m>[39m
+        [0mNote for your people[0m
+      [36m</label>[39m
+      [36m<textarea[39m
+        [33mclass[39m=[32m"block w-full rounded-control px-3.5 font-body text-body text-content-primary placeholder:text-content-muted border-[length:var(--border-strong)] transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted min-h-32 resize-y py-3 border-outline-strong bg-surface-raised"[39m
+        [33mid[39m=[32m"note"[39m
+        [33mplaceholder[39m=[32m"Anything they should know?"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/ui/text-field.test.tsx:108:26
+    106|     );
+    107|
+    108|     const field = screen.getByRole("textbox", { name: "Note for your p…
+       |                          ^
+    109|     expect(field.tagName).toBe("TEXTAREA");
+    110|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  src/ui/text-field.test.tsx > TextAreaField > announces an error through aria-describedby
+TestingLibraryElementError: Found a label with the text of: Note for your people, however no form control was found associated to that label. Make sure you're using the "for" attribute or "aria-labelledby" attribute correctly.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-1.5"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"font-display text-label text-content-primary"[39m
+      [36m>[39m
+        [0mNote for your people[0m
+      [36m</label>[39m
+      [36m<textarea[39m
+        [33mclass[39m=[32m"block w-full rounded-control px-3.5 font-body text-body text-content-primary placeholder:text-content-muted border-[length:var(--border-strong)] transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted min-h-32 resize-y py-3 border-feedback-error bg-feedback-error-soft"[39m
+        [33mid[39m=[32m"note"[39m
+      [36m>[39m
+        [0mway too long[0m
+      [36m</textarea>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-caption font-bold text-feedback-error"[39m
+        [33mid[39m=[32m"note-error"[39m
+      [36m>[39m
+        [0mKeep it short, please.[0m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getAllByLabelText node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/queries/label-text.js:108:40
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/ui/text-field.test.tsx:122:26
+    120|     );
+    121|
+    122|     const field = screen.getByLabelText("Note for your people");
+       |                          ^
+    123|     expect(field).toHaveAttribute("aria-invalid", "true");
+    124|     expect(field).toHaveAccessibleDescription("Keep it short, please."…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  9 failed | 31 passed (40)
+   Start at  14:24:28
+   Duration  1.14s (environment 44%, setup 27%, tests 16%, transform 9%, import 4%, worker 1%)
+
+    Isolate  6 workers spawned · ~287ms startup each (spawn + environment, per file)
+             at least ~287ms faster with isolate: false — reuses workers across files instead of one per file
+
+ ELIFECYCLE  Test failed. See above for more details.
