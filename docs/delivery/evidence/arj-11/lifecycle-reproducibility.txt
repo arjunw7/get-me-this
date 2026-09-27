@@ -1,25 +1,28 @@
-# ARJ-11 — start/stop/reset/test lifecycle, reproducibility and degradation
-# source: recorded lifecycle run of 2026-09-27T14:38:22Z to 2026-09-27T14:40:56Z
+# ARJ-11 — start/stop/reset/seed/test lifecycle and reproducibility
+# merge inputs: origin/main 08344e4 (ARJ-10 test and visual harness) merged into this branch
+# resolved: README.md, package.json, pnpm-lock.yaml (ARJ-10 and ARJ-11 kept together)
+# lockfile regenerated from the combined package.json
 
 ## Step results
 
 - cycle 1: stop any running stack  -> exit 0
 - cycle 1: start local Supabase  -> exit 0
+- database container selection for this project (allowlisted)  -> exit 0
 - cycle 1: reset from committed migrations (seed applied automatically)  -> exit 0
 - cycle 1: apply seed on demand to the running stack  -> exit 0
 - cycle 1: pgTAP database tests  -> exit 0
 - cycle 1: stop the stack  -> exit 0
-- cycle 2: start again (fresh containers)  -> exit 0
+- cycle 2: start again  -> exit 0
 - cycle 2: reset again from empty local database  -> exit 0
-- cycle 2: pgTAP database tests again  -> exit 0
+- cycle 2: pgTAP tests again  -> exit 0
 - cycle 2: stop the stack  -> exit 0
-- degradation: seed with Docker reachable but stack stopped  -> exit 1
+- fail-closed: seed with stack stopped (zero matching containers)  -> exit 1
 - degradation: pgTAP tests with stack stopped  -> exit 1
 - verification: pnpm verify with Supabase stopped  -> exit 0
 
-Two full cycles (stop, start, reset, test, stop) both produced exit 0,
-which shows the database is rebuilt from committed migrations and the
-tests are reproducible rather than dependent on leftover state.
+Two full cycles (stop, start, reset, seed/test, stop) both produced exit 0,
+so the database is rebuilt from committed migrations and the tests are
+reproducible rather than dependent on leftover state.
 
 ## Cycle details (credential-bearing lines removed)
 
@@ -115,7 +118,7 @@ COMMAND: pnpm test:db
 Connecting to local database...
 /home/factory-user/worktrees/arj-11/supabase/tests/smoke.sql .. ok
 All tests successful.
-Files=1, Tests=6,  0 wallclock secs ( 0.01 usr +  0.01 sys =  0.02 CPU)
+Files=1, Tests=6,  0 wallclock secs ( 0.01 usr  0.01 sys +  0.01 cusr  0.00 csys =  0.03 CPU)
 Result: PASS
 EXIT_CODE: 0
 
@@ -133,7 +136,7 @@ Local data are backed up to docker volume. Use docker to show them: docker volum
 EXIT_CODE: 0
 
 ===================================================================
-STEP: cycle 2: start again (fresh containers)
+STEP: cycle 2: start again
 COMMAND: pnpm db:start
 -------------------------------------------------------------------
 
@@ -190,7 +193,7 @@ Finished supabase db reset on branch main.
 EXIT_CODE: 0
 
 ===================================================================
-STEP: cycle 2: pgTAP database tests again
+STEP: cycle 2: pgTAP tests again
 COMMAND: pnpm test:db
 -------------------------------------------------------------------
 
@@ -200,7 +203,7 @@ COMMAND: pnpm test:db
 Connecting to local database...
 /home/factory-user/worktrees/arj-11/supabase/tests/smoke.sql .. ok
 All tests successful.
-Files=1, Tests=6,  1 wallclock secs ( 0.01 usr  0.01 sys +  0.01 cusr  0.00 csys =  0.03 CPU)
+Files=1, Tests=6,  0 wallclock secs ( 0.02 usr +  0.01 sys =  0.03 CPU)
 Result: PASS
 EXIT_CODE: 0
 

@@ -1,5 +1,9 @@
 # ARJ-11 — pgTAP database tests (passing, two independent cycles)
-# source: recorded lifecycle run of 2026-09-27T14:38:22Z
+# merge inputs: origin/main 08344e4 (ARJ-10 test and visual harness) merged into this branch
+# resolved: README.md, package.json, pnpm-lock.yaml (ARJ-10 and ARJ-11 kept together)
+
+Suite: supabase/tests/smoke.sql (6 assertions, one transaction, rolled back).
+Both cycles ran after a fresh pnpm db:reset rebuilt the database.
 
 STEP: cycle 1: pgTAP database tests
 COMMAND: pnpm test:db
@@ -11,12 +15,12 @@ COMMAND: pnpm test:db
 Connecting to local database...
 /home/factory-user/worktrees/arj-11/supabase/tests/smoke.sql .. ok
 All tests successful.
-Files=1, Tests=6,  0 wallclock secs ( 0.01 usr +  0.01 sys =  0.02 CPU)
+Files=1, Tests=6,  0 wallclock secs ( 0.01 usr  0.01 sys +  0.01 cusr  0.00 csys =  0.03 CPU)
 Result: PASS
 EXIT_CODE: 0
 
 ===================================================================
-STEP: cycle 2: pgTAP database tests again
+STEP: cycle 2: pgTAP tests again
 COMMAND: pnpm test:db
 -------------------------------------------------------------------
 
@@ -26,7 +30,7 @@ COMMAND: pnpm test:db
 Connecting to local database...
 /home/factory-user/worktrees/arj-11/supabase/tests/smoke.sql .. ok
 All tests successful.
-Files=1, Tests=6,  1 wallclock secs ( 0.01 usr  0.01 sys +  0.01 cusr  0.00 csys =  0.03 CPU)
+Files=1, Tests=6,  0 wallclock secs ( 0.02 usr +  0.01 sys =  0.03 CPU)
 Result: PASS
 EXIT_CODE: 0
 

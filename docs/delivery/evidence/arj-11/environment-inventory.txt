@@ -1,5 +1,5 @@
 # ARJ-11 — environment-variable inventory (names and classification only)
-# source: .env.example at commit ead32af
+# merge inputs: origin/main 08344e4 (ARJ-10) merged into this branch
 
 Values are never present in .env.example, this file, or any commit.
 Local development values are produced by pnpm db:start / pnpm db:status

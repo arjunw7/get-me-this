@@ -2,7 +2,14 @@
 
 Captured on the Droid Computer on 2026-09-27 (UTC) from the isolated worktree
 `/home/factory-user/worktrees/arj-11` on branch
-`foundation/arj-11-supabase-local-foundation`, based on `main` at `ead32af`.
+`foundation/arj-11-supabase-local-foundation`, branched from `main` at `ead32af`
+and then merged with `main` at `08344e4` (the ARJ-10 test and visual harness).
+
+The merge resolved `README.md`, `package.json`, and `pnpm-lock.yaml` so both
+foundations survive: ARJ-10's component, unit, end-to-end, accessibility, and
+visual commands and dependencies, and every ARJ-11 database command with the
+exact `supabase@2.118.0` dependency. The lockfile was regenerated from the
+combined `package.json`.
 
 Every file here is an allowlisted summary. Supabase CLI output tables containing
 local API credentials (project URL, publishable key, secret key, database
@@ -20,6 +27,7 @@ defaults, but they are still treated as non-committable.
 | `stack-health.txt` | Container names, health, and published local ports after `pnpm db:start`. |
 | `migration-baseline-reset.txt` | Two `pnpm db:reset` runs applying the committed baseline and seeding. |
 | `seed-on-demand.txt` | `pnpm db:seed` applying the non-persistent seed to a running stack. |
+| `container-selection.txt` | Proof that the seed selects only this project's database container and fails closed on zero, duplicate, or other-project matches. |
 | `db-test-pass.txt` | `pnpm test:db` results from two independent cycles. |
 | `db-test-failure-proof.txt` | The same command failing (exit 1) with one assertion deliberately broken, plus proof the edit was reverted. |
 | `lifecycle-reproducibility.txt` | Full recorded stop/start/reset/seed/test lifecycle with per-step exit codes. |
@@ -50,12 +58,14 @@ defaults, but they are still treated as non-committable.
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm verify        # passes with Supabase stopped
+pnpm test:e2e      # Playwright, mobile and desktop
+pnpm test:visual   # screenshot comparison against committed baselines
 pnpm db:start
 pnpm db:reset
 pnpm db:seed
 pnpm test:db
 pnpm db:stop
-pnpm verify   # passes with Supabase stopped
 ```
 
 Docker is required for the `db:*` and `test:db` commands. Forward-only migration

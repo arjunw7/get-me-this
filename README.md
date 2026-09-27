@@ -28,6 +28,22 @@ pnpm verify
 
 The verification command runs formatting checks, linting, strict TypeScript checking, unit tests, and the production build. Individual commands are also available as `pnpm format`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build`.
 
+## Test and visual-proof harness
+
+Unit and component tests run with Vitest and React Testing Library (`pnpm test`). Component tests run in jsdom; the filesystem-based token and style tests explicitly keep the Node environment.
+
+Browser checks run through Playwright (Chromium only) against the production build served on port 3100, at the two approved viewports: mobile 390×844 and desktop 1440×1000. Install the browser once per machine:
+
+```bash
+pnpm exec playwright install chromium
+```
+
+- `pnpm test:e2e` — renders the deterministic fixture route and runs axe accessibility checks at both viewports, including proof that a known injected violation is detected and clears after removal.
+- `pnpm test:visual` — full-page screenshot comparison of the fixture against the committed baselines. Baselines live in [`tests/visual/baselines/`](tests/visual/baselines/), guarded by a SHA-256 manifest; see [`docs/delivery/visual-baselines.md`](docs/delivery/visual-baselines.md) for the reviewed creation and update workflow. Agents never update baselines to make a test pass.
+- `pnpm test:db` — runs the pgTAP database suites in [`supabase/tests/`](supabase/tests/) against the local Supabase database (`supabase test db --local`). It requires the local stack; see [Local Supabase](#local-supabase) below.
+
+Browser checks are deliberately not part of `pnpm verify` so verification stays usable on machines without installed browsers; CI composition is a later issue. On failure, Playwright preserves an HTML report in `playwright-report/` and artifacts in `test-results/` (both gitignored).
+
 ## Design foundation
 
 Semantic design tokens live in [`app/tokens.css`](app/tokens.css) and are the single source of truth for colour, typography, spacing, radii, outline weight, elevation, and motion. They are registered in the Tailwind v4 theme, so utilities such as `bg-surface-page`, `text-content-muted`, `rounded-surface`, and `shadow-chunk` are generated from them. No other production source file may declare a raw colour value, and a unit test enforces that rule.

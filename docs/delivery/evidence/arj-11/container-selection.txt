@@ -1,0 +1,47 @@
+# ARJ-11 — database container selection (exact project, fail closed)
+
+scripts/db-seed.sh must never seed an arbitrary 'supabase_db_' container.
+It reads project_id from supabase/config.toml and requires both:
+  * Docker label com.supabase.cli.project=<project_id>, and
+  * an exact container name of supabase_db_<project_id>.
+It fails closed unless exactly one container matches.
+
+## Real stack: exactly one matching database container
+STEP: database container selection for this project (allowlisted)
+SELECTS ONLY containers labelled com.supabase.cli.project=get-me-this
+-------------------------------------------------------------------
+supabase_db_get-me-this
+EXIT_CODE: 0
+matching_database_containers: 1
+
+## Selection logic exercised with a stubbed docker
+stubbed docker; only scripts/db-seed.sh selection logic is exercised
+-------------------------------------------------------------------
+CASE: exactly one matching database container -> seeds it
+RESULT: would seed container supabase_db_get-me-this
+exit_code: 0
+-------------------------------------------------------------------
+CASE: two matching database containers -> refuses
+Refusing to seed: 2 database containers match this project.
+  supabase_db_get-me-this
+  supabase_db_get-me-this
+Expected exactly one. Stop the extra stack, then run: pnpm db:start
+exit_code: 1
+-------------------------------------------------------------------
+CASE: zero matching database containers -> refuses
+Local Supabase is not running for project 'get-me-this'.
+Expected exactly one running container labelled com.supabase.cli.project=get-me-this named supabase_db_get-me-this.
+Start it with: pnpm db:start
+exit_code: 1
+-------------------------------------------------------------------
+CASE: other project's database containers present -> none eligible, refuses
+Local Supabase is not running for project 'get-me-this'.
+Expected exactly one running container labelled com.supabase.cli.project=get-me-this named supabase_db_get-me-this.
+Start it with: pnpm db:start
+exit_code: 1
+
+## Docker daemon absent
+pnpm db:seed reports:
+  "The Docker daemon is not reachable, so local Supabase cannot run."
+  "Start Docker, then run: pnpm db:start"
+and exits 1.

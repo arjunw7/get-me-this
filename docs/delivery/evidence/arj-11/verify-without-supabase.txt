@@ -1,23 +1,70 @@
 # ARJ-11 — pnpm verify remains usable without Supabase
+# merge inputs: origin/main 08344e4 (ARJ-10 test and visual harness) merged into this branch
+# resolved: README.md, package.json, pnpm-lock.yaml (ARJ-10 and ARJ-11 kept together)
+# lockfile regenerated from the combined package.json
 
-Supabase was stopped before this command ran (see
-degradation-without-stack.txt). pnpm verify contains no database step:
+Supabase was stopped before this command ran. pnpm verify contains no
+database step: format:check, lint, typecheck, test, build only.
 
-  verify = format:check && lint && typecheck && test && build
-
+STEP: verification: pnpm verify with Supabase stopped
 COMMAND: pnpm verify
-EXIT_CODE: 0
+-------------------------------------------------------------------
 
-## Tail of the recorded run
+> get-me-this@0.1.0 verify /home/factory-user/worktrees/arj-11
+> pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 
+
+> get-me-this@0.1.0 format:check /home/factory-user/worktrees/arj-11
+> prettier --check --ignore-unknown .env.example .gitignore .nvmrc .prettierignore README.md app eslint.config.mjs next.config.mjs package.json postcss.config.mjs scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> get-me-this@0.1.0 lint /home/factory-user/worktrees/arj-11
+> eslint .
+
+
+> get-me-this@0.1.0 typecheck /home/factory-user/worktrees/arj-11
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> get-me-this@0.1.0 test /home/factory-user/worktrees/arj-11
+> vitest run
+
+
+ RUN  v5.0.2 /home/factory-user/worktrees/arj-11
+
+ ✓ src/ui/styles.test.ts (16 tests) 12ms
+ ✓ src/foundation/design-tokens.test.ts (4 tests) 8ms
+ ✓ src/visual-baseline-manifest.test.ts (2 tests) 7ms
+ ✓ src/ui/button.test.tsx (4 tests) 224ms
+ ✓ src/ui/text-field.test.tsx (9 tests) 303ms
+ ✓ src/foundation/design-fixture.test.ts (5 tests) 5ms
+
+ Test Files  6 passed (6)
+      Tests  40 passed (40)
+   Start at  14:49:27
+   Duration  1.25s (environment 40%, setup 27%, tests 20%, transform 8%, import 5%, worker 1%)
+
+    Isolate  6 workers spawned · ~300ms startup each (spawn + environment, per file)
+             at least ~300ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+> get-me-this@0.1.0 build /home/factory-user/worktrees/arj-11
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.mjs took 16ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 128ms
+✓ Compiled successfully in 196ms
   Running TypeScript ...
-  Finished TypeScript in 1199ms ...
+  Finished TypeScript in 1551ms ...
   Collecting page data using 3 workers ...
   Generating static pages using 3 workers (0/3) ...
-✓ Generating static pages using 3 workers (3/3) in 139ms
+✓ Generating static pages using 3 workers (3/3) in 105ms
   Finalizing page optimization ...
 
 Route (app)
@@ -29,4 +76,10 @@ Route (app)
 
 EXIT_CODE: 0
 
-finished: 2026-09-27T14:40:56Z
+finished: 2026-09-27T14:49:32Z
+
+## Combined branch checks (merged ARJ-10 harness + ARJ-11 database foundation)
+
+- pnpm verify: exit 0 — 6 test files, 40 unit tests, production build compiled
+- pnpm test:e2e: exit 0 — 6 Playwright checks across mobile 390x844 and desktop 1440x1000
+- pnpm test:visual: exit 0 — 2 screenshot comparisons against committed baselines

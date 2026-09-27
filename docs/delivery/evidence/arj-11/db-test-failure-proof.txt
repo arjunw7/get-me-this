@@ -1,21 +1,25 @@
 # ARJ-11 — the database test command fails when its smoke assertion is broken
+# merge inputs: origin/main 08344e4 (ARJ-10 test and visual harness) merged into this branch
+# resolved: README.md, package.json, pnpm-lock.yaml (ARJ-10 and ARJ-11 kept together)
+# lockfile regenerated from the combined package.json
 
-Method: a single assertion in supabase/tests/smoke.sql was temporarily
-changed from the applied baseline version 20260927000000 to the
-never-applied version 19700101000000, then pnpm test:db was run and the
-edit was reverted.
+Method: one assertion in supabase/tests/smoke.sql was temporarily changed
+from the applied baseline version 20260927000000 to the never-applied
+version 19700101000000, then pnpm test:db was run and the edit reverted.
 
-## Result with the assertion broken (exit code 1)
-
+===================================================================
+STEP: pgTAP tests with one assertion deliberately broken
+CHANGE: baseline version 20260927000000 -> 19700101000000 in supabase/tests/smoke.sql
+-------------------------------------------------------------------
 
 > get-me-this@0.1.0 test:db /home/factory-user/worktrees/arj-11
 > supabase test db --local
 
 Connecting to local database...
-/home/factory-user/worktrees/arj-11/supabase/tests/smoke.sql .. 
+/home/factory-user/worktrees/arj-11/supabase/tests/smoke.sql ..
 # Failed test 3: "baseline migration 20260927000000 is recorded as applied"
 # Looks like you failed 1 test of 6
-Failed 1/6 subtests 
+Failed 1/6 subtests
 
 Test Summary Report
 -------------------
@@ -26,8 +30,19 @@ Result: FAIL
 error running container: exit 1
 Try rerunning the command with --debug to troubleshoot the error.
  ELIFECYCLE  Command failed with exit code 1.
+BROKEN_EXIT=1
 
-## Proof the edit was reverted
-expected (backup before the edit): 43c82ec6ee63054e9428c641779a2d95805609e32513ea86f87b03b5be356de9
-actual   (committed file):         43c82ec6ee63054e9428c641779a2d95805609e32513ea86f87b03b5be356de9
+## Reverted to the committed assertion
+expected sha256: 43c82ec6ee63054e9428c641779a2d95805609e32513ea86f87b03b5be356de9
+actual   sha256: 43c82ec6ee63054e9428c641779a2d95805609e32513ea86f87b03b5be356de9
 identical: yes
+
+> get-me-this@0.1.0 test:db /home/factory-user/worktrees/arj-11
+> supabase test db --local
+
+Connecting to local database...
+/home/factory-user/worktrees/arj-11/supabase/tests/smoke.sql .. ok
+All tests successful.
+Files=1, Tests=6,  0 wallclock secs ( 0.01 usr +  0.00 sys =  0.01 CPU)
+Result: PASS
+AFTER_REVERT_EXIT=0

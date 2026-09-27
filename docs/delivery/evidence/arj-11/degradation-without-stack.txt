@@ -1,21 +1,10 @@
 # ARJ-11 — behaviour when Docker or the local stack is unavailable
-# source: recorded lifecycle run of 2026-09-27T14:38:22Z
+# merge inputs: origin/main 08344e4 (ARJ-10 test and visual harness) merged into this branch
+# resolved: README.md, package.json, pnpm-lock.yaml (ARJ-10 and ARJ-11 kept together)
+# lockfile regenerated from the combined package.json
 
 Docker was reachable, but the local Supabase stack was stopped.
 
-STEP: degradation: seed with Docker reachable but stack stopped
-COMMAND: pnpm db:seed
--------------------------------------------------------------------
-
-> get-me-this@0.1.0 db:seed /home/factory-user/worktrees/arj-11
-> bash scripts/db-seed.sh
-
-Local Supabase is not running.
-Start it with: pnpm db:start
- ELIFECYCLE  Command failed with exit code 1.
-EXIT_CODE: 1
-
-===================================================================
 STEP: degradation: pgTAP tests with stack stopped
 COMMAND: pnpm test:db
 -------------------------------------------------------------------
@@ -31,9 +20,6 @@ EXIT_CODE: 1
 
 ===================================================================
 
-## Verified independently: no Docker daemon at all
-
-In a shell without Docker socket access, pnpm db:seed reports:
-  "The Docker daemon is not reachable, so local Supabase cannot run."
-  "Start Docker, then run: pnpm db:start"
-and exits 1.
+## Zero matching database containers also fails closed
+The 'fail-closed: seed with stack stopped' step above is the seed command
+reporting that no container matches this project, exiting 1.

@@ -1,5 +1,11 @@
 # ARJ-11 — reproducible migration baseline and reset
-# source: recorded lifecycle run of 2026-09-27T14:38:22Z
+# merge inputs: origin/main 08344e4 (ARJ-10 test and visual harness) merged into this branch
+# resolved: README.md, package.json, pnpm-lock.yaml (ARJ-10 and ARJ-11 kept together)
+# lockfile regenerated from the combined package.json
+
+## pnpm db:reset (run twice, independently)
+Each reset recreates the local database, applies the committed baseline
+migration, then applies supabase/seed.sql automatically.
 
 STEP: cycle 1: reset from committed migrations (seed applied automatically)
 COMMAND: pnpm db:reset
