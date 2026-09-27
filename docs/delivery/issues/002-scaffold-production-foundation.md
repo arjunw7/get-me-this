@@ -1,5 +1,16 @@
 # 002 — Scaffold the production foundation
 
+## Work item type
+
+Parent tracker. Do not assign this brief directly to Factory. Implementation is split across the following child briefs:
+
+1. `002a-scaffold-application-command-surface.md`
+2. `002b-establish-design-foundation.md`
+3. `002c-establish-test-harness.md`
+4. `002d-initialize-supabase-local-foundation.md`
+5. `002e-configure-ci-and-railway-preview.md`
+6. `002f-establish-analytics-foundation.md`
+
 ## Outcome
 
 Create the smallest production-grade Next.js foundation that builds, tests, and deploys predictably without implementing product features.
@@ -45,3 +56,6 @@ Use `DESIGN.md`; this issue establishes tokens and primitives, not final screen 
 
 Infrastructure only; no product event is emitted.
 
+## Exit gate
+
+The tracker closes only after every child is merged, the combined `pnpm verify` command passes on `main`, and a Railway preview serves both the deterministic reference route and `/health`.

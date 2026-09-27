@@ -1,5 +1,9 @@
 # 003 — Implement the static fidelity pilot
 
+## Work item type
+
+Parent tracker. Create its implementation children only after the production-foundation exit gate passes. Expected children are the responsive landing page, the static authentication/onboarding routes, and visual-baseline acceptance.
+
 ## Outcome
 
 Prove that the production stack can reproduce the approved product experience before authentication or backend complexity is introduced.
@@ -36,4 +40,3 @@ Prove that the production stack can reproduce the approved product experience be
 ## Analytics
 
 No production events. The analytics adapter may be exercised only through its test sink.
-
