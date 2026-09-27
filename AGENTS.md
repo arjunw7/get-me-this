@@ -82,7 +82,8 @@ Every implementation pull request must include:
 - Prefer one user-visible vertical slice per pull request.
 - Avoid combining schema redesign, visual redesign, and unrelated refactoring.
 - Generated pull requests are proposals. They require independent review before merge.
-- Do not merge directly to `main` without green required checks and human approval.
+- Do not merge directly to `main` without green CI on the exact pull-request head and explicit human approval.
+- Temporary exception: this private repository cannot currently configure a GitHub-required status check (branch protection and rulesets return 403), so GitHub cannot enforce the check at merge time; green CI is verified as a review input and the human approval is the merge gate. Replace this exception with the GitHub-required check as soon as it becomes available.
 
 ## Safety
 
