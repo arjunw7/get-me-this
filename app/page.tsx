@@ -31,7 +31,7 @@ export default function DesignFoundationPage() {
 
       <section aria-labelledby="type-scale" className="flex flex-col gap-4">
         <SectionHeading id="type-scale">Type scale</SectionHeading>
-        <Surface as="section" aria-labelledby="type-scale">
+        <Surface>
           <dl className="flex flex-col gap-4">
             {typeSamples.map((sample) => (
               <div
@@ -67,7 +67,7 @@ export default function DesignFoundationPage() {
 
       <section aria-labelledby="buttons" className="flex flex-col gap-4">
         <SectionHeading id="buttons">Buttons</SectionHeading>
-        <Surface as="section" aria-labelledby="buttons">
+        <Surface>
           <div className="flex flex-wrap items-center gap-4">
             {buttonSamples.map((sample) => (
               <Button
@@ -89,7 +89,7 @@ export default function DesignFoundationPage() {
 
       <section aria-labelledby="fields" className="flex flex-col gap-4">
         <SectionHeading id="fields">Fields</SectionHeading>
-        <Surface as="section" aria-labelledby="fields">
+        <Surface>
           <div className="grid gap-6 lg:grid-cols-2">
             <TextField
               id="fixture-empty"
@@ -130,7 +130,7 @@ export default function DesignFoundationPage() {
 
       <section aria-labelledby="links" className="flex flex-col gap-4">
         <SectionHeading id="links">Links</SectionHeading>
-        <Surface as="section" aria-labelledby="links">
+        <Surface>
           <p className="flex flex-wrap gap-6 text-body">
             <TextLink href="/">Internal link</TextLink>
             <TextLink href="https://www.w3.org/WAI/WCAG22/quickref/" external>
@@ -160,7 +160,7 @@ export default function DesignFoundationPage() {
 
       <section aria-labelledby="motion" className="flex flex-col gap-4">
         <SectionHeading id="motion">Motion and responsiveness</SectionHeading>
-        <Surface as="section" tone="sunken" aria-labelledby="motion">
+        <Surface tone="sunken">
           <ul className="flex flex-col gap-2 text-body text-content-secondary">
             {motionNotes.map((note) => (
               <li key={note}>{note}</li>

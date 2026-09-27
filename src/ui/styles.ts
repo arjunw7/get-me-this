@@ -59,7 +59,8 @@ const CONTROL_BASE = cx(
   "block w-full rounded-control px-3.5",
   "font-body text-body text-content-primary placeholder:text-content-muted",
   OUTLINE_WIDTH,
-  "outline-none transition-[box-shadow] duration-[var(--duration-press)] ease-snap",
+  // No outline-none here: the control must keep the global :focus-visible ring.
+  "transition-[box-shadow] duration-[var(--duration-press)] ease-snap",
   "focus:shadow-chunk-sm",
   "disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted",
 );

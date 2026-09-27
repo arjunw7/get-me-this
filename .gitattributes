@@ -3,4 +3,4 @@ app/fonts/*.woff2 binary
 
 # Upstream licence texts are stored byte-for-byte, including their original
 # line endings, so their recorded checksums stay verifiable.
-app/fonts/OFL-*.txt -text -diff -whitespace
+app/fonts/OFL-*.txt -text -whitespace

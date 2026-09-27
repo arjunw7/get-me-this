@@ -109,6 +109,19 @@ describe("controlClassName", () => {
     expect(valid).toContain("bg-surface-raised");
   });
 
+  it("never suppresses the global focus-visible outline", () => {
+    for (const invalid of [false, true]) {
+      for (const multiline of [false, true]) {
+        const classes = new Set(
+          controlClassName({ invalid, multiline }).split(" "),
+        );
+        expect(classes).not.toContain("outline-none");
+        expect(classes).not.toContain("outline-0");
+        expect(classes).not.toContain("focus:outline-none");
+      }
+    }
+  });
+
   it("styles the disabled state and keeps placeholders muted", () => {
     const className = controlClassName({ invalid: false, multiline: false });
     expect(className).toContain("disabled:bg-surface-sunken");
