@@ -24,8 +24,11 @@ the project owner in the Railway dashboard:
    automation (for example Factory) need their own previews.
 5. Review the infrastructure proposal (`.railway/railway.ts`, Railway
    infrastructure-as-code with the Railpack builder) through
-   `railway config plan` before it is applied. Nothing is applied without
-   explicit approval, and the raw plan output is never committed.
+   `railway config plan` before it is applied. The committed authoring
+   file declares the staging web service with the `/health` healthcheck
+   and no secrets; nothing is applied without explicit approval, and the
+   raw plan output is never committed (see the redacted summary in
+   [`docs/delivery/evidence/arj-13/railway-config-plan-summary.txt`](../delivery/evidence/arj-13/railway-config-plan-summary.txt)).
 
 ## Automatic teardown
 

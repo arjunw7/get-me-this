@@ -1,0 +1,50 @@
+# Railway config plan — redacted summary (ARJ-13 / 002e)
+
+Generated with `railway config init` (CLI v5.62.1 via `pnpm dlx`), then
+corrected and validated with `railway config plan`. The token in use is a
+project-level token scoped to the dedicated staging environment. Raw plan
+output is not committed; this is an allowlisted summary.
+
+## Scope
+
+- Target: the dedicated staging project (name and identifiers redacted).
+- Authoring file: `.railway/railway.ts` (Railway IaC, TypeScript SDK
+  `railway@^3.11.0` added as a devDependency).
+- Authoring file contents: one web service sourced from
+  `github("arjunw7/get-me-this")`, build command `pnpm run build`, start
+  command `next start` (Next.js reads the Railway-provided `PORT`),
+  healthcheck path `/health`. No variables, domains, databases, or other
+  resources are declared. No secrets or private identifiers appear in the
+  file.
+
+## Plan result after correction
+
+- First plan (CLI-generated default) was rejected without applying: it
+  named the service `web`, which would have created a new service and
+  DELETED the existing `get-me-this` staging service (1 add, 1 destroy).
+- After renaming the service in the authoring file to match the existing
+  staging service and adding the healthcheck, the final plan is:
+  - 0 to add, 0 to destroy
+  - 2 in-place updates to the existing staging service:
+    - build.buildCommand: null → "pnpm run build"
+    - deploy.healthcheckPath: null → "/health"
+    - deploy.startCommand: null → "next start"
+- Nothing has been applied. `railway config apply` awaits explicit
+  approval.
+
+## Confirmation
+
+- No secrets, tokens, account IDs, project IDs, service IDs, or domain
+  names are included in the authoring file or this summary.
+- Railpack/Node 24 runtime validation is still outstanding: the plan does
+  not exercise the builder, so the pinned Node 24 runtime will be
+  confirmed on the first preview deployment. If Railpack cannot honor
+  Node 24, work stops and the smallest fallback is proposed before any
+  Dockerfile is considered.
+
+## Still external (dashboard, owner actions)
+
+- Railway GitHub App installed (done by owner).
+- PR Environments with Wait for CI, and Bot PR Environments only if
+  needed, on the staging service.
+- Railway-provided domain for the base service.
