@@ -1,5 +1,7 @@
 # 002g — Analytics consent and production enablement
 
+Linear issue: ARJ-15.
+
 ## Outcome
 
 Complete the analytics consent and enablement boundary started in 002f so
