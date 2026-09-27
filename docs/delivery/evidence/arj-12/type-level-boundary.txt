@@ -1,0 +1,4 @@
+$ pnpm typecheck  # with the @ts-expect-error boundary tests active
+exit: 0
+Generating route types...
+✓ Types generated successfully

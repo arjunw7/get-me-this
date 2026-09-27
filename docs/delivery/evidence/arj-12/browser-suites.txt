@@ -1,0 +1,12 @@
+$ pnpm test:e2e
+exit: 0
+
+  6 passed (5.0s)
+
+$ pnpm test:visual
+exit: 0
+
+  2 passed (2.1s)
+
+$ git status --short tests/visual   # no baseline files changed
+(no output: visually unchanged, demonstrated by the passing comparisons)

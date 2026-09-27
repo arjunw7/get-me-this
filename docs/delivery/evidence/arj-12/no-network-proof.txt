@@ -1,0 +1,13 @@
+The no-network property is proven in four layers:
+
+1. Server lane: posthog-node is vi.mock()ed before import; the unconfigured
+   lane constructs no client at all (constructor spy asserted uncalled).
+2. Client lane: posthog-js is vi.mock()ed BEFORE initialization; the SDK module
+   is never dynamically imported when configuration is absent, so its transport
+   layer is never constructed (init spy asserted uncalled).
+3. Every browser transport the pinned SDK can use — fetch, XMLHttpRequest,
+   navigator.sendBeacon, and image beacons — is stubbed to throw and record.
+   Each client-lane test asserts zero transport violations (a single fetch stub
+   alone would not cover the SDK's XHR, beacon, and image transports).
+4. The memory sink records events in-process only, so tests observe emitted
+   events through readEvents()/mocks without any network request.

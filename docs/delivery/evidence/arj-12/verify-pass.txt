@@ -1,0 +1,8 @@
+$ pnpm verify (format:check, lint, typecheck, test, build)
+exit: 0
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+

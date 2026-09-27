@@ -95,6 +95,12 @@ from server-only credentials such as `RESEND_API_KEY` and
 code, committed, or captured in logs, fixtures, or screenshots. Local Supabase
 values come from `pnpm db:status` and are never committed.
 
+The PostHog public values (`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`,
+`NEXT_PUBLIC_POSTHOG_HOST`) activate the typed analytics boundary
+([`src/analytics`](src/analytics)); without them analytics is completely
+inert. See [`docs/analytics/enabling-posthog.md`](docs/analytics/enabling-posthog.md)
+for the staging and production enablement boundary.
+
 Start with:
 
 1. [`docs/product/product-spec.md`](docs/product/product-spec.md)
