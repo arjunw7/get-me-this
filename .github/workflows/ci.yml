@@ -2,8 +2,10 @@
 #
 # The CI contract is exactly the local contract: install with a frozen
 # lockfile, then run the single committed verification command. A failing
-# verification sub-command exits non-zero and blocks this check, which is a
-# required status check on main.
+# verification sub-command exits non-zero and fails this check. Making it a
+# required merge gate needs branch protection, which this private repository
+# cannot currently configure (403); until then, green CI is a mandatory input
+# to human review before merge.
 #
 # Least privilege: read-only repository access, no persisted checkout
 # credentials, no secrets exposed to pull-request code, and a hard job

@@ -66,11 +66,18 @@ changes.
 
 - No secrets, tokens, account IDs, project IDs, service IDs, or domain
   names are included in the authoring file or this summary.
-- Railpack/Node 24 runtime validation is still outstanding: the plan does
-  not exercise the builder, so the pinned Node 24 runtime will be
-  confirmed on the first preview deployment. If Railpack cannot honor
-  Node 24, work stops and the smallest fallback is proposed before any
-  Dockerfile is considered.
+- Railpack/Node 24 runtime validation: **confirmed**. The staging
+  deployment for `main` @ `c049d79` and the PR #8 preview both built with
+  the RAILPACK builder (Railpack 0.40.0), which resolved Node to exactly
+  the pinned 24.21.0 and pnpm to the pinned 10.28.0; both built and
+  served successfully. No fallback was needed.
+- Preview log check: the `/health` response and headers were verified
+  clean (exact fixed body, no configuration or secret values). The
+  preview environment's build/deploy logs are NOT readable with the
+  staging-scoped project token (the PR environment is not returned by the
+  environments query and is not addressable by the CLI), so the two
+  dashboard log tabs for the preview deployment remain an owner-verified
+  check.
 
 ## Still external (dashboard, owner actions)
 
@@ -78,3 +85,5 @@ changes.
 - PR Environments with Wait for CI, and Bot PR Environments only if
   needed, on the staging service.
 - Railway-provided domain for the base service.
+- Owner inspection of the preview deployment's Build and Deploy logs
+  (no secrets or personal data) — not possible from this environment.

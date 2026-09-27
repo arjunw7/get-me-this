@@ -88,8 +88,14 @@ are documented in [`supabase/README.md`](supabase/README.md).
 Every pull request runs the [`CI` workflow](.github/workflows/ci.yml) on
 GitHub: `pnpm install --frozen-lockfile` followed by the same `pnpm verify`
 command used locally, from a clean `ubuntu-24.04` environment. A failing
-verification command fails the check, and the check is required on `main`, so
-it blocks merging. Superseded pull-request runs are canceled automatically;
+verification command fails the check. Making the check a required merge gate
+on `main` needs GitHub branch protection or rulesets, which this private
+repository currently cannot configure (the API returns 403 without a plan
+that supports them); until that changes, merging to `main` is gated by
+explicit human review with green CI as a review input — a deliberate,
+temporary manual-review exception, to be replaced by the required check as
+soon as branch protection becomes available. Superseded pull-request runs
+are canceled automatically;
 runs for direct pushes to `main` always run to completion.
 
 Merged foundation slices also deploy to a Railway preview per pull request.

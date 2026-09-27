@@ -11,8 +11,12 @@ job timeout, and no secrets exposed to pull-request code.
 
 2. Intentionally failing run (commit 0e8c9f2, trailing-whitespace
    formatting violation in README.md): the `pnpm verify` step exits 1 and
-   the check fails, which blocks merging once the required-check rule is
-   enabled.
+   the check fails. This proves a failing verification command turns CI
+   red; it does NOT prove GitHub blocks merging, because the check is not
+   yet a required status check — branch protection and rulesets return
+   403 on this private repository. Until protection becomes available,
+   merging is gated by explicit human review with green CI as a mandatory
+   review input (temporary, documented exception).
    https://github.com/arjunw7/get-me-this/actions/runs/36338823060
    conclusion: failure ("Install and verify" step: Process completed with
    exit code 1)

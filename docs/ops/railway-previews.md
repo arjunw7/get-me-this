@@ -1,8 +1,10 @@
 # Railway previews and CI gating
 
 Every pull request becomes two pieces of reviewable evidence: a green
-`CI` check (the required status check on `main`) and an ephemeral Railway
-preview deployment. This document describes the required external
+`CI` check and an ephemeral Railway preview deployment. The `CI` check is
+not yet a GitHub-required merge gate (branch protection and rulesets
+return 403 on this private repository), so green CI is a mandatory input
+to explicit human review before merge until protection becomes available. This document describes the required external
 Railway configuration, the environment variables each deployment needs,
 and the verification steps a reviewer completes without repository write
 access.
