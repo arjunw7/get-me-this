@@ -172,6 +172,32 @@ describe("sanitizeClientEventForSend (before_send)", () => {
     }
   });
 
+  it("drops Object.prototype names as unknown events (own-key-only lookup regression)", () => {
+    // The event-name lookup must consult own keys only. Without that guard,
+    // "constructor" and "toString" resolved to inherited function values and
+    // "__proto__" to the prototype object itself instead of dropping the
+    // event.
+    for (const inheritedName of [
+      "constructor",
+      "toString",
+      "valueOf",
+      "hasOwnProperty",
+      "isPrototypeOf",
+      "propertyIsEnumerable",
+      "__proto__",
+      "__defineGetter__",
+    ]) {
+      const result = sanitizeClientEventForSend({
+        event: inheritedName,
+        properties: {
+          secret: "SECRETTOKEN123",
+          token: "phc-public-project-token",
+        },
+      });
+      expect(result, `${inheritedName} must be dropped`).toBeNull();
+    }
+  });
+
   it("allows only the minimum pinned-SDK properties on identity and consent events", () => {
     // $identify: exactly the anonymous→authenticated transition fields.
     const identify = sanitizeClientEventForSend({

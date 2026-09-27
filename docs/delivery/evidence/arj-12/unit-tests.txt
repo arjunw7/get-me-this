@@ -1,11 +1,6 @@
-Captured 2026-09-27T17:19:25Z, Node v24.21.0
+Captured 2026-09-27T17:35:23Z, Node v24.21.0
 
 $ pnpm test (vitest run)
-stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
-[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
-
-stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
-[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
 
 stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
 [analytics] capture rejected: invalid-context (context.group.id must be an internal group UUID)
@@ -13,20 +8,25 @@ stderr | src/analytics/server.test.ts > server analytics lane > configured: post
 stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > never reaches the SDK with a rejected payload
 [analytics] capture rejected: missing-key ("group_created" is missing "gifting_mode")
 
- ✓ src/analytics/server.test.ts (15 tests) 45ms
- ✓ src/analytics/privacy.test.tsx (19 tests) 43ms
- ✓ src/ui/styles.test.ts (16 tests) 19ms
- ✓ src/analytics/validation.test.ts (8 tests) 15ms
- ✓ src/analytics/server-only-guard.test.ts (2 tests) 14ms
- ✓ src/foundation/design-tokens.test.ts (4 tests) 7ms
- ✓ src/visual-baseline-manifest.test.ts (2 tests) 9ms
- ✓ src/analytics/memory-sink.test.ts (5 tests) 6ms
- ✓ src/foundation/design-fixture.test.ts (5 tests) 7ms
+ ✓ src/analytics/server.test.ts (15 tests) 43ms
+stderr | src/analytics/client.test.ts > client analytics lane > identity: anonymous → authenticated → logout > refuses non-UUID identifiers such as emails and display names
+[analytics] identify rejected: distinct id is not a UUID
+[analytics] identify rejected: distinct id is not a UUID
+
+ ✓ src/analytics/client.test.ts (15 tests) 82ms
+ ✓ src/analytics/validation.test.ts (8 tests) 11ms
+ ✓ src/ui/styles.test.ts (16 tests) 9ms
+ ✓ src/analytics/server-only-guard.test.ts (2 tests) 15ms
+ ✓ src/analytics/privacy.test.tsx (20 tests) 33ms
+ ✓ src/analytics/memory-sink.test.ts (5 tests) 7ms
+ ✓ src/foundation/design-tokens.test.ts (4 tests) 10ms
+ ✓ src/visual-baseline-manifest.test.ts (2 tests) 7ms
+ ✓ src/foundation/design-fixture.test.ts (5 tests) 5ms
 
  Test Files  14 passed (14)
-      Tests  120 passed (120)
-   Start at  17:19:25
-   Duration  3.57s (environment 36%, tests 32%, setup 23%, transform 6%, import 3%, worker 1%)
+      Tests  121 passed (121)
+   Start at  17:35:24
+   Duration  3.37s (environment 38%, tests 31%, setup 22%, transform 4%, import 4%, worker 1%)
 
-    Isolate  14 workers spawned · ~333ms startup each (spawn + environment, per file)
-             at least ~1.22s faster with isolate: false — reuses workers across files instead of one per file
+    Isolate  14 workers spawned · ~336ms startup each (spawn + environment, per file)
+             at least ~1.23s faster with isolate: false — reuses workers across files instead of one per file

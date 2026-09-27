@@ -168,8 +168,13 @@ export function sanitizeClientEventForSend<T extends ClientEvent | null>(
   }
 
   // Unknown client event names are dropped unless explicitly approved.
+  // The lookup must be own-key-only: without the hasOwnProperty guard,
+  // names inherited from Object.prototype such as "constructor",
+  // "toString", or "__proto__" would resolve to inherited values (a
+  // function or the prototype itself) instead of dropping the event.
   const approvedProperties =
-    typeof eventName === "string"
+    typeof eventName === "string" &&
+    Object.prototype.hasOwnProperty.call(APPROVED_EVENT_PROPERTIES, eventName)
       ? APPROVED_EVENT_PROPERTIES[eventName]
       : undefined;
   if (!approvedProperties) {

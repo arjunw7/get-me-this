@@ -26,16 +26,21 @@
  *   configuration is untouched and remains production-accurate.
  *
  * Asserted behavior:
- * 1. Initial load emits exactly one sanitized $pageview for "/".
- * 2. A real internal Link click (a Next.js router transition for the same
- *    template) emits nothing further — the consecutive-duplicate guard
- *    holds under real navigation.
- * 3. A real second route load emits exactly one pageview with that
- *    route's sanitized template, and browser back navigation emits the
- *    original template once more.
+ * 1. Initial load of a second route (the not-found page) emits exactly one
+ *    sanitized $pageview for that route's template.
+ * 2. A real client-side Next `Link` transition to a different route (the
+ *    not-found page's internal link home) emits exactly one sanitized
+ *    $pageview for the new template, and a page-side marker proves the
+ *    document did NOT reload.
+ * 3. A same-template internal Link click emits nothing further
+ *    (consecutive-duplicate guard), and a browser back navigation re-emits
+ *    the previous template exactly once more.
  * 4. Every transported $pageview carries ONLY the sanitized route
  *    template, the derived queryless current URL, and the SDK-required
  *    public ingest token — never a raw URL, referrer, or query string.
+ *
+ * Any request whose PARSED ORIGIN differs from the app origin is aborted
+ * immediately (never continued) and recorded for the privacy assertion.
  */
 import { gunzipSync } from "node:zlib";
 import { expect, test } from "@playwright/test";
@@ -114,20 +119,34 @@ test.describe("client analytics lane: behavioral navigation", () => {
 
     await page.route("**/*", async (route) => {
       const url = route.request().url();
-      const isApp = url.startsWith(APP_ORIGIN);
-      const isFixture = isApp && url.includes(FIXTURE_HOST_MARKER);
-      if (!isApp && !outsideRequests.includes(url)) {
-        outsideRequests.push(url);
+      // Exact parsed-origin comparison — a string prefix check would let a
+      // lookalike origin such as http://127.0.0.1:3100.evil.example/ through.
+      let origin: string | undefined;
+      try {
+        origin = new URL(url).origin;
+      } catch {
+        origin = undefined;
       }
+      if (origin !== APP_ORIGIN) {
+        // Record and abort immediately: a non-app request must never be
+        // continued to the network.
+        if (!outsideRequests.includes(url)) {
+          outsideRequests.push(url);
+        }
+        await route.abort();
+        return;
+      }
+      const { pathname } = new URL(url);
+      const isFixture = pathname.includes(FIXTURE_HOST_MARKER);
       if (isFixture) {
-        if (url.endsWith("config.js")) {
+        if (pathname.endsWith("config.js")) {
           await route.fulfill({
             status: 200,
             contentType: "application/javascript",
             body: "/* fixture: no remote config */",
           });
         } else {
-          if (route.request().method() === "POST" && url.includes("/e/")) {
+          if (route.request().method() === "POST" && pathname.includes("/e/")) {
             for (const event of decodeBatchEvents(
               route.request().postDataBuffer(),
             )) {
@@ -184,49 +203,68 @@ test.describe("client analytics lane: behavioral navigation", () => {
       window.localStorage.setItem("gmt:analytics:consent", "granted");
     });
 
-    await page.goto("/");
-
-    // 1. Initial pageview: exactly one, for "/", once the SDK's asynchronous
+    // 1. Initial load of the second route (the app's not-found page): exactly
+    //    one pageview for its sanitized template, once the SDK's asynchronous
     //    initialization has completed (the loaded-callback contract).
-    const initialPageviews = () =>
-      pageviewEvents.map(pageviewOf).filter((event) => event.pathname === "/");
-    await expect
-      .poll(() => initialPageviews().length, {
-        message: "expected exactly one sanitized initial $pageview for /",
-      })
-      .toBe(1);
-
-    // 2. A real internal Link click goes through Next.js's router transition
-    //    hook (same route template), so the consecutive-duplicate guard must
-    //    keep the count at exactly one — no duplicate pageview may transport.
-    await page.click('a[href="/"]');
-    await page.waitForTimeout(5_000);
-    expect(initialPageviews()).toHaveLength(1);
-
-    // 3. A second real route load (the not-found render for an unlisted
-    //    route) emits exactly one pageview for its sanitized template.
-    await page.goto("/onboarding");
     const onboardingPageviews = () =>
       pageviewEvents
         .map(pageviewOf)
         .filter((event) => event.pathname === "/onboarding");
+    await page.goto("/onboarding");
     await expect
       .poll(() => onboardingPageviews().length, {
         message:
-          "expected a sanitized $pageview for /onboarding after navigation",
+          "expected exactly one sanitized initial $pageview for /onboarding",
       })
       .toBe(1);
 
-    // 4. A real browser back navigation re-loads "/" and emits exactly one
-    //    further pageview for that template.
-    await page.goBack();
-    await page.waitForTimeout(5_000);
-    const homeAfterNavigation = pageviewEvents
-      .map(pageviewOf)
-      .filter((event) => event.pathname === "/");
-    expect(homeAfterNavigation).toHaveLength(2);
+    // Marker for the no-reload proof below: a full document load replaces the
+    // window and loses this property; a client-side router transition does not.
+    await page.evaluate(() => {
+      (
+        window as unknown as { __analyticsNoReloadMarker?: number }
+      ).__analyticsNoReloadMarker = 42;
+    });
 
-    // 4. Privacy shape of every transported pageview.
+    // 2. A real client-side Next Link transition to a DIFFERENT route: the
+    //    not-found page's internal link home. The router hook must fire and
+    //    the transition must transport exactly one sanitized $pageview for
+    //    the new template.
+    await page.click('a[href="/"]');
+    const homePageviews = () =>
+      pageviewEvents.map(pageviewOf).filter((event) => event.pathname === "/");
+    await expect
+      .poll(() => homePageviews().length, {
+        message:
+          "expected exactly one sanitized $pageview for / from the client-side Link transition",
+      })
+      .toBe(1);
+    const noReloadMarker = await page.evaluate(
+      () =>
+        (window as unknown as { __analyticsNoReloadMarker?: number })
+          .__analyticsNoReloadMarker,
+    );
+    expect(
+      noReloadMarker,
+      "document must not reload on a Link transition",
+    ).toBe(42);
+
+    // 3. A same-template internal Link click emits nothing further — the
+    //    consecutive-duplicate guard holds under real router navigation.
+    await page.click('a[href="/"]');
+    await page.waitForTimeout(5_000);
+    expect(homePageviews()).toHaveLength(1);
+
+    // 4. A browser back navigation re-emits the pageview for the restored
+    //    /onboarding template exactly once (with the static prerender the
+    //    pop performs a document load, so this exercises the initial-pageview
+    //    path of the restored route; the client-side transition path is
+    //    covered by step 2).
+    await page.evaluate(() => history.back());
+    await page.waitForTimeout(5_000);
+    expect(onboardingPageviews()).toHaveLength(2);
+
+    // 5. Privacy shape of every transported pageview.
     for (const captured of pageviewEvents.map(pageviewOf)) {
       expect(captured.propertyKeys, "pageview property allowlist").toEqual([
         "$current_url",
@@ -250,7 +288,7 @@ test.describe("client analytics lane: behavioral navigation", () => {
       );
     }
 
-    // 5. Nothing ever left the machine except to the app and its fixture.
+    // 6. Nothing ever left the machine except to the app and its fixture.
     expect(outsideRequests, "no external analytics transport").toEqual([]);
 
     // The synthetic fixture token never appears as a real credential — and

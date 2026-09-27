@@ -38,7 +38,7 @@ Entry points inspected from the installed packages at implementation time:
 | File | Contents |
 | --- | --- |
 | `verify-pass.txt` | Full `pnpm verify` (format:check, lint, typecheck, unit tests, production build) passing. |
-| `unit-tests.txt` | The unit suite detail: 120 tests across 14 files, including the analytics boundary matrices. |
+| `unit-tests.txt` | The unit suite detail: 121 tests across 14 files, including the analytics boundary matrices. |
 | `tests-fail-without-implementation.txt` | The analytics test files run with the implementation sources removed: 7 of 8 files fail, proving the tests would fail without the implementation; sources restored afterwards. |
 | `no-network-proof.txt` | How the no-network property is proven: SDKs mocked before initialization, every browser transport (fetch, XHR, sendBeacon, image beacons) stubbed to fail, and the unconfigured lanes constructing nothing. |
 | `browser-suites.txt` | `pnpm test:e2e` (10 passed, including the integration-level `instrumentation-hook.spec.ts` Next.js hook-discovery checks) and `pnpm test:visual` (2 passed) demonstrating the visually unchanged result; no baseline files changed. |
@@ -123,6 +123,30 @@ The second re-review round fixed three further privacy findings in
    Consent application and the initial pageview now happen in the SDK's
    supported `loaded` callback; unit tests invoke the callback the same
    way the real SDK does.
+
+## Final review corrections (round 4)
+
+1. **Client-side `Link` transition proof** — the behavioral suite now starts
+   on the second route (the app's not-found page), performs a REAL
+   client-side Next `Link` transition to a different route via the page's
+   internal link, proves the document did not reload (a window marker set
+   before the click survives the transition), and asserts the transition
+   emits exactly one sanitized `$pageview` for the new template.
+   `app/not-found.tsx` was added as the minimal second destination that
+   makes this real router transition possible; it is reviewable UI using
+   the existing design primitives.
+2. **Own-key-only event lookup** — the approved-event-name lookup consults
+   own keys only (`hasOwnProperty`), so `constructor`, `toString`,
+   `__proto__`, and other `Object.prototype` names are dropped as unknown
+   events instead of resolving to inherited values. Regression-tested.
+3. **Exact-origin isolation in the browser test** — every request's PARSED
+   origin is compared against the app origin; any non-app request is
+   aborted immediately (never continued to the network) and recorded for
+   the zero-external-transport assertion.
+4. **e2e flake stabilization** — the injected-violation accessibility scan
+   raced the injected image's decode (axe reported "incomplete" instead of
+   a violation); the scan now waits for the injected image to load. Three
+   consecutive `pnpm test:e2e` runs pass.
 
 ## Acceptance criteria coverage
 

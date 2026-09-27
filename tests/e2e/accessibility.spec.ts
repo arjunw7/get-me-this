@@ -47,6 +47,21 @@ test("axe detects an injected violation and clears after it is removed", async (
     document.querySelector("main")?.appendChild(img);
   }, INJECTED_ID);
 
+  // Axe classifies an image that has not finished decoding as "incomplete"
+  // instead of a violation, which raced the scan on slower viewport runs.
+  await page.evaluate(
+    (id: string) =>
+      new Promise<void>((resolve) => {
+        const img = document.getElementById(id) as HTMLImageElement | null;
+        if (!img || img.complete) {
+          resolve();
+          return;
+        }
+        img.addEventListener("load", () => resolve(), { once: true });
+      }),
+    INJECTED_ID,
+  );
+
   const withViolation = await new AxeBuilder({ page })
     .withTags([...WCAG_TAGS])
     .analyze();
