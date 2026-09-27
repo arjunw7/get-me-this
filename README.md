@@ -18,7 +18,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the deterministic foundation reference route.
+Open [http://localhost:3000](http://localhost:3000) to view the deterministic design foundation fixture.
 
 Run the complete foundation verification command before opening a pull request:
 
@@ -28,9 +28,19 @@ pnpm verify
 
 The verification command runs formatting checks, linting, strict TypeScript checking, unit tests, and the production build. Individual commands are also available as `pnpm format`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build`.
 
+## Design foundation
+
+Semantic design tokens live in [`app/tokens.css`](app/tokens.css) and are the single source of truth for colour, typography, spacing, radii, outline weight, elevation, and motion. They are registered in the Tailwind v4 theme, so utilities such as `bg-surface-page`, `text-content-muted`, `rounded-surface`, and `shadow-chunk` are generated from them. No other production source file may declare a raw colour value, and a unit test enforces that rule.
+
+Interface primitives live in [`src/ui`](src/ui): `Button`, `TextField`, `TextAreaField`, `TextLink`, and `Surface`. Class composition is kept in pure functions in `src/ui/styles.ts` so every variant and state is testable without a DOM. Primitives do not accept `className`, `style`, or raw HTML.
+
+Typefaces are vendored locally under [`app/fonts`](app/fonts/README.md) with their SIL Open Font License texts and checksums; the application never requests fonts at runtime.
+
+The route at `/` is a deterministic component fixture, not a product page. It renders the type scale, colour swatches, every button variant and state, field states including error and disabled, links, surface elevations, and the responsive gutter behaviour.
+
 ## Environment
 
-Copy `.env.example` to `.env.local` when local configuration is needed. The foundation reference route does not require environment variables, network access, or service credentials. `RESEND_API_KEY` is server-only and must never be exposed to browser code.
+Copy `.env.example` to `.env.local` when local configuration is needed. The design foundation fixture does not require environment variables, network access, or service credentials. `RESEND_API_KEY` is server-only and must never be exposed to browser code.
 
 Start with:
 

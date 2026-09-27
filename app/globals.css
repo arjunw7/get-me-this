@@ -1,82 +1,40 @@
-:root {
-  --reference-background: #f7f5f1;
-  --reference-foreground: #242321;
-  --reference-surface: #ffffff;
-  --reference-muted: #6b6861;
-  --reference-border: #d9d4ca;
+@import "tailwindcss" source(none);
+@import "./tokens.css";
+
+/* Production sources only. The frozen Magic Patterns export is never scanned. */
+@source "./**/*.{ts,tsx}";
+@source "../src/**/*.{ts,tsx}";
+
+@layer base {
+  html {
+    background-color: var(--color-surface-page);
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-surface-page);
+    color: var(--color-content-primary);
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html {
-  background: var(--reference-background);
-}
-
-body {
-  margin: 0;
-  background: var(--reference-background);
-  color: var(--reference-foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-.reference-page {
-  display: grid;
-  min-height: 100svh;
-  place-items: center;
-  padding: 2rem;
-}
-
-.reference-card {
-  width: min(100%, 42rem);
-  border: 1px solid var(--reference-border);
-  border-radius: 1rem;
-  background: var(--reference-surface);
-  padding: clamp(1.5rem, 4vw, 3rem);
-  box-shadow: 0 1rem 2.5rem rgb(36 35 33 / 8%);
-}
-
-.reference-eyebrow {
-  margin: 0 0 0.75rem;
-  color: var(--reference-muted);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.reference-title {
-  margin: 0;
-  font-size: clamp(2rem, 6vw, 3.5rem);
-  line-height: 1.05;
-}
-
-.reference-description {
-  margin: 1.25rem 0 0;
-  color: var(--reference-muted);
-  font-size: 1.125rem;
-  line-height: 1.6;
-}
-
-.reference-checks {
-  display: grid;
-  gap: 0.75rem;
-  margin: 2rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.reference-check {
-  display: flex;
-  gap: 0.75rem;
-  align-items: baseline;
-  border-top: 1px solid var(--reference-border);
-  padding-top: 0.75rem;
-}
-
-.reference-check::before {
-  content: "✓";
-  color: var(--reference-muted);
-  font-weight: 700;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

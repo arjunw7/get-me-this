@@ -5,5 +5,8 @@ dist/
 node_modules/
 playwright-report/
 test-results/
+docs/delivery/evidence/
 docs/design-reference/baselines/
 docs/design-reference/magic-patterns-v18/source/
+app/fonts/*.woff2
+app/fonts/OFL-*.txt
