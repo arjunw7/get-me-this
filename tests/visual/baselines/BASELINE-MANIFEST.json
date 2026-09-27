@@ -1,9 +1,13 @@
 {
   "version": 1,
-  "approvedBy": "Arjun Wadhwa",
+  "approvedBy": "arjunw7@gmail.com",
   "approvedDate": "2026-09-27",
   "files": {
+    "auth-home-desktop.png": "8dcf72e7eb1907dba3ab1a9f6cc41820aac9d99a4f10ddbffe15198d6967889e",
+    "auth-home-mobile.png": "00a88ab56c4151c9def44c906210cf0f6604183226823f7c90fef82df5164852",
     "fixture-desktop.png": "0a2b6a2ec57b54f1a1ac29a3b1fdc69089d13b96a8239a5bd212d01d30285820",
-    "fixture-mobile.png": "2e54737bf7e9ed5e5973ab417b55830fa76d792404993fea43a1df83e6323cdd"
+    "fixture-mobile.png": "2e54737bf7e9ed5e5973ab417b55830fa76d792404993fea43a1df83e6323cdd",
+    "landing-desktop.png": "de81bef765d1958010bf3b0db4f22bdbf1b14ddb351040413018aba080322f3b",
+    "landing-mobile.png": "73567f36844195a004b58794a30043d1e14ec7f945bcfebe4229dd5199bcce97"
   }
 }
