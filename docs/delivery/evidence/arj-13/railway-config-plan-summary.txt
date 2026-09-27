@@ -29,8 +29,38 @@ output is not committed; this is an allowlisted summary.
     - build.buildCommand: null → "pnpm run build"
     - deploy.healthcheckPath: null → "/health"
     - deploy.startCommand: null → "next start"
-- Nothing has been applied. `railway config apply` awaits explicit
-  approval.
+- Nothing has been applied without approval. The approved in-place updates
+  (build command, start command, `/health` healthcheck) were applied and
+  the post-apply plan was clean.
+
+## Temporary bootstrap healthcheck (documented live-state divergence)
+
+The staging service tracks `main`, which does not yet contain `/health`
+(`/health` exists only on PR #8). After the healthcheck was applied, the
+`main` deployment `2fdb54c4` (commit `c049d79`) FAILED its healthcheck:
+the build and container start succeeded (Railpack resolved the pinned
+Node 24.21.0 and pnpm 10.28.0), but `/health` returned 404 on that commit.
+
+With explicit approval, the live staging healthcheck was temporarily
+changed to `/` (the deterministic, env-var-free fixture route that exists
+on `main`): fresh plan showed 0 add / 0 destroy and exactly one change
+(`/health` → `/`), it was applied, and the replacement `main` deployment
+`02a18edd` (same commit `c049d79`) reached SUCCESS with healthcheck `/`.
+The temporary change was never committed or pushed: the repository's
+`.railway/railway.ts` keeps `healthcheck: "/health"` as the final IaC
+setting, so PR #8 and any future `main` state carry the real endpoint.
+
+**Live state right now:** staging serves healthcheck `/` while `main`
+lacks `/health`. Restoration is a single reverse change (`/` →
+`/health`), planned and applied only after PR #8 merges and `main` is
+confirmed to contain `/health`, requiring 0 add / 0 destroy and no other
+changes.
+
+## Post-apply / restoration status
+
+- Applied and clean: build command, start command, `/health` healthcheck
+  (then temporarily `/` live-only, see above).
+- `railway config apply` of the restoration awaits PR #8 merge.
 
 ## Confirmation
 
