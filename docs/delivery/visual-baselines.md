@@ -40,7 +40,9 @@ viewports.
    ```bash
    node scripts/update-baseline-manifest.mjs
    ```
-   to regenerate the hashes. The script never writes approval fields.
+   to regenerate the hashes. The script cannot approve anything: whenever the
+   hashes change it clears the approval fields, so a previous approval can
+   never authorize new screenshots.
 4. Commit the baselines, the manifest, and the manifest guard test together in
    one reviewable commit.
 

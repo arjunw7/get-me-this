@@ -3,11 +3,12 @@
  * Regenerates the `files` map in tests/visual/baselines/BASELINE-MANIFEST.json
  * from the PNGs currently on disk.
  *
- * This script deliberately cannot approve anything: it never touches the
- * `approvedBy`/`approvedDate` fields. After new screenshots are generated, a
- * human reviewer must inspect them and fill in the approval fields by hand
- * before the manifest and baselines may be committed. See
- * docs/delivery/visual-baselines.md.
+ * This script deliberately cannot approve anything. Whenever the hashes
+ * change (new screenshots, updated screenshots, added or removed entries),
+ * any previous approval is cleared: a stale approval must never authorize
+ * new screenshots. A human reviewer must then inspect the images and fill in
+ * approvedBy/approvedDate by hand before the manifest and baselines may be
+ * committed. See docs/delivery/visual-baselines.md.
  */
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -26,7 +27,11 @@ function pngsUnder(directory) {
     if (entry.isDirectory()) {
       entries.push(...pngsUnder(path));
     } else if (entry.name.endsWith(".png")) {
-      entries.push(path);
+      // Transient Playwright artifacts (-actual/-diff/-previous) are never
+      // part of the recorded baseline set.
+      if (!/-(actual|diff|previous)\.png$/.test(entry.name)) {
+        entries.push(path);
+      }
     }
   }
   return entries;
@@ -41,29 +46,47 @@ if (pngs.length === 0) {
   process.exit(1);
 }
 
-const manifest = exists(manifestPath)
+const previousManifest = exists(manifestPath)
   ? JSON.parse(readFileSync(manifestPath, "utf8"))
   : { version: 1, approvedBy: null, approvedDate: null, files: {} };
 
-manifest.files = Object.fromEntries(
+const newFiles = Object.fromEntries(
   pngs.map((path) => [
     relative(baselinesDir, path),
     createHash("sha256").update(readFileSync(path)).digest("hex"),
   ]),
 );
 
+const hashesChanged = !sameEntries(previousManifest.files, newFiles);
+
+const manifest = {
+  version: 1,
+  approvedBy: hashesChanged ? null : (previousManifest.approvedBy ?? null),
+  approvedDate: hashesChanged ? null : (previousManifest.approvedDate ?? null),
+  files: newFiles,
+};
+
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
-if (!manifest.approvedBy || !manifest.approvedDate) {
-  console.log("Hashes updated. The manifest is NOT approved yet.");
+if (hashesChanged) {
+  console.log("Baseline hashes changed. Any previous approval is cleared.");
   console.log(
-    "A human reviewer must inspect the screenshots and fill in approvedBy/approvedDate by hand.",
+    "The manifest is NOT approved: a human reviewer must inspect the screenshots and fill in approvedBy/approvedDate by hand.",
   );
-  process.exit(0);
+} else {
+  console.log(
+    `Hashes unchanged for ${pngs.length} baseline(s); existing approval fields preserved.`,
+  );
 }
-console.log(
-  `Hashes updated for ${pngs.length} baseline(s); existing approval fields preserved.`,
-);
+
+function sameEntries(a = {}, b = {}) {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+  return aKeys.every((key) => a[key] === b[key]);
+}
 
 function exists(path) {
   try {

@@ -37,7 +37,9 @@ export default defineConfig({
   webServer: {
     command: "pnpm exec next start --port 3100",
     url: "http://127.0.0.1:3100",
-    reuseExistingServer: !process.env.CI,
+    // Never reuse whatever happens to be listening on port 3100: evidence must
+    // come from the application built by this change, not a stale local server.
+    reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [
