@@ -8,7 +8,9 @@ import { defineRailway, github, project, service } from "railway/iac";
 // the Railway dashboard.
 export default defineRailway(() => {
   const web = service("get-me-this", {
-    source: github("arjunw7/get-me-this"),
+    // checkSuites preserves the service's Wait-for-CI setting so the plan
+    // never resets it; the type is ServiceSource.checkSuites (boolean).
+    source: github("arjunw7/get-me-this", { checkSuites: true }),
     build: "pnpm run build",
     start: "next start",
     healthcheck: "/health",
