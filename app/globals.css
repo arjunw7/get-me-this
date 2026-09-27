@@ -38,3 +38,25 @@
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * One-shot reveal used by the landing hero collage (V18 entrance motion,
+ * ported from framer-motion to CSS). The delay is set per element through
+ * --reveal-delay. Reduced motion is already neutralised globally above;
+ * Playwright visual captures additionally disable animations.
+ */
+@keyframes landing-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.landing-reveal {
+  animation: landing-reveal var(--duration-reveal) var(--ease-snap) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}

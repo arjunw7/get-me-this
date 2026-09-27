@@ -30,6 +30,9 @@
   --color-action-primary-strong: #b8321a;
   --color-action-primary-soft: #ffe4db;
 
+  /* Decorative surface treatments derived from the V18 reference */
+  --color-surface-tape: #f3e3b3;
+
   /* Supporting accents, one dominant accent per screen */
   --color-accent-highlight: #ffb320;
   --color-accent-highlight-strong: #7a5000;
@@ -54,6 +57,10 @@
     var(--font-dm-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* Type scale */
+  --text-display-xl: 2.75rem;
+  --text-display-xl--line-height: 0.98;
+  --text-display-xl--letter-spacing: -0.025em;
+  --text-display-xl--font-weight: 800;
   --text-display-lg: 3rem;
   --text-display-lg--line-height: 1.02;
   --text-display-lg--letter-spacing: -0.02em;
@@ -83,11 +90,15 @@
   --spacing-touch-min: 2.75rem;
   --spacing-control-md: 3rem;
   --spacing-control-lg: 3.5rem;
+  /* Narrow reading column for centred single-card screens (V18: 520px) */
+  --spacing-content-max: 32.5rem;
 
   /* Radii */
   --radius-control: 0.75rem;
   --radius-surface: 1rem;
   --radius-surface-lg: 1.5rem;
+  --radius-surface-xl: 1.75rem;
+  --radius-surface-2xl: 2rem;
   --radius-pill: 9999px;
 
   /* Outline weight */
@@ -97,6 +108,9 @@
   --shadow-chunk-sm: 2px 2px 0 0 var(--color-outline-strong);
   --shadow-chunk: 4px 4px 0 0 var(--color-outline-strong);
   --shadow-chunk-lg: 6px 6px 0 0 var(--color-outline-strong);
+  /* Tape's single hairline, outline-strong at 8% (V18: rgba(23,20,15,0.08)) */
+  --shadow-tape: 0 1px 0 0
+    color-mix(in srgb, var(--color-outline-strong) 8%, transparent);
 
   /* Motion, reduced to near-zero under prefers-reduced-motion */
   --ease-snap: cubic-bezier(0.23, 1, 0.32, 1);

@@ -9,7 +9,7 @@ import { expect, test } from "@playwright/test";
 test("renders the deterministic design foundation fixture", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/design-foundation");
 
   await expect(page).toHaveTitle("Get Me This | Design foundation");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");

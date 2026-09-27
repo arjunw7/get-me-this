@@ -19,7 +19,10 @@ import { expect, test } from "@playwright/test";
 test("design foundation fixture is visually stable", async ({
   page,
 }, testInfo) => {
-  await page.goto("/");
+  // Relocated off "/" by ARJ-16 (003a): the landing page owns the root
+  // route now. The fixture renders identically at its new URL, so the
+  // committed baselines must still match with zero pixel diff.
+  await page.goto("/design-foundation");
 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Tokens and primitives",
