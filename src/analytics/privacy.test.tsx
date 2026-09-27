@@ -99,6 +99,7 @@ describe("sanitizeClientEventForSend (before_send)", () => {
         $current_url:
           "https://app.getmethis.test/invite/SECRETTOKEN123?email=user@example.com",
         $pathname: "/invite/SECRETTOKEN123",
+        token: "phc-public-project-token",
         // SDK-enriched pageview properties that must never pass through:
         $initial_current_url:
           "https://app.getmethis.test/invite/SECRETTOKEN123?otp=123456",
@@ -122,6 +123,9 @@ describe("sanitizeClientEventForSend (before_send)", () => {
       properties: {
         $current_url: "https://app.getmethis.test/invite/:token",
         $pathname: "/invite/:token",
+        // The SDK-required public ingest token survives (see the dedicated
+        // required-property test below); nothing else does.
+        token: "phc-public-project-token",
       },
     });
     expect(JSON.stringify(result)).not.toContain("SECRETTOKEN123");
@@ -135,6 +139,7 @@ describe("sanitizeClientEventForSend (before_send)", () => {
       properties: {
         $current_url: `https://app.getmethis.test/groups/${GROUP_UUID}?note=SECRETTOKEN`,
         $pathname: `/groups/${GROUP_UUID}`,
+        token: "phc-public-project-token",
         $initial_pathname: `/groups/${GROUP_UUID}`,
         $referrer: "https://evil.example/?utm_source=arjun",
         $raw_event_path: `/groups/${GROUP_UUID}`,
@@ -143,6 +148,7 @@ describe("sanitizeClientEventForSend (before_send)", () => {
     expect(result?.properties).toEqual({
       $current_url: "https://app.getmethis.test/groups/:groupId",
       $pathname: "/groups/:groupId",
+      token: "phc-public-project-token",
     });
   });
 
@@ -155,6 +161,7 @@ describe("sanitizeClientEventForSend (before_send)", () => {
       "$dead_click",
       "$rageclick",
       "$heatmap",
+      "$set",
     ]) {
       expect(
         sanitizeClientEventForSend({
@@ -163,11 +170,152 @@ describe("sanitizeClientEventForSend (before_send)", () => {
         }),
       ).toBeNull();
     }
+  });
 
-    for (const approved of ["$identify", "$opt_in", "$opt_out"]) {
-      const event = { event: approved, properties: { benign: true } };
-      expect(sanitizeClientEventForSend(event)).toEqual(event);
+  it("allows only the minimum pinned-SDK properties on identity and consent events", () => {
+    // $identify: exactly the anonymous→authenticated transition fields.
+    const identify = sanitizeClientEventForSend({
+      event: "$identify",
+      properties: {
+        distinct_id: USER_UUID,
+        $anon_distinct_id: "0199aaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        token: "phc-public-project-token",
+        // Anything beyond the minimum the pinned SDK requires is dropped:
+        $current_url: "https://app.example?invite=SECRETTOKEN123",
+        $referrer: "https://evil.example/?otp=123456",
+        email: "user@example.com",
+        otp: "123456",
+      },
+    });
+    expect(identify).toEqual({
+      event: "$identify",
+      properties: {
+        distinct_id: USER_UUID,
+        $anon_distinct_id: "0199aaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        token: "phc-public-project-token",
+      },
+    });
+
+    // $opt_in / $opt_out: the boundary calls them with no properties, and
+    // nothing else may ride along.
+    for (const consentEvent of ["$opt_in", "$opt_out"]) {
+      const consent = sanitizeClientEventForSend({
+        event: consentEvent,
+        properties: {
+          token: "phc-public-project-token",
+          $current_url: "https://app.example?invite=SECRETTOKEN123",
+          $referrer: "https://evil.example/?otp=123456",
+          anything: "SECRETTOKEN123",
+        },
+      });
+      expect(consent).toEqual({
+        event: consentEvent,
+        properties: { token: "phc-public-project-token" },
+      });
     }
+  });
+
+  it("proves raw URL, referrer, and OTP values cannot leave on ANY approved event type", () => {
+    const contaminated = {
+      $current_url: "https://app.example?invite=SECRETTOKEN123",
+      $initial_current_url: "https://app.example?otp=123456",
+      $referrer: "https://evil.example/?otp=123456&email=user@example.com",
+      $raw_event_path: "/invite/SECRETTOKEN123",
+      otp: "123456",
+      secret: "SECRETTOKEN123",
+    };
+    for (const eventName of [
+      "$pageview",
+      "$pageleave",
+      "$autocapture",
+      "$copy_autocapture",
+      "$identify",
+      "$opt_in",
+      "$opt_out",
+    ]) {
+      const result = sanitizeClientEventForSend({
+        event: eventName,
+        properties: { ...contaminated },
+      });
+      const serialized = JSON.stringify(result);
+      for (const secret of [
+        "SECRETTOKEN123",
+        "123456",
+        "user@example.com",
+        "evil.example",
+      ]) {
+        // "$pageleave" only ever carries the sanitized template, so the
+        // serialized event can never contain any injected secret.
+        expect(serialized, `${eventName} leaked "${secret}"`).not.toContain(
+          secret,
+        );
+      }
+      const emittedKeys = Object.keys(
+        (result as { properties: Record<string, unknown> }).properties,
+      );
+      for (const key of emittedKeys) {
+        expect(
+          [
+            "$current_url",
+            "$pathname",
+            "$event_type",
+            "$el_tag_name",
+            "distinct_id",
+            "$anon_distinct_id",
+            "token",
+          ],
+          `${eventName} emitted unapproved property "${key}"`,
+        ).toContain(key);
+      }
+    }
+  });
+
+  it("preserves the SDK-required public ingest token so the SDK does not drop sanitized events", () => {
+    // The pinned SDK snapshots required properties (knownUnsafeEditableEvent
+    // Property: exactly ["token"]) before before_send hooks run and drops
+    // the ENTIRE event when a hook removes one. The ingest token is the
+    // public NEXT_PUBLIC_* project token — not a secret — and must survive.
+    for (const eventName of [
+      "$pageview",
+      "$pageleave",
+      "$autocapture",
+      "$identify",
+      "$opt_in",
+    ]) {
+      const result = sanitizeClientEventForSend({
+        event: eventName,
+        properties: { token: "phc-public-project-token", $event_type: "click" },
+      });
+      expect(
+        result?.properties?.token,
+        `${eventName} lost the required token`,
+      ).toBe("phc-public-project-token");
+    }
+    // Absent or nullish tokens are not invented.
+    for (const token of [undefined, null]) {
+      const result = sanitizeClientEventForSend({
+        event: "$pageview",
+        properties: { token: token as string | null | undefined },
+      });
+      expect(result?.properties?.token).toBeUndefined();
+    }
+  });
+
+  it("drops a root-query invitation token from a queryless-path URL (URL API regression)", () => {
+    const result = sanitizeClientEventForSend({
+      event: "$pageview",
+      properties: {
+        $current_url: "https://app.example?invite=SECRETTOKEN123",
+      },
+    });
+    expect(result).toEqual({
+      event: "$pageview",
+      properties: {
+        $current_url: "https://app.example/",
+        $pathname: "/",
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("SECRETTOKEN123");
   });
 
   it("reduces autocapture events to the approved property allowlist", () => {
@@ -176,7 +324,10 @@ describe("sanitizeClientEventForSend (before_send)", () => {
       properties: {
         $event_type: "click",
         $el_tag_name: "a",
-        $el_classes: ["link", "btn"],
+        // Class values are unbounded strings that could carry names or
+        // tokens; no static class vocabulary is approved, so they are
+        // dropped outright.
+        $el_classes: ["user-arjun-wadhwa", "invite-SECRETTOKEN123", "btn"],
         // Prohibited classes that must never leave the browser:
         $el_text: "Arjun Wadhwa's wishlist note",
         $el_href: "https://store.example.com/products/SECRETSLUG",
@@ -191,7 +342,6 @@ describe("sanitizeClientEventForSend (before_send)", () => {
       properties: {
         $event_type: "click",
         $el_tag_name: "a",
-        $el_classes: ["link", "btn"],
       },
     });
   });

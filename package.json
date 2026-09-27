@@ -16,6 +16,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "pnpm build && pnpm exec playwright test tests/e2e",
+    "test:analytics": "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=phc-fixture-token NEXT_PUBLIC_POSTHOG_HOST=http://127.0.0.1:3100/analytics-fixture pnpm build && pnpm exec playwright test tests/analytics --project=desktop",
     "test:visual": "pnpm build && pnpm exec playwright test tests/visual",
     "test:db": "supabase test db --local",
     "db:start": "supabase start",

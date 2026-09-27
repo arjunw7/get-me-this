@@ -42,9 +42,7 @@ function pathnameOf(value: string): string {
   }
   const withoutQuery = value.split("?")[0].split("#")[0];
   return withoutQuery;
-}
-
-/** Normalizes a concrete path or URL to its approved route template. */
+} /** Normalizes a concrete path or URL to its approved route template. */
 export function sanitizeRoutePath(value: string): string {
   const rawPath = pathnameOf(value);
   const segments = rawPath.split("/").filter((segment) => segment.length > 0);
@@ -73,45 +71,56 @@ export function sanitizeRouteUrl(url: string, origin: string): string {
   return `${origin.replace(/\/$/, "")}${sanitizeRoutePath(url)}`;
 }
 
-/** Extracts the scheme and authority (`https://app.example.com`) from a URL. */
-function originOf(url: string): string {
-  const schemeIndex = url.indexOf("://");
-  if (schemeIndex < 0) {
-    return "";
+/**
+ * Sanitizes an absolute URL using the URL API: origin from the parsed URL
+ * (never a string slice, which would retain query parameters like
+ * `?invite=SECRETTOKEN123` in a queryless-path URL) plus the approved route
+ * template for its pathname. Query strings and fragments never survive.
+ * Relative or malformed input reduces to the route template alone.
+ */
+export function sanitizeAbsoluteUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${sanitizeRoutePath(parsed.pathname)}`;
+  } catch {
+    return sanitizeRoutePath(url);
   }
-  const authority = url.slice(schemeIndex + 3).split("/")[0];
-  return url.slice(0, schemeIndex + 3) + authority;
 }
 
 /**
- * The only autocapture properties that may leave the browser. Everything
- * else — element text, hrefs, attributes, form values, ids — is dropped.
- * (Element text and attributes are additionally masked inside the SDK via
- * maskAllText/maskAllElementAttributes; this allowlist is defense in depth.)
+ * The only properties allowed per approved client event name. Everything
+ * else an SDK event might carry — element text, hrefs, attributes, class
+ * values, URLs, referrers, form values — is dropped.
+ *
+ * - `$autocapture`/`$copy_autocapture`: `$el_classes` is NOT allowlisted
+ *   (class values are unbounded strings that could contain names or
+ *   tokens, and no static class vocabulary is approved yet). `$el_tag_name`
+ *   is bounded by the autocapture `element_allowlist`
+ *   (`a|button|form|label|select`) configured in src/analytics/client.ts.
+ * - `$identify`: the minimum the pinned SDK requires for the
+ *   anonymous→authenticated transition (`distinct_id` and
+ *   `$anon_distinct_id`); person properties travel in `$set`/`$set_once`
+ *   capture options, which this application never populates.
+ * - `$opt_in`/`$opt_out`: the pinned SDK attaches only caller-supplied
+ *   capture properties, and this boundary calls them with none.
  */
-const AUTOCAPTURE_ALLOWED_PROPERTIES: readonly string[] = [
-  "$event_type",
-  "$el_tag_name",
-  "$el_classes",
-];
+const APPROVED_EVENT_PROPERTIES: Record<string, readonly string[]> = {
+  $autocapture: ["$event_type", "$el_tag_name"],
+  $copy_autocapture: ["$event_type", "$el_tag_name"],
+  $identify: ["distinct_id", "$anon_distinct_id"],
+  $opt_in: [],
+  $opt_out: [],
+};
 
 /**
- * The only client event names this application approves. posthog-js can
- * automatically generate other event types; anything not on this list is
- * dropped in before_send rather than passed through. ($pageleave is in the
- * approved set only so the SDK's own pageleave could never leak a raw URL —
- * the client lane itself disables automatic pageleave capture and emits no
- * pageleave of its own.)
+ * Properties the pinned SDK requires on every event for ingestion. The
+ * SDK snapshots these before `before_send` hooks run and drops the whole
+ * event with a warning when a hook removes one (a scrubber matching
+ * /token/i is the documented example). `token` is the public client
+ * ingest token (NEXT_PUBLIC_*), never a secret, and must survive
+ * sanitization.
  */
-const APPROVED_CLIENT_EVENT_NAMES: readonly string[] = [
-  "$pageview",
-  "$pageleave",
-  "$autocapture",
-  "$copy_autocapture",
-  "$identify",
-  "$opt_in",
-  "$opt_out",
-];
+const SDK_REQUIRED_EVENT_PROPERTIES: readonly string[] = ["token"];
 
 type ClientEvent = {
   readonly event?: string;
@@ -125,8 +134,9 @@ type ClientEvent = {
  * nothing else — so PostHog-enriched pageview properties
  * ($initial_current_url, $initial_pathname, $initial_referrer, $referrer,
  * $raw_event_path, query/UTM/attribution properties, and any other
- * URL-like SDK property) can never pass through. Unknown client event
- * names are dropped.
+ * URL-like SDK property) can never pass through. Every other approved
+ * event keeps only its allowlisted properties; unknown client event names
+ * are dropped.
  */
 export function sanitizeClientEventForSend<T extends ClientEvent | null>(
   event: T,
@@ -137,46 +147,72 @@ export function sanitizeClientEventForSend<T extends ClientEvent | null>(
 
   const eventName = event.event;
 
-  // Unknown client event names are dropped unless explicitly approved.
-  if (
-    typeof eventName !== "string" ||
-    !APPROVED_CLIENT_EVENT_NAMES.includes(eventName)
-  ) {
-    return null as T;
-  }
-
   if (eventName === "$pageview" || eventName === "$pageleave") {
     const currentUrl =
       typeof event.properties?.$current_url === "string"
         ? event.properties.$current_url
         : "/";
     // The emitted properties are ONLY the sanitized route template and the
-    // derived current URL; every SDK-enriched pageview property
-    // ($initial_*, $referrer, $raw_event_path, UTM/attribution, …) is
-    // discarded here, never filtered selectively.
+    // derived current URL (plus SDK-required ingestion properties); every
+    // SDK-enriched pageview property ($initial_*, $referrer,
+    // $raw_event_path, UTM/attribution, …) is discarded here, never
+    // filtered selectively.
     return {
       ...event,
       properties: {
-        $current_url: sanitizeRouteUrl(currentUrl, originOf(currentUrl)),
+        $current_url: sanitizeAbsoluteUrl(currentUrl),
         $pathname: sanitizeRoutePath(currentUrl),
+        ...preserveRequiredSdkProperties(event.properties),
       },
     };
   }
 
-  if (eventName === "$autocapture" || eventName === "$copy_autocapture") {
-    const properties = { ...(event.properties ?? {}) };
-    const allowed: Record<string, unknown> = {};
-    for (const key of AUTOCAPTURE_ALLOWED_PROPERTIES) {
-      if (key in properties) {
-        allowed[key] = properties[key];
-      }
-    }
-    return { ...event, properties: allowed };
+  // Unknown client event names are dropped unless explicitly approved.
+  const approvedProperties =
+    typeof eventName === "string"
+      ? APPROVED_EVENT_PROPERTIES[eventName]
+      : undefined;
+  if (!approvedProperties) {
+    return null as T;
   }
 
-  // $identify, $opt_in, $opt_out are SDK identity/consent bookkeeping; they
-  // carry no user content in this application and pass through unchanged.
-  return { ...event, properties: { ...(event.properties ?? {}) } };
+  // Every other approved event keeps only its allowlisted properties;
+  // anything the SDK or a caller added beyond the allowlist is dropped.
+  const properties = { ...(event.properties ?? {}) };
+  const allowed: Record<string, unknown> = {};
+  for (const key of approvedProperties) {
+    if (key in properties) {
+      allowed[key] = properties[key];
+    }
+  }
+  return {
+    ...event,
+    properties: {
+      ...allowed,
+      ...preserveRequiredSdkProperties(event.properties),
+    },
+  };
+}
+
+/**
+ * Copies the SDK-required ingestion properties (only those actually
+ * present and non-nullish) into the sanitized property set so the pinned
+ * SDK does not drop the event outright.
+ */
+function preserveRequiredSdkProperties(
+  originalProperties: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  const preserved: Record<string, unknown> = {};
+  if (!originalProperties) {
+    return preserved;
+  }
+  for (const key of SDK_REQUIRED_EVENT_PROPERTIES) {
+    const value = originalProperties[key];
+    if (value !== undefined && value !== null) {
+      preserved[key] = value;
+    }
+  }
+  return preserved;
 }
 
 /**

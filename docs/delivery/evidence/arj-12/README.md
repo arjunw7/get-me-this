@@ -38,10 +38,11 @@ Entry points inspected from the installed packages at implementation time:
 | File | Contents |
 | --- | --- |
 | `verify-pass.txt` | Full `pnpm verify` (format:check, lint, typecheck, unit tests, production build) passing. |
-| `unit-tests.txt` | The unit suite detail: 107 tests across 14 files, including the analytics boundary matrices. |
+| `unit-tests.txt` | The unit suite detail: 120 tests across 14 files, including the analytics boundary matrices. |
 | `tests-fail-without-implementation.txt` | The analytics test files run with the implementation sources removed: 7 of 8 files fail, proving the tests would fail without the implementation; sources restored afterwards. |
 | `no-network-proof.txt` | How the no-network property is proven: SDKs mocked before initialization, every browser transport (fetch, XHR, sendBeacon, image beacons) stubbed to fail, and the unconfigured lanes constructing nothing. |
 | `browser-suites.txt` | `pnpm test:e2e` (10 passed, including the integration-level `instrumentation-hook.spec.ts` Next.js hook-discovery checks) and `pnpm test:visual` (2 passed) demonstrating the visually unchanged result; no baseline files changed. |
+| `behavioral-navigation.txt` | `pnpm test:analytics`: the behavioral navigation suite over the production bundle and the real SDK transport, including the on-the-wire pageview property allowlist and the no-external-host proof. |
 | `type-level-boundary.txt` | The `tsc --noEmit` output passing with the `@ts-expect-error` boundary tests active against the real `ServerAnalytics.capture()` surface, plus the compiled failure demonstration. |
 
 ## Independent-review fixes (round 1)
@@ -72,6 +73,56 @@ The five blocking review findings were fixed on this branch:
    host-only, and neither all return the true no-op adapter); identity
    context is runtime-validated as UUIDs with a safe `invalid-context`
    failure that never reaches PostHog.
+
+## Independent-review fixes (round 2)
+
+The second re-review round fixed three further privacy findings in
+`sanitizeClientEventForSend` and strengthened verification:
+
+1. **Root-query URL token leak** — URLs are now sanitized through the URL
+   API (`sanitizeAbsoluteUrl`): the origin is taken from `parsed.origin`
+   and the path from the parsed pathname (never string slicing), so a URL
+   like `https://app.example?invite=SECRETTOKEN123` — a bare query with no
+   path — can no longer pass a query string through to `$current_url`.
+   Regression-tested.
+2. **`$el_classes` forwarded verbatim** — autocapture events are reduced to
+   `$event_type` and `$el_tag_name` only; `$el_classes` (which could carry
+   attacker-chosen class-name strings) is dropped. Tested with class values
+   containing names and token-like strings.
+3. **Minimum pinned-SDK property allowlists** — `$identify` transports only
+   `distinct_id` and `$anon_distinct_id`; `$opt_in`/`$opt_out` transport no
+   event properties of their own; every other SDK- or caller-added property
+   is dropped; and a cross-event test proves no raw URL, referrer, or OTP
+   value can leave on ANY approved event type.
+4. **SDK-required property preserved** — the pinned SDK snapshots required
+   event properties (exactly `token`) before `before_send` hooks run and
+   drops the entire event when a hook removes one. The sanitizer therefore
+   preserves the public `NEXT_PUBLIC_*` ingest token (never a secret) while
+   still reducing everything else to the allowlist. This contract is
+   regression-tested and was verified against the real SDK's documented
+   behavior in its installed source.
+5. **Behavioral browser navigation test** —
+   `tests/analytics/analytics-navigation.spec.ts` (run via
+   `pnpm test:analytics`) builds the production bundle with synthetic
+   fixture env (`phc-fixture-token` + a local fixture endpoint), intercepts
+   every request locally, and asserts over the real network transport of
+   the real bundled SDK: exactly one sanitized initial `$pageview` for "/",
+   nothing further for a same-template internal Link click, one pageview
+   for a second route load and browser back navigation, an on-the-wire
+   property allowlist (`$current_url`, `$pathname`, `token` only), no
+   query strings in `$current_url`, and zero requests to any non-app host.
+   Clearing the headless-browser automation markers (`navigator.webdriver`,
+   the `HeadlessChrome` UA brand) is a documented test-environment
+   accommodation: the pinned SDK's bot filter silently drops all events for
+   automated browsers otherwise. The shipped application configuration is
+   unchanged.
+6. **Initial-pageview timing fix** — `initClientAnalytics()` applied
+   consent and captured the initial pageview immediately after
+   `sdk.init()` returned, but the pinned SDK completes initialization
+   asynchronously and silently drops events until its request queue exists.
+   Consent application and the initial pageview now happen in the SDK's
+   supported `loaded` callback; unit tests invoke the callback the same
+   way the real SDK does.
 
 ## Acceptance criteria coverage
 

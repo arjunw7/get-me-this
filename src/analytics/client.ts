@@ -250,18 +250,24 @@ export async function initClientAnalytics(): Promise<boolean> {
 
     // Route templates are the only URLs that may ever leave the browser.
     before_send: [sanitizeClientEventForSend],
+
+    // The pinned SDK completes its initialization asynchronously after
+    // init() returns: `capture` silently drops events until the request
+    // queue exists. Consent is therefore applied and the initial pageview
+    // captured from the supported `loaded` callback, which runs once the
+    // SDK is actually ready to transport events.
+    loaded: (instance) => {
+      initialized = true;
+      if (getAnalyticsConsent() === "granted") {
+        instance.opt_in_capturing();
+        // Initial pageview: emitted exactly once, after asynchronous
+        // initialization completes, for the route the browser is on.
+        captureSanitizedPageview(window.location.pathname);
+      }
+    },
   };
 
   sdk.init(config.token, initOptions);
-
-  initialized = true;
-
-  if (getAnalyticsConsent() === "granted") {
-    sdk.opt_in_capturing();
-    // Initial pageview: emitted once, after the asynchronous SDK
-    // initialization has completed, for the route the browser is on.
-    captureSanitizedPageview(window.location.pathname);
-  }
 
   return true;
 }

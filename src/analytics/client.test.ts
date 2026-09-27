@@ -88,6 +88,14 @@ describe("client analytics lane", () => {
     window.localStorage.clear();
     vi.resetModules();
     posthogMock.init.mockClear();
+    // Mirror the real SDK: the `loaded` config callback runs when (async)
+    // initialization completes, before any capture can be transported.
+    posthogMock.init.mockImplementation(((
+      _token: string,
+      config?: { loaded?: (instance: unknown) => void },
+    ) => {
+      config?.loaded?.(posthogMock);
+    }) as typeof posthogMock.init);
     posthogMock.capture.mockClear();
     posthogMock.identify.mockClear();
     posthogMock.alias.mockClear();
