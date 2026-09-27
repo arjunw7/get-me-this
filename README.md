@@ -133,5 +133,3 @@ Delivery and measurement:
 - [`docs/delivery/issues/`](docs/delivery/issues/)
 
 The application foundation is intentionally smaller than the final product. Product behavior, authentication, database access, analytics, and final design primitives will be added in later approved issues.
-
-CI blocking proof: this line deliberately introduces a trailing-whitespace formatting violation so the required check fails and blocks merging (ARJ-13 evidence).  
