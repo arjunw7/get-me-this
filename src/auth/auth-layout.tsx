@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { cx } from "@/src/ui/styles";
+import { cx, OUTLINE_WIDTH } from "@/src/ui/styles";
 
 import { ArrowLeftIcon } from "@/src/landing/icons";
 import { Wordmark } from "@/src/landing/wordmark";
@@ -45,7 +45,11 @@ export const authCardClassName =
   "rounded-surface-xl border-2 border-outline-strong bg-surface-raised p-6 shadow-chunk sm:p-8";
 
 /**
- * Email-input treatment at the reference's larger control height.
+ * Email-input treatment, matched to the reference's `inputCls`
+ * (V18: h-14, rounded-2xl, 2px solid border, white fill): the height maps
+ * to h-control-lg and the 2px outline to the shared border-strong width.
+ * The radius is the 1rem surface step, one above the 0.75rem control
+ * radius, exactly as the reference renders this control.
  *
  * Unlike the prototype's `outline-none`, the global :focus-visible ring is
  * preserved: production accessibility takes precedence over prototype
@@ -54,7 +58,8 @@ export const authCardClassName =
  */
 export function authInputClassName(options: { invalid: boolean }) {
   return cx(
-    "mt-1.5 block h-control-lg w-full rounded-control pl-12 pr-4",
+    "mt-1.5 block h-control-lg w-full rounded-surface pl-12 pr-4",
+    OUTLINE_WIDTH,
     "text-body text-content-primary placeholder:text-content-muted",
     "transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm",
     options.invalid

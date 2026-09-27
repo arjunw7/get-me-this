@@ -12,7 +12,9 @@ export type SurfaceTone = "raised" | "sunken" | "accent";
 export type SurfaceElevation = "none" | "sm" | "md" | "lg";
 export type SurfacePadding = "none" | "comfortable";
 
-const OUTLINE_WIDTH = "border-[length:var(--border-strong)]";
+// Exported for the auth module, which composes reference-exact controls
+// (V18 renders the auth email input with a 2px outline).
+export const OUTLINE_WIDTH = "border-[length:var(--border-strong)]";
 const OUTLINE = cx(OUTLINE_WIDTH, "border-outline-strong");
 const PRESS_MOTION =
   "transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap";
