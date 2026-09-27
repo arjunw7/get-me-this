@@ -35,15 +35,16 @@ viewports.
    ```
 2. **Pause.** Present the candidate images (mobile and desktop) to the human
    product/design reviewer. Candidates are never committed before approval.
-3. After approval, the **human reviewer** (not an agent) fills in
-   `approvedBy` and `approvedDate` in `BASELINE-MANIFEST.json`, then:
+3. Regenerate the hashes:
    ```bash
    node scripts/update-baseline-manifest.mjs
    ```
-   to regenerate the hashes. The script cannot approve anything: whenever the
-   hashes change it clears the approval fields, so a previous approval can
-   never authorize new screenshots.
-4. Commit the baselines, the manifest, and the manifest guard test together in
+   The script cannot approve anything: whenever the hashes change it clears
+   the approval fields, so a previous approval can never authorize new
+   screenshots.
+4. After approval, the **human reviewer** (not an agent) fills in `approvedBy`
+   and `approvedDate` in `BASELINE-MANIFEST.json` by hand.
+5. Commit the baselines, the manifest, and the manifest guard test together in
    one reviewable commit.
 
 ## Updating baselines after an approved change
@@ -52,9 +53,9 @@ viewports.
 2. Generate new candidates with `--update-snapshots`.
 3. Present the old and new images to the human reviewer at the same viewport,
    route, and fixture state.
-4. On approval, the human fills in the approval fields, the hashes are
-   regenerated with the script, and the diff (image and manifest) is committed
-   and reviewed.
+4. On approval, regenerate the hashes with the script (which clears the
+   previous approval), then the human fills in the approval fields by hand,
+   and the diff (image and manifest) is committed and reviewed.
 
 ## What agents may not do
 
