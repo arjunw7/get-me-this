@@ -3,7 +3,15 @@
 .env.*
 !.env.example
 .next/
+next-env.d.ts
+dist/
+build/
 node_modules/
+.pnpm-store/
+.eslintcache
+*.tsbuildinfo
+.vscode/
+.idea/
 playwright-report/
 test-results/
 coverage/
