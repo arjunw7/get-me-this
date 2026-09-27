@@ -138,7 +138,8 @@ export const demoGroup = {
   name: "Santa Party 🎉",
   meta: "Sat, 7 Nov · 5 friends",
   budgetDisplay: "₹2,500 each",
-  ariaLabel: "Example group: Diwali Scenes",
+  // The figure's accessible name must match its visible name.
+  ariaLabel: "Santa Party 🎉",
 } as const;
 
 export const heroBubbles = [

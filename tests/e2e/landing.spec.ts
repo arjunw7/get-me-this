@@ -34,6 +34,11 @@ test("renders the approved landing hierarchy", async ({ page }) => {
   // Approved terminology only.
   const body = await page.locator("body").innerText();
   expect(body).not.toMatch(/shelfie|circle/i);
+
+  // The demo group figure's accessible name matches its visible name.
+  await expect(
+    page.getByRole("figure", { name: "Santa Party 🎉" }),
+  ).toBeVisible();
 });
 
 test("anchor navigation scrolls to its section", async ({ page }, testInfo) => {
@@ -88,6 +93,13 @@ test.describe("landing CTA click-through", () => {
 test("email entry validates before any submission state", async ({ page }) => {
   await page.goto("/auth");
 
+  // The pre-submit helper text is honest: no delivery or sign-in promise.
+  await expect(
+    page.getByText(
+      "No password. This static preview doesn’t send email or sign anyone in.",
+    ),
+  ).toBeVisible();
+
   const email = page.getByLabel("Email");
   const submit = page.getByRole("button", { name: "Continue with email" });
 
@@ -129,10 +141,8 @@ test("every interactive control is keyboard reachable with a visible focus ring"
     browserName !== "chromium",
     "focus-visible behaviour is asserted in Chromium, the approved evidence engine",
   );
-  test.skip(
-    (testInfo.project.use.viewport?.width ?? 0) < 768,
-    "the anchor nav is hidden on mobile in the approved design; touch targets cover the rest",
-  );
+
+  const isDesktop = (testInfo.project.use.viewport?.width ?? 0) >= 768;
 
   await page.goto("/");
 
@@ -150,12 +160,16 @@ test("every interactive control is keyboard reachable with a visible focus ring"
   }
 
   const focused = focusedLabels.join("\n");
-  // Wordmark, nav links, Log in, and both hero CTAs are reachable.
+  // Controls visible at every viewport: wordmark (home), Log in, and both
+  // hero CTAs must be keyboard reachable with the focus ring.
   expect(focused).toMatch(/Get Me\s*This\|solid/);
-  expect(focused).toContain("How it works|solid");
   expect(focused).toContain("Log in|solid");
   expect(focused).toContain("Start my wishlist|solid");
   expect(focused).toContain("Create a group|solid");
+  // The anchor nav is hidden below md in the approved design; desktop only.
+  if (isDesktop) {
+    expect(focused).toContain("How it works|solid");
+  }
 
   // Keyboard activation reaches the destination, not just focus.
   await page.getByRole("link", { name: "Start my wishlist" }).first().focus();

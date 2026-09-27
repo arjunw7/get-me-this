@@ -71,6 +71,11 @@ describe("landing content", () => {
 });
 
 describe("deterministic demo data", () => {
+  it("keeps the demo group's accessible name identical to its visible name", () => {
+    expect(demoGroup.name).toBe("Santa Party 🎉");
+    expect(demoGroup.ariaLabel).toBe(demoGroup.name);
+  });
+
   it("renders exact approved price strings without computing conversion", () => {
     expect(demoProducts["a-matcha"].priceDisplay).toBe("₹2,450");
     expect(demoProducts["k-kettle"].priceDisplay).toBe("₹2,350");

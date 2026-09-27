@@ -4,6 +4,7 @@ import { useId, useState, type FormEvent } from "react";
 
 import { buttonClassName, cx } from "@/src/ui/styles";
 import { ArrowRightIcon, MailIcon } from "@/src/landing/icons";
+import { emailHelpText, previewNotice } from "./copy";
 import {
   authCardClassName,
   authInputClassName,
@@ -16,10 +17,11 @@ import {
  *
  * STATIC PREVIEW BOUNDARY: this slice has no backend. Client-side
  * validation works exactly as designed; a valid submission performs no
- * navigation and sends nothing. Instead of the prototype's fake
- * "Sending…" delay and silent redirect, it reveals an explicit notice
- * that this preview sends no email and signs nobody in — a small,
- * documented copy difference from V18 (approved for this slice).
+ * navigation and sends nothing. No copy on this screen promises a code or
+ * a sign-in: the helper text and empty-email error are neutral, and a
+ * valid submit reveals the explicit preview notice (src/auth/copy.ts).
+ * These are documented copy differences from V18 (approved for this
+ * slice).
  *
  * 003b expands this screen with the intent variants and wires the real
  * verification flow (Phase 3 adds Supabase + Resend delivery).
@@ -27,11 +29,9 @@ import {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const EMPTY_EMAIL_ERROR = "Enter your email so we know where to send the code.";
+// No delivery promise anywhere: the static slice sends nothing.
+const EMPTY_EMAIL_ERROR = "Enter your email to continue.";
 const INVALID_EMAIL_ERROR = "That email looks a little off. Check for typos?";
-
-export const previewNotice =
-  "Preview only — this static preview doesn’t send email or sign you in yet.";
 
 type FormState =
   { kind: "idle" } | { kind: "error"; message: string } | { kind: "preview" };
@@ -122,7 +122,7 @@ export function EmailEntryForm() {
             <ArrowRightIcon className="h-5 w-5" />
           </button>
           <p id={helpId} className="text-center text-sm text-content-muted">
-            No password. We’ll send you a secure code and sign-in link.
+            {emailHelpText}
           </p>
         </form>
       </div>
