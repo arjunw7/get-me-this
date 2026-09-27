@@ -24,9 +24,9 @@ const bodyFont = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Get Me This | Design foundation",
+  title: "Get Me This | Group wishlists for every occasion",
   description:
-    "Deterministic fixture for the Get Me This design tokens and interface primitives.",
+    "Save what you want, share it with your people, and give without guessing.",
 };
 
 export default function RootLayout({

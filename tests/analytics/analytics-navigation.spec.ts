@@ -203,18 +203,22 @@ test.describe("client analytics lane: behavioral navigation", () => {
       window.localStorage.setItem("gmt:analytics:consent", "granted");
     });
 
-    // 1. Initial load of the second route (the app's not-found page): exactly
-    //    one pageview for its sanitized template, once the SDK's asynchronous
-    //    initialization has completed (the loaded-callback contract).
-    const onboardingPageviews = () =>
+    // 1. Initial load of a nonexistent route (the app's not-found page):
+    //    exactly one pageview for its sanitized template, once the SDK's
+    //    asynchronous initialization has completed (the loaded-callback
+    //    contract). A stable nonexistent path is used on purpose: /onboarding
+    //    becomes a real route in 003b and must not be a not-found stand-in.
+    //    An unlisted path is sanitized to the opaque "/:unlisted" template —
+    //    the raw segment must never leave the browser, which step 5 asserts.
+    const notFoundPageviews = () =>
       pageviewEvents
         .map(pageviewOf)
-        .filter((event) => event.pathname === "/onboarding");
-    await page.goto("/onboarding");
+        .filter((event) => event.pathname === "/:unlisted");
+    await page.goto("/this-route-does-not-exist");
     await expect
-      .poll(() => onboardingPageviews().length, {
+      .poll(() => notFoundPageviews().length, {
         message:
-          "expected exactly one sanitized initial $pageview for /onboarding",
+          "expected exactly one sanitized initial $pageview for the not-found route",
       })
       .toBe(1);
 
@@ -227,9 +231,9 @@ test.describe("client analytics lane: behavioral navigation", () => {
     });
 
     // 2. A real client-side Next Link transition to a DIFFERENT route: the
-    //    not-found page's internal link home. The router hook must fire and
-    //    the transition must transport exactly one sanitized $pageview for
-    //    the new template.
+    //    not-found page's "Back to home" link, now pointing at the landing
+    //    page ("/"). The router hook must fire and the transition must
+    //    transport exactly one sanitized $pageview for the new template.
     await page.click('a[href="/"]');
     const homePageviews = () =>
       pageviewEvents.map(pageviewOf).filter((event) => event.pathname === "/");
@@ -256,13 +260,13 @@ test.describe("client analytics lane: behavioral navigation", () => {
     expect(homePageviews()).toHaveLength(1);
 
     // 4. A browser back navigation re-emits the pageview for the restored
-    //    /onboarding template exactly once (with the static prerender the
-    //    pop performs a document load, so this exercises the initial-pageview
+    //    not-found template exactly once (with the static prerender the pop
+    //    performs a document load, so this exercises the initial-pageview
     //    path of the restored route; the client-side transition path is
     //    covered by step 2).
     await page.evaluate(() => history.back());
     await page.waitForTimeout(5_000);
-    expect(onboardingPageviews()).toHaveLength(2);
+    expect(notFoundPageviews()).toHaveLength(2);
 
     // 5. Privacy shape of every transported pageview.
     for (const captured of pageviewEvents.map(pageviewOf)) {

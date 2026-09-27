@@ -1,0 +1,41 @@
+/* eslint-disable @next/next/no-img-element -- local deterministic demo
+   assets served from public/; see src/landing/hero-collage.tsx for the
+   rationale. */
+
+import { Avatar } from "@/src/landing/avatar";
+import { demoPeople } from "@/src/landing/demo-data";
+import { Tape } from "@/src/landing/tape";
+
+/**
+ * Decorative auth collage, ported from the frozen V18 reference
+ * (components/auth/AuthCollage.tsx). Reuses the landing demo assets.
+ */
+export function AuthCollage() {
+  const zoya = demoPeople.zoya;
+  return (
+    <div
+      className="relative mx-auto mb-6 flex h-[104px] w-full max-w-[340px] items-center justify-center"
+      aria-hidden="true"
+    >
+      <div className="relative -rotate-6">
+        <img
+          src="/assets/landing/a-matcha.jpg"
+          alt=""
+          className="h-20 w-20 rounded-surface border-2 border-outline-strong object-cover shadow-chunk-sm"
+        />
+      </div>
+      <div className="relative -ml-3 mt-4 rotate-6">
+        <Tape className="absolute -top-3 left-1/2 z-10 w-12 -translate-x-1/2" />
+        <img
+          src="/assets/landing/z-camera.jpg"
+          alt=""
+          className="h-20 w-20 rounded-surface border-2 border-outline-strong object-cover shadow-chunk-sm"
+        />
+      </div>
+      <div className="absolute top-0 right-0 inline-flex items-center gap-1.5 rounded-full rounded-bl-md border-2 border-outline-strong bg-surface-page py-0.5 pr-2.5 pl-0.5 shadow-chunk-sm">
+        <Avatar person={zoya} size="xs" />
+        <span className="text-xs font-semibold">&ldquo;very you&rdquo;</span>
+      </div>
+    </div>
+  );
+}

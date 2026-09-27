@@ -20,22 +20,31 @@ const WCAG_TAGS = [
 
 const INJECTED_ID = "arj-10-injected-a11y-violation";
 
-test("clean fixture has no WCAG A/AA violations at both viewports", async ({
+/** Static public routes shipped so far, scanned at both viewports. */
+const PUBLIC_ROUTES = ["/", "/auth", "/design-foundation"] as const;
+
+test("every static public route has no WCAG A/AA violations at both viewports", async ({
   page,
 }) => {
-  await page.goto("/");
-
-  const results = await new AxeBuilder({ page })
-    .withTags([...WCAG_TAGS])
-    .analyze();
-
-  expect(results.violations).toEqual([]);
+  // Test-only accommodation: reduced motion pins the landing's one-shot
+  // entrance animation to 0.01ms so axe scans the settled layout instead of
+  // racing mid-fade elements (whose blended colours are not the rendered
+  // design). The end state with `fill: both` is identical to the resting
+  // layout.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const route of PUBLIC_ROUTES) {
+    await page.goto(route);
+    const results = await new AxeBuilder({ page })
+      .withTags([...WCAG_TAGS])
+      .analyze();
+    expect(results.violations, `axe violations on ${route}`).toEqual([]);
+  }
 });
 
 test("axe detects an injected violation and clears after it is removed", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/design-foundation");
 
   // Inject a known WCAG violation: an image without an alt attribute inside
   // the page's main landmark.

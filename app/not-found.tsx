@@ -14,7 +14,7 @@ export default function NotFound() {
         The page you are looking for does not exist.
       </p>
       <p className="text-body">
-        <TextLink href="/">Back to the design foundation</TextLink>
+        <TextLink href="/">Back to home</TextLink>
       </p>
     </main>
   );

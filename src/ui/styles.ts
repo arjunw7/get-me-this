@@ -6,13 +6,15 @@
  * Every class here must resolve to a token declared in app/tokens.css.
  */
 
-export type ButtonVariant = "primary" | "secondary" | "subtle";
+export type ButtonVariant = "primary" | "secondary" | "subtle" | "contrast";
 export type ButtonSize = "md" | "lg";
 export type SurfaceTone = "raised" | "sunken" | "accent";
 export type SurfaceElevation = "none" | "sm" | "md" | "lg";
 export type SurfacePadding = "none" | "comfortable";
 
-const OUTLINE_WIDTH = "border-[length:var(--border-strong)]";
+// Exported for the auth module, which composes reference-exact controls
+// (V18 renders the auth email input with a 2px outline).
+export const OUTLINE_WIDTH = "border-[length:var(--border-strong)]";
 const OUTLINE = cx(OUTLINE_WIDTH, "border-outline-strong");
 const PRESS_MOTION =
   "transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap";
@@ -23,7 +25,7 @@ export function cx(...classNames: ReadonlyArray<string | false | undefined>) {
 
 const BUTTON_BASE = cx(
   "inline-flex items-center justify-center gap-2",
-  "font-display font-bold text-content-primary",
+  "font-display font-bold",
   "rounded-surface min-h-touch-min",
   OUTLINE,
   PRESS_MOTION,
@@ -33,10 +35,13 @@ const BUTTON_BASE = cx(
   "disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted disabled:shadow-none",
 );
 
+// Text colour lives per variant: two colour utilities for the same property
+// would otherwise resolve by stylesheet order rather than by variant.
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  primary: "bg-action-primary shadow-chunk",
-  secondary: "bg-accent-highlight shadow-chunk-sm",
-  subtle: "bg-surface-raised shadow-chunk-sm",
+  primary: "bg-action-primary text-content-primary shadow-chunk",
+  secondary: "bg-accent-highlight text-content-primary shadow-chunk-sm",
+  subtle: "bg-surface-raised text-content-primary shadow-chunk-sm",
+  contrast: "bg-outline-strong text-surface-page shadow-chunk",
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {

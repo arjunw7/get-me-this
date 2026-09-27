@@ -12,7 +12,12 @@ import {
   type SurfaceTone,
 } from "./styles";
 
-const VARIANTS: readonly ButtonVariant[] = ["primary", "secondary", "subtle"];
+const VARIANTS: readonly ButtonVariant[] = [
+  "primary",
+  "secondary",
+  "subtle",
+  "contrast",
+];
 const SIZES: readonly ButtonSize[] = ["md", "lg"];
 const TONES: readonly SurfaceTone[] = ["raised", "sunken", "accent"];
 const ELEVATIONS: readonly SurfaceElevation[] = ["none", "sm", "md", "lg"];
@@ -34,6 +39,22 @@ describe("buttonClassName", () => {
     expect(buttonClassName({ variant: "subtle", size: "md" })).toContain(
       "bg-surface-raised",
     );
+    expect(buttonClassName({ variant: "contrast", size: "md" })).toContain(
+      "bg-outline-strong",
+    );
+  });
+
+  it("keeps one text colour per variant so utilities never compete", () => {
+    expect(buttonClassName({ variant: "contrast", size: "md" })).toContain(
+      "text-surface-page",
+    );
+    expect(buttonClassName({ variant: "primary", size: "md" })).toContain(
+      "text-content-primary",
+    );
+    const classes = new Set(
+      buttonClassName({ variant: "contrast", size: "md" }).split(" "),
+    );
+    expect(classes.has("text-content-primary")).toBe(false);
   });
 
   it("maps sizes to the control height tokens", () => {
