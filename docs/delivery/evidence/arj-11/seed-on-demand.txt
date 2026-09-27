@@ -1,0 +1,20 @@
+# ARJ-11 — synthetic seed command
+# merge inputs: origin/main 08344e4 (ARJ-10 test and visual harness) merged into this branch
+
+## pnpm db:seed against the running stack (hardened container selection)
+Applies supabase/seed.sql without resetting. The seed is non-persistent,
+so this is safe to repeat and writes no rows. The container is selected by
+Docker label and exact container name; see container-selection.txt.
+
+STEP: cycle 1: apply seed on demand (hardened container selection, real stack)
+COMMAND: pnpm db:seed
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 db:seed /home/factory-user/worktrees/arj-11
+> bash scripts/db-seed.sh
+
+DO
+NOTICE:  002d seed: non-persistent placeholder, no rows were written.
+EXIT_CODE: 0
+
+===================================================================

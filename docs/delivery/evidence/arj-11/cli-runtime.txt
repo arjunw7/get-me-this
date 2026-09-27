@@ -1,0 +1,20 @@
+# ARJ-11 — pinned toolchain, runtime, and Docker engine
+# merge inputs: origin/main 08344e4 (ARJ-10 test and visual harness) merged into this branch
+# resolved: README.md, package.json, pnpm-lock.yaml (ARJ-10 and ARJ-11 kept together)
+# lockfile regenerated from the combined package.json
+
+captured: 2026-09-27T14:52:08Z (UTC)
+branch: foundation/arj-11-supabase-local-foundation
+
+## Pinned Supabase CLI (dev dependency)
+2.118.0
+
+## Runtime pinned by the repository
+node v24.21.0
+pnpm 10.28.0
+
+## Docker engine on the Droid Computer
+client 29.1.3 / server 29.1.3 (linux/amd64, kernel 6.1.158+)
+
+## Local Postgres major version (supabase/config.toml)
+major_version = 17

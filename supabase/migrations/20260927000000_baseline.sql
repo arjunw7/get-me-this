@@ -1,0 +1,15 @@
+-- 002d baseline migration.
+--
+-- This file is intentionally comment-only. It creates no schemas, tables,
+-- columns, functions, policies, grants, extensions, or seed data, and it must
+-- stay that way.
+--
+-- It exists so that a fresh local database can be rebuilt from committed
+-- migration history alone, and so that `supabase/tests/smoke.sql` can prove the
+-- migration ledger recorded an applied baseline before any product schema
+-- exists.
+--
+-- The first product migration (profiles, per docs/delivery/build-sequence.md
+-- phase 3) arrives later as a new, separately reviewable file. Never edit this
+-- file once it has been applied anywhere; fix forward with a new migration. See
+-- supabase/README.md.
