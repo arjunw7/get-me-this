@@ -1,0 +1,45 @@
+# Railway preview verification (ARJ-13 / 002e)
+
+Preview URL: https://get-me-this-get-me-this-pr-8.up.railway.app
+Captured: 2026-09-27 ~18:55 UTC, from the reopened PR #8.
+
+## Endpoint checks (from this environment)
+
+- `GET /` → 200.
+- `GET /health` → 200, exact body `{"status":"ok"}`, headers:
+  `content-type: application/json`, `cache-control: no-store`
+  (server/edge headers only: `server`, `x-railway-request-id`,
+  `x-railway-edge`, `vary`, `date`). No secrets, no personal data, no
+  configuration values in the body or headers.
+- Rendered page title in a real browser: "Get Me This | Design foundation"
+  (the deterministic fixture route).
+
+## Screenshots
+
+- `preview-mobile.png` — full-page capture at the approved mobile viewport
+  390×844.
+- `preview-desktop.png` — full-page capture at the approved desktop
+  viewport 1440×1000.
+
+Both captured from the live preview URL of PR #8 with a fresh browser
+session; no interaction state, no local data.
+
+## Log check
+
+- `/health` response and headers: verified clean (fixed body, no
+  configuration or secret values; see above).
+- Preview deployment build/deploy logs: **not directly readable from this
+  environment** — the project token in use is scoped to the staging
+  environment, and Railway does not expose the PR environment's logs
+  through it (`environment "pr-8" not found`; the environments list shows
+  only `staging`). The staging build/deploy logs observed during apply
+  contained only Next.js startup lines and no secrets or personal data.
+  The PR environment's logs must be confirmed from the Railway dashboard
+  (owner action) or with an environment-scoped token.
+
+## Context
+
+- The staging service's live healthcheck is temporarily `/` while `main`
+  lacks `/health` (documented in
+  `railway-config-plan-summary.txt`); PR #8 and its preview carry
+  `/health`, which is why the preview passes the real endpoint.

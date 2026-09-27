@@ -1,0 +1,89 @@
+# Railway config plan — redacted summary (ARJ-13 / 002e)
+
+Generated with `railway config init` (CLI v5.62.1 via `pnpm dlx`), then
+corrected and validated with `railway config plan`. The token in use is a
+project-level token scoped to the dedicated staging environment. Raw plan
+output is not committed; this is an allowlisted summary.
+
+## Scope
+
+- Target: the dedicated staging project (name and identifiers redacted).
+- Authoring file: `.railway/railway.ts` (Railway IaC, TypeScript SDK
+  `railway@^3.11.0` added as a devDependency).
+- Authoring file contents: one web service sourced from
+  `github("arjunw7/get-me-this")`, build command `pnpm run build`, start
+  command `next start` (Next.js reads the Railway-provided `PORT`),
+  healthcheck path `/health`. No variables, domains, databases, or other
+  resources are declared. No secrets or private identifiers appear in the
+  file.
+
+## Plan result after correction
+
+- First plan (CLI-generated default) was rejected without applying: it
+  named the service `web`, which would have created a new service and
+  DELETED the existing `get-me-this` staging service (1 add, 1 destroy).
+- After renaming the service in the authoring file to match the existing
+  staging service and adding the healthcheck, the final plan is:
+  - 0 to add, 0 to destroy
+  - 2 in-place updates to the existing staging service:
+    - build.buildCommand: null → "pnpm run build"
+    - deploy.healthcheckPath: null → "/health"
+    - deploy.startCommand: null → "next start"
+- Nothing has been applied without approval. The approved in-place updates
+  (build command, start command, `/health` healthcheck) were applied and
+  the post-apply plan was clean.
+
+## Temporary bootstrap healthcheck (documented live-state divergence)
+
+The staging service tracks `main`, which does not yet contain `/health`
+(`/health` exists only on PR #8). After the healthcheck was applied, the
+`main` deployment `2fdb54c4` (commit `c049d79`) FAILED its healthcheck:
+the build and container start succeeded (Railpack resolved the pinned
+Node 24.21.0 and pnpm 10.28.0), but `/health` returned 404 on that commit.
+
+With explicit approval, the live staging healthcheck was temporarily
+changed to `/` (the deterministic, env-var-free fixture route that exists
+on `main`): fresh plan showed 0 add / 0 destroy and exactly one change
+(`/health` → `/`), it was applied, and the replacement `main` deployment
+`02a18edd` (same commit `c049d79`) reached SUCCESS with healthcheck `/`.
+The temporary change was never committed or pushed: the repository's
+`.railway/railway.ts` keeps `healthcheck: "/health"` as the final IaC
+setting, so PR #8 and any future `main` state carry the real endpoint.
+
+**Live state right now:** staging serves healthcheck `/` while `main`
+lacks `/health`. Restoration is a single reverse change (`/` →
+`/health`), planned and applied only after PR #8 merges and `main` is
+confirmed to contain `/health`, requiring 0 add / 0 destroy and no other
+changes.
+
+## Post-apply / restoration status
+
+- Applied and clean: build command, start command, `/health` healthcheck
+  (then temporarily `/` live-only, see above).
+- `railway config apply` of the restoration awaits PR #8 merge.
+
+## Confirmation
+
+- No secrets, tokens, account IDs, project IDs, service IDs, or domain
+  names are included in the authoring file or this summary.
+- Railpack/Node 24 runtime validation: **confirmed**. The staging
+  deployment for `main` @ `c049d79` and the PR #8 preview both built with
+  the RAILPACK builder (Railpack 0.40.0), which resolved Node to exactly
+  the pinned 24.21.0 and pnpm to the pinned 10.28.0; both built and
+  served successfully. No fallback was needed.
+- Preview log check: the `/health` response and headers were verified
+  clean (exact fixed body, no configuration or secret values). The
+  preview environment's build/deploy logs are NOT readable with the
+  staging-scoped project token (the PR environment is not returned by the
+  environments query and is not addressable by the CLI), so the two
+  dashboard log tabs for the preview deployment remain an owner-verified
+  check.
+
+## Still external (dashboard, owner actions)
+
+- Railway GitHub App installed (done by owner).
+- PR Environments with Wait for CI, and Bot PR Environments only if
+  needed, on the staging service.
+- Railway-provided domain for the base service.
+- Owner inspection of the preview deployment's Build and Deploy logs
+  (no secrets or personal data) — not possible from this environment.
