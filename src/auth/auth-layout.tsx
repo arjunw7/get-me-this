@@ -17,7 +17,10 @@ import { AuthCollage } from "./auth-collage";
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen w-full bg-surface-page text-content-primary">
-      <header className="mx-auto flex max-w-content-max items-center justify-between px-5 py-5 sm:px-8">
+      {/* The reference keeps the auth header at the 6xl container width —
+          logo far left, back CTA far right — even though the content column
+          below is the narrow 520px card column. */}
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
         <Link href="/" aria-label="Get Me This home">
           <Wordmark className="text-2xl sm:text-3xl" />
         </Link>

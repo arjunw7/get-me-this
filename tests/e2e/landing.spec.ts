@@ -171,12 +171,54 @@ test("every interactive control is keyboard reachable with a visible focus ring"
     expect(focused).toContain("How it works|solid");
   }
 
-  // Keyboard activation reaches the destination, not just focus.
-  await page.getByRole("link", { name: "Start my wishlist" }).first().focus();
-  await page.keyboard.press("Enter");
-  await expect(
-    page.getByRole("heading", { name: "Welcome to Get Me This." }),
-  ).toBeVisible();
+  // Keyboard activation reaches the destination, not just focus: every
+  // control visible on the mobile viewport is asserted at BOTH viewports.
+  // All four are native anchors, so Enter activation is expected for each —
+  // none is intentionally non-activatable. The wordmark starts from /auth
+  // so navigating home is observable (from / it would be a no-op).
+  const activations = [
+    {
+      name: "Get Me This home",
+      start: "/auth",
+      destinationUrl: /\/$/,
+      destinationHeading: "How it works",
+    },
+    {
+      name: "Log in",
+      start: "/",
+      destinationUrl: /\/auth\?intent=home$/,
+      destinationHeading: "Welcome to Get Me This.",
+    },
+    {
+      name: "Start my wishlist",
+      start: "/",
+      destinationUrl: /\/auth\?intent=wishlist$/,
+      destinationHeading: "Welcome to Get Me This.",
+    },
+    {
+      name: "Create a group",
+      start: "/",
+      destinationUrl: /\/auth\?intent=create-group$/,
+      destinationHeading: "Welcome to Get Me This.",
+    },
+  ] as const;
+
+  for (const {
+    name,
+    start,
+    destinationUrl,
+    destinationHeading,
+  } of activations) {
+    await page.goto(start);
+    // .first() targets the hero CTA when the same label also appears in the
+    // final-CTA section; the wordmark and Log in links are unique.
+    await page.getByRole("link", { name }).first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(destinationUrl);
+    await expect(
+      page.getByRole("heading", { name: destinationHeading }),
+    ).toBeVisible();
+  }
 });
 
 test("the hero collage is static under reduced motion", async ({
