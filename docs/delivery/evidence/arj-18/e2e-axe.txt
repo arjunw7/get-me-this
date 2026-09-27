@@ -1,0 +1,87 @@
+
+> get-me-this@0.1.0 test:e2e /home/factory-user/get-me-this
+> pnpm build && pnpm exec playwright test tests/e2e
+
+
+> get-me-this@0.1.0 build /home/factory-user/get-me-this
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.mjs took 12ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 175ms
+  Running TypeScript ...
+  Finished TypeScript in 1672ms ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/8) ...
+  Generating static pages using 3 workers (2/8) 
+  Generating static pages using 3 workers (4/8) 
+  Generating static pages using 3 workers (6/8) 
+✓ Generating static pages using 3 workers (8/8) in 209ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /auth
+├ ƒ /auth/confirm
+├ ƒ /auth/verify
+├ ○ /design-foundation
+├ ƒ /health
+└ ƒ /onboarding
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+Running 44 tests using 2 workers
+
+  ✓   1 [mobile] › tests/e2e/accessibility.spec.ts:58:5 › axe detects an injected violation and clears after it is removed (1.3s)
+  ✓   3 [mobile] › tests/e2e/auth.spec.ts:17:5 › each email-entry intent renders its designed helper copy (354ms)
+  ✓   4 [mobile] › tests/e2e/auth.spec.ts:38:5 › a valid email submission reveals the honest preview notice and nothing else (263ms)
+  ✓   5 [mobile] › tests/e2e/auth.spec.ts:52:5 › the verify flow is traversable by click-through with no 404 anywhere (877ms)
+  ✓   6 [mobile] › tests/e2e/auth.spec.ts:98:5 › the designed verify error and expired fixtures render by URL (292ms)
+  ✓   7 [mobile] › tests/e2e/auth.spec.ts:115:5 › the OTP keyboard contract works end to end (331ms)
+  ✓   8 [mobile] › tests/e2e/auth.spec.ts:144:5 › onboarding renders validation by fixture and by interaction, and submits honestly (580ms)
+  ✓   9 [mobile] › tests/e2e/auth.spec.ts:186:5 › keyboard traversal reaches every control with visible focus (259ms)
+  ✓  10 [mobile] › tests/e2e/fixture.spec.ts:9:5 › renders the deterministic design foundation fixture (218ms)
+  ✓  11 [mobile] › tests/e2e/health.spec.ts:9:5 › /health returns the liveness response (38ms)
+  ✓  12 [mobile] › tests/e2e/instrumentation-hook.spec.ts:36:7 › Next.js instrumentation-client hook discovery › the pinned Next.js runtime invokes the exported onRouterTransitionStart hook (2ms)
+  ✓  13 [mobile] › tests/e2e/instrumentation-hook.spec.ts:47:7 › Next.js instrumentation-client hook discovery › the production build bundles the instrumentation module with its exported hook (5ms)
+  ✓  14 [mobile] › tests/e2e/landing.spec.ts:12:5 › renders the approved landing hierarchy (325ms)
+  -  15 [mobile] › tests/e2e/landing.spec.ts:44:5 › anchor navigation scrolls to its section
+  ✓  16 [mobile] › tests/e2e/landing.spec.ts:63:9 › landing CTA click-through › "Start my wishlist" lands on the rendered email-entry destination (370ms)
+  ✓  17 [mobile] › tests/e2e/landing.spec.ts:63:9 › landing CTA click-through › "Create a group" lands on the rendered email-entry destination (330ms)
+  ✓  18 [mobile] › tests/e2e/landing.spec.ts:81:7 › landing CTA click-through › "Log in" lands on the rendered email-entry destination (342ms)
+  ✓   2 [mobile] › tests/e2e/accessibility.spec.ts:40:5 › every static public route has no WCAG A/AA violations at both viewports (6.4s)
+  ✓  19 [mobile] › tests/e2e/landing.spec.ts:93:5 › email entry validates before any submission state (317ms)
+  ✓  20 [mobile] › tests/e2e/landing.spec.ts:118:5 › a valid submission is honest: a visible preview notice, no navigation, no claims (314ms)
+  ✓  22 [mobile] › tests/e2e/landing.spec.ts:224:5 › the hero collage is static under reduced motion (299ms)
+  ✓  21 [mobile] › tests/e2e/landing.spec.ts:136:5 › every interactive control is keyboard reachable with a visible focus ring (909ms)
+  ✓  24 [desktop] › tests/e2e/accessibility.spec.ts:58:5 › axe detects an injected violation and clears after it is removed (1.4s)
+  ✓  25 [desktop] › tests/e2e/auth.spec.ts:17:5 › each email-entry intent renders its designed helper copy (339ms)
+  ✓  26 [desktop] › tests/e2e/auth.spec.ts:38:5 › a valid email submission reveals the honest preview notice and nothing else (281ms)
+  ✓  27 [desktop] › tests/e2e/auth.spec.ts:52:5 › the verify flow is traversable by click-through with no 404 anywhere (931ms)
+  ✓  28 [desktop] › tests/e2e/auth.spec.ts:98:5 › the designed verify error and expired fixtures render by URL (317ms)
+  ✓  29 [desktop] › tests/e2e/auth.spec.ts:115:5 › the OTP keyboard contract works end to end (377ms)
+  ✓  30 [desktop] › tests/e2e/auth.spec.ts:144:5 › onboarding renders validation by fixture and by interaction, and submits honestly (593ms)
+  ✓  31 [desktop] › tests/e2e/auth.spec.ts:186:5 › keyboard traversal reaches every control with visible focus (232ms)
+  ✓  32 [desktop] › tests/e2e/fixture.spec.ts:9:5 › renders the deterministic design foundation fixture (199ms)
+  ✓  33 [desktop] › tests/e2e/health.spec.ts:9:5 › /health returns the liveness response (20ms)
+  ✓  34 [desktop] › tests/e2e/instrumentation-hook.spec.ts:36:7 › Next.js instrumentation-client hook discovery › the pinned Next.js runtime invokes the exported onRouterTransitionStart hook (5ms)
+  ✓  35 [desktop] › tests/e2e/instrumentation-hook.spec.ts:47:7 › Next.js instrumentation-client hook discovery › the production build bundles the instrumentation module with its exported hook (3ms)
+  ✓  36 [desktop] › tests/e2e/landing.spec.ts:12:5 › renders the approved landing hierarchy (304ms)
+  ✓  37 [desktop] › tests/e2e/landing.spec.ts:44:5 › anchor navigation scrolls to its section (288ms)
+  ✓  38 [desktop] › tests/e2e/landing.spec.ts:63:9 › landing CTA click-through › "Start my wishlist" lands on the rendered email-entry destination (347ms)
+  ✓  23 [desktop] › tests/e2e/accessibility.spec.ts:40:5 › every static public route has no WCAG A/AA violations at both viewports (6.5s)
+  ✓  39 [desktop] › tests/e2e/landing.spec.ts:63:9 › landing CTA click-through › "Create a group" lands on the rendered email-entry destination (384ms)
+  ✓  41 [desktop] › tests/e2e/landing.spec.ts:93:5 › email entry validates before any submission state (329ms)
+  ✓  40 [desktop] › tests/e2e/landing.spec.ts:81:7 › landing CTA click-through › "Log in" lands on the rendered email-entry destination (414ms)
+  ✓  42 [desktop] › tests/e2e/landing.spec.ts:118:5 › a valid submission is honest: a visible preview notice, no navigation, no claims (303ms)
+  ✓  44 [desktop] › tests/e2e/landing.spec.ts:224:5 › the hero collage is static under reduced motion (290ms)
+  ✓  43 [desktop] › tests/e2e/landing.spec.ts:136:5 › every interactive control is keyboard reachable with a visible focus ring (921ms)
+
+  1 skipped
+  43 passed (17.4s)

@@ -21,7 +21,21 @@ const WCAG_TAGS = [
 const INJECTED_ID = "arj-10-injected-a11y-violation";
 
 /** Static public routes shipped so far, scanned at both viewports. */
-const PUBLIC_ROUTES = ["/", "/auth", "/design-foundation"] as const;
+const PUBLIC_ROUTES = [
+  "/",
+  "/auth",
+  "/auth?intent=wishlist",
+  "/auth?intent=create-group",
+  "/auth/verify",
+  "/auth/verify?state=error",
+  "/auth/verify?state=expired",
+  "/auth/confirm?state=loading",
+  "/auth/confirm?state=valid",
+  "/auth/confirm?state=expired",
+  "/onboarding",
+  "/onboarding?state=validation",
+  "/design-foundation",
+] as const;
 
 test("every static public route has no WCAG A/AA violations at both viewports", async ({
   page,

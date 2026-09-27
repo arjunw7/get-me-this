@@ -1,0 +1,85 @@
+
+> get-me-this@0.1.0 test /home/factory-user/get-me-this
+> vitest run
+
+
+ RUN  v5.0.2 /home/factory-user/get-me-this
+
+ ✓ src/auth/onboarding-form.test.tsx (9 tests) 684ms
+ ✓ src/auth/verify-screen.test.tsx (9 tests) 745ms
+ ✓ src/analytics/sdk-import-boundary.test.ts (6 tests) 1678ms
+   ✓ SDK ownership lint rule (6)
+     ✓ blocks a posthog-js import from product code 1512ms
+ ✓ src/auth/otp-input.test.tsx (6 tests) 304ms
+ ✓ src/ui/text-field.test.tsx (9 tests) 314ms
+ ✓ src/auth/confirm-screen.test.tsx (5 tests) 287ms
+ ✓ src/ui/button.test.tsx (4 tests) 214ms
+ ✓ src/auth/email-entry-form.test.tsx (3 tests) 230ms
+stderr | src/analytics/client.test.ts > client analytics lane > identity: anonymous → authenticated → logout > refuses non-UUID identifiers such as emails and display names
+[analytics] identify rejected: distinct id is not a UUID
+[analytics] identify rejected: distinct id is not a UUID
+
+ ✓ src/analytics/client.test.ts (15 tests) 76ms
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects unknown event names at compile time
+[analytics] capture rejected: unknown-event (event "group_deleted")
+
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects unsupported property values at compile time
+[analytics] capture rejected: invalid-enum-value ("invite_sent"."channel" has a value outside its allowed list)
+
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects missing and extra object-literal properties at compile time
+[analytics] capture rejected: missing-key ("invite_accepted" is missing "was_authenticated")
+[analytics] capture rejected: unknown-key ("invite_accepted" does not allow "group_name")
+
+ ✓ src/analytics/event-definitions.test.ts (10 tests) 67ms
+ ✓ src/foundation/health-route.test.ts (5 tests) 32ms
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > still rejects invalid payloads so the boundary is identical in every mode
+[analytics] capture rejected: unknown-event (event "group_deleted")
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > still rejects invalid payloads so the boundary is identical in every mode
+[analytics] capture rejected: missing-key ("auth_completed" is missing "is_new_user")
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.group.id must be an internal group UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > never reaches the SDK with a rejected payload
+[analytics] capture rejected: missing-key ("group_created" is missing "gifting_mode")
+
+ ✓ src/analytics/server.test.ts (15 tests) 32ms
+ ✓ src/analytics/privacy.test.tsx (20 tests) 38ms
+ ✓ src/analytics/validation.test.ts (8 tests) 9ms
+ ✓ src/analytics/server-only-guard.test.ts (2 tests) 14ms
+ ✓ src/analytics/memory-sink.test.ts (5 tests) 6ms
+ ✓ src/landing/content.test.ts (8 tests) 10ms
+ ✓ src/ui/styles.test.ts (17 tests) 9ms
+ ✓ src/auth/fixtures.test.ts (7 tests) 6ms
+ ✓ src/visual-baseline-manifest.test.ts (2 tests) 7ms
+ ✓ src/foundation/design-tokens.test.ts (4 tests) 7ms
+ ✓ src/auth/copy.test.ts (3 tests) 5ms
+ ✓ src/foundation/design-fixture.test.ts (5 tests) 5ms
+
+ Test Files  23 passed (23)
+      Tests  177 passed (177)
+   Start at  20:39:19
+   Duration  6.02s (environment 39%, tests 32%, setup 19%, transform 7%, import 4%, worker 1%)
+
+    Isolate  23 workers spawned · ~357ms startup each (spawn + environment, per file)
+             at least ~2.38s faster with isolate: false — reuses workers across files instead of one per file
+
