@@ -28,6 +28,7 @@ defaults, but they are still treated as non-committable.
 | `migration-baseline-reset.txt` | Two `pnpm db:reset` runs applying the committed baseline and seeding. |
 | `seed-on-demand.txt` | `pnpm db:seed` applying the non-persistent seed to a running stack. |
 | `container-selection.txt` | Proof that the seed selects only this project's database container and fails closed on zero, duplicate, or other-project matches. |
+| `bash-3-2-compatibility.txt` | The `mapfile` failure reproduced under GNU Bash 3.2.57 (the version macOS ships) and the fixed selector passing there. |
 | `db-test-pass.txt` | `pnpm test:db` results from two independent cycles. |
 | `db-test-failure-proof.txt` | The same command failing (exit 1) with one assertion deliberately broken, plus proof the edit was reverted. |
 | `lifecycle-reproducibility.txt` | Full recorded stop/start/reset/seed/test lifecycle with per-step exit codes. |
@@ -53,6 +54,9 @@ defaults, but they are still treated as non-committable.
 - **`pnpm verify` remains usable when local Supabase is not running; database
   verification has an explicit command.** `verify-without-supabase.txt` and
   `degradation-without-stack.txt`.
+- **The database commands run on a contributor machine whose `/bin/bash` is 3.2
+  (macOS).** `bash-3-2-compatibility.txt`; `scripts/db-seed-selection-test.sh`
+  is the committed, Docker-free regression test.
 
 ## Reproducing
 

@@ -77,6 +77,14 @@ placeholder. Deterministic fixtures (synthetic users, groups) are added by the
 product slice that owns their tables. Never commit real user data, credentials,
 tokens, or personal information here.
 
+`pnpm db:seed` refuses to run unless exactly one running container matches this
+project, identified by the Docker label
+`com.supabase.cli.project=<project_id>` **and** the exact container name
+`supabase_db_<project_id>`. It never falls back to an arbitrary `supabase_db_`
+container. `scripts/db-seed-selection-test.sh` exercises that selection with a
+stubbed `docker`, so it needs no Docker or stack, and it runs on the Bash 3.2
+that macOS ships.
+
 ## Environment variables
 
 Local stack URLs and keys are produced by `pnpm db:start` and

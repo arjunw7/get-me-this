@@ -1,13 +1,12 @@
 # ARJ-11 — synthetic seed command
 # merge inputs: origin/main 08344e4 (ARJ-10 test and visual harness) merged into this branch
-# resolved: README.md, package.json, pnpm-lock.yaml (ARJ-10 and ARJ-11 kept together)
-# lockfile regenerated from the combined package.json
 
-## pnpm db:seed against the running stack
+## pnpm db:seed against the running stack (hardened container selection)
 Applies supabase/seed.sql without resetting. The seed is non-persistent,
-so this is safe to repeat and writes no rows.
+so this is safe to repeat and writes no rows. The container is selected by
+Docker label and exact container name; see container-selection.txt.
 
-STEP: cycle 1: apply seed on demand to the running stack
+STEP: cycle 1: apply seed on demand (hardened container selection, real stack)
 COMMAND: pnpm db:seed
 -------------------------------------------------------------------
 

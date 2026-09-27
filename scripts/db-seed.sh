@@ -61,14 +61,32 @@ db_container_name="supabase_db_${project_id}"
 
 # Fail closed: the script needs exactly one database container for this project.
 # The CLI label narrows the list to this project's stack; the exact whole-name
-# match then picks its database service. Matching in the shell keeps the result
+# match then selects its database service. Matching in the shell keeps the result
 # independent of Docker's filter-regex semantics.
-mapfile -t db_containers < <(
+#
+# This block is written for the Bash 3.2 that ships as /bin/bash on macOS
+# (3.2.57): no mapfile/readarray, no associative arrays, and no empty-array
+# expansion under `set -u` (which errors before Bash 4.4). The match count and
+# the single selected name are accumulated while reading, and the full list is
+# kept only for the error path.
+db_container_count=0
+db_container=""
+db_container_list=""
+
+while IFS= read -r candidate; do
+  if [ -n "$candidate" ]; then
+    db_container_count=$((db_container_count + 1))
+    if [ "$db_container_count" -eq 1 ]; then
+      db_container="$candidate"
+    fi
+    db_container_list="${db_container_list}  ${candidate}"$'\n'
+  fi
+done < <(
   docker ps --filter "label=${db_container_label}" --format '{{.Names}}' 2>/dev/null |
-    grep -x -- "${db_container_name}" || true
+    grep -Fx -- "${db_container_name}" || true
 )
 
-case "${#db_containers[@]}" in
+case "$db_container_count" in
 0)
   echo "Local Supabase is not running for project '${project_id}'." >&2
   echo "Expected exactly one running container labelled ${db_container_label} named ${db_container_name}." >&2
@@ -78,14 +96,12 @@ case "${#db_containers[@]}" in
 1)
   ;;
 *)
-  echo "Refusing to seed: ${#db_containers[@]} database containers match this project." >&2
-  printf '  %s\n' "${db_containers[@]}" >&2
+  echo "Refusing to seed: ${db_container_count} database containers match this project." >&2
+  printf '%s' "$db_container_list" >&2
   echo "Expected exactly one. Stop the extra stack, then run: pnpm db:start" >&2
   exit 1
   ;;
 esac
-
-db_container="${db_containers[0]}"
 
 docker exec -i "$db_container" \
   psql --no-psqlrc --set ON_ERROR_STOP=1 --user postgres --dbname postgres < "$seed_file"

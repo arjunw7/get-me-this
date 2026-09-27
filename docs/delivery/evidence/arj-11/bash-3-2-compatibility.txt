@@ -1,0 +1,70 @@
+# ARJ-11 — macOS Bash 3.2 compatibility of scripts/db-seed.sh
+
+Review finding: the seed selector used mapfile, a Bash 4 builtin, so
+pnpm db:seed would fail on a development machine whose /bin/bash is 3.2.
+Reproduced and fixed below using the official GNU bash 3.2 image, which
+reports the same version macOS ships: 3.2.57(1)-release.
+
+## Shell under test
+
+bash=3.2.57(1)-release
+mapfile: absent, as on macOS
+
+## Before the fix: the previous script fails under Bash 3.2
+
+$ PATH=/cases/one:$PATH bash /oldtree/scripts/db-seed.sh
+/oldtree/scripts/db-seed.sh: line 66: mapfile: command not found
+exit_code: 127
+
+## After the fix: the selection cases pass under Bash 3.2.57
+mapfile is replaced by a while IFS= read -r loop, the match count is kept
+in a plain variable (no empty-array expansion under set -u), and grep -x
+is replaced by grep -Fx.
+
+shell: bash 3.2.57(1)-release
+-------------------------------------------------------------------
+CASE: exactly one matching database container -> seeds it
+RESULT: would seed container supabase_db_get-me-this
+exit_code: 0
+-------------------------------------------------------------------
+CASE: two matching database containers -> refuses
+Refusing to seed: 2 database containers match this project.
+  supabase_db_get-me-this
+  supabase_db_get-me-this
+Expected exactly one. Stop the extra stack, then run: pnpm db:start
+exit_code: 1
+-------------------------------------------------------------------
+CASE: zero matching database containers -> refuses
+Local Supabase is not running for project 'get-me-this'.
+Expected exactly one running container labelled com.supabase.cli.project=get-me-this named supabase_db_get-me-this.
+Start it with: pnpm db:start
+exit_code: 1
+-------------------------------------------------------------------
+CASE: other project's containers present -> none eligible, refuses
+Local Supabase is not running for project 'get-me-this'.
+Expected exactly one running container labelled com.supabase.cli.project=get-me-this named supabase_db_get-me-this.
+Start it with: pnpm db:start
+exit_code: 1
+
+## The committed regression test under Bash 3.2.57
+
+$ bash scripts/db-seed-selection-test.sh
+shell: bash 3.2.57(1)-release
+ok: exactly one matching database container seeds it (exit 0)
+ok: two matching database containers are refused (exit 1)
+ok: zero matching database containers are refused (exit 1)
+ok: another project's database containers are never eligible (exit 1)
+
+All selection cases passed.
+exit_code: 0
+
+## The same committed test on the host (GNU bash 5.2.21)
+
+shell: bash 5.2.21(1)-release
+ok: exactly one matching database container seeds it (exit 0)
+ok: two matching database containers are refused (exit 1)
+ok: zero matching database containers are refused (exit 1)
+ok: another project's database containers are never eligible (exit 1)
+
+All selection cases passed.
+exit_code: 0

@@ -1,47 +1,39 @@
 # ARJ-11 — database container selection (exact project, fail closed)
 
-scripts/db-seed.sh must never seed an arbitrary 'supabase_db_' container.
-It reads project_id from supabase/config.toml and requires both:
+scripts/db-seed.sh never seeds an arbitrary 'supabase_db_' container. It
+reads project_id from supabase/config.toml and requires both:
   * Docker label com.supabase.cli.project=<project_id>, and
   * an exact container name of supabase_db_<project_id>.
 It fails closed unless exactly one container matches.
 
-## Real stack: exactly one matching database container
-STEP: database container selection for this project (allowlisted)
-SELECTS ONLY containers labelled com.supabase.cli.project=get-me-this
--------------------------------------------------------------------
-supabase_db_get-me-this
-EXIT_CODE: 0
-matching_database_containers: 1
+The selector is Bash 3.2-compatible so it also runs on macOS; see
+bash-3-2-compatibility.txt for the mapfile reproduction and the fix.
 
-## Selection logic exercised with a stubbed docker
-stubbed docker; only scripts/db-seed.sh selection logic is exercised
--------------------------------------------------------------------
-CASE: exactly one matching database container -> seeds it
-RESULT: would seed container supabase_db_get-me-this
+## Committed regression test (no Docker required)
+
+$ bash scripts/db-seed-selection-test.sh
+shell: bash 5.2.21(1)-release
+ok: exactly one matching database container seeds it (exit 0)
+ok: two matching database containers are refused (exit 1)
+ok: zero matching database containers are refused (exit 1)
+ok: another project's database containers are never eligible (exit 1)
+
+All selection cases passed.
 exit_code: 0
--------------------------------------------------------------------
-CASE: two matching database containers -> refuses
-Refusing to seed: 2 database containers match this project.
-  supabase_db_get-me-this
-  supabase_db_get-me-this
-Expected exactly one. Stop the extra stack, then run: pnpm db:start
-exit_code: 1
--------------------------------------------------------------------
-CASE: zero matching database containers -> refuses
-Local Supabase is not running for project 'get-me-this'.
-Expected exactly one running container labelled com.supabase.cli.project=get-me-this named supabase_db_get-me-this.
-Start it with: pnpm db:start
-exit_code: 1
--------------------------------------------------------------------
-CASE: other project's database containers present -> none eligible, refuses
-Local Supabase is not running for project 'get-me-this'.
-Expected exactly one running container labelled com.supabase.cli.project=get-me-this named supabase_db_get-me-this.
-Start it with: pnpm db:start
-exit_code: 1
 
-## Docker daemon absent
-pnpm db:seed reports:
-  "The Docker daemon is not reachable, so local Supabase cannot run."
-  "Start Docker, then run: pnpm db:start"
-and exits 1.
+## Real stack: exactly one matching database container, then a real seed
+
+STEP: cycle 1: apply seed on demand (hardened container selection, real stack)
+COMMAND: pnpm db:seed
+-------------------------------------------------------------------
+
+> get-me-this@0.1.0 db:seed /home/factory-user/worktrees/arj-11
+> bash scripts/db-seed.sh
+
+DO
+NOTICE:  002d seed: non-persistent placeholder, no rows were written.
+EXIT_CODE: 0
+
+===================================================================
+
+matching_database_containers: 1 (labelled com.supabase.cli.project=get-me-this)
