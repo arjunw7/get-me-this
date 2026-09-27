@@ -1,0 +1,128 @@
+Captured 2026-09-27T17:35:23Z, Node v24.21.0
+
+$ pnpm verify
+
+> get-me-this@0.1.0 verify /home/factory-user/worktrees/arj-12
+> pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
+
+
+> get-me-this@0.1.0 format:check /home/factory-user/worktrees/arj-12
+> prettier --check --ignore-unknown .env.example .gitignore .nvmrc .prettierignore README.md app eslint.config.mjs instrumentation-client.ts next.config.mjs package.json postcss.config.mjs scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> get-me-this@0.1.0 lint /home/factory-user/worktrees/arj-12
+> eslint .
+
+
+/home/factory-user/worktrees/arj-12/src/analytics/event-definitions.test.ts
+  11:15  warning  'AnalyticsEventName' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 1 problem (0 errors, 1 warning)
+
+
+> get-me-this@0.1.0 typecheck /home/factory-user/worktrees/arj-12
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> get-me-this@0.1.0 test /home/factory-user/worktrees/arj-12
+> vitest run
+
+
+ RUN  v5.0.2 /home/factory-user/worktrees/arj-12
+
+ ✓ src/ui/button.test.tsx (4 tests) 219ms
+ ✓ src/ui/text-field.test.tsx (9 tests) 326ms
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects unknown event names at compile time
+[analytics] capture rejected: unknown-event (event "group_deleted")
+
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects unsupported property values at compile time
+[analytics] capture rejected: invalid-enum-value ("invite_sent"."channel" has a value outside its allowed list)
+
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects missing and extra object-literal properties at compile time
+[analytics] capture rejected: missing-key ("invite_accepted" is missing "was_authenticated")
+[analytics] capture rejected: unknown-key ("invite_accepted" does not allow "group_name")
+
+ ✓ src/analytics/event-definitions.test.ts (10 tests) 64ms
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > still rejects invalid payloads so the boundary is identical in every mode
+[analytics] capture rejected: unknown-event (event "group_deleted")
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > still rejects invalid payloads so the boundary is identical in every mode
+[analytics] capture rejected: missing-key ("auth_completed" is missing "is_new_user")
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.group.id must be an internal group UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > never reaches the SDK with a rejected payload
+[analytics] capture rejected: missing-key ("group_created" is missing "gifting_mode")
+
+ ✓ src/analytics/server.test.ts (15 tests) 48ms
+ ✓ src/analytics/sdk-import-boundary.test.ts (6 tests) 1604ms
+   ✓ SDK ownership lint rule (6)
+     ✓ blocks a posthog-js import from product code 1462ms
+stderr | src/analytics/client.test.ts > client analytics lane > identity: anonymous → authenticated → logout > refuses non-UUID identifiers such as emails and display names
+[analytics] identify rejected: distinct id is not a UUID
+[analytics] identify rejected: distinct id is not a UUID
+
+ ✓ src/analytics/client.test.ts (15 tests) 87ms
+ ✓ src/ui/styles.test.ts (16 tests) 9ms
+ ✓ src/analytics/validation.test.ts (8 tests) 12ms
+ ✓ src/analytics/memory-sink.test.ts (5 tests) 8ms
+ ✓ src/analytics/server-only-guard.test.ts (2 tests) 40ms
+ ✓ src/analytics/privacy.test.tsx (20 tests) 38ms
+ ✓ src/foundation/design-tokens.test.ts (4 tests) 7ms
+ ✓ src/visual-baseline-manifest.test.ts (2 tests) 5ms
+ ✓ src/foundation/design-fixture.test.ts (5 tests) 6ms
+
+ Test Files  14 passed (14)
+      Tests  121 passed (121)
+   Start at  17:34:28
+   Duration  3.52s (environment 39%, tests 29%, setup 22%, transform 6%, import 4%, worker 1%)
+
+    Isolate  14 workers spawned · ~355ms startup each (spawn + environment, per file)
+             at least ~1.30s faster with isolate: false — reuses workers across files instead of one per file
+
+
+> get-me-this@0.1.0 build /home/factory-user/worktrees/arj-12
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.mjs took 14ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 156ms
+  Running TypeScript ...
+  Finished TypeScript in 1822ms ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/3) ...
+✓ Generating static pages using 3 workers (3/3) in 136ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+

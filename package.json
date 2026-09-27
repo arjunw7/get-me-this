@@ -10,12 +10,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "format": "prettier --write --ignore-unknown .env.example .gitignore .nvmrc .prettierignore README.md app eslint.config.mjs next.config.mjs package.json postcss.config.mjs scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check",
-    "format:check": "prettier --check --ignore-unknown .env.example .gitignore .nvmrc .prettierignore README.md app eslint.config.mjs next.config.mjs package.json postcss.config.mjs scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check",
+    "format": "prettier --write --ignore-unknown .env.example .gitignore .nvmrc .prettierignore README.md app eslint.config.mjs instrumentation-client.ts next.config.mjs package.json postcss.config.mjs scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check",
+    "format:check": "prettier --check --ignore-unknown .env.example .gitignore .nvmrc .prettierignore README.md app eslint.config.mjs instrumentation-client.ts next.config.mjs package.json postcss.config.mjs scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "pnpm build && pnpm exec playwright test tests/e2e",
+    "test:analytics": "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=phc-fixture-token NEXT_PUBLIC_POSTHOG_HOST=http://127.0.0.1:3100/analytics-fixture pnpm build && pnpm exec playwright test tests/analytics --project=desktop",
     "test:visual": "pnpm build && pnpm exec playwright test tests/visual",
     "test:db": "supabase test db --local",
     "db:start": "supabase start",
@@ -27,8 +28,11 @@
   },
   "dependencies": {
     "next": "16.3.6",
+    "posthog-js": "1.434.15",
+    "posthog-node": "5.54.1",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

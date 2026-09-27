@@ -1,0 +1,15 @@
+Captured 2026-09-27T17:35:27Z, Node v24.21.0
+
+$ pnpm test:analytics
+○  (Static)  prerendered as static content
+
+
+Running 1 test using 1 worker
+
+  ✓  1 [desktop] › tests/analytics/analytics-navigation.spec.ts:110:7 › client analytics lane: behavioral navigation › emits exactly one sanitized pageview per distinct route template and nothing else (18.2s)
+
+  1 passed (19.7s)
+
+$ pnpm verify (exit 0 summary)
+ Test Files  14 passed (14)
+      Tests  121 passed (121)

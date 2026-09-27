@@ -1,0 +1,20 @@
+Captured 2026-09-27T17:35:27Z, Node v24.21.0
+
+$ pnpm test:e2e (3 consecutive runs, all green)
+  ✓   7 [desktop] › tests/e2e/accessibility.spec.ts:35:5 › axe detects an injected violation and clears after it is removed (1.3s)
+
+  10 passed (5.1s)
+  ✓   7 [desktop] › tests/e2e/accessibility.spec.ts:35:5 › axe detects an injected violation and clears after it is removed (1.4s)
+
+  10 passed (5.0s)
+  ✓   7 [desktop] › tests/e2e/accessibility.spec.ts:35:5 › axe detects an injected violation and clears after it is removed (1.3s)
+
+  10 passed (5.0s)
+
+$ pnpm test:visual
+  ✓  1 [mobile] › tests/visual/fixture.visual.spec.ts:19:5 › design foundation fixture is visually stable (463ms)
+  ✓  2 [desktop] › tests/visual/fixture.visual.spec.ts:19:5 › design foundation fixture is visually stable (629ms)
+
+  2 passed (2.2s)
+
+No visual baseline files changed.

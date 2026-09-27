@@ -1,0 +1,6 @@
+Analytics test files run with src/analytics implementation sources removed (tests import nothing); 7 of 8 files fail at import, proving the tests would fail without the implementation. Sources restored after capture; full suite green afterwards (see verify-pass.txt).
+
+$ pnpm exec vitest run src/analytics   # implementation sources removed
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  7 failed | 1 passed (8)
+      Tests  11 failed | 6 passed (17)
