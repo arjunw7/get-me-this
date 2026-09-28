@@ -71,11 +71,17 @@ intentionally disclosed publicly.
 - **The token hash is authentication material (owner review,
   2026-09-28):** the `token_hash` query value is not the six-digit code
   but is still authentication material. The `/auth/confirm` route must
-  respond **non-cacheable (`Cache-Control: no-store`)** with a
-  **`Referrer-Policy: no-referrer`** header or meta policy, and must
-  **redirect to a clean URL (the query stripped) before rendering
+  respond **non-cacheable (`Cache-Control: no-store`)** with an
+  **HTTP `Referrer-Policy: no-referrer` header on the initial redirect
+  response itself** (not a meta policy — a meta tag can only govern an
+  HTML document, and this response redirects before rendering one), and
+  must **redirect to a clean URL (the query stripped) before rendering
   substantive content or running analytics**. Request logs and committed
-  evidence must never retain the query value.
+  evidence must never retain the query value. The clean redirect discards
+  the hash from the URL; **before 004d is implemented, the 004d binding
+  brief must define how the hash is carried securely from the link to
+  the explicit verification action** — a 004d design gate recorded here,
+  not 004d code in this issue.
 - **Resend countdown (owner decision, 2026-09-28):** the displayed countdown
   is a UI reflection of the configured provider limit — **sourced from a
   named server-side configuration constant read by the verify screen
@@ -140,10 +146,14 @@ Google login; production rollout.
   plus `{{ .TokenHash }}`, in the exact specified form, never Supabase's
   verification endpoint) lands on the honest not-yet state, the six-digit
   code still verifies afterward (the token was not consumed), and the
-  click creates no session. The route responds `no-store` with a
-  no-referrer policy and redirects to a clean URL before rendering
-  substantive content or running analytics; request logs and committed
-  evidence never retain the `token_hash` query value.
+  click creates no session. The route responds `no-store` with an HTTP
+  `Referrer-Policy: no-referrer` header on the initial redirect response
+  and redirects to a clean URL before rendering substantive content or
+  running analytics; request logs and committed evidence never retain
+  the `token_hash` query value. Until this is deployed, the interim
+  screen and URL cleanup are **unproven implementation gates**, not
+  staging proof; no further real-link tests occur before the cleanup is
+  deployed.
 - `emailRedirectTo` is derived from the environment-specific server-side
   allowlist in all environments, including local tests.
 - Isolated staging rehearsal for a fresh and a returning user completing
