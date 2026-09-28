@@ -46,13 +46,21 @@ intentionally disclosed publicly.
   storage**, and the email and intent never appear in URLs, logs, or
   analytics. (The Supabase session cookies are exempt per the standard
   scheme above.)
-- **Interim magic-link result (owner correction, 2026-09-28):** the branded
-  email from 004b still contains a sign-in link while 004d's callback is
-  absent. In 004c, that link reaching `/auth/confirm` renders an **honest
-  interim state**: no false "signed in" claim, no endless loading — a clear
-  message that link sign-in is not available yet with a path back to code
-  entry. This behavior is tested in staging. The real link callback remains
-  004d.
+- **Emailed link is non-consuming (owner review, 2026-09-28):** the
+  004b email's `{{ .ConfirmationURL }}` points at Supabase's verification
+  endpoint, which may consume the one-time token and return session
+  material. In 004c the staging email template is updated so the link is
+  built from `{{ .TokenHash }}` and points at **the app's own
+  `/auth/confirm` route** — never the Supabase endpoint — so clicking it
+  cannot consume the token, invalidate the code, or create a session. In
+  004c that route renders the **honest interim state** (no false
+  "signed in", no endless loading, a clear not-yet message with a path
+  back to code entry). This is also the permanent design: 004d implements
+  verification on that route via the token hash. Proof is a **real
+  staging link click**: the link lands on the interim state, the
+  six-digit code still verifies afterward (no consumption), and no
+  session is created by the click. The token hash is never logged or
+  echoed by the route.
 - **Resend countdown (owner decision, 2026-09-28):** the displayed countdown
   is a UI reflection of the configured provider limit — **sourced from a
   named server-side configuration constant read by the verify screen
@@ -76,10 +84,13 @@ intentionally disclosed publicly.
   honest recovery copy.
 - **Success boundary and sign-out (owner decision, 2026-09-28):** after a
   successful verify, the verify screen shows an approved "signed in" state
-  with a **minimal sign-out action** (server action calling `signOut`,
-  clearing the session, no-store) — because 004c creates persistent
-  sessions while the full account menu, protected routes, and session
-  restoration remain in 004e. No navigation to routes that don't exist yet.
+  with a **minimal sign-out action** — a server action calling
+  **`signOut({ scope: 'local' })`** (local scope: it clears this browser's
+  session and does not revoke other devices' sessions), clearing the
+  session, no-store — because 004c creates persistent sessions while the
+  full account menu, protected routes, and session restoration remain in
+  004e. No navigation to routes that don't exist yet. The local scope is
+  asserted by test.
 - **Copy honesty (owner correction, 2026-09-28):** the on-screen copy
   promises **the working code flow only** — e.g., "No password. We'll send
   you a secure code to sign in." It does **not** invite use of the email's
@@ -108,15 +119,20 @@ Google login; production rollout.
   over-limit paths recover safely — the over-limit path exercised with the
   resend control enabled and the countdown clock manipulated, proving the
   provider response is authoritative.
-- The interim `/auth/confirm` link behavior (honest not-yet state, no
-  endless loading, path back to code entry) is tested in staging.
+- The interim `/auth/confirm` link behavior is proven by a **real staging
+  link click**: the link (built from `{{ .TokenHash }}`, pointing at the
+  app route, never Supabase's verification endpoint) lands on the honest
+  not-yet state, the six-digit code still verifies afterward (the token
+  was not consumed), and the click creates no session. The token hash is
+  never logged or echoed.
 - `emailRedirectTo` is derived from the environment-specific server-side
   allowlist in all environments, including local tests.
 - Isolated staging rehearsal for a fresh and a returning user completing
   the full request-verify loop, including sign-out.
 - A session exists after successful verification and is cleared by
-  sign-out; **no new session after failure in an initially signed-out
-  browser**.
+  sign-out; sign-out is local-scoped (other-device sessions are not
+  revoked by this minimal control); **no new session after failure in an
+  initially signed-out browser**.
 - Approved visual states stay matched; the copy changes (real code-flow
   promise, reflected countdown) are reviewed side-by-side against the
   approved baselines before merge.
