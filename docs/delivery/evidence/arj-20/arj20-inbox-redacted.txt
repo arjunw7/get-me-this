@@ -1,0 +1,35 @@
+Structured redacted test-inbox transcript — owner-attested, 2026-09-28
+
+Recipient: the owner test inbox (address redacted per the brief's privacy
+rules). Two messages received and verified by the owner; screenshots are
+retained privately and are not committed.
+
+Message 1 (new-user path; confirmation template)
+  Sender:            hello@getmethis.fun via Resend SMTP
+  Subject:           Your Get Me This sign-in code
+  Wordmark:          uppercase GET ME THIS, coral arc under THIS (as
+                     approved from the owner's snippet)
+  Body box:          cream background, no border
+  Code present:      yes — six digits (mailer_otp_length 6)
+  Link destination:  https://get-me-this-staging.up.railway.app/auth/confirm/...
+                     (token hash embedded in the URL; token material redacted)
+  Server-side check: staging auth user created at 2026-09-28T18:01:23Z;
+                     public.profiles row created automatically by the
+                     deployed 004a trigger
+
+Message 2 (returning-user path; magic-link template)
+  Sent:              after the 60-second per-user SMTP cooldown
+  Sender/subject:    identical to message 1
+  Code present:      yes — six digits
+  Link destination:  same staging /auth/confirm route
+  Server-side check: no new user row (existing user matched)
+
+Message 3 (redirect check)
+  Sent with an explicit allowlisted email_redirect_to for
+  <staging-origin>/auth/confirm; the link resolves to that route.
+  (An earlier send without email_redirect_to fell back to the site root with
+  an #error=... fragment; a superseded token failing safely to the error
+  state is expected behavior.)
+
+Note: the code and link tokens visible in the inbox were never copied into
+this repository, this pack, or any pull request.

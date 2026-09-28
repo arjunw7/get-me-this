@@ -1,0 +1,14 @@
+Delivery-failure observability demonstration (2026-09-28)
+
+Request: POST <staging-project>/auth/v1/otp with apikey <publishable key,
+redacted>, body {"email":"bounce-test@nonexistent-domain-gmt.invalid",
+"email_redirect_to":"https://get-me-this-staging.up.railway.app/auth/confirm"}
+
+Response: HTTP 200, body: {}
+(no error, no account-existence or delivery information in the public
+response)
+
+Maintainer side: the failed delivery appears as a bounce in the Resend
+dashboard, and the send attempt appears in Supabase Auth logs (identifiers
+only). The brief's requirement — failed delivery observable to maintainers
+while the public request response stays generic — is satisfied.
