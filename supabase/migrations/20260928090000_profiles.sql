@@ -18,6 +18,10 @@
 --     table (RLS narrows rows to the owner) and UPDATE only the
 --     display_name and avatar_path columns of their own row. No client
 --     INSERT or DELETE. Service-role credentials stay server-only.
+--   * Function EXECUTE is revoked from PUBLIC, anon, and authenticated on
+--     both trigger functions: Postgres grants EXECUTE to PUBLIC by default,
+--     and trigger-function EXECUTE is checked at CREATE TRIGGER time, not
+--     when the trigger fires, so no client role needs it.
 --   * updated_at is database-managed by a BEFORE UPDATE trigger using
 --     clock_timestamp(), which advances within a transaction, unlike the
 --     transaction-fixed now(). A column default would fire on insert only
@@ -92,6 +96,15 @@ revoke all on public.profiles from public;
 
 grant select on public.profiles to authenticated;
 grant update (display_name, avatar_path) on public.profiles to authenticated;
+
+-- Functions are EXECUTE-granted to PUBLIC by default, and Supabase default
+-- privileges extend that to anon, authenticated, and service_role. No client
+-- role needs EXECUTE on either function: these triggers are only ever
+-- reached through signup and profile updates themselves, and PostgreSQL
+-- checks trigger-function EXECUTE at CREATE TRIGGER time, not when the
+-- trigger fires. The function owner retains implicit EXECUTE.
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+revoke execute on function public.set_profiles_updated_at() from public, anon, authenticated;
 
 alter table public.profiles enable row level security;
 

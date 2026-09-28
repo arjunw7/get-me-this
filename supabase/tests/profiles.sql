@@ -11,7 +11,7 @@
 
 begin;
 
-select plan(39);
+select plan(47);
 
 -- Synthetic test identities; rolled back at the end of the suite.
 select gen_random_uuid() as uid_a \gset
@@ -214,7 +214,54 @@ select throws_ok(
   '42501'
 );
 
--- 7. Cross-user denial ------------------------------------------------------------
+-- 7. No client EXECUTE on the trigger functions -----------------------------------
+
+-- Postgres grants EXECUTE on functions to PUBLIC by default and Supabase
+-- default privileges extend it to anon and authenticated. Trigger-function
+-- EXECUTE is checked at CREATE TRIGGER time, not when the trigger fires, so
+-- no client role needs it; only the function owner retains access.
+
+select ok(
+  not has_function_privilege('anon', 'public.handle_new_user()', 'EXECUTE'),
+  'anon cannot execute public.handle_new_user()'
+);
+
+select ok(
+  not has_function_privilege('authenticated', 'public.handle_new_user()', 'EXECUTE'),
+  'authenticated cannot execute public.handle_new_user()'
+);
+
+select ok(
+  not has_function_privilege('public', 'public.handle_new_user()', 'EXECUTE'),
+  'PUBLIC holds no EXECUTE on public.handle_new_user()'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.set_profiles_updated_at()', 'EXECUTE'),
+  'anon cannot execute public.set_profiles_updated_at()'
+);
+
+select ok(
+  not has_function_privilege('authenticated', 'public.set_profiles_updated_at()', 'EXECUTE'),
+  'authenticated cannot execute public.set_profiles_updated_at()'
+);
+
+select ok(
+  not has_function_privilege('public', 'public.set_profiles_updated_at()', 'EXECUTE'),
+  'PUBLIC holds no EXECUTE on public.set_profiles_updated_at()'
+);
+
+select ok(
+  has_function_privilege('postgres', 'public.handle_new_user()', 'EXECUTE'),
+  'the function owner retains EXECUTE on public.handle_new_user()'
+);
+
+select ok(
+  has_function_privilege('postgres', 'public.set_profiles_updated_at()', 'EXECUTE'),
+  'the function owner retains EXECUTE on public.set_profiles_updated_at()'
+);
+
+-- 8. Cross-user denial ------------------------------------------------------------
 
 reset role;
 
@@ -260,7 +307,7 @@ select is(
   'a cross-user update did not change the other profile'
 );
 
--- 8. Unauthenticated (anon) denial ------------------------------------------------
+-- 9. Unauthenticated (anon) denial ------------------------------------------------
 
 set local role anon;
 
@@ -276,7 +323,7 @@ select throws_ok(
 
 reset role;
 
--- 9. Trigger failure blocks the signup transaction --------------------------------
+-- 10. Trigger failure blocks the signup transaction ---------------------------------
 
 alter table public.profiles rename to profiles_hidden;
 
@@ -300,7 +347,7 @@ select is(
   'a failed signup leaves no auth user row behind'
 );
 
--- 10. Backfill for pre-existing users and the 1:1 invariant -----------------------
+-- 11. Backfill for pre-existing users and the 1:1 invariant -----------------------
 
 -- The local test role is not the owner of auth.users, so a pre-trigger user
 -- is simulated by removing the profile row the trigger created: the state
