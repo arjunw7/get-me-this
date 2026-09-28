@@ -53,11 +53,16 @@ explicitly chooses to verify*. This brief is that resolution.
   with 004d implementation, not added by this planning PR). The same
   integrity consideration applies to 004c's unsigned carry cookie; it is
   flagged to the 004c review and is out of scope for this brief.
-- **One-shot carriage:** the explicit verify action deletes the link cookie
-  on the **first attempt regardless of outcome** (success, provider failure,
-  or crash-safe degradation). The provider's one-time token semantics
-  remain the authoritative replay guard; cookie deletion is defense in
-  depth so the hash cannot be re-carried after the first verify attempt.
+- **One-shot carriage (owner-review correction, 2026-09-28):** the
+  explicit verify action deletes the link cookie on **every completed
+  attempt** — success, provider failure, and every terminal recovery
+  outcome alike. This deliberately does not claim crash-safe deletion: if
+  the server crashes or the response is lost, the browser may never
+  receive the deletion instruction (Next.js documents cookie deletion as a
+  response-side operation), so the cookie may outlive the attempt until
+  its own short expiry. The authoritative safeguards are Supabase's
+  one-time token semantics and expiry, with cookie deletion as defense in
+  depth on every path the server completes.
 - **The clean `/auth/link` page is a server component** that reads only the
   *presence and validity* of the link cookie server-side to render the
   honest choice state: an explicit, accessible control — **"Use my sign-in
@@ -91,9 +96,11 @@ explicitly chooses to verify*. This brief is that resolution.
 - **Session equivalence:** link verification uses the same standard
   `@supabase/ssr` cookie storage as the six-digit code path, so successful
   link and code verification create equivalent session behavior, proven by
-  test. The response that establishes the session is `no-store`. Failed or
-  reused links create no session and cannot bypass onboarding or
-  protected-route checks.
+  test. The response that establishes the session is `no-store`. **Failed or
+  reused links create no new session in an initially signed-out browser**
+  (matching 004c's phrasing) **and cannot bypass onboarding or
+  protected-route checks**; a failed link must also **not clear an existing
+  session** in an already signed-in browser, proven by test.
 - **Success boundary (owner-review correction, 2026-09-28): the success
   destination is one 004d can actually serve — the approved 004c "signed
   in" state on the verification experience, with the same minimal local
@@ -126,7 +133,8 @@ explicitly chooses to verify*. This brief is that resolution.
   re-carried cookie) finds no link cookie and renders the honest
   already-used/missing recovery state; if the cookie somehow survives, the
   consumed provider token fails and maps to the same recovery. No path
-  replays into a second session.
+  replays into a second session in an initially signed-out browser, and a
+  replay attempt does not clear an existing session.
 - **Generic responses and no leakage:** public status codes, bodies, and
   copy do not distinguish new vs returning users; provider errors map into
   004c's closed generic message set; the token hash, email, and auth
@@ -154,7 +162,7 @@ the pinned link URL form.
   **forged** payloads — including a valid-shape payload with an altered
   (future) `issuedAt`, a bad signature, and a signature verified under the
   wrong secret — each treated identically to a missing cookie; the verify
-  action deletes the cookie on the first attempt regardless of outcome.
+  action deletes the cookie on every completed attempt.
 - **GET-safety tests:** a GET (or scanner HEAD/prefetch) creates no
   session, does not consume the token (the six-digit code still verifies
   afterward), sets no JavaScript-readable state, and is non-cacheable with
@@ -182,7 +190,9 @@ the pinned link URL form.
   successful link verification** (one-time credential semantics per
   Supabase's passwordless-auth documentation).
 - **Failure e2e:** expired, reused, malformed, and missing links create no
-  session and cannot reach onboarding or protected routes; every failure
+  new session in an initially signed-out browser, do not clear an existing
+  session in an already signed-in browser, and cannot reach onboarding or
+  protected routes; every failure
   state has accessible recovery back to code entry or resend.
 - **No-leakage assertion:** request logs, analytics payloads, screenshots,
   and committed evidence never retain the `token_hash` query value; a test
@@ -198,7 +208,8 @@ the pinned link URL form.
   corpus), `pnpm verify` green.
 - Real staging link clicks on both email paths proving: clean redirect,
   explicit-action verification, session equivalence with the code path,
-  no consumption on GET/prefetch, and no session on failure or replay.
+  no consumption on GET/prefetch, and no new session on failure or replay
+  in an initially signed-out browser.
 - The owner's approval of this revised brief at its exact commit, and
   side-by-side copy review, before merge.
 - Sanitized notes only: no addresses, codes, token hashes, or secret URLs.
