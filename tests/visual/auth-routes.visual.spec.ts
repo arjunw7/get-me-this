@@ -81,6 +81,13 @@ for (const family of FAMILIES) {
   test(`${family.name} is visually stable in its fixture state`, async ({
     page,
   }, testInfo) => {
+    // Test-only determinism: install Playwright's fake clock BEFORE
+    // navigation so the resend countdown's one-second timer never fires.
+    // The baseline is therefore pinned at the deterministic initial value
+    // (0:30) and cannot vary between captures; the ticking behavior stays
+    // covered by the fake-timer unit tests and the e2e suite, never by
+    // screenshots.
+    await page.clock.install();
     await page.goto(family.url);
 
     // Guard: the intended state must have rendered — a passing screenshot

@@ -1,0 +1,66 @@
+
+> get-me-this@0.1.0 test:visual /home/factory-user/get-me-this
+> pnpm build && pnpm exec playwright test tests/visual
+
+
+> get-me-this@0.1.0 build /home/factory-user/get-me-this
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.mjs took 11ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 160ms
+  Running TypeScript ...
+  Finished TypeScript in 1656ms ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/8) ...
+  Generating static pages using 3 workers (2/8) 
+  Generating static pages using 3 workers (4/8) 
+  Generating static pages using 3 workers (6/8) 
+✓ Generating static pages using 3 workers (8/8) in 182ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /auth
+├ ƒ /auth/confirm
+├ ƒ /auth/verify
+├ ○ /design-foundation
+├ ƒ /health
+└ ƒ /onboarding
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+Running 24 tests using 2 workers
+
+  ✓   1 [mobile] › tests/visual/auth-email.visual.spec.ts:11:5 › email entry (default state) is visually stable (461ms)
+  ✓   2 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › auth-wishlist is visually stable in its fixture state (386ms)
+  ✓   4 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › auth-create-group is visually stable in its fixture state (376ms)
+  ✓   3 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-default is visually stable in its fixture state (410ms)
+  ✓   5 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-error is visually stable in its fixture state (342ms)
+  ✓   6 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-expired is visually stable in its fixture state (330ms)
+  ✓   7 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › confirm-valid is visually stable in its fixture state (285ms)
+  ✓   8 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › confirm-expired is visually stable in its fixture state (319ms)
+  ✓   9 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › onboarding is visually stable in its fixture state (282ms)
+  ✓  10 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › onboarding-validation is visually stable in its fixture state (308ms)
+  ✓  11 [mobile] › tests/visual/fixture.visual.spec.ts:19:5 › design foundation fixture is visually stable (341ms)
+  ✓  12 [mobile] › tests/visual/landing.visual.spec.ts:16:5 › landing page is visually stable (572ms)
+  ✓  13 [desktop] › tests/visual/auth-email.visual.spec.ts:11:5 › email entry (default state) is visually stable (383ms)
+  ✓  15 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › auth-create-group is visually stable in its fixture state (354ms)
+  ✓  14 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › auth-wishlist is visually stable in its fixture state (454ms)
+  ✓  16 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-default is visually stable in its fixture state (436ms)
+  ✓  17 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-error is visually stable in its fixture state (425ms)
+  ✓  18 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-expired is visually stable in its fixture state (415ms)
+  ✓  19 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › confirm-valid is visually stable in its fixture state (339ms)
+  ✓  20 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › confirm-expired is visually stable in its fixture state (371ms)
+  ✓  21 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › onboarding is visually stable in its fixture state (385ms)
+  ✓  22 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › onboarding-validation is visually stable in its fixture state (364ms)
+  ✓  23 [desktop] › tests/visual/fixture.visual.spec.ts:19:5 › design foundation fixture is visually stable (499ms)
+  ✓  24 [desktop] › tests/visual/landing.visual.spec.ts:16:5 › landing page is visually stable (713ms)
+
+  24 passed (7.3s)

@@ -40,9 +40,30 @@ workflow.
 3. The confirm fixtures render their final states directly from the URL;
    the loading frame is a separate `?state=loading` fixture with no
    baseline family (owner clarification rev 2, 2026-09-27).
+4. **Plan amendment (owner-approved, 2026-09-28):** the addendum's
+   "controlled-time loading→final transition test" is deferred to Phase 3,
+   where a real link-check exists and the transition has a genuine
+   outcome. The 003b confirm screen has no transition: final states render
+   directly from their URL fixtures, the loading frame is provably stable
+   across controlled time (fake-timer test), and no fake sign-in timer was
+   added to satisfy the earlier wording.
+5. **Honesty review (owner findings, 2026-09-28):** V18's
+   delivery-promising copy — "We'll send you a fresh one" (verify expired
+   panel), "Send a new code" (verify expired primary and elapsed resend
+   link), and "Send a new email" / "We'll send a new one" (confirm
+   recovery) — is replaced with honest wording ("Start a new code", "Try
+   again with a new code", "In the real product, …"), because the preview
+   only resets a fixture or navigates and never delivers. Regression tests
+   forbid the promise patterns in every rendered state, and the preview
+   notice stays in the same frame.
+6. Visual captures freeze JavaScript timers via Playwright's fake clock
+   (test-only), pinning the resend countdown at its deterministic initial
+   value; the ticking behavior stays covered by fake-timer unit tests and
+   e2e, never by screenshots.
 
 ## Pending owner approvals in this pull request
 
-- The 18 candidate baselines (9 families × 2 viewports).
+- The 18 candidate baselines (9 families × 2 viewports), packaged for
+  review outside this repository.
 - The "You're in." + preview-notice copy combination on the confirm
   success frame — explicitly unapproved until seen in candidate review.

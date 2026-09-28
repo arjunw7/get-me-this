@@ -19,8 +19,14 @@ import type { ConfirmVariant } from "./fixtures";
  * STATIC PREVIEW BOUNDARY: no link is checked and nobody is signed in.
  * The success frame's copy never claims a session — the preview notice is
  * visible in the same frame so the represented state can't read as a
- * completed sign-in. The loading→final transition is deliberately absent
- * here; it belongs to Phase 3's real flow and its controlled-time tests.
+ * completed sign-in. Documented copy difference from V18 (reviewed
+ * 2026-09-28): V18's "Send a new email" and "We'll send a new one" promise
+ * delivery, but here the action only navigates to the code screen and
+ * nothing is sent, so the recovery path uses honest journey wording ("Try
+ * again with a new code"). A regression test holds the no-delivery-promise
+ * rule for every state. The loading→final transition is deliberately
+ * absent here; it belongs to Phase 3's real flow and its controlled-time
+ * tests (plan amendment approved 2026-09-28).
  */
 
 export function ConfirmScreen({ variant }: { variant: ConfirmVariant }) {
@@ -66,7 +72,7 @@ export function ConfirmScreen({ variant }: { variant: ConfirmVariant }) {
               </h1>
               <p className="mt-2 text-content-secondary">
                 Sign-in links only work once and last 10 minutes. No harm done.
-                We’ll send a new one.
+                In the real product, we’d send a new one.
               </p>
               <Link
                 href="/auth/verify"
@@ -75,7 +81,7 @@ export function ConfirmScreen({ variant }: { variant: ConfirmVariant }) {
                   `${buttonClassName({ variant: "primary", size: "lg" })} w-full`,
                 )}
               >
-                Send a new email
+                Try again with a new code
               </Link>
               <Link
                 href="/auth"

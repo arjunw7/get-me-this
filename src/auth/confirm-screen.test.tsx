@@ -48,7 +48,11 @@ describe("ConfirmScreen", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "This link has expired." }),
     ).toBeVisible();
-    const sendNew = screen.getByRole("link", { name: "Send a new email" });
+    // Honest journey label: V18's "Send a new email" promised delivery;
+    // here the action only navigates to the code screen.
+    const sendNew = screen.getByRole("link", {
+      name: "Try again with a new code",
+    });
     expect(sendNew).toHaveAttribute("href", "/auth/verify");
     const different = screen.getByRole("link", {
       name: "Use a different email",
@@ -75,6 +79,19 @@ describe("ConfirmScreen", () => {
     for (const variant of ["loading", "valid", "expired"] as const) {
       const { unmount } = render(<ConfirmScreen variant={variant} />);
       expect(screen.getByText(previewNotice)).toBeVisible();
+      unmount();
+    }
+  });
+
+  it("makes no delivery promise in any rendered state (review regression)", () => {
+    for (const variant of ["loading", "valid", "expired"] as const) {
+      const { unmount } = render(<ConfirmScreen variant={variant} />);
+      const body = document.body.textContent ?? "";
+      // V18's delivery-promising copy ("We'll send…", "Send a new email")
+      // must never return: the preview sends nothing.
+      expect(body).not.toMatch(
+        /we('|\u2019)?ll send|send a new (code|email)|code sent|sending\u2026/i,
+      );
       unmount();
     }
   });

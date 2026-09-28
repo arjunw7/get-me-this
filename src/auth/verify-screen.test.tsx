@@ -49,9 +49,15 @@ describe("VerifyScreen", () => {
     render(<VerifyScreen variant="expired" />);
 
     expect(screen.getByText("That code has expired.")).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Send a new code" }),
-    ).toBeEnabled();
+    // As in the reference, the expired state offers both the primary action
+    // and the elapsed resend control; both honestly read "Start a new code".
+    const restartControls = screen.getAllByRole("button", {
+      name: "Start a new code",
+    });
+    expect(restartControls).toHaveLength(2);
+    for (const control of restartControls) {
+      expect(control).toBeEnabled();
+    }
     expect(
       screen.getByRole("textbox", { name: "Digit 1 of 6" }),
     ).toBeDisabled();
@@ -89,7 +95,7 @@ describe("VerifyScreen", () => {
     render(<VerifyScreen variant="expired" />);
 
     await userEvent.click(
-      screen.getByRole("button", { name: "Send a new code" }),
+      screen.getAllByRole("button", { name: "Start a new code" })[0],
     );
 
     expect(screen.getByText(`Resend code in 0:30`)).toBeVisible();
@@ -106,7 +112,9 @@ describe("VerifyScreen", () => {
     tick();
     expect(screen.getByText(`Resend code in 0:29`)).toBeVisible();
     for (let i = 0; i < 29; i++) tick();
-    expect(screen.getByRole("button", { name: "Resend code" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Start a new code" }),
+    ).toBeEnabled();
   });
 
   it("keeps the countdown bounded by its deterministic initial value", () => {
@@ -115,7 +123,9 @@ describe("VerifyScreen", () => {
     const tick = () => act(() => vi.advanceTimersByTime(1000));
 
     for (let i = 0; i < RESEND_SECONDS + 5; i++) tick();
-    expect(screen.getByRole("button", { name: "Resend code" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Start a new code" }),
+    ).toBeVisible();
     expect(screen.queryByText(/Resend code in/)).toBeNull();
   });
 
@@ -128,6 +138,18 @@ describe("VerifyScreen", () => {
     expect(changeEmailLinks).toHaveLength(2);
     for (const link of changeEmailLinks) {
       expect(link).toHaveAttribute("href", "/auth");
+    }
+  });
+  it("makes no delivery promise in any rendered state (review regression)", () => {
+    for (const variant of ["default", "error", "expired"] as const) {
+      const { unmount } = render(<VerifyScreen variant={variant} />);
+      const body = document.body.textContent ?? "";
+      // V18's delivery-promising copy ("We'll send…", "Send a new code /
+      // email") must never return: the preview delivers nothing.
+      expect(body).not.toMatch(
+        /we('|’)?ll send|send a new (code|email)|code sent|sending…/i,
+      );
+      unmount();
     }
   });
 });

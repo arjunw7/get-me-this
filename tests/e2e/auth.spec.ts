@@ -63,7 +63,10 @@ test("the verify flow is traversable by click-through with no 404 anywhere", asy
   await page.getByRole("button", { name: "Continue with email" }).click();
   await expect(page.getByText("Enter your email to continue.")).toBeVisible();
 
-  // Verify default fixture, including the inbox preview's link.
+  // Verify default fixture, including the inbox preview's link. The fake
+  // clock pins the countdown at its initial value for the assertion; the
+  // ticking behaviour is covered by fake-timer unit tests.
+  await page.clock.install();
   await page.goto("/auth/verify");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Check your inbox.",
@@ -83,7 +86,7 @@ test("the verify flow is traversable by click-through with no 404 anywhere", asy
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "This link has expired.",
   );
-  await page.getByRole("link", { name: "Send a new email" }).click();
+  await page.getByRole("link", { name: "Try again with a new code" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Check your inbox.",
   );
@@ -104,9 +107,11 @@ test("the designed verify error and expired fixtures render by URL", async ({
 
   await page.goto("/auth/verify?state=expired");
   await expect(page.getByText("That code has expired.")).toBeVisible();
+  // Both restart controls (primary and elapsed resend link) are present and
+  // honest.
   await expect(
-    page.getByRole("button", { name: "Send a new code" }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Start a new code" }),
+  ).toHaveCount(2);
   await expect(
     page.getByRole("textbox", { name: "Digit 1 of 6" }),
   ).toBeDisabled();

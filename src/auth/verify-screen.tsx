@@ -26,8 +26,13 @@ import {
  * and the preview notice is permanently visible because the screen's
  * interactions (resend, submit) could otherwise imply a delivery or a
  * completed sign-in. A complete code submits to nothing: no navigation, no
- * success claim. These are documented copy/behaviour differences from V18
- * (the same boundary approved for the 003a email entry).
+ * success claim. Documented copy differences from V18 (reviewed 2026-09-28):
+ * V18's delivery-promising labels — "Send a new code" and the "Resend
+ * code" link, plus the expired panel's "We'll send you a fresh one" — are
+ * replaced with honest wording, because in this preview the action only
+ * resets the designed resend state and nothing is delivered. These are the
+ * same boundary approved for the 003a email entry; a regression test holds
+ * the no-delivery-promise rule for every state.
  */
 
 type Status = "idle" | "error" | "expired";
@@ -153,7 +158,8 @@ export function VerifyScreen({ variant }: { variant: VerifyVariant }) {
                 <ClockIcon className="h-4 w-4" /> That code has expired.
               </p>
               <p className="mt-1 text-content-secondary">
-                Codes last 10 minutes. We’ll send you a fresh one.
+                Codes last 10 minutes. In the real product, a resend starts a
+                fresh one.
               </p>
             </div>
           ) : null}
@@ -165,7 +171,7 @@ export function VerifyScreen({ variant }: { variant: VerifyVariant }) {
               `${buttonClassName({ variant: "primary", size: "lg" })} w-full`,
             )}
           >
-            {status === "expired" ? "Send a new code" : "Verify and continue"}
+            {status === "expired" ? "Start a new code" : "Verify and continue"}
           </button>
         </form>
 
@@ -183,7 +189,7 @@ export function VerifyScreen({ variant }: { variant: VerifyVariant }) {
               onClick={resend}
               className="inline-flex h-11 items-center font-bold underline decoration-2 underline-offset-4 hover:text-action-primary-strong"
             >
-              Resend code
+              Start a new code
             </button>
           )}
           <Link
