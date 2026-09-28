@@ -1,0 +1,137 @@
+# 004c — Email request and OTP verification
+
+## Outcome
+
+Turn the approved static email-entry and verification screens into a real
+Supabase email-code flow for new and returning users, with a session created
+only on successful verification and no account-existence information
+intentionally disclosed publicly.
+
+## Scope
+
+- **New dependencies: `@supabase/ssr` and, if the setup requires it,
+  `@supabase/supabase-js`** (Supabase's Next.js guide documents installing
+  both). Justification in the pull request per repository rules; no other new
+  dependencies. **The standard `@supabase/ssr` cookie scheme is used as-is:
+  Supabase's session cookies are not required to be HttpOnly, because the
+  browser client needs cookie access to maintain the session.**
+- **Two Supabase clients from one typed factory in `src/supabase/`:** a
+  browser client and a server client, both configured from
+  `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` only.
+  No service-role key in any client code.
+- **Session-refresh proxy and caching:** this app is Next.js 16, so the proxy
+  is **`proxy.ts` exporting a `proxy` function** (not `middleware.ts`), per
+  the Supabase SSR setup. It maintains the session (refreshing expired
+  tokens, redirecting signed-out users away from authenticated data access).
+  The proxy matcher must cover the auth Server Action requests — Next.js
+  notes a matcher can accidentally exclude Server Actions — and this is
+  proven by test. Every response that sets or clears session or carry
+  cookies is non-cacheable (`Cache-Control: no-store` on the relevant
+  actions and proxied auth responses) — cached Set-Cookie responses can
+  leak sessions; this too is proven by test.
+- **Email request (server action on `/auth`):** client-side validation, then
+  a server action performs `signInWithOtp` (email-only, no password) with
+  `emailRedirectTo` **derived from a trusted, environment-specific
+  server-side allowlist** (the same origin configuration that backs the
+  Supabase `uri_allow_list`), never a hard-coded staging URL and never
+  client input. The approved intent enum (`home`/`wishlist`/`create-group`)
+  is preserved exactly as parsed today; no arbitrary destinations.
+- **Carry cookie (owner decision, 2026-09-28):** the email and approved
+  intent travel from `/auth` to `/auth/verify` in a short-lived, app-owned
+  HttpOnly cookie — marked `Secure` and `SameSite`, set by the server
+  action, **validated server-side (format-checked email, intent from the
+  closed enum, checked expiry), never treated as proof of identity**, and
+  cleared on **explicit cancel or flow restart, successful verification,
+  and expiry**. Beyond this cookie, the flow uses **no JavaScript-readable
+  storage**, and the email and intent never appear in URLs, logs, or
+  analytics. (The Supabase session cookies are exempt per the standard
+  scheme above.)
+- **Interim magic-link result (owner correction, 2026-09-28):** the branded
+  email from 004b still contains a sign-in link while 004d's callback is
+  absent. In 004c, that link reaching `/auth/confirm` renders an **honest
+  interim state**: no false "signed in" claim, no endless loading — a clear
+  message that link sign-in is not available yet with a path back to code
+  entry. This behavior is tested in staging. The real link callback remains
+  004d.
+- **Resend countdown (owner decision, 2026-09-28):** the displayed countdown
+  is a UI reflection of the configured provider limit — **sourced from a
+  named server-side configuration constant read by the verify screen
+  server-side**, since Supabase's repeat-request limit is configurable and
+  the provider's response remains authoritative. A too-early resend renders
+  the accessible over-limit recovery state whatever the button or clock
+  say. The countdown and recovery paths are tested with the button enabled
+  and with a manipulated clock. The static 0:30 fixture remains only for
+  deterministic fixture capture and tests.
+- **Verification (`/auth/verify`):** six-digit `verifyOtp` from a server
+  action using the carried email; wrong, expired, reused, and missing codes
+  render the approved error/expired states with accessible recovery.
+  Successful verification creates the authenticated session via the
+  standard `@supabase/ssr` cookie storage; failed verification creates
+  none.
+- **Generic public responses (testable form):** there is **no intentional
+  distinction in public status code, body, or copy between new and
+  returning users, and no account-specific provider error is passed
+  through** — provider errors map to a closed set of generic user-facing
+  messages. Over-limit (429) and delivery-failure paths have their own
+  honest recovery copy.
+- **Success boundary and sign-out (owner decision, 2026-09-28):** after a
+  successful verify, the verify screen shows an approved "signed in" state
+  with a **minimal sign-out action** (server action calling `signOut`,
+  clearing the session, no-store) — because 004c creates persistent
+  sessions while the full account menu, protected routes, and session
+  restoration remain in 004e. No navigation to routes that don't exist yet.
+- **Copy honesty (owner correction, 2026-09-28):** the on-screen copy
+  promises **the working code flow only** — e.g., "No password. We'll send
+  you a secure code to sign in." It does **not** invite use of the email's
+  sign-in link, whose callback is not complete until 004d.
+- **No email addresses, codes, or auth errors in URLs, logs, analytics,
+  replay, or PR evidence.**
+
+## Non-goals
+
+Magic-link callback handling (004d); the full account menu, onboarding,
+protected routes, session restoration (004e); wishlist/group actions;
+Google login; production rollout.
+
+## Acceptance criteria
+
+- Unit/component tests: validation; intent parsing and preservation;
+  countdown sourced from the named server-side constant; generic error
+  mapping (no account-specific provider error passes through);
+  carry-cookie set/read/clear on explicit cancel or restart, successful
+  verification, and expiry; server-side validation of cookie contents.
+- **Proxy tests:** the `proxy.ts` matcher covers the auth Server Action
+  requests; cookie-setting responses carry `Cache-Control: no-store`.
+- Local e2e against the local Supabase stack using its built-in Mailpit
+  inbox to read the OTP deterministically: request → read code → verify →
+  session exists; sign-out clears it; wrong, expired, reused, and
+  over-limit paths recover safely — the over-limit path exercised with the
+  resend control enabled and the countdown clock manipulated, proving the
+  provider response is authoritative.
+- The interim `/auth/confirm` link behavior (honest not-yet state, no
+  endless loading, path back to code entry) is tested in staging.
+- `emailRedirectTo` is derived from the environment-specific server-side
+  allowlist in all environments, including local tests.
+- Isolated staging rehearsal for a fresh and a returning user completing
+  the full request-verify loop, including sign-out.
+- A session exists after successful verification and is cleared by
+  sign-out; **no new session after failure in an initially signed-out
+  browser**.
+- Approved visual states stay matched; the copy changes (real code-flow
+  promise, reflected countdown) are reviewed side-by-side against the
+  approved baselines before merge.
+
+## Required proof
+
+- Local test transcripts (unit + Mailpit-based e2e), `pnpm verify` green,
+  sanitized staging rehearsal notes with no addresses, codes, or tokens.
+- Railway staging environment has the two `NEXT_PUBLIC_*` variables set
+  (deployment prerequisite; flagged in the PR).
+- Dependency rationale for `@supabase/ssr` (and `@supabase/supabase-js` if
+  installed).
+- Copy-change side-by-side for owner approval before merge.
+
+## Dependencies
+
+004a profiles (Done, staging gate closed) and 004b delivery (Done). Parent
+tracker ARJ-19. This brief governs if the Linear draft differs.
