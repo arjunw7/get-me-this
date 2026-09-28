@@ -1,15 +1,18 @@
--- Infrastructure smoke test for the 002d local Supabase foundation.
+-- Infrastructure smoke test for the 002d local Supabase foundation,
+-- amended by the reviewed 004a profiles migration.
 --
 -- Run with: pnpm test:db   (supabase test db --local)
 --
--- This suite asserts foundation-level facts only. It deliberately makes no
--- claim about product schema, because no product schema exists yet. It is
--- expected to fail if the baseline migration was not applied or if application
--- tables or seeded rows appear without a reviewed migration.
+-- This suite asserts foundation-level facts only. It makes one explicit,
+-- reviewed concession to the 004a product schema: public.profiles is now
+-- expected to exist (see docs/delivery/issues/004a-profiles-schema-
+-- grants-rls-and-tests.md). It still fails if the baseline migration was
+-- not applied or if any other application table or seeded row appears
+-- without a reviewed migration.
 
 begin;
 
-select plan(6);
+select plan(7);
 
 -- 1. pgTAP is available in this database, whichever schema it is installed in.
 select ok(
@@ -39,11 +42,20 @@ select ok(
   'baseline migration 20260927000000 is recorded as applied'
 );
 
--- 4. No application schema was introduced by the baseline.
+-- 4. The only application table is public.profiles, introduced by the
+--    reviewed 004a migration. Any other public table means an unreviewed
+--    schema change. (Deliberate, reviewed amendment of the 002d assertion
+--    "no application tables exist"; see the 004a brief.)
 select is(
   (select count(*)::int from pg_tables where schemaname = 'public'),
-  0,
-  'no application tables exist in the public schema'
+  1,
+  'only the reviewed public.profiles exists in the public schema'
+);
+
+select has_table(
+  'public',
+  'profiles',
+  'public.profiles is the reviewed first application table'
 );
 
 -- 5. Local authentication infrastructure is present in the stack.
