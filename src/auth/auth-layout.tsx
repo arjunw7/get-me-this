@@ -11,10 +11,28 @@ import { AuthCollage } from "./auth-collage";
  * Shared chrome for the static public auth screens, ported from the frozen
  * V18 reference (components/auth/AuthLayout.tsx).
  *
- * The 003a slice ships the email-entry destination; 003b extends it with
- * the intent variants, verification, and onboarding routes.
+ * 003a shipped the email-entry destination; 003b extends the layout with
+ * the reference's `back` link and `aside` slots. The defaults reproduce the
+ * 003a rendering byte-for-byte, so the approved `auth-home` baselines
+ * remain valid.
  */
-export function AuthLayout({ children }: { children: ReactNode }) {
+
+export type AuthLayoutBack = {
+  href: string;
+  label: string;
+};
+
+export function AuthLayout({
+  children,
+  aside,
+  back = { href: "/", label: "Back to home" },
+}: {
+  children: ReactNode;
+  /** Optional content rendered under the card column (V18: InboxPreview). */
+  aside?: ReactNode;
+  /** Header return link; defaults to the 003a rendering. */
+  back?: AuthLayoutBack;
+}) {
   return (
     <div className="min-h-screen w-full bg-surface-page text-content-primary">
       {/* The reference keeps the auth header at the 6xl container width —
@@ -25,16 +43,17 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <Wordmark className="text-2xl sm:text-3xl" />
         </Link>
         <Link
-          href="/"
+          href={back.href}
           className="inline-flex h-11 items-center gap-1.5 rounded-surface px-3 text-sm font-bold hover:bg-surface-sunken"
         >
           <ArrowLeftIcon className="h-4 w-4" />
-          Back to home
+          {back.label}
         </Link>
       </header>
       <main className="mx-auto flex w-full max-w-content-max flex-col px-5 pt-2 pb-16 sm:pt-8">
         <AuthCollage />
         {children}
+        {aside ? <div className="mt-10">{aside}</div> : null}
       </main>
     </div>
   );

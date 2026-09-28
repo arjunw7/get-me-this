@@ -4,7 +4,8 @@ import { useId, useState, type FormEvent } from "react";
 
 import { buttonClassName, cx } from "@/src/ui/styles";
 import { ArrowRightIcon, MailIcon } from "@/src/landing/icons";
-import { emailHelpText, previewNotice } from "./copy";
+import { emailHelpText } from "./copy";
+import { PreviewNotice } from "./preview-notice";
 import {
   authCardClassName,
   authInputClassName,
@@ -13,7 +14,8 @@ import {
 
 /**
  * Static email-entry screen, ported from the frozen V18 reference
- * (pages/auth/AuthEmail.tsx) in its default (no-intent-note) state.
+ * (pages/auth/AuthEmail.tsx). 003b adds the intent helper notes; the
+ * `home` intent (and a bare route) renders the 003a default state.
  *
  * STATIC PREVIEW BOUNDARY: this slice has no backend. Client-side
  * validation works exactly as designed; a valid submission performs no
@@ -23,8 +25,7 @@ import {
  * These are documented copy differences from V18 (approved for this
  * slice).
  *
- * 003b expands this screen with the intent variants and wires the real
- * verification flow (Phase 3 adds Supabase + Resend delivery).
+ * Phase 3 adds the real verification flow (Supabase + Resend delivery).
  */
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -36,7 +37,12 @@ const INVALID_EMAIL_ERROR = "That email looks a little off. Check for typos?";
 type FormState =
   { kind: "idle" } | { kind: "error"; message: string } | { kind: "preview" };
 
-export function EmailEntryForm() {
+export function EmailEntryForm({
+  intentNote,
+}: {
+  /** Intent-specific helper copy from the frozen reference; null for home. */
+  intentNote?: string | null;
+}) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<FormState>({ kind: "idle" });
   const errorId = useId();
@@ -63,6 +69,11 @@ export function EmailEntryForm() {
   return (
     <AuthLayout>
       <div className={authCardClassName}>
+        {intentNote ? (
+          <p className="mb-5 rounded-surface bg-accent-highlight-soft px-4 py-3 text-center text-sm font-semibold">
+            {intentNote}
+          </p>
+        ) : null}
         <h1 className="text-center font-display text-4xl leading-[1] font-extrabold tracking-tight sm:text-display-xl">
           Welcome to Get Me This.
         </h1>
@@ -102,15 +113,7 @@ export function EmailEntryForm() {
               {error}
             </p>
           ) : null}
-          {state.kind === "preview" ? (
-            <p
-              id={noticeId}
-              role="status"
-              className="rounded-surface bg-accent-highlight-soft px-4 py-3 text-center text-sm font-semibold"
-            >
-              {previewNotice}
-            </p>
-          ) : null}
+          {state.kind === "preview" ? <PreviewNotice id={noticeId} /> : null}
           <button
             type="submit"
             className={cx(

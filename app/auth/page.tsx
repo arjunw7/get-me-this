@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { EmailEntryForm } from "@/src/auth/email-entry-form";
+import { INTENT_NOTES, parseIntent } from "@/src/auth/fixtures";
 
 export const metadata: Metadata = {
   title: "Get Me This | Sign in",
@@ -9,16 +10,17 @@ export const metadata: Metadata = {
 };
 
 /**
- * Static email-entry destination (003a). The `intent` query parameter is
- * accepted so landing CTAs resolve to their designed destinations; the
- * intent-specific helper copy and the verification/confirmation/onboarding
- * routes arrive with 003b.
+ * Static email-entry destination. The `intent` query parameter selects the
+ * reference's intent-specific helper copy; `home` (and any unknown value)
+ * renders the default state approved with 003a.
  */
 export default async function AuthPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await searchParams;
-  return <EmailEntryForm />;
+  const params = await searchParams;
+  const raw = params.intent;
+  const intent = parseIntent(Array.isArray(raw) ? raw[0] : raw);
+  return <EmailEntryForm intentNote={INTENT_NOTES[intent]} />;
 }

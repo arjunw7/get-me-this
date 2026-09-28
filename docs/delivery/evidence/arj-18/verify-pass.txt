@@ -1,0 +1,144 @@
+
+> get-me-this@0.1.0 verify /home/factory-user/get-me-this
+> pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
+
+
+> get-me-this@0.1.0 format:check /home/factory-user/get-me-this
+> prettier --check --ignore-unknown .env.example .gitignore .nvmrc .prettierignore .railway README.md app eslint.config.mjs instrumentation-client.ts next.config.mjs package.json postcss.config.mjs scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> get-me-this@0.1.0 lint /home/factory-user/get-me-this
+> eslint .
+
+
+/home/factory-user/get-me-this/src/analytics/event-definitions.test.ts
+  11:15  warning  'AnalyticsEventName' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 1 problem (0 errors, 1 warning)
+
+
+> get-me-this@0.1.0 typecheck /home/factory-user/get-me-this
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> get-me-this@0.1.0 test /home/factory-user/get-me-this
+> vitest run
+
+
+ RUN  v5.0.2 /home/factory-user/get-me-this
+
+ ✓ src/auth/onboarding-form.test.tsx (9 tests) 658ms
+ ✓ src/auth/verify-screen.test.tsx (10 tests) 748ms
+ ✓ src/analytics/sdk-import-boundary.test.ts (6 tests) 1517ms
+   ✓ SDK ownership lint rule (6)
+     ✓ blocks a posthog-js import from product code 1341ms
+ ✓ src/auth/otp-input.test.tsx (6 tests) 338ms
+ ✓ src/auth/confirm-screen.test.tsx (6 tests) 315ms
+ ✓ src/ui/text-field.test.tsx (9 tests) 312ms
+ ✓ src/ui/button.test.tsx (4 tests) 176ms
+stderr | src/analytics/client.test.ts > client analytics lane > identity: anonymous → authenticated → logout > refuses non-UUID identifiers such as emails and display names
+[analytics] identify rejected: distinct id is not a UUID
+[analytics] identify rejected: distinct id is not a UUID
+
+ ✓ src/analytics/client.test.ts (15 tests) 75ms
+ ✓ src/auth/email-entry-form.test.tsx (3 tests) 176ms
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects unknown event names at compile time
+[analytics] capture rejected: unknown-event (event "group_deleted")
+
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects unsupported property values at compile time
+[analytics] capture rejected: invalid-enum-value ("invite_sent"."channel" has a value outside its allowed list)
+
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects missing and extra object-literal properties at compile time
+[analytics] capture rejected: missing-key ("invite_accepted" is missing "was_authenticated")
+[analytics] capture rejected: unknown-key ("invite_accepted" does not allow "group_name")
+
+ ✓ src/analytics/event-definitions.test.ts (10 tests) 48ms
+ ✓ src/foundation/health-route.test.ts (5 tests) 25ms
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > still rejects invalid payloads so the boundary is identical in every mode
+[analytics] capture rejected: unknown-event (event "group_deleted")
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > still rejects invalid payloads so the boundary is identical in every mode
+[analytics] capture rejected: missing-key ("auth_completed" is missing "is_new_user")
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.group.id must be an internal group UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > never reaches the SDK with a rejected payload
+[analytics] capture rejected: missing-key ("group_created" is missing "gifting_mode")
+
+ ✓ src/analytics/server.test.ts (15 tests) 31ms
+ ✓ src/analytics/validation.test.ts (8 tests) 9ms
+ ✓ src/analytics/privacy.test.tsx (20 tests) 40ms
+ ✓ src/landing/content.test.ts (8 tests) 9ms
+ ✓ src/analytics/server-only-guard.test.ts (2 tests) 14ms
+ ✓ src/ui/styles.test.ts (17 tests) 11ms
+ ✓ src/foundation/design-tokens.test.ts (4 tests) 6ms
+ ✓ src/visual-baseline-manifest.test.ts (2 tests) 7ms
+ ✓ src/foundation/design-fixture.test.ts (5 tests) 5ms
+ ✓ src/auth/fixtures.test.ts (7 tests) 6ms
+ ✓ src/analytics/memory-sink.test.ts (5 tests) 6ms
+ ✓ src/auth/copy.test.ts (3 tests) 4ms
+
+ Test Files  23 passed (23)
+      Tests  179 passed (179)
+   Start at  06:10:09
+   Duration  5.60s (environment 40%, tests 32%, setup 18%, transform 5%, import 4%, worker 1%)
+
+    Isolate  23 workers spawned · ~343ms startup each (spawn + environment, per file)
+             at least ~2.29s faster with isolate: false — reuses workers across files instead of one per file
+
+
+> get-me-this@0.1.0 build /home/factory-user/get-me-this
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.mjs took 10ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 162ms
+  Running TypeScript ...
+  Finished TypeScript in 1579ms ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/8) ...
+  Generating static pages using 3 workers (2/8) 
+  Generating static pages using 3 workers (4/8) 
+  Generating static pages using 3 workers (6/8) 
+✓ Generating static pages using 3 workers (8/8) in 194ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /auth
+├ ƒ /auth/confirm
+├ ƒ /auth/verify
+├ ○ /design-foundation
+├ ƒ /health
+└ ƒ /onboarding
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
