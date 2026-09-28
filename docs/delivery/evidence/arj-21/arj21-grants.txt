@@ -1,0 +1,69 @@
+=== RLS enabled ===
+ rls_enabled 
+-------------
+ t
+(1 row)
+
+=== table privileges ===
+    grantee    | privilege_type 
+---------------+----------------
+ authenticated | SELECT
+ postgres      | DELETE
+ postgres      | INSERT
+ postgres      | REFERENCES
+ postgres      | SELECT
+ postgres      | TRIGGER
+ postgres      | TRUNCATE
+ postgres      | UPDATE
+ service_role  | DELETE
+ service_role  | INSERT
+ service_role  | REFERENCES
+ service_role  | SELECT
+ service_role  | TRIGGER
+ service_role  | TRUNCATE
+ service_role  | UPDATE
+(15 rows)
+
+=== column privileges (non-table-wide) ===
+    grantee    | privilege_type | column_name  
+---------------+----------------+--------------
+ authenticated | SELECT         | avatar_path
+ authenticated | UPDATE         | avatar_path
+ authenticated | SELECT         | created_at
+ authenticated | SELECT         | display_name
+ authenticated | UPDATE         | display_name
+ authenticated | SELECT         | id
+ authenticated | SELECT         | updated_at
+(7 rows)
+
+=== function EXECUTE privileges (trigger functions) ===
+        function         |   grantee    | privilege_type 
+-------------------------+--------------+----------------
+ handle_new_user         | postgres     | EXECUTE
+ handle_new_user         | service_role | EXECUTE
+ set_profiles_updated_at | postgres     | EXECUTE
+ set_profiles_updated_at | service_role | EXECUTE
+(4 rows)
+
+=== policies ===
+     policyname      |      roles      |  cmd   |       qual        |    with_check     
+---------------------+-----------------+--------+-------------------+-------------------
+ profiles_select_own | {authenticated} | SELECT | (auth.uid() = id) | 
+ profiles_update_own | {authenticated} | UPDATE | (auth.uid() = id) | (auth.uid() = id)
+(2 rows)
+
+=== triggers ===
+       on_table        |               tgname               | tgtype 
+-----------------------+------------------------------------+--------
+ auth.users            | on_auth_user_created               |      5
+ realtime.subscription | tr_check_filters                   |     23
+ storage.buckets       | enforce_bucket_name_length_trigger |     23
+ storage.buckets       | protect_bucket_control_insert      |      7
+ storage.buckets       | protect_bucket_control_update      |     19
+ storage.buckets       | protect_bucket_control_update_role |     17
+ storage.buckets       | protect_buckets_delete             |     10
+ storage.objects       | protect_objects_delete             |     10
+ storage.objects       | update_objects_updated_at          |     19
+ profiles              | profiles_set_updated_at            |     19
+(10 rows)
+
