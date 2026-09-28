@@ -1,0 +1,30 @@
+=== GRANT EXECUTE back to authenticated (simulated regression) ===
+GRANT
+GRANT
+=== TEST:DB (expected FAIL on exactly the two authenticated EXECUTE assertions) ===
+# Failed test 33: "authenticated cannot execute public.set_profiles_updated_at()"
+# Looks like you failed 2 tests of 47
+Failed 2/47 subtests 
+/home/factory-user/get-me-this/supabase/tests/smoke.sql ..... ok
+
+Test Summary Report
+-------------------
+/home/factory-user/get-me-this/supabase/tests/profiles.sql (Wstat: 0 Tests: 47 Failed: 2)
+  Failed tests:  30, 33
+Files=2, Tests=54,  0 wallclock secs ( 0.03 usr  0.00 sys +  0.02 cusr  0.00 csys =  0.05 CPU)
+Result: FAIL
+error running container: exit 1
+Try rerunning the command with --debug to troubleshoot the error.
+ ELIFECYCLE  Command failed with exit code 1.
+=== REVERT via fresh pnpm db:reset ===
+Restarting containers...
+Finished supabase db reset on branch auth/arj-21-profiles-schema.
+=== TEST:DB (expected PASS) ===
+> supabase test db --local
+
+Connecting to local database...
+/home/factory-user/get-me-this/supabase/tests/profiles.sql .. ok
+/home/factory-user/get-me-this/supabase/tests/smoke.sql ..... ok
+All tests successful.
+Files=2, Tests=54,  0 wallclock secs ( 0.03 usr  0.01 sys +  0.02 cusr  0.00 csys =  0.06 CPU)
+Result: PASS

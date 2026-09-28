@@ -1,3 +1,9 @@
+=== RLS enabled ===
+ rls_enabled 
+-------------
+ t
+(1 row)
+
 === table privileges ===
     grantee    | privilege_type 
 ---------------+----------------
@@ -22,71 +28,42 @@
     grantee    | privilege_type | column_name  
 ---------------+----------------+--------------
  authenticated | SELECT         | avatar_path
+ authenticated | UPDATE         | avatar_path
  authenticated | SELECT         | created_at
  authenticated | SELECT         | display_name
+ authenticated | UPDATE         | display_name
  authenticated | SELECT         | id
  authenticated | SELECT         | updated_at
- authenticated | UPDATE         | avatar_path
- authenticated | UPDATE         | display_name
- postgres      | INSERT         | avatar_path
- postgres      | INSERT         | created_at
- postgres      | INSERT         | display_name
- postgres      | INSERT         | id
- postgres      | INSERT         | updated_at
- postgres      | REFERENCES     | avatar_path
- postgres      | REFERENCES     | created_at
- postgres      | REFERENCES     | display_name
- postgres      | REFERENCES     | id
- postgres      | REFERENCES     | updated_at
- postgres      | SELECT         | avatar_path
- postgres      | SELECT         | created_at
- postgres      | SELECT         | display_name
- postgres      | SELECT         | id
- postgres      | SELECT         | updated_at
- postgres      | UPDATE         | avatar_path
- postgres      | UPDATE         | created_at
- postgres      | UPDATE         | display_name
- postgres      | UPDATE         | id
- postgres      | UPDATE         | updated_at
- service_role  | INSERT         | avatar_path
- service_role  | INSERT         | created_at
- service_role  | INSERT         | display_name
- service_role  | INSERT         | id
- service_role  | INSERT         | updated_at
- service_role  | REFERENCES     | avatar_path
- service_role  | REFERENCES     | created_at
- service_role  | REFERENCES     | display_name
- service_role  | REFERENCES     | id
- service_role  | REFERENCES     | updated_at
- service_role  | SELECT         | avatar_path
- service_role  | SELECT         | created_at
- service_role  | SELECT         | display_name
- service_role  | SELECT         | id
- service_role  | SELECT         | updated_at
- service_role  | UPDATE         | avatar_path
- service_role  | UPDATE         | created_at
- service_role  | UPDATE         | display_name
- service_role  | UPDATE         | id
- service_role  | UPDATE         | updated_at
-(47 rows)
+(7 rows)
 
-=== rls enabled ===
- relrowsecurity 
-----------------
- t
-(1 row)
+=== function EXECUTE privileges (trigger functions) ===
+        function         |   grantee    | privilege_type 
+-------------------------+--------------+----------------
+ handle_new_user         | postgres     | EXECUTE
+ handle_new_user         | service_role | EXECUTE
+ set_profiles_updated_at | postgres     | EXECUTE
+ set_profiles_updated_at | service_role | EXECUTE
+(4 rows)
 
 === policies ===
-     policyname      |  cmd   |      roles      |       qual        |    with_check     
----------------------+--------+-----------------+-------------------+-------------------
- profiles_select_own | SELECT | {authenticated} | (auth.uid() = id) | 
- profiles_update_own | UPDATE | {authenticated} | (auth.uid() = id) | (auth.uid() = id)
+     policyname      |      roles      |  cmd   |       qual        |    with_check     
+---------------------+-----------------+--------+-------------------+-------------------
+ profiles_select_own | {authenticated} | SELECT | (auth.uid() = id) | 
+ profiles_update_own | {authenticated} | UPDATE | (auth.uid() = id) | (auth.uid() = id)
 (2 rows)
 
 === triggers ===
-         tgname          
--------------------------
- profiles_set_updated_at
- on_auth_user_created
-(2 rows)
+       on_table        |               tgname               | tgtype 
+-----------------------+------------------------------------+--------
+ auth.users            | on_auth_user_created               |      5
+ realtime.subscription | tr_check_filters                   |     23
+ storage.buckets       | enforce_bucket_name_length_trigger |     23
+ storage.buckets       | protect_bucket_control_insert      |      7
+ storage.buckets       | protect_bucket_control_update      |     19
+ storage.buckets       | protect_bucket_control_update_role |     17
+ storage.buckets       | protect_buckets_delete             |     10
+ storage.objects       | protect_objects_delete             |     10
+ storage.objects       | update_objects_updated_at          |     19
+ profiles              | profiles_set_updated_at            |     19
+(10 rows)
 

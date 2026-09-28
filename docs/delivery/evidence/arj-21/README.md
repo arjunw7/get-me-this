@@ -16,11 +16,17 @@ changes, no staging or production mutation.
   `updated_at = clock_timestamp()`, idempotent backfill for pre-existing
   users, explicit grants (anon: none; authenticated: SELECT plus
   column-limited UPDATE on `display_name`/`avatar_path`; no client
-  INSERT/DELETE), RLS enabled with owner-only SELECT/UPDATE policies.
-- `supabase/tests/profiles.sql` — 39-assertion pgTAP suite (schema shape,
+  INSERT/DELETE), EXECUTE revoked from `PUBLIC`, `anon`, and
+  `authenticated` on both trigger functions (owner-reviewed correction,
+  commit `d822a70`; trigger-function EXECUTE is checked at `CREATE TRIGGER`
+  time, not at firing, so no client role needs it), RLS enabled with
+  owner-only SELECT/UPDATE policies.
+- `supabase/tests/profiles.sql` — 47-assertion pgTAP suite (schema shape,
   trigger creation, signup-failure safety, owner access, cross-user denial,
-  enumeration denial, non-granted-column denial, anon denial, clock-bounded
-  `updated_at` behavior, backfill idempotency, 1:1 invariant).
+  enumeration denial, non-granted-column denial, anon denial, function
+  privilege denials and owner retention for both trigger functions,
+  clock-bounded `updated_at` behavior, backfill idempotency, 1:1
+  invariant).
 - `supabase/tests/smoke.sql` — assertion 4 amended as the brief requires:
   the "no application tables exist" assertion becomes "only the reviewed
   `public.profiles` exists in the public schema" (plan 6 → 7). Explicit
@@ -36,7 +42,16 @@ and has no Docker database, so database proof is this local evidence.
 
 `pnpm db:reset` rebuilds the database from committed migrations alone
 (baseline + `20260928090000_profiles.sql`), then `pnpm test:db` runs both
-suites: 46 tests, 0 failures.
+suites: 54 tests, 0 failures. Regenerated on the final head after the
+owner-requested EXECUTE-revoke correction.
+
+### Function-privilege regression demonstration — `arj21-privilege-regression.txt`
+
+Grants EXECUTE back to `authenticated` on both trigger functions and
+re-runs the suite: exactly the two new `has_function_privilege` assertions
+fail (tests 30 and 33), proving the privilege checks catch the regression.
+A fresh `pnpm db:reset` then restores the revoked state and the full suite
+passes again (54 tests, `Result: PASS`).
 
 ### Deliberate negative-test failure demonstration — `arj21-negative.txt`
 
@@ -57,6 +72,10 @@ Queried against the migrated local database:
   (`.env.example` keeps `SUPABASE_SERVICE_ROLE_KEY` server-only).
 - RLS enabled; policies `profiles_select_own` and `profiles_update_own`
   (`auth.uid() = id`, UPDATE also `with check`).
+- Trigger-function EXECUTE: only the function owner (`postgres`) and the
+  privileged `service_role` hold EXECUTE on `handle_new_user` and
+  `set_profiles_updated_at`; `PUBLIC`, `anon`, and `authenticated` hold
+  none.
 - Triggers: `on_auth_user_created` on `auth.users`,
   `profiles_set_updated_at` on `public.profiles`.
 
@@ -66,12 +85,16 @@ Queried against the migrated local database:
   passes — see `arj21-reset-test.txt`.
 - 1:1 invariant proven across PK + trigger + backfill, including
   backfill idempotency and orphan assertions in both directions —
-  `profiles.sql` sections 2, 9, 10.
+  `profiles.sql` sections 2, 10, 11.
 - Trigger hardening and failure-blocks-signup proven — `profiles.sql`
-  sections 2 and 9 (`42P01` forced by renaming the table; no orphan
+  sections 2 and 10 (`42P01` forced by renaming the table; no orphan
   `auth.users` row).
 - Least privilege and negative authorization tests — `profiles.sql`
-  sections 3–8; `arj21-grants.txt`.
+  sections 3–9; `arj21-grants.txt`.
+- Trigger-function EXECUTE revoked from `PUBLIC`, `anon`, and
+  `authenticated`, owner retains it — `profiles.sql` section 7;
+  `arj21-grants.txt` (function EXECUTE privileges);
+  `arj21-privilege-regression.txt`.
 - `updated_at` database-managed via `clock_timestamp()`, bounded between
   in-transaction clock readings, later edit at or after the earlier one,
   client cannot set it — `profiles.sql` sections 4 and 5.
