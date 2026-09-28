@@ -1,13 +1,31 @@
 {
   "version": 1,
   "approvedBy": "arjunw7@gmail.com",
-  "approvedDate": "2026-09-27",
+  "approvedDate": "2026-09-28",
   "files": {
+    "auth-create-group-desktop.png": "d637310c508a175afcca158868e8df253325b1a4d2a609221bb4f933a90dd096",
+    "auth-create-group-mobile.png": "e4e777cdc15d237b6c3918f43268f32b3ffd03c1ce275abb39e2ea72c055448a",
     "auth-home-desktop.png": "8dcf72e7eb1907dba3ab1a9f6cc41820aac9d99a4f10ddbffe15198d6967889e",
     "auth-home-mobile.png": "00a88ab56c4151c9def44c906210cf0f6604183226823f7c90fef82df5164852",
+    "auth-wishlist-desktop.png": "e58b8a38b8adf6f7d02eccfde4adead7da10e91f030908b169a8e10c69d99deb",
+    "auth-wishlist-mobile.png": "529ba255a2046cb5355544657beebf04e006acc638256af1810871f287ac6e42",
+    "confirm-expired-desktop.png": "46d37972cdda6410742c8d86659363ae40ff720dedbcbe1780063e012f5bb2e9",
+    "confirm-expired-mobile.png": "1dccac7689fe6ff5cc8e90eb127542447a756f292fd0691329f99aefc3e43ef3",
+    "confirm-valid-desktop.png": "22f9414ab885333fabe52c1433f92c8148ec9aaa011d7fbbc453838d5faf3105",
+    "confirm-valid-mobile.png": "29dc098ebc02a2ceed3f52be9aec76c44ab948f8f661fa872219de0c0380d9c8",
     "fixture-desktop.png": "0a2b6a2ec57b54f1a1ac29a3b1fdc69089d13b96a8239a5bd212d01d30285820",
     "fixture-mobile.png": "2e54737bf7e9ed5e5973ab417b55830fa76d792404993fea43a1df83e6323cdd",
     "landing-desktop.png": "de81bef765d1958010bf3b0db4f22bdbf1b14ddb351040413018aba080322f3b",
-    "landing-mobile.png": "73567f36844195a004b58794a30043d1e14ec7f945bcfebe4229dd5199bcce97"
+    "landing-mobile.png": "73567f36844195a004b58794a30043d1e14ec7f945bcfebe4229dd5199bcce97",
+    "onboarding-desktop.png": "3ea5af3c30b681b83952503f19035f74937e4244f1138630747d9fd64dcb8fd3",
+    "onboarding-mobile.png": "2709d9084883503e36bbe480a569a27f6da7fa84dc824baa130d017daf954d90",
+    "onboarding-validation-desktop.png": "f559d352d0641e8923b75d1f96794991bb6706fc18266fe0b86b23326285e041",
+    "onboarding-validation-mobile.png": "c3c620cd2a707d073c794847468a3c13f6c59c1d4e6f0ff008ab451e590d9631",
+    "verify-default-desktop.png": "e301bd171c94310a4d21740cdae675854b6b6b81d48167b078f543941522163d",
+    "verify-default-mobile.png": "f77f385d2c7f7b1841571a1072c71f3e53b1d7c46ff2ae61e2859a077e781cf2",
+    "verify-error-desktop.png": "476990a5f67f57687220a632ddfb51e7026980071f13de9f7f36b49d295fd76d",
+    "verify-error-mobile.png": "7cd248e399ae8f327399e036cffe6cbf507bd9dad45ee6b4860bff3141b115da",
+    "verify-expired-desktop.png": "8806b860c1514bade0bad1a5e76dd705a3fc9e250d3589d4c6c8c4262f056a26",
+    "verify-expired-mobile.png": "493caff115ed1a969208c75369166cd37081c88f051039ca8dfd8e681ea77077"
   }
 }
