@@ -39,6 +39,37 @@ viewport (24 files, no extras, none missing):
 | `onboarding` | ✅ | ✅ | ✅ | ✅ match |
 | `onboarding-validation` | ✅ | ✅ | ✅ | ✅ match |
 
+## Reference matrix — all 12 families × both viewports
+
+Reference conventions:
+
+- **Frozen V18 reference:** `docs/design-reference/baselines/v18/<prefix>--{mobile-390x844,desktop-1440x1000}.png`, rendered from the pinned Magic Patterns artifact `a5d1a9ef-f965-43dd-819e-e9fbf30c6a5b` (version v18), NOT from the mutable live deployment.
+- **Pinned artifact reference:** `docs/delivery/evidence/arj-18/reference-captures/` — later captures of the same pinned artifact for the three states with no distinct frozen screenshot. Reference evidence, not production baselines.
+- **Production baseline:** `tests/visual/baselines/<prefix>-{mobile,desktop}.png`.
+- **Railway preview:** this pull request's Railway preview (see PR description for the URL), which builds the audited tree; the PR #11 preview was the owner-reviewed build of the same product routes/fixtures.
+- **Live prototype:** `https://project-agile-otter-357.magicpatterns.app/` — the mutable live Magic Patterns deployment is **supplementary only**. The pinned V18 reference (frozen screenshots and pinned artifact captures) is authoritative; where the live deployment and the pinned V18 reference differ, the V18 reference wins until the owner approves a newer version.
+- **Matched capture state (all rows):** full-page capture (scroll top, entire page), no open UI beyond the rendered fixture state (no sheets, menus, dialogs, focus, or hover), animations disabled, caret hidden, device pixel ratio 1, page clock paused at `2026-01-01T00:00:00Z` before navigation (countdown pinned at its deterministic initial value 0:30). The prototype and production routes carry the same deterministic fixture via the shared `?intent=`/`?state=` convention.
+
+| Family | Route/fixture (production = prototype) | Frozen V18 or pinned reference | Production baseline | Matched state |
+| --- | --- | --- | --- | --- |
+| `landing` | `/` | `baselines/v18/landing--{mobile,desktop}.png` | `landing-{mobile,desktop}.png` | Full page, top, no open UI |
+| `auth-home` | `/auth?intent=home` | `baselines/v18/auth-home--{mobile,desktop}.png` | `auth-home-{mobile,desktop}.png` | Email entry default, empty field, no focus/caret |
+| `auth-wishlist` | `/auth?intent=wishlist` | `baselines/v18/auth-wishlist--{mobile,desktop}.png` | `auth-wishlist-{mobile,desktop}.png` | Intent helper copy rendered |
+| `auth-create-group` | `/auth?intent=create-group` | `baselines/v18/auth-create-group--{mobile,desktop}.png` | `auth-create-group-{mobile,desktop}.png` | Intent helper copy rendered |
+| `verify-default` | `/auth/verify` | `baselines/v18/verify-default--{mobile,desktop}.png` | `verify-default-{mobile,desktop}.png` | Clock paused; countdown pinned at 0:30 |
+| `verify-error` | `/auth/verify?state=error` | `baselines/v18/verify-error--{mobile,desktop}.png` | `verify-error-{mobile,desktop}.png` | Inline `role="alert"` error visible; clock paused at 0:30 |
+| `verify-expired` | `/auth/verify?state=expired` | `baselines/v18/verify-expired--{mobile,desktop}.png` | `verify-expired-{mobile,desktop}.png` | Expired panel + honest resend copy; clock paused at 0:30 |
+| `confirm-valid` (final) | `/auth/confirm?state=valid` | Pinned artifact: `arj-18/reference-captures/confirm-valid-final--{mobile,desktop}.png` (frozen `confirm-valid--*.png` is the loading frame) | `confirm-valid-{mobile,desktop}.png` | Final state rendered directly from fixture, no transition |
+| `confirm-expired` (final) | `/auth/confirm?state=expired` | Pinned artifact: `arj-18/reference-captures/confirm-expired-final--{mobile,desktop}.png` (frozen `confirm-expired--*.png` is the loading frame) | `confirm-expired-{mobile,desktop}.png` | Recovery panel + honest copy rendered directly |
+| `onboarding` | `/onboarding` | `baselines/v18/onboarding--{mobile,desktop}.png` | `onboarding-{mobile,desktop}.png` | Empty form; no avatar control (deferred state — see exceptions) |
+| `onboarding-validation` | `/onboarding?state=validation` | Pinned artifact: `arj-18/reference-captures/onboarding-validation--{mobile,desktop}.png` | `onboarding-validation-{mobile,desktop}.png` | Required-field error visible |
+
+All reference and baseline paths above are relative to `docs/design-reference/` for `baselines/v18/…` and `docs/delivery/` for `arj-18/reference-captures/…`; production baselines live in `tests/visual/baselines/`.
+
+### Design-foundation fixture — separate explanation
+
+The `fixture` family (`/design-foundation`, production-only) has **no V18 prototype screen** and therefore no frozen reference image. It is the repository's own token-and-primitive fixture (ARJ-9): a static page rendering the semantic tokens from `app/tokens.css` and the `src/ui` primitives against the deterministic mock data embedded in the pinned V18 artifact (`docs/design-reference/magic-patterns-v18/`), as required by the route map's "Fixture" definition. Its committed baselines pin the production rendering of those tokens and primitives so that later slices inherit a stable comparison point; the review target is the pinned V18 artifact's styling (tokens/typography), not a prototype screenshot. It is captured with the identical contract as every other family (full page, both viewports, animations disabled, caret hidden).
+
 All 24 committed PNGs in `tests/visual/baselines/` were re-hashed with
 SHA-256 on the audited tree; every hash matches
 `BASELINE-MANIFEST.json` byte-for-byte. The approval fields are
