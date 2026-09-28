@@ -7,11 +7,17 @@ owner-approved rollout.
 
 ## Sender identity
 
-- Sending domain: `getmethis.fun`, verified in Resend (owner-confirmed).
-- DNS: the SPF and DKIM records published at the DNS host are the ones shown
-  on the Resend domain-verification page for this domain (SPF include and
-  DKIM selector TXT records). Re-verify status in the Resend dashboard,
-  Domains, before debugging delivery problems.
+- Sending domain: `getmethis.fun` (owner-managed in Resend).
+- DNS as published (verified live via DNS lookups, 2026-09-28):
+  - DKIM: `resend._domainkey.getmethis.fun` — published (Resend DKIM).
+  - DMARC: `_dmarc.getmethis.fun` — `p=none` monitoring policy.
+  - **SPF is pending an owner DNS action.** The apex TXT record is the
+    registrar's forwarding SPF (`v=spf1 include:spf.efwd.registrar-servers.com
+    ~all`) and does **not** include Resend. The owner should publish a merged
+    apex record, e.g. `v=spf1 include:spf.efwd.registrar-servers.com
+    include:send.resend.com ~all`, so Resend-originated mail is SPF-aligned;
+    until then mail relies on DKIM alignment and may be more susceptible to
+    spam-foldering.
 - From address: `hello@getmethis.fun` (sender name "Arjun Wadhwa").
 - The one email-only sign-in flow means one branded message design for both
   new and returning users; Supabase renders the confirmation template for
@@ -31,8 +37,10 @@ owner-approved rollout.
     link (`{{ .ConfirmationURL }}`, which embeds the token hash) in one
     message.
 - `site_url`: the staging Railway service; `uri_allow_list` contains exactly
-  one entry: `<staging-origin>/auth/confirm*`. No wildcard patterns that
-  would allow other Railway apps to receive redirects.
+  one entry: `<staging-origin>/auth/confirm*`. This is a single-origin,
+  path-prefix entry (same origin only); it matches any path beginning with
+  `/auth/confirm`, which is acceptable because the origin is ours and the
+  confirmation route is the only mail-driven entry point.
 
 ## OTP and expiry
 
@@ -66,6 +74,13 @@ owner-approved rollout.
 - The staging Supabase project backs Railway staging and PR-preview
   environments. Preview-specific mail testing uses the same staging project;
   no per-preview email providers exist.
+- **Promotion hazard:** this account has exactly one Supabase project, and
+  "staging" is a designation, not separate infrastructure. If this project is
+  ever promoted to production or duplicated into one, the Resend SMTP
+  credentials, branded templates, and OTP settings come with it — audit
+  Authentication → SMTP, Emails, and the rate limits as part of any
+  promotion, and keep production delivery on an explicit owner-approved
+  configuration.
 - Production is a separate future configuration. Nothing in this setup
   touches production settings, and no production domain or keys are
   referenced here.

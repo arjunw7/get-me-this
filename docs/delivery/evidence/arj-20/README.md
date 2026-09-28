@@ -5,17 +5,27 @@ Evidence for the binding repository brief
 (planning commit `24541c9`). Configuration-only: no application code, no UI
 changes, no production mutation.
 
-Sanitization: this pack contains no credentials, no email addresses (the
-owner's test inbox is referenced only as "the owner test inbox"), no OTP
-codes, and no link tokens, per the brief's privacy rules.
+Sanitization: this pack contains no credentials, no real email addresses
+(the only address mentioned is a reserved `.invalid` synthetic used for the
+bounce demonstration), no OTP codes, and no link tokens, per the brief's
+privacy rules.
+
+## Staging gate prerequisite (per the brief)
+
+The brief requires confirmation that the 004a staging gate closed before
+staging auth testing began. The owner approval comment on ARJ-21 is:
+https://linear.app/arjunwadhwa/issue/ARJ-21/004a-profiles-schema-grants-rls-and-tests#comment-c1a69a1c-7388-4b39-b338-6b85c7ab0c02
+(recorded 2026-09-28T17:50:41Z, before any staging auth testing).
 
 ## What was delivered
 
 - Resend SMTP configured as Supabase Auth's delivery mechanism on the
   **staging project only** (host `smtp.resend.com`, port `465`, credential in
-  secure configuration only). Sender domain `getmethis.fun` verified in
-  Resend; SPF/DKIM records published per the Resend domain-verification page
-  (see `docs/ops/resend-auth-delivery.md`).
+  secure configuration only). DNS as published live: DKIM
+  (`resend._domainkey.getmethis.fun`) and DMARC (`p=none`) present; the apex
+  SPF is still the registrar's forwarding record without the Resend include —
+  merging it is a pending owner DNS action, recorded in
+  `docs/ops/resend-auth-delivery.md`.
 - Branded combined templates for confirmation (new users) and magic-link
   (returning users): identical design, subject
   `Your Get Me This sign-in code`, uppercase wordmark with the coral arc,
@@ -35,17 +45,18 @@ credential and all keys redacted. Confirms: SMTP host/port/sender, OTP length
 6, both subjects, both templates carrying `{{ .Token }}` and
 `{{ .ConfirmationURL }}`, site URL, and the single allowlist entry.
 
-### Real test-inbox delivery — owner-confirmed
+### Real test-inbox delivery — owner-attested — `arj20-inbox-redacted.txt`
 
-Two real sends from staging through Resend SMTP reached the owner test inbox:
+Two real sends from staging through Resend SMTP reached the owner test inbox,
+with the structured redacted transcript committed as evidence:
 
 1. New-user path (confirmation template) — the request also created the
    staging auth user, whose `public.profiles` row was created automatically
-   by the deployed 004a trigger (verified by query: 1 user, 1 profile).
+   by the deployed 004a trigger (query-verified).
 2. Returning-user path (magic-link template) — sent after the 60-second
    per-user SMTP cooldown.
 
-The owner confirmed both emails arrived with: the expected sender, the
+The owner attested both emails arrived with: the expected sender, the
 branded subject, the wordmark, the six-digit code, and the sign-in button
 resolving to the staging `/auth/confirm` route. Screenshots are retained
 privately by the owner; per the brief they are not committed, and token
@@ -64,6 +75,13 @@ A request addressed to an undeliverable domain returns the generic empty
 `200` response — the public response reveals no account-existence or
 delivery information. The resulting bounce is observable to maintainers in
 the Resend dashboard.
+
+Note: this demonstration created a persistent unverified staging auth user
+(1:1 with a profile row, via the 004a trigger). Live counts during review
+were 2 users / 2 profiles (owner test user + bounce-test user). The
+bounce-test user was deleted afterward (cascade-verified); the owner test
+user is retained as the staging rehearsal account. Future failure
+demonstrations should use this same cleanup step.
 
 ### Template capability verification
 

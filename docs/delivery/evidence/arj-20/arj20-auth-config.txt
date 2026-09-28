@@ -16,11 +16,16 @@
   "template_confirmation_contains": {
     "token": true,
     "link": true,
-    "wordmark": false,
-    "borderless": true
+    "wordmark": true,
+    "coral_arc": true,
+    "borderless_box": true,
+    "heading_without_product_name": true
   },
   "template_magic_link_contains": {
     "token": true,
-    "link": true
+    "link": true,
+    "wordmark": true,
+    "coral_arc": true,
+    "borderless_box": true
   }
 }
