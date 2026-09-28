@@ -14,6 +14,12 @@ import { expect, test } from "@playwright/test";
 const NOTICE =
   "Preview only — this static preview doesn’t send email or sign you in yet.";
 
+/**
+ * The instant the fake clock is paused at for the countdown assertion
+ * (matching the visual specs' frozen capture instant).
+ */
+const FROZEN_AT = new Date("2026-01-01T00:00:00Z");
+
 test("each email-entry intent renders its designed helper copy", async ({
   page,
 }) => {
@@ -63,16 +69,20 @@ test("the verify flow is traversable by click-through with no 404 anywhere", asy
   await page.getByRole("button", { name: "Continue with email" }).click();
   await expect(page.getByText("Enter your email to continue.")).toBeVisible();
 
-  // Verify default fixture, including the inbox preview's link. The fake
-  // clock pins the countdown at its initial value for the assertion; the
-  // ticking behaviour is covered by fake-timer unit tests.
-  await page.clock.install();
+  // Verify default fixture, including the inbox preview's link. install()
+  // alone does not freeze timers: the clock is PAUSED at a fixed instant
+  // (page.clock.pauseAt) so the assertion reads the deterministic initial
+  // value, then resumed before click-through so navigation runs on a live
+  // clock. The ticking behaviour is covered by fake-timer unit tests.
+  await page.clock.install({ time: FROZEN_AT });
+  await page.clock.pauseAt(FROZEN_AT);
   await page.goto("/auth/verify");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Check your inbox.",
   );
   await expect(page.getByText("Resend code in 0:30")).toBeVisible();
   await expect(page.getByText(NOTICE)).toBeVisible();
+  await page.clock.resume();
 
   // In-box mock link click-through to the confirm success frame.
   await page.getByRole("link", { name: "Sign in to Get Me This" }).click();

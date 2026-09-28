@@ -77,17 +77,27 @@ const FAMILIES: readonly Family[] = [
   },
 ];
 
+/**
+ * The fixed instant the fake clock is paused at during every capture.
+ * A named constant keeps the frozen page time identical across all
+ * baselines and reruns.
+ */
+const FROZEN_AT = new Date("2026-01-01T00:00:00Z");
+
 for (const family of FAMILIES) {
   test(`${family.name} is visually stable in its fixture state`, async ({
     page,
   }, testInfo) => {
-    // Test-only determinism: install Playwright's fake clock BEFORE
-    // navigation so the resend countdown's one-second timer never fires.
-    // The baseline is therefore pinned at the deterministic initial value
-    // (0:30) and cannot vary between captures; the ticking behavior stays
-    // covered by the fake-timer unit tests and the e2e suite, never by
-    // screenshots.
-    await page.clock.install();
+    // Test-only determinism, using Playwright's documented "pause time"
+    // mechanism: install the fake clock and PAUSE it (page.clock.pauseAt)
+    // BEFORE navigation. While paused, no page timer fires, so the resend
+    // countdown's one-second tick cannot run and the capture is pinned at
+    // the deterministic initial value (0:30) on every run. Note that
+    // install() alone does NOT freeze timers; pauseAt is what holds time.
+    // The ticking behavior stays covered by the fake-timer unit tests and
+    // the e2e suite, never by screenshots.
+    await page.clock.install({ time: FROZEN_AT });
+    await page.clock.pauseAt(FROZEN_AT);
     await page.goto(family.url);
 
     // Guard: the intended state must have rendered — a passing screenshot
@@ -126,3 +136,25 @@ for (const family of FAMILIES) {
     );
   });
 }
+
+test("the paused fake clock holds the countdown at 0:30 past one second of real time", async ({
+  page,
+}) => {
+  // Regression check for the capture mechanism itself: with the clock
+  // paused via page.clock.pauseAt, more than a full second of real elapsed
+  // time must NOT advance the countdown — it must still display the
+  // deterministic initial value when a baseline is captured.
+  await page.clock.install({ time: FROZEN_AT });
+  await page.clock.pauseAt(FROZEN_AT);
+  await page.goto("/auth/verify");
+
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Check your inbox.",
+  );
+  await expect(page.getByText("Resend code in 0:30")).toBeVisible();
+
+  await page.waitForTimeout(1100);
+
+  await expect(page.getByText("Resend code in 0:30")).toBeVisible();
+  await expect(page.getByText("Resend code in 0:29")).toHaveCount(0);
+});

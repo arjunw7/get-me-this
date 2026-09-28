@@ -56,10 +56,13 @@ workflow.
    only resets a fixture or navigates and never delivers. Regression tests
    forbid the promise patterns in every rendered state, and the preview
    notice stays in the same frame.
-6. Visual captures freeze JavaScript timers via Playwright's fake clock
-   (test-only), pinning the resend countdown at its deterministic initial
-   value; the ticking behavior stays covered by fake-timer unit tests and
-   e2e, never by screenshots.
+6. Visual captures freeze JavaScript timers with Playwright's documented
+   "pause time" mechanism — `page.clock.pauseAt()` at a fixed instant
+   before navigation (install() alone does not hold timers; a review
+   finding, 2026-09-28, corrected). A regression check proves the
+   countdown still displays its deterministic initial value after more
+   than one second of real elapsed time; the ticking behavior stays
+   covered by fake-timer unit tests and e2e, never by screenshots.
 
 ## Pending owner approvals in this pull request
 

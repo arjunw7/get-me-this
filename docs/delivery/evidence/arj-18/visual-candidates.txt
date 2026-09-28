@@ -10,15 +10,15 @@
 ✓ Running next.config.mjs took 11ms
 
   Creating an optimized production build ...
-✓ Compiled successfully in 160ms
+✓ Compiled successfully in 172ms
   Running TypeScript ...
-  Finished TypeScript in 1656ms ...
+  Finished TypeScript in 1642ms ...
   Collecting page data using 3 workers ...
   Generating static pages using 3 workers (0/8) ...
   Generating static pages using 3 workers (2/8) 
   Generating static pages using 3 workers (4/8) 
   Generating static pages using 3 workers (6/8) 
-✓ Generating static pages using 3 workers (8/8) in 182ms
+✓ Generating static pages using 3 workers (8/8) in 179ms
   Finalizing page optimization ...
 
 Route (app)
@@ -36,31 +36,33 @@ Route (app)
 ƒ  (Dynamic)  server-rendered on demand
 
 
-Running 24 tests using 2 workers
+Running 26 tests using 2 workers
 
-  ✓   1 [mobile] › tests/visual/auth-email.visual.spec.ts:11:5 › email entry (default state) is visually stable (461ms)
-  ✓   2 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › auth-wishlist is visually stable in its fixture state (386ms)
-  ✓   4 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › auth-create-group is visually stable in its fixture state (376ms)
-  ✓   3 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-default is visually stable in its fixture state (410ms)
-  ✓   5 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-error is visually stable in its fixture state (342ms)
-  ✓   6 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-expired is visually stable in its fixture state (330ms)
-  ✓   7 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › confirm-valid is visually stable in its fixture state (285ms)
-  ✓   8 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › confirm-expired is visually stable in its fixture state (319ms)
-  ✓   9 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › onboarding is visually stable in its fixture state (282ms)
-  ✓  10 [mobile] › tests/visual/auth-routes.visual.spec.ts:81:7 › onboarding-validation is visually stable in its fixture state (308ms)
-  ✓  11 [mobile] › tests/visual/fixture.visual.spec.ts:19:5 › design foundation fixture is visually stable (341ms)
-  ✓  12 [mobile] › tests/visual/landing.visual.spec.ts:16:5 › landing page is visually stable (572ms)
-  ✓  13 [desktop] › tests/visual/auth-email.visual.spec.ts:11:5 › email entry (default state) is visually stable (383ms)
-  ✓  15 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › auth-create-group is visually stable in its fixture state (354ms)
-  ✓  14 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › auth-wishlist is visually stable in its fixture state (454ms)
-  ✓  16 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-default is visually stable in its fixture state (436ms)
-  ✓  17 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-error is visually stable in its fixture state (425ms)
-  ✓  18 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › verify-expired is visually stable in its fixture state (415ms)
-  ✓  19 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › confirm-valid is visually stable in its fixture state (339ms)
-  ✓  20 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › confirm-expired is visually stable in its fixture state (371ms)
-  ✓  21 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › onboarding is visually stable in its fixture state (385ms)
-  ✓  22 [desktop] › tests/visual/auth-routes.visual.spec.ts:81:7 › onboarding-validation is visually stable in its fixture state (364ms)
-  ✓  23 [desktop] › tests/visual/fixture.visual.spec.ts:19:5 › design foundation fixture is visually stable (499ms)
-  ✓  24 [desktop] › tests/visual/landing.visual.spec.ts:16:5 › landing page is visually stable (713ms)
+  ✓   1 [mobile] › tests/visual/auth-email.visual.spec.ts:11:5 › email entry (default state) is visually stable (368ms)
+  ✓   2 [mobile] › tests/visual/auth-routes.visual.spec.ts:88:7 › auth-wishlist is visually stable in its fixture state (365ms)
+  ✓   3 [mobile] › tests/visual/auth-routes.visual.spec.ts:88:7 › auth-create-group is visually stable in its fixture state (257ms)
+  ✓   4 [mobile] › tests/visual/auth-routes.visual.spec.ts:88:7 › verify-default is visually stable in its fixture state (351ms)
+  ✓   5 [mobile] › tests/visual/auth-routes.visual.spec.ts:88:7 › verify-error is visually stable in its fixture state (305ms)
+  ✓   6 [mobile] › tests/visual/auth-routes.visual.spec.ts:88:7 › verify-expired is visually stable in its fixture state (305ms)
+  ✓   7 [mobile] › tests/visual/auth-routes.visual.spec.ts:88:7 › confirm-valid is visually stable in its fixture state (248ms)
+  ✓   8 [mobile] › tests/visual/auth-routes.visual.spec.ts:88:7 › confirm-expired is visually stable in its fixture state (243ms)
+  ✓   9 [mobile] › tests/visual/auth-routes.visual.spec.ts:88:7 › onboarding is visually stable in its fixture state (280ms)
+  ✓  10 [mobile] › tests/visual/auth-routes.visual.spec.ts:88:7 › onboarding-validation is visually stable in its fixture state (313ms)
+  ✓  12 [mobile] › tests/visual/fixture.visual.spec.ts:19:5 › design foundation fixture is visually stable (324ms)
+  ✓  13 [mobile] › tests/visual/landing.visual.spec.ts:16:5 › landing page is visually stable (474ms)
+  ✓  11 [mobile] › tests/visual/auth-routes.visual.spec.ts:140:5 › the paused fake clock holds the countdown at 0:30 past one second of real time (1.3s)
+  ✓  14 [desktop] › tests/visual/auth-email.visual.spec.ts:11:5 › email entry (default state) is visually stable (392ms)
+  ✓  16 [desktop] › tests/visual/auth-routes.visual.spec.ts:88:7 › auth-create-group is visually stable in its fixture state (360ms)
+  ✓  15 [desktop] › tests/visual/auth-routes.visual.spec.ts:88:7 › auth-wishlist is visually stable in its fixture state (450ms)
+  ✓  17 [desktop] › tests/visual/auth-routes.visual.spec.ts:88:7 › verify-default is visually stable in its fixture state (398ms)
+  ✓  18 [desktop] › tests/visual/auth-routes.visual.spec.ts:88:7 › verify-error is visually stable in its fixture state (419ms)
+  ✓  20 [desktop] › tests/visual/auth-routes.visual.spec.ts:88:7 › confirm-valid is visually stable in its fixture state (331ms)
+  ✓  19 [desktop] › tests/visual/auth-routes.visual.spec.ts:88:7 › verify-expired is visually stable in its fixture state (414ms)
+  ✓  21 [desktop] › tests/visual/auth-routes.visual.spec.ts:88:7 › confirm-expired is visually stable in its fixture state (319ms)
+  ✓  22 [desktop] › tests/visual/auth-routes.visual.spec.ts:88:7 › onboarding is visually stable in its fixture state (356ms)
+  ✓  23 [desktop] › tests/visual/auth-routes.visual.spec.ts:88:7 › onboarding-validation is visually stable in its fixture state (377ms)
+  ✓  25 [desktop] › tests/visual/fixture.visual.spec.ts:19:5 › design foundation fixture is visually stable (455ms)
+  ✓  24 [desktop] › tests/visual/auth-routes.visual.spec.ts:140:5 › the paused fake clock holds the countdown at 0:30 past one second of real time (1.3s)
+  ✓  26 [desktop] › tests/visual/landing.visual.spec.ts:16:5 › landing page is visually stable (709ms)
 
-  24 passed (7.3s)
+  26 passed (7.9s)
