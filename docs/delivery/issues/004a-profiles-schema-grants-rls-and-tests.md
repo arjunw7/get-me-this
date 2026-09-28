@@ -14,11 +14,14 @@ profile-per-user invariant enforced by the schema and proven by tests.
   an incomplete profile until onboarding sets it), `avatar_path text` nullable,
   `created_at`/`updated_at timestamptz` UTC. `created_at` is set at insertion;
   **`updated_at` is database-managed**: a `BEFORE UPDATE` trigger on
-  `public.profiles` sets `updated_at = now()` on every row update, because a
-  column default fires only on insert and never on later profile edits. The
-  trigger function follows the same hardening rules (empty `search_path`,
-  fully qualified names). No client role receives any privilege on either
-  timestamp column.
+  `public.profiles` sets `updated_at = clock_timestamp()` on every row update,
+  because a column default fires only on insert and never on later profile
+  edits. `clock_timestamp()` is required rather than `now()`: `now()` returns
+  the transaction start time and stays fixed for the whole transaction, so it
+  could not distinguish successive edits inside one transaction (including the
+  transaction-wrapped test suite). The trigger function follows the same
+  hardening rules (empty `search_path`, fully qualified names). No client role
+  receives any privilege on either timestamp column.
 - Profile creation for new users via a `SECURITY DEFINER` trigger function on
   `auth.users` insert, following the Supabase-recommended pattern. The trigger
   function must set an empty `search_path` and use fully qualified table names
@@ -51,8 +54,11 @@ profile-per-user invariant enforced by the schema and proven by tests.
   per the Supabase signup-failure warning); update attempts on non-granted
   columns fail; **`updated_at` is database-managed** (an owner edit through
   the granted columns advances `updated_at`, while a client attempt to set
-  `updated_at` directly fails and cannot overwrite the database-set value);
-  **backfill behavior** (a simulated pre-trigger user receives
+  `updated_at` directly fails and cannot overwrite the database-set value;
+  deterministically, each edit's value is bounded between `clock_timestamp()`
+  readings taken inside the test transaction, and a later edit yields a value
+  at or after the earlier one — the suite must not rely on transaction-fixed
+  `now()`); **backfill behavior** (a simulated pre-trigger user receives
   exactly one profile row, and re-running the backfill is idempotent); and an
   invariant assertion that no `auth.users` row lacks a profile and no
   `profiles` row lacks a user.
@@ -103,8 +109,10 @@ against staging**. 004c must not carry it, because 004c depends on 004b.
 - `anon` has no access; `authenticated` can select and update only its own row
   and only the granted columns; cross-user access and enumeration fail; no
   client INSERT/DELETE; no service-role key in client code.
-- `updated_at` advances on every owner edit through a database-managed
-  mechanism; a client cannot set it directly, proven by test.
+- `updated_at` is set from `clock_timestamp()` by a database-managed trigger,
+  so it can advance within a transaction; every owner edit produces a value
+  within the tested clock boundaries and at or after any earlier edit's value;
+  a client cannot set it directly, proven by test.
 - The smoke-test change is explicit and reviewed.
 
 ## Required proof
