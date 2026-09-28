@@ -18,7 +18,7 @@ deliberately discards the query and left open — as a recorded 004d design
 gate — *how the token hash survives the clean-URL redirect until the user
 explicitly chooses to verify*. This brief is that resolution.
 
-### Carriage decision: a one-shot app-owned link cookie set on GET (recommended; owner sign-off required)
+### Carriage decision: a one-shot app-owned link cookie set on GET (owner-review revised, 2026-09-28)
 
 - **GET `/auth/confirm?token_hash=...&type=...` never verifies and never
   consumes.** It only *parks* the hash: it validates the query server-side
@@ -30,22 +30,29 @@ explicitly chooses to verify*. This brief is that resolution.
   clean 302 to `/auth/link` that 004c ships — `Cache-Control: no-store` and
   HTTP `Referrer-Policy: no-referrer` on the redirect response itself,
   query never logged, no substantive content, no analytics.
-- **The link cookie mirrors the approved 004c carry-cookie pattern:**
+- **The link cookie mirrors the approved 004c carry-cookie pattern** —
   app-owned, HttpOnly, Secure, SameSite=Lax, scoped to `Path=/auth`,
-  never proof of identity by itself, validated server-side on every read,
-  value a base64url envelope (`tokenHash`, `type`, `issuedAt`) like the
-  existing carry cookie. **Owner decision required:** 004c's brief calls the
-  token hash *authentication material*, so this brief flags one open choice —
-  (a) the plain base64url envelope, consistent with the approved carry
-  cookie, which also stores PII (the email) un-obfuscated but HttpOnly; or
-  (b) additionally sealing the value with a server-only secret
-  (authenticated encryption) so the cookie jar never holds a readable hash,
-  at the cost of one new server-side secret in local `.env` and Railway.
-  Recommendation: **(a)** — HttpOnly means the value is not JS-readable, and
-  with the single-use deletion below the exposure is equivalent to the
-  approved carry cookie, while (b) adds a new secret and config surface for
-  marginal gain. The owner
-  ruling is recorded here before code starts.
+  never proof of identity by itself, validated server-side on every read —
+  with one hardening required by review (owner ruling recorded here):
+  **the envelope is integrity-protected.** The value is
+  `base64url(payload).base64url(HMAC-SHA256(payload,
+  AUTH_LINK_COOKIE_SECRET))` — a server-only secret in local `.env` and
+  Railway, never in a client bundle. HttpOnly prevents JavaScript access;
+  it does not make client-stored data authentic, and the server later
+  treats the payload's `issuedAt` as an expiry input, so an unsigned
+  envelope would let a client-stored copy be altered to extend its life
+  (Next.js's own authentication guidance likewise signs its cookie
+  payload). The read path rejects any payload whose signature fails or
+  whose `issuedAt` lies in the future, treating it exactly like a missing
+  cookie (recovery, never an error leak); a **forged-future-`issuedAt`
+  test** proves it. Signing is required for integrity; encryption is
+  additionally available but **not required** — hiding the hash from the
+  cookie jar is optional since the HttpOnly, one-shot, short-lived cookie
+  already matches the approved carry cookie's exposure, and the
+  `AUTH_LINK_COOKIE_SECRET` env var is the only new configuration (gated
+  with 004d implementation, not added by this planning PR). The same
+  integrity consideration applies to 004c's unsigned carry cookie; it is
+  flagged to the 004c review and is out of scope for this brief.
 - **One-shot carriage:** the explicit verify action deletes the link cookie
   on the **first attempt regardless of outcome** (success, provider failure,
   or crash-safe degradation). The provider's one-time token semantics
@@ -87,14 +94,26 @@ explicitly chooses to verify*. This brief is that resolution.
   test. The response that establishes the session is `no-store`. Failed or
   reused links create no session and cannot bypass onboarding or
   protected-route checks.
-- **Intent and safe redirects:** the link carries no intent. The verify
-  action resolves the destination server-side from the 004c carry cookie's
-  approved intent (`home`/`wishlist`/`create-group`) when present, else
-  defaults to `home`. Resolution uses an explicit, tested **intent-to-route
-  table of server-defined routes only** — unbuilt `wishlist`/`create-group`
-  intents resolve to the honest authenticated `/home` with no claim that a
-  wishlist or group was created. Redirect targets are never constructed from
-  user input.
+- **Success boundary (owner-review correction, 2026-09-28): the success
+  destination is one 004d can actually serve — the approved 004c "signed
+  in" state on the verification experience, with the same minimal local
+  sign-out control.** 004d does **not** send users to `/home`: authenticated
+  routes, including `/home`, are 004e scope, and the approved 004c brief
+  keeps success on the verification screen. (The Linear draft's
+  "authenticated /home" phrasing differs; this brief governs.) Link
+  verification therefore lands on the same approved "signed in" state the
+  code path produces — that is the equivalence users experience.
+- **Intent and safe redirects (pure resolution, tested without serving
+  routes):** the link carries no intent. The verify action resolves the
+  destination **as a value only** from the 004c carry cookie's approved
+  intent (`home`/`wishlist`/`create-group`) when present, else defaults to
+  `home`. Resolution uses an explicit, tested **intent-to-route table of
+  server-defined routes only**, defined and unit-tested in 004d but not
+  navigated until 004e serves the routes — on the "signed in" screen the
+  resolved destination may appear only as honest, reviewed copy, never as
+  a claim of arrival or creation. Unbuilt `wishlist`/`create-group`
+  intents resolve to `home` with no claim that a wishlist or group was
+  created. Redirect targets are never constructed from user input.
 - **Expiry:** the link cookie's `MaxAge` comes from a **named server-side
   configuration constant** (`AUTH_LINK_CARRY_MAX_AGE_SECONDS`) aligned with
   the provider's configured OTP expiry — the same pattern as the 004c
@@ -115,8 +134,9 @@ explicitly chooses to verify*. This brief is that resolution.
   replay files, or committed PR evidence.
 - **Cross-device honesty:** clicking the link on a device without the
   carry cookie still verifies (Supabase's token hash does not need the
-  email) and lands on authenticated `/home`. The screen copy never promises
-  a carried intent it cannot honor.
+  email) and lands on the same approved "signed in" state with intent
+  defaulting to `home`. The screen copy never promises a carried intent it
+  cannot honor.
 
 ## Non-goals
 
@@ -130,9 +150,11 @@ the pinned link URL form.
 - **Carriage tests (unit):** GET sets the link cookie only from a valid
   query (present hash, `type` in the closed enum) and always issues the
   clean no-store/no-referrer 302; the cookie payload's server-side
-  validation rejects absent, malformed, wrong-`type`, and expired
-  payloads; the verify action deletes the cookie on the first attempt
-  regardless of outcome.
+  validation rejects absent, malformed, wrong-`type`, expired, and
+  **forged** payloads — including a valid-shape payload with an altered
+  (future) `issuedAt`, a bad signature, and a signature verified under the
+  wrong secret — each treated identically to a missing cookie; the verify
+  action deletes the cookie on the first attempt regardless of outcome.
 - **GET-safety tests:** a GET (or scanner HEAD/prefetch) creates no
   session, does not consume the token (the six-digit code still verifies
   afterward), sets no JavaScript-readable state, and is non-cacheable with
@@ -147,11 +169,18 @@ the pinned link URL form.
   encoded bypasses (`%2F%2F`, `\/`, mixed-case schemes), backslash tricks,
   and unexpected intent values — each resolving to a server-defined route
   or recovery, never to attacker-controlled input.
-- **Session-equivalence e2e (local, Mailpit):** new and returning staging
-  users complete sign-in by link click on both email paths (new-user
-  confirmation and returning-user magic link): request → read the email →
-  click the link → explicit verify → session exists; the equivalent code
-  path still works from the same email; sign-out (004c) clears it.
+- **Session-equivalence e2e (local, Mailpit), separate fresh requests:**
+  link success and code success are proven **independently, each from its
+  own fresh email request** — the link and the six-digit code are one-time
+  credentials sharing the email-auth flow, and consuming one invalidates
+  the other, so the criterion is *not* that the code still works after the
+  link has verified. The two facts proven are: (1) each path, from its own
+  fresh request, completes request → read email → (click link → explicit
+  verify | enter code) → session exists → sign-out (004c) clears it, for
+  both a new and a returning user; and (2) **the code still verifies after
+  a non-consuming GET/prefetch of the link, and no longer verifies after
+  successful link verification** (one-time credential semantics per
+  Supabase's passwordless-auth documentation).
 - **Failure e2e:** expired, reused, malformed, and missing links create no
   session and cannot reach onboarding or protected routes; every failure
   state has accessible recovery back to code entry or resend.
@@ -170,7 +199,7 @@ the pinned link URL form.
 - Real staging link clicks on both email paths proving: clean redirect,
   explicit-action verification, session equivalence with the code path,
   no consumption on GET/prefetch, and no session on failure or replay.
-- The owner's recorded ruling on the cookie-envelope choice above, and
+- The owner's approval of this revised brief at its exact commit, and
   side-by-side copy review, before merge.
 - Sanitized notes only: no addresses, codes, token hashes, or secret URLs.
 
