@@ -46,21 +46,36 @@ intentionally disclosed publicly.
   storage**, and the email and intent never appear in URLs, logs, or
   analytics. (The Supabase session cookies are exempt per the standard
   scheme above.)
-- **Emailed link is non-consuming (owner review, 2026-09-28):** the
+- **Emailed link is non-consuming (owner reviews, 2026-09-28):** the
   004b email's `{{ .ConfirmationURL }}` points at Supabase's verification
   endpoint, which may consume the one-time token and return session
-  material. In 004c the staging email template is updated so the link is
-  built from `{{ .TokenHash }}` and points at **the app's own
-  `/auth/confirm` route** — never the Supabase endpoint — so clicking it
-  cannot consume the token, invalidate the code, or create a session. In
-  004c that route renders the **honest interim state** (no false
-  "signed in", no endless loading, a clear not-yet message with a path
-  back to code entry). This is also the permanent design: 004d implements
-  verification on that route via the token hash. Proof is a **real
-  staging link click**: the link lands on the interim state, the
-  six-digit code still verifies afterward (no consumption), and no
-  session is created by the click. The token hash is never logged or
-  echoed by the route.
+  material. In 004c the **two staging email templates are updated** —
+  `mailer_templates_confirmation_content` (new-user confirmation) and
+  `mailer_templates_magic_link_content` (returning-user magic link) — so
+  the link in both is built from the trusted destination plus
+  `{{ .TokenHash }}` in the exact form
+  `https://get-me-this-staging.up.railway.app/auth/confirm?token_hash={{ .TokenHash }}&type=email`
+  — never the Supabase endpoint — so clicking it cannot consume the
+  token, invalidate the code, or create a session. In 004c that route
+  renders the **honest interim state** (no false "signed in", no endless
+  loading, a clear not-yet message with a path back to code entry). This
+  URL format is also the permanent design, with one additional constraint
+  from 004d onward: **the route never verifies the token on GET** — an
+  email scanner prefetching the link must not consume the token — so
+  004d's verification requires an **explicit user action** (a control on
+  the page firing a server action) before `verifyOtp` is called. Proof is
+  a **real staging link click on both paths** (new user and returning
+  user): the link lands on the interim state, the six-digit code still
+  verifies afterward (no consumption), and no session is created by the
+  click.
+- **The token hash is authentication material (owner review,
+  2026-09-28):** the `token_hash` query value is not the six-digit code
+  but is still authentication material. The `/auth/confirm` route must
+  respond **non-cacheable (`Cache-Control: no-store`)** with a
+  **`Referrer-Policy: no-referrer`** header or meta policy, and must
+  **redirect to a clean URL (the query stripped) before rendering
+  substantive content or running analytics**. Request logs and committed
+  evidence must never retain the query value.
 - **Resend countdown (owner decision, 2026-09-28):** the displayed countdown
   is a UI reflection of the configured provider limit — **sourced from a
   named server-side configuration constant read by the verify screen
@@ -119,12 +134,16 @@ Google login; production rollout.
   over-limit paths recover safely — the over-limit path exercised with the
   resend control enabled and the countdown clock manipulated, proving the
   provider response is authoritative.
-- The interim `/auth/confirm` link behavior is proven by a **real staging
-  link click**: the link (built from `{{ .TokenHash }}`, pointing at the
-  app route, never Supabase's verification endpoint) lands on the honest
-  not-yet state, the six-digit code still verifies afterward (the token
-  was not consumed), and the click creates no session. The token hash is
-  never logged or echoed.
+- The interim `/auth/confirm` link behavior is proven by **real staging
+  link clicks on both email paths** (new-user confirmation and
+  returning-user magic link): the link (built from the trusted destination
+  plus `{{ .TokenHash }}`, in the exact specified form, never Supabase's
+  verification endpoint) lands on the honest not-yet state, the six-digit
+  code still verifies afterward (the token was not consumed), and the
+  click creates no session. The route responds `no-store` with a
+  no-referrer policy and redirects to a clean URL before rendering
+  substantive content or running analytics; request logs and committed
+  evidence never retain the `token_hash` query value.
 - `emailRedirectTo` is derived from the environment-specific server-side
   allowlist in all environments, including local tests.
 - Isolated staging rehearsal for a fresh and a returning user completing
