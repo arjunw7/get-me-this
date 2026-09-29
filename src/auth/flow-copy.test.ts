@@ -6,6 +6,13 @@ import {
   confirmInterimHeading,
   confirmInterimText,
   invalidEmailCopy,
+  linkBackToCodeLabel,
+  linkChoiceHeading,
+  linkChoiceText,
+  linkRecoveryHeading,
+  linkRecoveryText,
+  linkRejectedCopy,
+  linkVerifyButtonLabel,
   overLimitCopy,
   requestCodeHelpText,
   requestCodePendingText,
@@ -24,20 +31,22 @@ import {
 } from "./flow-copy";
 
 /**
- * Copy honesty for the real email-code flow (004c): the screens promise
- * the working code flow only. They never invite use of the emailed
- * sign-in link (004d), never claim a delivery or a sign-in that did not
- * happen, and never pass through account-specific provider messages —
- * failures come from the closed generic set.
+ * Copy honesty for the real email-code flow (004c) and its magic-link
+ * completion (004d). Screens promise only what works: the code path never
+ * invites the link outside the 004d link screens, the link screens promise
+ * only the explicit verification action (no automatic sign-in, no claim of
+ * arrival at a wishlist or group), and nothing passes through an
+ * account-specific provider message — failures come from the closed
+ * generic set.
  */
 
-/** Copy that would promise or invite the not-yet-implemented link flow. */
+/** Copy that would invite the link flow OUTSIDE the 004d link screens. */
 const LINK_INVITATION =
   /sign-in link|tap .* in the email|either works|or tap|the link works/i;
 /** Copy that would promise a send the flow does not perform (static copy). */
 const STATIC_PREVIEW = /static preview|preview only/i;
 
-const ALL_COPY = [
+const ALL_CODE_PATH_COPY = [
   requestCodeHelpText,
   requestCodePendingText,
   invalidEmailCopy,
@@ -61,6 +70,17 @@ const ALL_COPY = [
   confirmChangeEmailLabel,
 ];
 
+/** The 004d link screens, where the sign-in link may be invited. */
+const ALL_LINK_COPY = [
+  linkChoiceHeading,
+  linkChoiceText,
+  linkVerifyButtonLabel,
+  linkBackToCodeLabel,
+  linkRejectedCopy,
+  linkRecoveryHeading,
+  linkRecoveryText,
+];
+
 describe("real-flow copy honesty", () => {
   it("promises the working code flow on the entry screen", () => {
     expect(requestCodeHelpText).toBe(
@@ -68,22 +88,51 @@ describe("real-flow copy honesty", () => {
     );
   });
 
-  it("never invites the emailed sign-in link anywhere in the flow", () => {
-    // The interim confirm copy is the one place the link may be MENTIONED —
-    // to say it is not active — and it is asserted separately below.
-    for (const text of ALL_COPY.filter((t) => t !== confirmInterimText)) {
+  it("never invites the emailed sign-in link on the code-path screens", () => {
+    // The 004d link screens are the one place the link may be invited —
+    // asserted separately below.
+    for (const text of ALL_CODE_PATH_COPY.filter(
+      (t) => t !== confirmInterimText,
+    )) {
       expect(text, text).not.toMatch(LINK_INVITATION);
     }
   });
 
+  it("keeps the interim confirm mention of the link honest", () => {
+    expect(confirmInterimText).toMatch(/isn’t active yet/i);
+  });
+
+  it("promises only the explicit verification action on the link screens", () => {
+    expect(linkVerifyButtonLabel).toBe("Use my sign-in link");
+    expect(linkChoiceText).toMatch(/tap below to finish signing in/i);
+    // Never an automatic sign-in claim.
+    for (const text of ALL_LINK_COPY) {
+      expect(text, text).not.toMatch(/signing you in|you’re signed in as/i);
+    }
+    // Never a claim of arrival or creation at an unbuilt destination.
+    for (const text of ALL_LINK_COPY) {
+      expect(text, text).not.toMatch(/wishlist|group/i);
+    }
+  });
+
+  it("maps link failures to the closed generic set without claiming a cause", () => {
+    expect(linkRejectedCopy).toMatch(/didn’t work/i);
+    expect(linkRejectedCopy).toMatch(/expired or already been used/i);
+    expect(linkRecoveryHeading).toBe("This link didn’t work.");
+    expect(linkRecoveryText).toMatch(/expired or already been used/i);
+    expect(linkRecoveryText).toMatch(/six-digit code works/i);
+    // The recovery always names the way back.
+    expect(linkBackToCodeLabel).toMatch(/six-digit code/i);
+  });
+
   it("never reads as the static preview on the real screens", () => {
-    for (const text of ALL_COPY) {
+    for (const text of [...ALL_CODE_PATH_COPY, ...ALL_LINK_COPY]) {
       expect(text, text).not.toMatch(STATIC_PREVIEW);
     }
   });
 
   it("keeps the approved terminology", () => {
-    for (const text of ALL_COPY) {
+    for (const text of [...ALL_CODE_PATH_COPY, ...ALL_LINK_COPY]) {
       expect(text).not.toMatch(/shelfie|circle/i);
     }
   });

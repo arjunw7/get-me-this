@@ -1,5 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 class RedirectSignal extends Error {
@@ -37,12 +36,21 @@ vi.mock("next/headers", () => ({
 const signInWithOtp = vi.fn();
 const verifyOtp = vi.fn();
 const signOut = vi.fn();
+const getUser = vi.fn();
 
 vi.mock("@/src/supabase/server", () => ({
   createSupabaseServerClient: async () => ({
-    auth: { signInWithOtp, verifyOtp, signOut },
+    auth: { signInWithOtp, verifyOtp, signOut, getUser },
   }),
 }));
+
+vi.mock("./link-intents", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./link-intents")>();
+  return {
+    ...actual,
+    resolveSafeRedirectTarget: vi.fn(actual.resolveSafeRedirectTarget),
+  };
+});
 
 import {
   cancelAuthFlowAction,
@@ -50,8 +58,11 @@ import {
   resendCodeAction,
   signOutAction,
   verifyCodeAction,
+  verifyMagicLinkAction,
 } from "./actions";
 import { CARRY_COOKIE_NAME } from "./carry-cookie";
+import { LINK_COOKIE_NAME, encodeLinkEnvelope } from "./link-cookie";
+import { resolveSafeRedirectTarget } from "./link-intents";
 
 /**
  * The server actions of the email-code flow (004c): server-side
@@ -76,6 +87,13 @@ beforeEach(() => {
   signInWithOtp.mockReset();
   verifyOtp.mockReset();
   signOut.mockReset();
+  getUser.mockReset();
+  vi.mocked(resolveSafeRedirectTarget).mockClear();
+  process.env.AUTH_LINK_COOKIE_SECRET = "test-secret";
+});
+
+afterEach(() => {
+  delete process.env.AUTH_LINK_COOKIE_SECRET;
 });
 
 describe("requestCodeAction", () => {
@@ -364,5 +382,168 @@ describe("signOutAction", () => {
     expect(cookieStore.get(CARRY_COOKIE_NAME)?.options).toMatchObject({
       maxAge: 0,
     });
+  });
+});
+
+describe("verifyMagicLinkAction", () => {
+  const IDLE_LINK = { status: "idle" } as const;
+
+  async function parkValidLink(tokenHash = "tok-hash"): Promise<void> {
+    const envelope = await encodeLinkEnvelope(
+      tokenHash,
+      "email",
+      Date.now(),
+      "test-secret",
+    );
+    cookieStore.set(LINK_COOKIE_NAME, {
+      name: LINK_COOKIE_NAME,
+      value: envelope,
+    });
+  }
+
+  it("verifies the carried token hash and redirects to the signed-in boundary", async () => {
+    await parkValidLink();
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    cookieStore.set(CARRY_COOKIE_NAME, {
+      name: CARRY_COOKIE_NAME,
+      value: JSON.stringify({
+        email: "you@example.com",
+        intent: "wishlist",
+        exp,
+      }),
+    });
+    verifyOtp.mockResolvedValue({ data: {}, error: null });
+
+    // Success redirects to the verified screen's approved signed-in
+    // boundary — the same state the code path produces.
+    await expect(verifyMagicLinkAction(IDLE_LINK)).rejects.toThrow(
+      new RedirectSignal("/auth/verify"),
+    );
+
+    expect(verifyOtp).toHaveBeenCalledWith({
+      token_hash: "tok-hash",
+      type: "email",
+    });
+    // One-shot carriage: the link cookie is deleted on the completed
+    // attempt, and the 004c carry has served its purpose.
+    expect(cookieStore.get(LINK_COOKIE_NAME)?.options).toMatchObject({
+      maxAge: 0,
+    });
+    expect(cookieStore.get(CARRY_COOKIE_NAME)?.options).toMatchObject({
+      maxAge: 0,
+    });
+    // Pin the resolved redirect value for the known `wishlist` intent so
+    // the action's (currently value-only) binding cannot silently rot.
+    expect(
+      vi.mocked(resolveSafeRedirectTarget).mock.results.at(-1)?.value,
+    ).toBe("/home");
+  });
+
+  it("resolves the intent destination as a value only through the safe table", async () => {
+    // With an attacker-controlled intent string in the carry, resolution
+    // still lands on a server-defined route (exercised via the successful
+    // verification path — the value itself is 004e's navigation input and
+    // is unit-tested in link-intents.test.ts).
+    await parkValidLink();
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    cookieStore.set(CARRY_COOKIE_NAME, {
+      name: CARRY_COOKIE_NAME,
+      value: JSON.stringify({
+        email: "you@example.com",
+        intent: "//evil.example",
+        exp,
+      }),
+    });
+    verifyOtp.mockResolvedValue({ data: {}, error: null });
+
+    await expect(verifyMagicLinkAction(IDLE_LINK)).rejects.toThrow(
+      RedirectSignal,
+    );
+    expect(verifyOtp).toHaveBeenCalledTimes(1);
+    // The dead binding is protected: resolution still lands on a
+    // server-defined route (`/home`) through the safe table (004e consumes
+    // redirects only via resolveSafeRedirectTarget).
+    expect(
+      vi.mocked(resolveSafeRedirectTarget).mock.results.at(-1)?.value,
+    ).toBe("/home");
+  });
+
+  it("treats a missing link cookie as the closed recovery, never verifying", async () => {
+    const result = await verifyMagicLinkAction(IDLE_LINK);
+    expect(result).toEqual({ status: "error", failure: "rejected-code" });
+    expect(verifyOtp).not.toHaveBeenCalled();
+  });
+
+  it("treats a forged or expired link cookie exactly like a missing one", async () => {
+    const envelope = await encodeLinkEnvelope(
+      "tok-hash",
+      "email",
+      Date.now() - 3601_000, // issued beyond the named carry window
+      "test-secret",
+    );
+    cookieStore.set(LINK_COOKIE_NAME, {
+      name: LINK_COOKIE_NAME,
+      value: envelope,
+    });
+    const result = await verifyMagicLinkAction(IDLE_LINK);
+    expect(result).toEqual({ status: "error", failure: "rejected-code" });
+    expect(verifyOtp).not.toHaveBeenCalled();
+
+    // A tampered payload under a valid-looking envelope is the same.
+    cookieStore.set(LINK_COOKIE_NAME, {
+      name: LINK_COOKIE_NAME,
+      value: `${"not"}.${"a-signature"}`,
+    });
+    expect(await verifyMagicLinkAction(IDLE_LINK)).toEqual({
+      status: "error",
+      failure: "rejected-code",
+    });
+    expect(verifyOtp).not.toHaveBeenCalled();
+  });
+
+  it("maps a refused (expired/reused) token into the closed generic set and still deletes the cookie", async () => {
+    await parkValidLink();
+    verifyOtp.mockResolvedValue({
+      data: {},
+      error: {
+        status: 403,
+        code: "otp_expired",
+        message: "Token has expired or is invalid",
+      },
+    });
+
+    const result = await verifyMagicLinkAction(IDLE_LINK);
+    expect(result).toEqual({ status: "error", failure: "rejected-code" });
+    expect(cookieStore.get(LINK_COOKIE_NAME)?.options).toMatchObject({
+      maxAge: 0,
+    });
+  });
+
+  it("maps an unavailable provider into the closed generic set", async () => {
+    await parkValidLink();
+    verifyOtp.mockResolvedValue({
+      data: {},
+      error: { status: 500, code: "boom", message: "detail" },
+    });
+
+    expect(await verifyMagicLinkAction(IDLE_LINK)).toEqual({
+      status: "error",
+      failure: "unavailable",
+    });
+  });
+
+  it("creates no session on failure — the only session source is a successful verifyOtp", async () => {
+    await parkValidLink();
+    verifyOtp.mockResolvedValue({
+      data: {},
+      error: {
+        status: 403,
+        code: "otp_expired",
+        message: "Token has expired or is invalid",
+      },
+    });
+    await verifyMagicLinkAction(IDLE_LINK);
+    expect(verifyOtp).toHaveBeenCalledTimes(1);
+    expect(signOut).not.toHaveBeenCalled();
   });
 });

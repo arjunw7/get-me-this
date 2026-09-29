@@ -25,3 +25,13 @@ export const RESEND_COOLDOWN_SECONDS = 60;
  * create, and the browser drops it automatically at expiry.
  */
 export const CARRY_COOKIE_MAX_AGE_SECONDS = 3600;
+
+/**
+ * Link-cookie lifetime in seconds (004d). The link cookie parks the emailed
+ * link's token hash between the initial GET of `/auth/confirm` and the
+ * explicit user verification action; its lifetime mirrors the same
+ * provider-configured email-OTP expiry window (`otp_expiry` = 3600) as the
+ * carry cookie, and the payload's `issuedAt` is checked against the wall
+ * clock on every server-side read.
+ */
+export const AUTH_LINK_CARRY_MAX_AGE_SECONDS = 3600;

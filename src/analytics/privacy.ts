@@ -28,6 +28,7 @@ const ROUTE_TEMPLATES: readonly (readonly (string | `:${string}`)[])[] = [
   ["onboarding"],
   ["invite", ":token"],
   ["auth", "callback"],
+  ["auth", "link"],
   ["groups", ":groupId"],
 ];
 

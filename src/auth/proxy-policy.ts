@@ -7,11 +7,19 @@
 export const AUTH_CONFIRM_PATH = "/auth/confirm";
 
 /**
+ * The 004d clean choice route: after a valid link GET parks its token hash
+ * in the signed link cookie, the initial redirect lands here — a clean URL
+ * (query stripped) before substantive content or analytics.
+ */
+export const AUTH_LINK_PATH = "/auth/link";
+
+/**
  * The token hash in the emailed link is authentication material: any query
  * on /auth/confirm is discarded by a clean redirect before substantive
  * rendering or analytics can run, and the route never verifies on GET (an
- * email-scanner prefetch must not consume the one-time token — 004d adds
- * the explicit-action flow on top of this cleanup).
+ * email-scanner prefetch must not consume the one-time token — 004d parks
+ * the hash in the signed link cookie instead). The redirect target is the
+ * clean route itself; the 004d cookie-parking branch chooses /auth/link.
  */
 export function shouldRedirectToCleanConfirmUrl(
   pathname: string,
@@ -23,6 +31,11 @@ export function shouldRedirectToCleanConfirmUrl(
 /** The clean target of the query-stripping redirect (same path, no query). */
 export function cleanConfirmUrl(origin: string): string {
   return `${origin}${AUTH_CONFIRM_PATH}`;
+}
+
+/** The clean /auth/link target of the 004d cookie-parking redirect. */
+export function linkLandingUrl(origin: string): string {
+  return `${origin}${AUTH_LINK_PATH}`;
 }
 
 /**
