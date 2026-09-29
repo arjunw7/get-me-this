@@ -502,7 +502,7 @@ select is(
     from public.wishlist_items
     where owner_id = :'uid_a'::uuid and sort_position = 1
   ),
-  3100,
+  3100::bigint,
   'the converted tuple updated through the granted columns round-trips'
 );
 
@@ -528,7 +528,7 @@ select is(
     from public.wishlist_items
     where owner_id = :'uid_a'::uuid and sort_position = 1
   ),
-  259900,
+  259900::bigint,
   'an INR amount round-trips exactly as stored minor units'
 );
 
@@ -548,7 +548,7 @@ select is(
     from public.wishlist_items
     where owner_id = :'uid_a'::uuid and sort_position = 2
   ),
-  132000,
+  132000::bigint,
   'a JPY (zero-decimal) amount round-trips exactly as stored minor units'
 );
 
