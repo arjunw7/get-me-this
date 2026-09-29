@@ -25,6 +25,9 @@ describe("email redirect allowlist", () => {
     expect(
       emailRedirectToForOrigin("https://get-me-this-staging.up.railway.app"),
     ).toBe("https://get-me-this-staging.up.railway.app/auth/confirm");
+    expect(emailRedirectToForOrigin("https://staging.getmethis.fun")).toBe(
+      "https://staging.getmethis.fun/auth/confirm",
+    );
   });
 
   it("rejects untrusted origins — never client input, never an open redirect", () => {
@@ -36,6 +39,11 @@ describe("email redirect allowlist", () => {
     expect(
       emailRedirectToForOrigin("http://get-me-this-staging.up.railway.app"),
     ).toBeNull();
+    // A lookalike of the trusted custom domain is not trusted.
+    expect(
+      emailRedirectToForOrigin("https://staging.getmethis.fun.evil.example"),
+    ).toBeNull();
+    expect(emailRedirectToForOrigin("http://staging.getmethis.fun")).toBeNull();
   });
 
   it("derives the request origin from server-side request headers", () => {
