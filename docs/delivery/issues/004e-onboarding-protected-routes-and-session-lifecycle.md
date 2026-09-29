@@ -306,10 +306,18 @@ templates, or the pinned link URL form.
   tracking plan already permits; analytics events introduce nothing outside
   the typed catalog.
 - **Copy/visual (owner correction, 2026-09-29):** changed screens compared
-  against **existing references only where they exist** — onboarding and the
-  logged-out landing have committed baselines
-  (`tests/visual/baselines/`), and those comparisons happen at the same
-  route, viewport, and content fixture. **`/home` and the account menu have
+  against **existing references only where they exist**, with every
+  comparison at the same route, viewport, and content fixture. Onboarding
+  has a committed baseline (`tests/visual/baselines/`). The existing landing
+  baseline covers **only the normal visit to `/`**
+  (`tests/visual/landing.visual.spec.ts`); it does **not** capture the new
+  logged-out "You're logged out. See you soon." state — that baseline is
+  kept for the normal landing, unchanged, and the **logged-out state gets
+  its own separately reviewed candidate** (a new capture, presented for
+  owner review and committed as a baseline only after explicit approval
+  per `docs/delivery/visual-baselines.md`; candidates are never committed
+  before approval, and the human reviewer fills the manifest approval
+  fields by hand). **`/home` and the account menu have
   no committed baselines**; the design references for owner side-by-side
   review are the pinned V18 frozen references under
   `docs/design-reference/baselines/v18/` — **`home-new-account`** for the
@@ -321,9 +329,8 @@ templates, or the pinned link URL form.
   reviews as a stated decision, not as a defect. New production screenshots
   of these surfaces are generated as **candidates** and remain candidates
   until explicit owner approval, committed as baselines only afterwards per
-  `docs/delivery/visual-baselines.md` (candidates are never committed before
-  approval, and the human reviewer fills the manifest approval fields by
-  hand). Owner copy review before merge; no invented avatar control.
+  `docs/delivery/visual-baselines.md`. Owner copy review before merge; no
+  invented avatar control.
 
 ## Required proof
 
