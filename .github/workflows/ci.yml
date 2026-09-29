@@ -93,7 +93,7 @@ jobs:
             || { echo "supabase start failed; sanitized diagnostics:"; grep -viE 'key|secret|password|token|eyJ' /tmp/gmt-supabase-start.txt | tail -40 >&2 || true; exit 1; }
           pnpm exec supabase status -o json > /tmp/gmt-supabase-status.json
           node -e '
-            const s = require("/tmp/gmt-supabase-start.json");
+            const s = require("/tmp/gmt-supabase-status.json");
             for (const [k, v] of Object.entries(s)) {
               if (!/key|secret|password|token/i.test(k)) {
                 process.stdout.write(`${k}: ${v}\n`);
