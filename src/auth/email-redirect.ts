@@ -22,6 +22,9 @@ const EMAIL_REDIRECT_TARGETS: Readonly<Record<string, string>> = {
   // Staging service; this origin backs the provider's `uri_allow_list`.
   "https://get-me-this-staging.up.railway.app":
     "https://get-me-this-staging.up.railway.app/auth/confirm",
+  // Staging custom domain serving the same deployment; entries in this table
+  // must mirror the provider's `uri_allow_list` exactly.
+  "https://staging.getmethis.fun": "https://staging.getmethis.fun/auth/confirm",
 };
 
 /**

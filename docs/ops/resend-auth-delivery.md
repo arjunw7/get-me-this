@@ -13,9 +13,9 @@ owner-approved rollout.
   - DMARC: `_dmarc.getmethis.fun` — `p=none` monitoring policy.
   - **SPF is pending an owner DNS action.** The apex TXT record is the
     registrar's forwarding SPF (`v=spf1 include:spf.efwd.registrar-servers.com
-    ~all`) and does **not** include Resend. The owner should publish a merged
+~all`) and does **not** include Resend. The owner should publish a merged
     apex record, e.g. `v=spf1 include:spf.efwd.registrar-servers.com
-    include:send.resend.com ~all`, so Resend-originated mail is SPF-aligned;
+include:send.resend.com ~all`, so Resend-originated mail is SPF-aligned;
     until then mail relies on DKIM alignment and may be more susceptible to
     spam-foldering.
 - From address: `hello@getmethis.fun` (sender name "Arjun Wadhwa").
@@ -37,10 +37,13 @@ owner-approved rollout.
     link (`{{ .ConfirmationURL }}`, which embeds the token hash) in one
     message.
 - `site_url`: the staging Railway service; `uri_allow_list` contains exactly
-  one entry: `<staging-origin>/auth/confirm*`. This is a single-origin,
-  path-prefix entry (same origin only); it matches any path beginning with
-  `/auth/confirm`, which is acceptable because the origin is ours and the
-  confirmation route is the only mail-driven entry point.
+  two path-prefix entries (same origin only), one per trusted staging origin:
+  `<staging-origin>/auth/confirm*` for the Railway service origin and
+  `https://staging.getmethis.fun/auth/confirm*` for the staging custom
+  domain. Each matches any path beginning with `/auth/confirm`, which is
+  acceptable because the origin is ours and the confirmation route is the
+  only mail-driven entry point. The app-side allowlist
+  (`src/auth/email-redirect.ts`) mirrors these entries exactly.
 
 ## OTP and expiry
 

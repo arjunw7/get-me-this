@@ -1,0 +1,23 @@
+Staging Supabase auth configuration read-back, 2026-09-29 (project
+lfnccxtowemdzemhcroz). Credentials redacted. Captured when the staging
+custom domain was added to the redirect allow-list so the app-side
+allowlist (src/auth/email-redirect.ts) mirrors the provider exactly.
+
+site_url:
+  https://get-me-this-staging.up.railway.app
+
+uri_allow_list (comma-separated, exactly two path-prefix entries):
+  https://get-me-this-staging.up.railway.app/auth/confirm*,
+  https://staging.getmethis.fun/auth/confirm*
+
+OTP settings unchanged: mailer_otp_length 6, mailer_otp_exp 3600,
+mailer_autoconfirm false, rate_limit_email_sent 30/min,
+smtp_max_frequency 60s/user.
+
+SMTP (values redacted): host smtp.resend.com, port 465, user "resend",
+from hello@getmethis.fun, sender name "Arjun Wadhwa".
+
+Known open issue at capture time: the stored Resend SMTP credential is
+invalid (Resend API rejects it; OTP sends fail with HTTP 500 "Error
+sending confirmation email"). Fix owner-side: a valid re_... key in
+Supabase Auth → SMTP settings.
