@@ -133,7 +133,7 @@ select enum_has_labels(
 
 select is(
   (
-    select array_agg(conname order by conname)
+    select array_agg(conname::text order by conname)
     from pg_constraint
     where conrelid = 'public.wishlist_items'::regclass
       and contype = 'c'
