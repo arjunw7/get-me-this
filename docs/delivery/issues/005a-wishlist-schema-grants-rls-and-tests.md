@@ -53,8 +53,8 @@ protected display path is the first consumer of the schema this slice lands.
   failure blocks signup, so no user can end up without a wishlist. The
   migration backfills `INSERT ... SELECT id FROM auth.users ON CONFLICT
   (owner_id) DO NOTHING` after trigger creation for users predating it,
-  and the backfill is idempotent. Staging already has synthetic users; the
-  backfill row count is recorded in the implementation PR.
+  and the backfill is idempotent (staging has synthetic users; where each
+  backfill figure is recorded is pinned under Required proof).
 - Least-privilege grants and RLS, mirroring the 004a column-grant
   discipline: `anon` receives no privileges on either table or EXECUTE on
   any new function; `authenticated` receives SELECT on `wishlists` only
@@ -81,25 +81,25 @@ protected display path is the first consumer of the schema this slice lands.
   authenticated (the 004a CREATE-TIME-check rule). Service-role credentials
   remain server-only. **No group-member grant or policy exists before
   Phase 5.**
-- **Deliberate, reviewed amendments to the two existing pgTAP suites the
-  seeded fixture collides with, plus `supabase/tests/smoke.sql`**:
-  the public-table inventory assertion in `smoke.sql` changes from "only
-  `profiles` exists" (count 1) to "exactly `profiles`, `wishlists`, and
-  `wishlist_items` exist" (count 3, with `has_table` for each new table),
-  the seeded-data assertion changes from "no user rows were seeded" to
-  "exactly the one synthetic fixture user from `supabase/seed.sql`
-  exists", and the file's header comment is updated so its prose matches
-  the amended assertions. Separately, the two absolute-count assertions in
-  `supabase/tests/profiles.sql` ("the authenticated user sees only the own
-  profile row" and "the authenticated user cannot enumerate profiles even
-  when another user exists") count every profile row and would go red once
-  the fixture user exists: each is amended to the fixture-aware count
-  (own row + the fixture profile, with the fixture user identified by its
-  `@example.invalid` address) while still proving zero enumeration of
-  non-fixture users. All of these edits are explicit weakenings-with-scope
-  recorded in the pull request — not silent edits. The smoke suite gains
-  assertions that the fixture wishlist and its fixture items exist and
-  that nothing else was seeded.
+- **Deliberate, reviewed amendment of `supabase/tests/smoke.sql`** (the
+  only existing suite the schema and seed changes collide with): the
+  public-table inventory assertion changes from "only `profiles` exists"
+  (count 1) to "exactly `profiles`, `wishlists`, and `wishlist_items`
+  exist" (count 3, with `has_table` for each new table), the seeded-data
+  assertion changes from "no user rows were seeded" to "exactly the one
+  synthetic fixture user from `supabase/seed.sql` exists", the header
+  comment is updated so its prose matches the amended assertions, and the
+  `plan()` count is updated in the same reviewed edit. The smoke suite
+  gains assertions that the fixture wishlist and its fixture items exist
+  and that nothing else was seeded. The other existing suites are traced
+  and need no amendment: `profiles-004e.sql` asserts only by specific
+  synthetic ids, and `profiles.sql`'s two absolute profile-count
+  assertions run under owner-only RLS as the authenticated test user, so
+  the fixture user's profile is invisible to them and they remain
+  unchanged — with the fixture present they now prove non-enumeration
+  against a genuinely pre-existing second user, a strengthening rather
+  than a weakening. All smoke edits are explicit weakenings-with-scope
+  recorded in the pull request — not silent edits.
 - **Synthetic, non-persistent seed fixtures owned by this slice**
   (`supabase/seed.sql`): a single deterministic synthetic user
   (`@example.invalid` address, fixed UUID), whose insert fires the real
@@ -160,8 +160,12 @@ alternatives are recorded with each.
    indexes on typed columns are what make the guarantees testable.
 4. **Sort position representation.** `sort_position double precision not
    null`, no UNIQUE constraint, with the deterministic total order defined
-   as `ORDER BY sort_position ASC, id ASC` everywhere items are read. New
-   items append beyond the current maximum; insertion between neighbors
+   as `ORDER BY sort_position ASC, id ASC` everywhere items are read. A
+   CHECK constraint rejects non-finite values (`sort_position <
+   'Infinity'::float8 AND sort_position > '-Infinity'::float8`, which
+   fails NaN and both infinities), so the read order is total over real
+   numbers and 005d's midpoint arithmetic never meets NaN. New items
+   append beyond the current maximum; insertion between neighbors
    takes the midpoint; midpoint exhaustion (after ~50 consecutive inserts
    into the same slot, given a 53-bit mantissa) is resolved by 005d's
    rebalancing. A UNIQUE constraint on `(wishlist_id, sort_position)` was
@@ -340,8 +344,11 @@ mandatory.
 12. **Enum and bound rejections (pgTAP).** A non-enum desire level and a
     non-enum extraction status raise 22P02; a 201-character title, a
     blank-only title, a 2001-character note, a 2049-character
-    `source_url`, a non-`http(s)` `source_url`, and a 121-character
-    retailer each raise 23514.
+    `source_url`, a non-`http(s)` `source_url`, a non-`http(s)`
+    `image_url`, a 121-character retailer, a blank-only retailer, a
+    201-character `conversion_rate_source`, a 1025-character
+    `image_snapshot_path`, and a non-finite (`NaN` or infinity)
+    `sort_position` each raise 23514.
 13. **Sort position semantics (pgTAP).** Two items in the same wishlist
     may share one `sort_position` (no UNIQUE constraint, by design), and
     a read ordered by `(sort_position, id)` returns a deterministic,
@@ -349,15 +356,14 @@ mandatory.
 14. **Cascade (pgTAP).** Deleting the wishlist row (as the table owner,
     in-transaction) removes its items; deleting the fixture-or-synthetic
     `auth.users` row removes the wishlist and items with no orphans.
-15. **Smoke and suite inventories (pgTAP/smoke).** After
-    `supabase db reset --local` rebuilds from committed migrations and
-    seed alone: exactly `profiles`, `wishlists`, and `wishlist_items`
-    exist in `public` (count 3, each `has_table`-asserted); exactly one
-    seeded synthetic user exists (the `.invalid` fixture), with its
-    trigger-created profile and wishlist and its fixture items — and
-    nothing else; and the amended `profiles.sql` enumeration counts pass
-    with the fixture user present (criterion 5's own-row visibility and
-    zero enumeration of non-fixture users still proven).
+15. **Smoke inventory (pgTAP/smoke).** After `supabase db reset --local`
+    rebuilds from committed migrations and seed alone: exactly
+    `profiles`, `wishlists`, and `wishlist_items` exist in `public`
+    (count 3, each `has_table`-asserted); exactly one seeded synthetic
+    user exists (the `.invalid` fixture), with its trigger-created
+    profile and wishlist and its fixture items — and nothing else; and
+    the unchanged `profiles.sql` enumeration assertions (criteria 3 and
+    7's profile counterparts) still pass with the fixture user present.
 16. **Seed hygiene (pgTAP/smoke + review).** The seed contains no
     credentials, tokens, or real personal data; re-running the seed is
     idempotent (fixture counts unchanged after a second application);
@@ -384,9 +390,11 @@ mandatory.
 - Migration and rollback notes in the PR: forward-fix discipline, and the
   revert path (drop trigger, functions, policies, tables, and enum types
   in dependency order).
-- The backfill result count for pre-existing staging users is recorded in
-  the PR (expected 0 until the staging gate runs it; record the local
-  figure).
+- The backfill result count is recorded in the PR: the local/CI figure
+  is 0 (seed runs after migrations, so no user predates the wishlist
+  trigger there); the staging figure — non-zero for existing staging
+  users — is recorded when the separate staging gate applies the
+  migration, mirroring 004a's backfill-count wording.
 - "No Magic Patterns mock data or editor artifacts shipped" confirmation
   (schema-only slice; no before/after screenshots or preview URL apply —
   state their absence explicitly).
