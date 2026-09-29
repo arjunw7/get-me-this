@@ -1,13 +1,17 @@
 # CI database job run — ARJ-26 (PR #26)
 
-## Green run (binding proof)
+## Green runs (binding proof)
 
-- **Run**: https://github.com/arjunw7/get-me-this/actions/runs/36645542453
-- **Job**: "Database and stack e2e" — job
-  https://github.com/arjunw7/get-me-this/actions/runs/36645542453/job/109667522089
-- **Head commit**: `0cb40f8` (the exact PR head when the checks were read green).
-- **Result**: PASS, 5m28s. Both jobs green on the same head: "Install and verify"
-  (1m34s) and "Database and stack e2e" (5m28s), plus the Railway preview check.
+The binding proof is the green `database` job on the exact PR head at merge time.
+Observed green runs, newest last:
+
+- Run 36645542453 — head `0cb40f8` (first fully green head, 5m28s).
+- Run 36646477089 — head `0beb97c` (evidence pack added, 4m33s).
+- Run 36647164051 — head `0d7ddf7` (final evidence README wording, 5m11s):
+  https://github.com/arjunw7/get-me-this/actions/runs/36647164051
+
+Details below use run 36645542453 as the worked example; the final-head run has the
+same step structure and result.
 
 Log excerpts from the job (full log retained locally at capture time; excerpts are
 sanitized — no key/secret material appears in any CI log):
