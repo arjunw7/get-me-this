@@ -1,0 +1,140 @@
+﻿2026-09-29T23:11:54.4233360Z ##[group]Run pnpm test:db
+2026-09-29T23:11:54.4233935Z [36;1mpnpm test:db[0m
+2026-09-29T23:11:54.4317254Z shell: /usr/bin/bash -e {0}
+2026-09-29T23:11:54.4317579Z env:
+2026-09-29T23:11:54.4317886Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-09-29T23:11:54.4318656Z ##[endgroup]
+2026-09-29T23:11:54.9280759Z 
+2026-09-29T23:11:54.9292493Z > get-me-this@0.1.0 test:db /home/runner/work/get-me-this/get-me-this
+2026-09-29T23:11:54.9293612Z > supabase test db --local
+2026-09-29T23:11:54.9294251Z 
+2026-09-29T23:11:55.5878523Z Connecting to local database...
+2026-09-29T23:11:56.0260592Z 3.36: Pulling from supabase/pg_prove
+2026-09-29T23:11:56.0499149Z dcccee43ad5d: Pulling fs layer
+2026-09-29T23:11:56.0500182Z 06d62d0de6d7: Pulling fs layer
+2026-09-29T23:11:56.0501584Z a22cb17b3b93: Pulling fs layer
+2026-09-29T23:11:56.0502459Z 4f4fb700ef54: Pulling fs layer
+2026-09-29T23:11:56.0502987Z 4f4fb700ef54: Waiting
+2026-09-29T23:11:56.0967611Z a22cb17b3b93: Verifying Checksum
+2026-09-29T23:11:56.0969106Z a22cb17b3b93: Download complete
+2026-09-29T23:11:56.1133429Z 4f4fb700ef54: Verifying Checksum
+2026-09-29T23:11:56.1137009Z 4f4fb700ef54: Download complete
+2026-09-29T23:11:56.1361085Z dcccee43ad5d: Verifying Checksum
+2026-09-29T23:11:56.1361900Z dcccee43ad5d: Download complete
+2026-09-29T23:11:56.1729661Z 06d62d0de6d7: Verifying Checksum
+2026-09-29T23:11:56.1738558Z 06d62d0de6d7: Download complete
+2026-09-29T23:11:56.2747071Z dcccee43ad5d: Pull complete
+2026-09-29T23:11:57.0463561Z 06d62d0de6d7: Pull complete
+2026-09-29T23:11:57.0953057Z a22cb17b3b93: Pull complete
+2026-09-29T23:11:57.1062913Z 4f4fb700ef54: Pull complete
+2026-09-29T23:11:57.1107295Z Digest: sha256:eda7c5e68719e9c8287e78c017118407b48df904a51c935f5ab6098b8c0bc6bc
+2026-09-29T23:11:57.1121514Z Status: Downloaded newer image for public.ecr.aws/supabase/pg_prove:3.36
+2026-09-29T23:11:57.1127106Z public.ecr.aws/supabase/pg_prove:3.36
+2026-09-29T23:11:57.4456658Z /home/runner/work/get-me-this/get-me-this/supabase/tests/profiles-004e.sql .. ok
+2026-09-29T23:11:57.5490682Z /home/runner/work/get-me-this/get-me-this/supabase/tests/profiles.sql ....... ok
+2026-09-29T23:11:57.5882401Z psql:/home/runner/work/get-me-this/get-me-this/supabase/tests/smoke.sql:119: ERROR:  relation "public.wishlists" does not exist
+2026-09-29T23:11:57.5883819Z LINE 4:     from public.wishlists
+2026-09-29T23:11:57.5884733Z                  ^
+2026-09-29T23:11:57.5940937Z /home/runner/work/get-me-this/get-me-this/supabase/tests/smoke.sql .......... 
+2026-09-29T23:11:57.5942189Z # Failed test 4: "only the reviewed public tables (profiles, wishlists, wishlist_items) exist in the public schema"
+2026-09-29T23:11:57.5942971Z #         have: 1
+2026-09-29T23:11:57.5943485Z #         want: 3
+2026-09-29T23:11:57.5944260Z # Failed test 6: "public.wishlists is the reviewed 005a wishlist table"
+2026-09-29T23:11:57.5945198Z # Failed test 7: "public.wishlist_items is the reviewed 005a wishlist_items table"
+2026-09-29T23:11:57.5946048Z # Failed test 9: "exactly one user row was seeded"
+2026-09-29T23:11:57.5959126Z #         have: 0
+2026-09-29T23:11:57.5959529Z #         want: 1
+2026-09-29T23:11:57.5960239Z # Failed test 10: "the seeded user is the synthetic .invalid fixture"
+2026-09-29T23:11:57.5960925Z #         have: NULL
+2026-09-29T23:11:57.5961491Z #         want: wishlist-fixture@example.invalid
+2026-09-29T23:11:57.5962349Z # Failed test 11: "the fixture user's trigger-created profile exists"
+2026-09-29T23:11:57.5963037Z #         have: 0
+2026-09-29T23:11:57.5963420Z #         want: 1
+2026-09-29T23:11:57.5963923Z Dubious, test returned 3 (wstat 768, 0x300)
+2026-09-29T23:11:57.5964479Z Failed 8/13 subtests 
+2026-09-29T23:11:57.6661244Z psql:/home/runner/work/get-me-this/get-me-this/supabase/tests/wishlist.sql:110: ERROR:  relation "public.wishlist_items" does not exist
+2026-09-29T23:11:57.6663131Z LINE 5:     where conrelid = 'public.wishlist_items'::regclass
+2026-09-29T23:11:57.6664059Z                              ^
+2026-09-29T23:11:57.6693152Z /home/runner/work/get-me-this/get-me-this/supabase/tests/wishlist.sql ....... 
+2026-09-29T23:11:57.6694708Z # Failed test 1: "public.wishlists exists"
+2026-09-29T23:11:57.6695950Z # Failed test 2: "public.wishlist_items exists"
+2026-09-29T23:11:57.6696840Z # Failed test 3: "wishlists.id exists"
+2026-09-29T23:11:57.6697668Z # Failed test 4: "wishlists.owner_id exists"
+2026-09-29T23:11:57.6699480Z # Failed test 5: "wishlists.created_at exists"
+2026-09-29T23:11:57.6733755Z # Failed test 6: "wishlists.updated_at exists"
+2026-09-29T23:11:57.6734749Z # Failed test 7: "wishlist_items.id exists"
+2026-09-29T23:11:57.6735428Z # Failed test 8: "wishlist_items.wishlist_id exists"
+2026-09-29T23:11:57.6735882Z # Failed test 9: "wishlist_items.owner_id exists"
+2026-09-29T23:11:57.6736319Z # Failed test 10: "wishlist_items.title exists"
+2026-09-29T23:11:57.6736753Z # Failed test 11: "wishlist_items.source_url exists"
+2026-09-29T23:11:57.6737180Z # Failed test 12: "wishlist_items.retailer exists"
+2026-09-29T23:11:57.6737609Z # Failed test 13: "wishlist_items.image_url exists"
+2026-09-29T23:11:57.6738512Z # Failed test 14: "wishlist_items.image_snapshot_path exists"
+2026-09-29T23:11:57.6739405Z # Failed test 15: "wishlist_items.note exists"
+2026-09-29T23:11:57.6740165Z # Failed test 16: "wishlist_items.original_amount_minor exists"
+2026-09-29T23:11:57.6740980Z # Failed test 17: "wishlist_items.original_currency exists"
+2026-09-29T23:11:57.6742003Z # Failed test 18: "wishlist_items.converted_amount_minor exists"
+2026-09-29T23:11:57.6742840Z # Failed test 19: "wishlist_items.converted_currency exists"
+2026-09-29T23:11:57.6743720Z # Failed test 20: "wishlist_items.conversion_rate_source exists"
+2026-09-29T23:11:57.6744648Z # Failed test 21: "wishlist_items.conversion_rate_at exists"
+2026-09-29T23:11:57.6745570Z # Failed test 22: "wishlist_items.desire_level exists"
+2026-09-29T23:11:57.6746357Z # Failed test 23: "wishlist_items.extraction_status exists"
+2026-09-29T23:11:57.6747105Z # Failed test 24: "wishlist_items.sort_position exists"
+2026-09-29T23:11:57.6747803Z # Failed test 25: "wishlist_items.created_at exists"
+2026-09-29T23:11:57.6759007Z # Failed test 26: "wishlist_items.updated_at exists"
+2026-09-29T23:11:57.6759786Z # Failed test 27: "wishlists.owner_id is not null"
+2026-09-29T23:11:57.6760625Z #     Column public.wishlists.owner_id does not exist
+2026-09-29T23:11:57.6761402Z # Failed test 28: "wishlists.created_at is not null"
+2026-09-29T23:11:57.6762172Z #     Column public.wishlists.created_at does not exist
+2026-09-29T23:11:57.6762925Z # Failed test 29: "wishlists.updated_at is not null"
+2026-09-29T23:11:57.6763685Z #     Column public.wishlists.updated_at does not exist
+2026-09-29T23:11:57.6764495Z # Failed test 30: "wishlist_items.wishlist_id is not null"
+2026-09-29T23:11:57.6765301Z #     Column public.wishlist_items.wishlist_id does not exist
+2026-09-29T23:11:57.6769300Z # Failed test 31: "wishlist_items.owner_id is not null"
+2026-09-29T23:11:57.6770207Z #     Column public.wishlist_items.owner_id does not exist
+2026-09-29T23:11:57.6770987Z # Failed test 32: "wishlist_items.title is not null"
+2026-09-29T23:11:57.6771769Z #     Column public.wishlist_items.title does not exist
+2026-09-29T23:11:57.6772577Z # Failed test 33: "wishlist_items.desire_level is not null"
+2026-09-29T23:11:57.6773486Z #     Column public.wishlist_items.desire_level does not exist
+2026-09-29T23:11:57.6774436Z # Failed test 34: "wishlist_items.extraction_status is not null"
+2026-09-29T23:11:57.6775352Z #     Column public.wishlist_items.extraction_status does not exist
+2026-09-29T23:11:57.6776176Z # Failed test 35: "wishlist_items.sort_position is not null"
+2026-09-29T23:11:57.6776971Z #     Column public.wishlist_items.sort_position does not exist
+2026-09-29T23:11:57.6777771Z # Failed test 36: "wishlist_items.created_at is not null"
+2026-09-29T23:11:57.6801906Z #     Column public.wishlist_items.created_at does not exist
+2026-09-29T23:11:57.6802881Z # Failed test 37: "wishlist_items.updated_at is not null"
+2026-09-29T23:11:57.6803800Z #     Column public.wishlist_items.updated_at does not exist
+2026-09-29T23:11:57.6805240Z # Failed test 38: "wishlists.id is the primary key"
+2026-09-29T23:11:57.6806621Z #         have: NULL
+2026-09-29T23:11:57.6807343Z #         want: {id}
+2026-09-29T23:11:57.6808538Z # Failed test 39: "wishlist_items.id is the primary key"
+2026-09-29T23:11:57.6809230Z #         have: NULL
+2026-09-29T23:11:57.6809956Z #         want: {id}
+2026-09-29T23:11:57.6811218Z # Failed test 40: "wishlists.owner_id is UNIQUE (the one-wishlist-per-owner invariant)"
+2026-09-29T23:11:57.6812279Z #         have: 
+2026-09-29T23:11:57.6816021Z #         want: {owner_id}
+2026-09-29T23:11:57.6820314Z # Failed test 41: "wishlists.owner_id references auth.users(id) on delete cascade"
+2026-09-29T23:11:57.6825226Z #         have: public.wishlists(owner_id) REFERENCES NOTHING
+2026-09-29T23:11:57.6840316Z #         want: public.wishlists(owner_id) REFERENCES auth.users(id)
+2026-09-29T23:11:57.6841677Z # Failed test 42: "the composite FK (wishlist_id, owner_id) references wishlists(id, owner_id) on delete cascade"
+2026-09-29T23:11:57.6843021Z #         have: public.wishlist_items(wishlist_id, owner_id) REFERENCES NOTHING
+2026-09-29T23:11:57.6844359Z #         want: public.wishlist_items(wishlist_id, owner_id) REFERENCES public.wishlists(id, owner_id)
+2026-09-29T23:11:57.6845380Z Dubious, test returned 3 (wstat 768, 0x300)
+2026-09-29T23:11:57.6845982Z Failed 154/154 subtests 
+2026-09-29T23:11:57.6846285Z 
+2026-09-29T23:11:57.6846498Z Test Summary Report
+2026-09-29T23:11:57.6846921Z -------------------
+2026-09-29T23:11:57.6848360Z /home/runner/work/get-me-this/get-me-this/supabase/tests/smoke.sql        (Wstat: 768 (exited 3) Tests: 11 Failed: 6)
+2026-09-29T23:11:57.6849475Z   Failed tests:  4, 6-7, 9-11
+2026-09-29T23:11:57.6849953Z   Non-zero exit status: 3
+2026-09-29T23:11:57.6850568Z   Parse errors: Bad plan.  You planned 13 tests but ran 11.
+2026-09-29T23:11:57.6851920Z /home/runner/work/get-me-this/get-me-this/supabase/tests/wishlist.sql     (Wstat: 768 (exited 3) Tests: 42 Failed: 42)
+2026-09-29T23:11:57.6852952Z   Failed tests:  1-42
+2026-09-29T23:11:57.6853401Z   Non-zero exit status: 3
+2026-09-29T23:11:57.6854025Z   Parse errors: Bad plan.  You planned 154 tests but ran 42.
+2026-09-29T23:11:57.6857683Z Files=4, Tests=119,  0 wallclock secs ( 0.04 usr  0.01 sys +  0.03 cusr  0.02 csys =  0.10 CPU)
+2026-09-29T23:11:57.6859068Z Result: FAIL
+2026-09-29T23:11:58.2350449Z error running container: exit 1
+2026-09-29T23:11:58.2379221Z Try rerunning the command with --debug to troubleshoot the error.
+2026-09-29T23:11:58.2654684Z  ELIFECYCLE  Command failed with exit code 1.
+2026-09-29T23:11:58.3109619Z ##[error]Process completed with exit code 1.

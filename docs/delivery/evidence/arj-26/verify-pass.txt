@@ -1,0 +1,194 @@
+
+> get-me-this@0.1.0 verify /Users/loop/Projects/get-me-this
+> pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
+
+
+> get-me-this@0.1.0 format:check /Users/loop/Projects/get-me-this
+> prettier --check --ignore-unknown .env.example .gitignore .nvmrc .prettierignore .railway README.md app eslint.config.mjs instrumentation-client.ts next.config.mjs package.json postcss.config.mjs proxy.ts scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> get-me-this@0.1.0 lint /Users/loop/Projects/get-me-this
+> eslint .
+
+
+/Users/loop/Projects/get-me-this/src/analytics/event-definitions.test.ts
+  11:15  warning  'AnalyticsEventName' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 1 problem (0 errors, 1 warning)
+
+
+> get-me-this@0.1.0 typecheck /Users/loop/Projects/get-me-this
+> next typegen && tsc --noEmit
+
+Generating route types...
+✓ Types generated successfully
+
+> get-me-this@0.1.0 test /Users/loop/Projects/get-me-this
+> vitest run
+
+
+ RUN  v5.0.2 /Users/loop/Projects/get-me-this
+
+ ✓ src/auth/confirm-screen.test.tsx (3 tests) 374ms
+   ✓ ConfirmScreen (interim) (3)
+     ✓ renders the honest interim state with the path back to code entry 363ms
+ ✓ src/ui/button.test.tsx (4 tests) 495ms
+   ✓ Button (4)
+     ✓ uses native button semantics 333ms
+ ✓ src/ui/text-field.test.tsx (9 tests) 560ms
+ ✓ src/home/account-menu.test.tsx (5 tests) 557ms
+   ✓ AccountMenu (5)
+     ✓ shows the signed-in email and a Log out control 388ms
+ ✓ src/auth/otp-input.test.tsx (6 tests) 625ms
+   ✓ OtpInput (6)
+     ✓ enters a digit and moves focus forward 391ms
+stderr | src/auth/verify-flow-screen.test.tsx > VerifyFlowScreen entry state > renders the over-limit recovery panel and restarts the countdown, whatever the clock said
+An async function with useActionState was called outside of a transition. This is likely not what you intended (for example, isPending will not update correctly). Either call the returned function inside startTransition, or pass it to an `action` or `formAction` prop.
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > still rejects invalid payloads so the boundary is identical in every mode
+[analytics] capture rejected: unknown-event (event "group_deleted")
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > still rejects invalid payloads so the boundary is identical in every mode
+[analytics] capture rejected: missing-key ("auth_completed" is missing "is_new_user")
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > unconfigured: true no-op adapter > rejects invalid identity context in every mode
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.distinctId must be an internal UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > rejects invalid identity context before anything reaches PostHog
+[analytics] capture rejected: invalid-context (context.group.id must be an internal group UUID)
+
+stderr | src/analytics/server.test.ts > server analytics lane > configured: posthog-node adapter > never reaches the SDK with a rejected payload
+[analytics] capture rejected: missing-key ("group_created" is missing "gifting_mode")
+
+ ✓ src/analytics/server.test.ts (15 tests) 44ms
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects unknown event names at compile time
+[analytics] capture rejected: unknown-event (event "group_deleted")
+
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects unsupported property values at compile time
+[analytics] capture rejected: invalid-enum-value ("invite_sent"."channel" has a value outside its allowed list)
+
+stderr | src/analytics/event-definitions.test.ts > typed event boundary (compile-time, real ServerAnalytics surface) > rejects missing and extra object-literal properties at compile time
+[analytics] capture rejected: missing-key ("invite_accepted" is missing "was_authenticated")
+[analytics] capture rejected: unknown-key ("invite_accepted" does not allow "group_name")
+
+ ✓ src/analytics/event-definitions.test.ts (10 tests) 190ms
+ ✓ src/auth/onboarding-form.test.tsx (9 tests) 1012ms
+   ✓ OnboardingForm (9)
+     ✓ renders the default state with an empty form 312ms
+ ✓ src/auth/verify-screen.test.tsx (10 tests) 1128ms
+   ✓ VerifyScreen (10)
+     ✓ renders the default state with an empty code and the countdown at its deterministic initial value 375ms
+ ✓ src/auth/actions.test.ts (26 tests) 60ms
+stderr | src/auth/verify-flow-screen.test.tsx > VerifyFlowScreen entry state > offers the resend control once the countdown elapses, under controlled time
+An async function with useActionState was called outside of a transition. This is likely not what you intended (for example, isPending will not update correctly). Either call the returned function inside startTransition, or pass it to an `action` or `formAction` prop.
+
+ ✓ src/auth/verify-flow-screen.test.tsx (13 tests) 1490ms
+   ✓ VerifyFlowScreen entry state (9)
+     ✓ renders the carried email and a countdown sourced from the server constant 374ms
+ ✓ src/profile/onboarding-actions.test.ts (6 tests) 29ms
+ ✓ src/foundation/health-route.test.ts (5 tests) 42ms
+ ✓ src/auth/email-entry-form.test.tsx (9 tests) 1576ms
+   ✓ EmailEntryForm client validation (3)
+     ✓ rejects an empty submission before any request 472ms
+ ✓ src/auth/link-cookie.test.ts (12 tests) 32ms
+ ✓ src/auth/proxy.test.ts (13 tests) 44ms
+ ✓ src/foundation/design-tokens.test.ts (4 tests) 22ms
+ ✓ src/visual-baseline-manifest.test.ts (2 tests) 17ms
+stderr | src/analytics/client.test.ts > client analytics lane > identity: anonymous → authenticated → logout > refuses non-UUID identifiers such as emails and display names
+[analytics] identify rejected: distinct id is not a UUID
+[analytics] identify rejected: distinct id is not a UUID
+
+ ✓ src/analytics/client.test.ts (15 tests) 99ms
+ ✓ src/profile/onboarding.test.ts (31 tests) 9ms
+ ✓ src/landing/content.test.ts (8 tests) 12ms
+ ✓ src/supabase/server.test.ts (2 tests) 102ms
+ ✓ src/analytics/sdk-import-boundary.test.ts (6 tests) 3301ms
+   ✓ SDK ownership lint rule (6)
+     ✓ blocks a posthog-js import from product code 3087ms
+ ✓ src/analytics/validation.test.ts (8 tests) 10ms
+ ✓ src/auth/link-screens.test.tsx (4 tests) 203ms
+ ✓ src/ui/styles.test.ts (17 tests) 9ms
+ ✓ src/auth/provider-errors.test.ts (4 tests) 28ms
+ ✓ src/auth/flow-copy.test.ts (10 tests) 8ms
+ ✓ src/analytics/privacy.test.tsx (21 tests) 78ms
+ ✓ src/profile/profile.test.ts (15 tests) 12ms
+ ✓ src/analytics/memory-sink.test.ts (5 tests) 9ms
+ ✓ src/auth/carry-cookie.test.ts (6 tests) 11ms
+ ✓ src/auth/fixtures.test.ts (6 tests) 7ms
+ ✓ src/auth/email-redirect.test.ts (4 tests) 5ms
+ ✓ src/supabase/config.test.ts (3 tests) 6ms
+ ✓ src/foundation/design-fixture.test.ts (5 tests) 4ms
+ ✓ src/auth/email.test.ts (2 tests) 4ms
+ ✓ src/auth/proxy-policy.test.ts (5 tests) 5ms
+ ✓ src/auth/link-intents.test.ts (3 tests) 5ms
+ ✓ src/supabase/client.test.ts (2 tests) 15ms
+ ✓ src/auth/copy.test.ts (2 tests) 2ms
+ ✓ src/auth/flow-config.test.ts (2 tests) 2ms
+ ✓ src/analytics/server-only-guard.test.ts (2 tests) 9ms
+ ✓ src/profile/blank.test.ts (18 tests) 5716ms
+   ✓ migration parity: the database rule and the server rule agree (2)
+     ✓ classifies every code point identically 5710ms
+
+ Test Files  44 passed (44)
+      Tests  367 passed (367)
+   Start at  05:08:40
+   Duration  6.36s (tests 36%, environment 32%, setup 18%, transform 9%, import 5%)
+
+    Isolate  44 workers spawned · ~501ms startup each (spawn + environment, per file)
+             at least ~1.50s faster with isolate: false — reuses workers across files instead of one per file
+
+
+> get-me-this@0.1.0 build /Users/loop/Projects/get-me-this
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+- Environments: .env.local
+✓ Running next.config.mjs took 9ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 505ms
+  Running TypeScript ...
+  Finished TypeScript in 1384ms ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/10) ...
+  Generating static pages using 11 workers (2/10) 
+  Generating static pages using 11 workers (4/10) 
+  Generating static pages using 11 workers (7/10) 
+✓ Generating static pages using 11 workers (10/10) in 162ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /auth
+├ ○ /auth/confirm
+├ ○ /auth/link
+├ ƒ /auth/verify
+├ ○ /design-foundation
+├ ƒ /health
+├ ƒ /home
+└ ƒ /onboarding
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
