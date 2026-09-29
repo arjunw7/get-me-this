@@ -59,11 +59,20 @@ protected display path is the first consumer of the schema this slice lands.
   discipline: `anon` receives no privileges on either table or EXECUTE on
   any new function; `authenticated` receives SELECT on `wishlists` only
   (the trigger creates wishlists, so no client INSERT/UPDATE/DELETE grant
-  exists) and SELECT, INSERT, UPDATE, DELETE on `wishlist_items` — with
-  INSERT and UPDATE both column-limited so `id`, `wishlist_id`, `owner_id`,
-  `created_at`, and `updated_at` are never client-writable (the composite
-  FK plus the RLS `with check` would also reject an ownership mismatch, but
-  the column grant removes the question). RLS is enabled on both tables
+  exists) and SELECT, INSERT, UPDATE, DELETE on `wishlist_items`. The
+  INSERT grant excludes only `id`, `created_at`, and `updated_at` — the
+  client legitimately supplies `wishlist_id` and `owner_id` (both NOT NULL
+  with no defaults, so a column-limited INSERT excluding them would be
+  unexecutable), and correctness there is enforced by the RLS `with check
+  (auth.uid() = owner_id)` plus the composite FK, which together make a
+  mismatched or hijacked insert impossible. The UPDATE grant is
+  column-limited so `id`, `wishlist_id`, `owner_id`, `created_at`, and
+  `updated_at` are never client-updatable — items cannot be moved between
+  wishlists or re-owned after creation. Rejected alternative: excluding
+  `wishlist_id`/`owner_id` from INSERT too (forces a definer-default
+  mechanism for columns the owner's client must state, splitting the
+  insert path for no added safety, since RLS and the composite FK already
+  constrain exactly these two columns). RLS is enabled on both tables
   with owner-only policies: `wishlists_select_own` (`auth.uid() =
   owner_id`), and `wishlist_items_select_own`, `wishlist_items_insert_own`,
   `wishlist_items_update_own`, `wishlist_items_delete_own` (`auth.uid() =
@@ -72,15 +81,25 @@ protected display path is the first consumer of the schema this slice lands.
   authenticated (the 004a CREATE-TIME-check rule). Service-role credentials
   remain server-only. **No group-member grant or policy exists before
   Phase 5.**
-- **Deliberate, reviewed amendment of `supabase/tests/smoke.sql`**: the
-  public-table inventory assertion changes from "only `profiles` exists"
-  (count 1) to "exactly `profiles`, `wishlists`, and `wishlist_items`
-  exist" (count 3, with `has_table` for each new table), and the seeded-data
-  assertion changes from "no user rows were seeded" to "exactly the one
-  synthetic fixture user from `supabase/seed.sql` exists". Both edits are
-  explicit weakenings-with-scope recorded in the pull request — not silent
-  edits. The smoke suite gains assertions that the fixture wishlist and its
-  fixture items exist and that nothing else was seeded.
+- **Deliberate, reviewed amendments to the two existing pgTAP suites the
+  seeded fixture collides with, plus `supabase/tests/smoke.sql`**:
+  the public-table inventory assertion in `smoke.sql` changes from "only
+  `profiles` exists" (count 1) to "exactly `profiles`, `wishlists`, and
+  `wishlist_items` exist" (count 3, with `has_table` for each new table),
+  the seeded-data assertion changes from "no user rows were seeded" to
+  "exactly the one synthetic fixture user from `supabase/seed.sql`
+  exists", and the file's header comment is updated so its prose matches
+  the amended assertions. Separately, the two absolute-count assertions in
+  `supabase/tests/profiles.sql` ("the authenticated user sees only the own
+  profile row" and "the authenticated user cannot enumerate profiles even
+  when another user exists") count every profile row and would go red once
+  the fixture user exists: each is amended to the fixture-aware count
+  (own row + the fixture profile, with the fixture user identified by its
+  `@example.invalid` address) while still proving zero enumeration of
+  non-fixture users. All of these edits are explicit weakenings-with-scope
+  recorded in the pull request — not silent edits. The smoke suite gains
+  assertions that the fixture wishlist and its fixture items exist and
+  that nothing else was seeded.
 - **Synthetic, non-persistent seed fixtures owned by this slice**
   (`supabase/seed.sql`): a single deterministic synthetic user
   (`@example.invalid` address, fixed UUID), whose insert fires the real
@@ -136,6 +155,7 @@ alternatives are recorded with each.
    chars), `conversion_rate_at timestamptz` — carries the same all-or-
    nothing CHECK across all four columns, so a stored conversion always
    has its rate provenance (005g's display contract depends on this).
+   Both currency columns carry the same `^[A-Z]{3}$` CHECK.
    Storing a single JSON blob for money was rejected: constraints and
    indexes on typed columns are what make the guarantees testable.
 4. **Sort position representation.** `sort_position double precision not
@@ -284,11 +304,11 @@ mandatory.
 5. **Grant/RLS inventory (pgTAP).** From `information_schema`: `anon` has
    zero table, column, or function privileges on anything new;
    `authenticated` has SELECT-only on `wishlists` (no INSERT/UPDATE/
-   DELETE) and SELECT/INSERT/UPDATE/DELETE on `wishlist_items` with the
-   INSERT and UPDATE column lists excluding `id`, `wishlist_id`,
-   `owner_id`, `created_at`, `updated_at`; no client role holds EXECUTE on
-   any new function; no policy references groups or grants any non-owner
-   access.
+   DELETE) and SELECT/INSERT/UPDATE/DELETE on `wishlist_items`, with the
+   INSERT column list excluding only `id`, `created_at`, `updated_at`,
+   and the UPDATE column list additionally excluding `wishlist_id` and
+   `owner_id`; no client role holds EXECUTE on any new function; no policy
+   references groups or grants any non-owner access.
 6. **Signed-out deny (pgTAP).** As `anon`: SELECT, INSERT, UPDATE, DELETE
    on both tables each raise 42501.
 7. **Cross-user enumeration deny (pgTAP).** Authenticated user B sees zero
@@ -297,8 +317,8 @@ mandatory.
 8. **Cross-user mutation deny (pgTAP).** B's UPDATE and DELETE targeting
    A's items affect zero rows and change nothing; B's INSERT with
    `owner_id = A` raises 42501 (WITH CHECK); B's INSERT with their own
-   `owner_id` but A's `wishlist_id` raises 23503 (composite FK); B cannot
-   update A's wishlist through any granted role.
+   `owner_id` but A's `wishlist_id` raises 23503 (composite FK); B's
+   UPDATE of A's wishlist row raises 42501 (SELECT-only grant).
 9. **Uniqueness (pgTAP).** A second `wishlists` row for the same owner
    raises 23505, including via the trigger's own insert path context
    (insert as the table owner in-transaction).
@@ -306,15 +326,17 @@ mandatory.
     non-null values on insert; an owner edit advances `updated_at`
     strictly within `clock_timestamp()` bounds taken inside the test
     transaction and a later edit lands at or after an earlier one (no
-    `now()` reliance); client attempts to write `id`, `wishlist_id`,
-    `owner_id`, `created_at`, or `updated_at` on an existing item raise
-    42501 (column grant), and the database-set `updated_at` cannot be
-    overwritten directly.
+    `now()` reliance); client attempts to change `id`, `wishlist_id`,
+    `owner_id`, `created_at`, or `updated_at` on an existing item via
+    UPDATE raise 42501 (column grant), and the database-set `updated_at`
+    cannot be overwritten directly; client INSERT attempts supplying
+    `id`, `created_at`, or `updated_at` also raise 42501.
 11. **Money integrity (pgTAP).** Amount without currency, currency
     without amount, negative amounts, a lowercase currency code, and a
     two-letter code each raise 23514; JPY and INR/USD amounts round-trip
     exactly as stored minor units; a converted tuple missing any one of
-    its four columns raises 23514, and a complete tuple round-trips.
+    its four columns raises 23514, an invalid converted currency code
+    raises 23514, and a complete tuple round-trips.
 12. **Enum and bound rejections (pgTAP).** A non-enum desire level and a
     non-enum extraction status raise 22P02; a 201-character title, a
     blank-only title, a 2001-character note, a 2049-character
@@ -327,12 +349,15 @@ mandatory.
 14. **Cascade (pgTAP).** Deleting the wishlist row (as the table owner,
     in-transaction) removes its items; deleting the fixture-or-synthetic
     `auth.users` row removes the wishlist and items with no orphans.
-15. **Smoke inventory (pgTAP/smoke).** After `supabase db reset --local`
-    rebuilds from committed migrations and seed alone: exactly
-    `profiles`, `wishlists`, and `wishlist_items` exist in `public`
-    (count 3, each `has_table`-asserted); exactly one seeded synthetic
-    user exists (the `.invalid` fixture), with its trigger-created
-    profile and wishlist and its fixture items — and nothing else.
+15. **Smoke and suite inventories (pgTAP/smoke).** After
+    `supabase db reset --local` rebuilds from committed migrations and
+    seed alone: exactly `profiles`, `wishlists`, and `wishlist_items`
+    exist in `public` (count 3, each `has_table`-asserted); exactly one
+    seeded synthetic user exists (the `.invalid` fixture), with its
+    trigger-created profile and wishlist and its fixture items — and
+    nothing else; and the amended `profiles.sql` enumeration counts pass
+    with the fixture user present (criterion 5's own-row visibility and
+    zero enumeration of non-fixture users still proven).
 16. **Seed hygiene (pgTAP/smoke + review).** The seed contains no
     credentials, tokens, or real personal data; re-running the seed is
     idempotent (fixture counts unchanged after a second application);
