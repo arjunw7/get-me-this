@@ -21,12 +21,24 @@ slice, with no simulated wishlist or group work.
   action (rejecting longer input before any write, not truncating silently).
   **Blank or whitespace-only input is normalized to null**, never stored as an
   empty string, so empty and never-provided are indistinguishable downstream.
+- **Database-level normalization (owner correction, 2026-09-29):** the
+  blank-to-null guarantee is enforced **in the database**, not only in the
+  onboarding action. The same migration adds a BEFORE INSERT OR UPDATE
+  trigger on `public.profiles` that sets `taste_line` to null when the value
+  is blank or whitespace-only. The 004a grant lets an authenticated user
+  update the column directly, bypassing the onboarding server action, so the
+  normalization must hold for **direct authenticated updates** — and the
+  migration tests must prove it that way: a direct UPDATE writing `''` or a
+  whitespace-only value stores null, not the blank string. Non-blank values
+  pass through unmodified (the trigger does not trim or otherwise rewrite
+  them; only the blank-to-null rule applies).
 - **Permissions:** the authenticated column-limited UPDATE grant extends to
   `taste_line` (owner-only RLS is unchanged from 004a; `id`, `created_at`,
   `updated_at` remain non-updatable); the migration ships with owner-only
   permission tests — anon denied everything, cross-user read and write denied,
-  over-60-character writes rejected, blank normalized to null — matching the
-  permissions matrix's required negative tests.
+  over-60-character writes rejected, blank normalized to null **including via
+  direct authenticated updates** — matching the permissions matrix's required
+  negative tests.
 - **Onboarding UI:** the approved screen's suggestion chips insert text into
   the field only; they carry no other behavior. No avatar-selection control is
   invented — the frozen V18 onboarding screen has none, and the ARJ-18
@@ -69,11 +81,24 @@ slice, with no simulated wishlist or group work.
 
 ### Profile-completeness gate
 
+- **Non-blank database rule (owner correction, 2026-09-29):** the 004a
+  schema grants authenticated users a direct UPDATE on `display_name` with no
+  non-blank constraint, so an empty or whitespace-only value written by any
+  path other than the onboarding form would pass a null-only completeness
+  gate. The same 004e migration therefore adds a CHECK constraint:
+  `display_name` is **null (incomplete) or non-blank**
+  (`btrim(display_name) <> ''`); a blank `display_name` is rejected by the
+  database on every write path, including direct authenticated updates.
+  Never edit the 004a migration; the constraint ships as a new forward-only
+  migration and is covered by migration tests that UPDATE the column
+  **directly** with `''` and whitespace-only values and assert rejection —
+  not only through the onboarding form.
 - A profile with a null `display_name` (004a: null means incomplete) routes to
   `/onboarding`; profiles with a display name set **never repeat onboarding**
-  and go straight to their destination. The gate is evaluated server-side;
-  onboarding cannot be skipped by client manipulation, and a complete profile
-  cannot be forced back into onboarding.
+  and go straight to their destination. Given the constraint above, "set"
+  means non-null and non-blank — no blank value can mark a profile complete.
+  The gate is evaluated server-side; onboarding cannot be skipped by client
+  manipulation, and a complete profile cannot be forced back into onboarding.
 - Onboarding completion (required display name, optional bounded taste line)
   updates the profile through the existing column-limited grant and navigates
   to `/home` (see the intent rule above).
@@ -134,7 +159,11 @@ templates, or the pinned link URL form.
   `taste_line` column exists with the CHECK constraint; the authenticated
   UPDATE grant covers it; anon denied; cross-user SELECT and UPDATE denied;
   over-60-character writes rejected by the database; blank input stored as
-  null; a user cannot read or edit another user's profile.
+  null **proven by direct authenticated UPDATEs with `''` and whitespace-only
+  values, not only through the onboarding action**; the `display_name`
+  non-blank CHECK constraint rejects direct authenticated UPDATEs writing `''`
+  or whitespace-only values; a user cannot read or edit another user's
+  profile.
 - **Proxy/protected-route tests:** the matcher covers authenticated routes
   and Server Actions; anonymous requests for protected routes redirect to
   `/auth` with a safe return intent; **each protected route denies
@@ -154,15 +183,27 @@ templates, or the pinned link URL form.
   URLs, logs, analytics payloads, or replay files beyond what the approved
   tracking plan already permits; analytics events introduce nothing outside
   the typed catalog.
-- **Copy/visual:** changed screens (`/home`, onboarding, account menu, logged
-  out landing) compared side-by-side against the approved V18 baselines at
-  the same route, viewport, and content fixture, with owner copy review
-  before merge; no invented avatar control.
+- **Copy/visual (owner correction, 2026-09-29):** changed screens compared
+  against **existing references only where they exist** — onboarding and the
+  logged-out landing have committed baselines
+  (`tests/visual/baselines/`), and those comparisons happen at the same
+  route, viewport, and content fixture. **`/home` and the account menu have
+  no committed baselines**; the approved V18 frozen reference images
+  (`auth-home`, `account-menu`, `logout-confirmation` under
+  `docs/design-reference/baselines/v18/`) serve as the design reference for
+  owner side-by-side review, and new committed baselines for those surfaces
+  are generated as **candidates** and committed only after explicit owner
+  approval per `docs/delivery/visual-baselines.md` (candidates are never
+  committed before approval, and the human reviewer fills the manifest
+  approval fields by hand). Owner copy review before merge; no invented
+  avatar control.
 
 ## Required proof
 
 - Local test transcripts (unit, migration/permission, proxy, e2e), `pnpm
-  verify` green; migration and rollback notes for the `taste_line` change.
+  verify` green; migration and rollback notes for the 004e migration
+  (`taste_line` column and CHECK, the blank-to-null trigger, and the
+  `display_name` non-blank CHECK).
 - Sanitized staging rehearsal with synthetic users only: a fresh user
   (onboarding → `/home`) and a returning user (direct to destination),
   refresh and new-tab retention, fresh-context signed-out state, confirmed
