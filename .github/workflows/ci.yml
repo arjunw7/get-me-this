@@ -79,15 +79,19 @@ jobs:
         timeout-minutes: 5
         run: pnpm install --frozen-lockfile
       # `supabase start` applies the committed migrations and seed on a fresh
-      # runner. Its default table output includes the local fixture keys, so
-      # the status is written to a JSON file and printed back through a filter
-      # that drops key/secret material: the local publishable key is a
-      # development fixture, but the job treats it as secret anyway.
+      # runner. Its output table includes the local fixture keys, so it is
+      # written to a file and never echoed; on failure only a key-filtered
+      # diagnostic excerpt is printed. The sanitized summary is read back from
+      # `supabase status -o json` (the same interface scripts/e2e-auth-local.sh
+      # parses) through a filter that drops key/secret material: the local
+      # publishable key is a development fixture, but the job treats it as
+      # secret anyway.
       - name: Start the local Supabase stack (applies committed migrations and seed)
         timeout-minutes: 10
         run: |
-          pnpm exec supabase start -o json > /tmp/gmt-supabase-start.json 2>/tmp/gmt-supabase-start.err \
-            || { cat /tmp/gmt-supabase-start.err >&2; exit 1; }
+          pnpm exec supabase start > /tmp/gmt-supabase-start.txt 2>&1 \
+            || { echo "supabase start failed; sanitized diagnostics:"; grep -viE 'key|secret|password|token|eyJ' /tmp/gmt-supabase-start.txt | tail -40 >&2 || true; exit 1; }
+          pnpm exec supabase status -o json > /tmp/gmt-supabase-status.json
           node -e '
             const s = require("/tmp/gmt-supabase-start.json");
             for (const [k, v] of Object.entries(s)) {
