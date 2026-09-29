@@ -61,7 +61,7 @@
 | 14 | Cascade | `wishlist.sql` §16 (wishlist delete cascades items; user delete cascades both; no orphans) |
 | 15 | Smoke inventory | amended `smoke.sql` green (13/13) in the CI database job |
 | 16 | Seed hygiene | `supabase/seed.sql` review; idempotency via fixed-UUID conflicts; no credentials/real data |
-| 17 | CI proof | green `database` job on PR head `0cb40f8` (`ci-database-job-run.md`); the deliberate failing negative-test demonstration is the red job on `a9fc672` |
+| 17 | CI proof | green `database` job on the exact PR head at merge time — run links for every observed head recorded in `ci-database-job-run.md` (green run 36646477089 on `0beb97c` and the final head run); the deliberate failing negative-test demonstration is the red job on `a9fc672` |
 | 18 | Forward-only discipline | the migration was never edited after its first application; the pgTAP suite (not the migration) carried every fix; rollback notes in the PR and below |
 
 ## Transcripts
