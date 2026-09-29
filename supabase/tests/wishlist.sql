@@ -938,7 +938,7 @@ select throws_ok(
 select throws_ok(
   format(
     'update public.wishlist_items set wishlist_id = %L where owner_id = %L and title = ''Mystery novel''',
-    :'wid_b',
+    gen_random_uuid(),
     :'uid_a'
   ),
   '42501'
