@@ -1064,10 +1064,10 @@ select ok(
 
 select ok(
   has_table_privilege('authenticated', 'public.wishlist_items', 'SELECT')
-    and has_table_privilege('authenticated', 'public.wishlist_items', 'INSERT')
-    and has_table_privilege('authenticated', 'public.wishlist_items', 'UPDATE')
+    and has_any_column_privilege('authenticated', 'public.wishlist_items', 'INSERT')
+    and has_any_column_privilege('authenticated', 'public.wishlist_items', 'UPDATE')
     and has_table_privilege('authenticated', 'public.wishlist_items', 'DELETE'),
-  'authenticated holds SELECT, INSERT, UPDATE, and DELETE on public.wishlist_items'
+  'authenticated holds SELECT, INSERT, UPDATE, and DELETE on public.wishlist_items (INSERT/UPDATE via column grants)'
 );
 
 select is(
@@ -1079,8 +1079,8 @@ select is(
       and table_name = 'wishlist_items'
       and privilege_type = 'INSERT'
   ),
-  16,
-  'the authenticated INSERT grant covers exactly the 16 client-writable columns (excluding only id, created_at, updated_at)'
+  17,
+  'the authenticated INSERT grant covers exactly the 17 client-writable columns (excluding only id, created_at, updated_at)'
 );
 
 select is(
