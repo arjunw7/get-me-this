@@ -154,7 +154,9 @@ describe("migration parity: the database rule and the server rule agree", () => 
   // The classification parity proof: every Unicode code point (surrogates
   // excluded — no string form) classifies identically under the server
   // predicate and the migration's enumerated set.
-  it("classifies every code point identically", () => {
+  // The full sweep is ~1.1M predicate calls per side; allow ample time on
+  // slower CI runners instead of the default 5s per-test timeout.
+  it("classifies every code point identically", { timeout: 60_000 }, () => {
     for (let codePoint = 0; codePoint <= 0x10ffff; codePoint += 1) {
       if (codePoint >= 0xd800 && codePoint <= 0xdfff) continue;
       const character = String.fromCodePoint(codePoint);
