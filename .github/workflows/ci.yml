@@ -1,11 +1,24 @@
 # Continuous integration for every pull request and direct push to main.
 #
-# The CI contract is exactly the local contract: install with a frozen
-# lockfile, then run the single committed verification command. A failing
-# verification sub-command exits non-zero and fails this check. Making it a
-# required merge gate needs branch protection, which this private repository
-# cannot currently configure (403); until then, green CI is a mandatory input
-# to human review before merge.
+# Two jobs share one contract (005h). "Install and verify" installs with a
+# frozen lockfile and runs the single committed verification command (format,
+# lint, typecheck, unit tests, build). "Database and stack e2e" starts the
+# local Supabase stack with the repository's CLI devDependency, deliberately
+# resets it from the committed migrations and seed, runs the pgTAP suites
+# (pnpm test:db), then builds the production bundle and runs the
+# E2E_LOCAL_SUPABASE-gated Playwright suites through the committed
+# scripts/e2e-local-stack.sh (environment wiring mirrors
+# scripts/e2e-auth-local.sh; the local stack's fixture keys are parsed
+# silently and never echoed into logs). A failing sub-command exits non-zero
+# and fails its check; a red job blocks the merge gate exactly like a red
+# verify job.
+#
+# Merge gate: per the owner authorization of 2026-09-30 recorded in
+# docs/delivery/issues/005h-ci-database-test-gate.md, AI reviewer signoff plus
+# green checks authorizes merging Phase 4 pull requests; the earlier
+# "mandatory input to human review" wording is superseded for these slices.
+# Making the checks required needs branch protection, which this private
+# repository cannot currently configure (403).
 #
 # Least privilege: read-only repository access, no persisted checkout
 # credentials, no secrets exposed to pull-request code, and a hard job
@@ -45,3 +58,59 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Verify
         run: pnpm verify
+
+  database:
+    name: Database and stack e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      # Same three SHA-pinned actions as the verify job; per-step timeouts cap
+      # hangs, the steps share this job's budget, and the workflow-level
+      # concurrency group cancels superseded pull-request runs.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies (frozen lockfile)
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile
+      # `supabase start` applies the committed migrations and seed on a fresh
+      # runner. Its default table output includes the local fixture keys, so
+      # the status is written to a JSON file and printed back through a filter
+      # that drops key/secret material: the local publishable key is a
+      # development fixture, but the job treats it as secret anyway.
+      - name: Start the local Supabase stack (applies committed migrations and seed)
+        timeout-minutes: 10
+        run: |
+          pnpm exec supabase start -o json > /tmp/gmt-supabase-start.json 2>/tmp/gmt-supabase-start.err \
+            || { cat /tmp/gmt-supabase-start.err >&2; exit 1; }
+          node -e '
+            const s = require("/tmp/gmt-supabase-start.json");
+            for (const [k, v] of Object.entries(s)) {
+              if (!/key|secret|password|token/i.test(k)) {
+                process.stdout.write(`${k}: ${v}\n`);
+              }
+            }
+          '
+      # Deliberate duplicate proof (brief 005h): the schema must rebuild from
+      # the committed migrations and seed alone.
+      - name: Reset the local stack from committed migrations and seed
+        timeout-minutes: 5
+        run: pnpm exec supabase db reset --local
+      - name: Run pgTAP database suites
+        timeout-minutes: 5
+        run: pnpm test:db
+      - name: Install the Playwright Chromium browser
+        timeout-minutes: 5
+        run: pnpm exec playwright install --with-deps chromium
+      # scripts/e2e-local-stack.sh wires the local-stack environment silently,
+      # builds the production bundle against it, and runs only the
+      # E2E_LOCAL_SUPABASE-gated specs (explicit list in the script). The step
+      # bound is the build (<= 10) plus e2e (<= 15) guide budgets combined.
+      - name: Build and run the stack-gated e2e suites
+        timeout-minutes: 25
+        run: bash scripts/e2e-local-stack.sh

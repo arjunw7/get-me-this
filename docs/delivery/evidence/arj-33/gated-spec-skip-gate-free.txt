@@ -1,0 +1,27 @@
+
+Running 22 tests using 6 workers
+
+  -   1 [mobile] › tests/e2e/auth-otp.spec.ts:140:5 › a fresh user signs in, completes onboarding, lands on /home, and confirmed logout clears the session
+  -   2 [mobile] › tests/e2e/auth-otp.spec.ts:223:5 › a returning user with a complete profile goes straight to their destination and never repeats onboarding
+  -   3 [mobile] › tests/e2e/auth-otp.spec.ts:257:5 › a link GET is non-consuming: the choice state renders and the code still verifies
+  -   4 [mobile] › tests/e2e/auth-otp.spec.ts:299:5 › a link click completes sign-in only through the explicit action, with an equivalent session
+  -   5 [mobile] › tests/e2e/auth-otp.spec.ts:341:5 › the six-digit code no longer verifies after a successful link verification
+  -   6 [mobile] › tests/e2e/auth-otp.spec.ts:375:5 › a replayed link (double-click or back button) finds no second session
+  -   7 [mobile] › tests/e2e/auth-otp.spec.ts:408:5 › a malformed link lands on the honest recovery with no session created
+  -   8 [mobile] › tests/e2e/auth-otp.spec.ts:439:5 › a wrong code recovers safely with no session
+  -   9 [mobile] › tests/e2e/auth-otp.spec.ts:459:5 › a superseded code fails safely and the current code still verifies
+  -  10 [mobile] › tests/e2e/auth-otp.spec.ts:495:5 › a too-early resend renders the over-limit recovery whatever the clock says
+  -  11 [mobile] › tests/e2e/auth-otp.spec.ts:533:5 › the real verify screens stay accessible
+  -  12 [desktop] › tests/e2e/auth-otp.spec.ts:140:5 › a fresh user signs in, completes onboarding, lands on /home, and confirmed logout clears the session
+  -  13 [desktop] › tests/e2e/auth-otp.spec.ts:223:5 › a returning user with a complete profile goes straight to their destination and never repeats onboarding
+  -  14 [desktop] › tests/e2e/auth-otp.spec.ts:257:5 › a link GET is non-consuming: the choice state renders and the code still verifies
+  -  15 [desktop] › tests/e2e/auth-otp.spec.ts:299:5 › a link click completes sign-in only through the explicit action, with an equivalent session
+  -  16 [desktop] › tests/e2e/auth-otp.spec.ts:341:5 › the six-digit code no longer verifies after a successful link verification
+  -  17 [desktop] › tests/e2e/auth-otp.spec.ts:375:5 › a replayed link (double-click or back button) finds no second session
+  -  18 [desktop] › tests/e2e/auth-otp.spec.ts:408:5 › a malformed link lands on the honest recovery with no session created
+  -  19 [desktop] › tests/e2e/auth-otp.spec.ts:439:5 › a wrong code recovers safely with no session
+  -  20 [desktop] › tests/e2e/auth-otp.spec.ts:459:5 › a superseded code fails safely and the current code still verifies
+  -  21 [desktop] › tests/e2e/auth-otp.spec.ts:495:5 › a too-early resend renders the over-limit recovery whatever the clock says
+  -  22 [desktop] › tests/e2e/auth-otp.spec.ts:533:5 › the real verify screens stay accessible
+
+  22 skipped
