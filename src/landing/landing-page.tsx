@@ -17,6 +17,7 @@ import {
   occasions,
   startWishlistHref,
 } from "./content";
+import { loggedOutConfirmation } from "@/src/auth/flow-copy";
 
 /**
  * The landing page, ported from the frozen V18 reference
@@ -25,7 +26,7 @@ import {
  * Layout geometry (max-w-6xl sections, px-5/sm:px-8 gutters) follows the
  * reference; colours, type, radii, and shadows are semantic tokens.
  */
-export function LandingPage() {
+export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-surface-page text-content-primary">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
@@ -54,6 +55,17 @@ export function LandingPage() {
       </header>
 
       <main>
+        {/* The confirmed-logout confirmation (004e): rendered only for the
+            `?loggedOut=1` return after sign-out; the normal visit — the
+            committed baseline — renders nothing here. */}
+        {loggedOut ? (
+          <p
+            role="status"
+            className="mx-auto max-w-6xl px-5 pt-4 text-center text-sm font-bold text-content-primary sm:px-8"
+          >
+            {loggedOutConfirmation}
+          </p>
+        ) : null}
         {/* Hero */}
         <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 pt-6 pb-16 sm:px-8 lg:grid-cols-[1.05fr_1fr] lg:pt-14">
           <div>

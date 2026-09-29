@@ -4,9 +4,9 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/src/supabase/server";
+import { postAuthRouteForUser } from "@/src/profile/session";
 import { clearAuthCarry, readAuthCarry, setAuthCarry } from "./carry-cookie";
 import { clearLinkCarry, readLinkCarry } from "./link-carry";
-import { resolveSafeRedirectTarget } from "./link-intents";
 import { isValidEmail } from "./email";
 import { emailRedirectToForOrigin, requestOrigin } from "./email-redirect";
 import { mapRequestCodeFailure, mapVerifyCodeFailure } from "./provider-errors";
@@ -106,7 +106,15 @@ export async function verifyCodeAction(
   // The carry cookie has served its purpose; the session now lives in the
   // standard @supabase/ssr cookie storage.
   await clearAuthCarry();
-  return { status: "verified" };
+
+  // 004e post-auth gate — identical rules for both verification paths: an
+  // incomplete profile routes to /onboarding; a complete profile goes
+  // straight to the destination resolved through the tested intent table
+  // (unbuilt intents land on the honest /home).
+  const verified = await supabase.auth.getUser();
+  const userId = verified.data.user?.id;
+  if (!userId) return { status: "error", failure: "unavailable" };
+  redirect(await postAuthRouteForUser(userId, carry.intent));
 }
 
 /** Resends the code to the carried email. */
@@ -153,10 +161,11 @@ export async function cancelAuthFlowAction(): Promise<void> {
  * authoritative safeguards are the provider's one-time token semantics and
  * expiry, with deletion as defense in depth.
  *
- * The intent destination is resolved as a VALUE ONLY through the tested
- * intent-to-route table (never navigated in 004d, never built from user
- * input); the success boundary is the same approved signed-in state the
- * code path produces. A failed verification creates no session and never
+ * The intent destination is resolved as a VALUE ONLY through the shared
+ * 004e post-auth gate (never built from user input); the success boundary
+ * is the same gate the code path produces — `/onboarding` for an
+ * incomplete profile, the tested intent table's destination for a complete
+ * one. A failed verification creates no session and never
  * clears an existing one.
  */
 export async function verifyMagicLinkAction(
@@ -175,16 +184,12 @@ export async function verifyMagicLinkAction(
   }
 
   // The destination resolves from the 004c carry cookie's approved intent
-  // when present, defaulting to home — as a VALUE ONLY, through the tested
-  // intent-to-route table of server-defined routes (never user input).
-  // 004e owns serving and navigating those routes and must consume
-  // redirects ONLY via `resolveSafeRedirectTarget`; 004d's success boundary
-  // is the approved signed-in state on the verification experience. The
-  // resolved value is pinned by the action-level test in actions.test.ts
-  // (known `wishlist` intent resolves to `/home`).
+  // when present, defaulting to home — as a VALUE ONLY, through the
+  // shared post-auth gate below, which consumes redirects ONLY via
+  // `resolveSafeRedirectTarget` (never user input). The resolved value is
+  // pinned by the action-level tests in actions.test.ts (a known
+  // `wishlist` intent with a complete profile resolves to `/home`).
   const authCarry = await readAuthCarry();
-  const resolvedRoute = resolveSafeRedirectTarget(authCarry?.intent);
-  void resolvedRoute;
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { status: "error", failure: "unavailable" };
@@ -200,17 +205,25 @@ export async function verifyMagicLinkAction(
   // Session equivalence with the code path: verifyOtp wrote the session
   // into the standard @supabase/ssr cookie storage; the response is
   // no-store (proxy policy on Server Action responses). The 004c carry
-  // cookie has served its purpose and is cleared, so the verified screen
-  // renders the approved signed-in boundary — the same state the code
-  // path produces.
+  // cookie has served its purpose and is cleared. 004e: the SAME post-auth
+  // gate as the code path routes the user — incomplete profile to
+  // /onboarding, complete profile to the tested intent table's
+  // destination.
   await clearAuthCarry();
-  redirect("/auth/verify");
+  const verified = await supabase.auth.getUser();
+  const userId = verified.data.user?.id;
+  if (!userId) return { status: "error", failure: "unavailable" };
+  redirect(await postAuthRouteForUser(userId, authCarry?.intent));
 }
 
 /**
- * The minimal signed-out control: local scope clears this browser's
- * session without revoking other devices' sessions (004c boundary — the
- * full account menu and session lifecycle are 004e).
+ * The signed-out control (004e): local scope clears this browser's session
+ * without revoking other devices' sessions, clears the carry cookie, and
+ * returns to the landing page with the approved logged-out copy
+ * ("You're logged out. See you soon.", rendered for the `loggedOut` query
+ * flag). The client caller resets the typed analytics identity through the
+ * approved adapter BEFORE invoking this action, so the authenticated
+ * PostHog identity cannot survive the logout.
  */
 export async function signOutAction(): Promise<void> {
   const supabase = await createSupabaseServerClient();
@@ -218,5 +231,5 @@ export async function signOutAction(): Promise<void> {
     await supabase.auth.signOut({ scope: "local" });
   }
   await clearAuthCarry();
-  redirect("/auth");
+  redirect("/?loggedOut=1");
 }

@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// The live submission path is a Server Action: component tests stub it so
+// the client module never loads server-only code. The action's own tests
+// live in src/profile/onboarding-actions.test.ts.
+vi.mock("@/src/profile/onboarding-actions", () => ({
+  completeOnboardingAction: vi.fn(),
+}));
 
 import { OnboardingForm } from "./onboarding-form";
 import { previewNotice } from "./copy";

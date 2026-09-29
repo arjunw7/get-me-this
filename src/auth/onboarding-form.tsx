@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, useActionState, type FormEvent } from "react";
 
 import { buttonClassName, cx } from "@/src/ui/styles";
 import { ArrowRightIcon } from "@/src/landing/icons";
@@ -16,48 +16,93 @@ import {
   TASTE_LINE_SUGGESTIONS,
   type OnboardingVariant,
 } from "./fixtures";
+import {
+  validateOnboardingInput,
+  DISPLAY_NAME_MAX,
+} from "@/src/profile/onboarding";
+import type { OnboardingSubmitState } from "@/src/profile/onboarding-state";
+import { completeOnboardingAction } from "@/src/profile/onboarding-actions";
 
 /**
- * Static first-time onboarding screen, ported from the frozen V18 reference
+ * First-time onboarding, ported from the frozen V18 reference
  * (pages/auth/Onboarding.tsx): display name (required) and the optional
- * one-line taste field with suggestion chips.
+ * one-line taste field with suggestion chips. No avatar-selection control
+ * is invented — the frozen reference has none.
  *
- * STATIC PREVIEW BOUNDARY: no profile is saved and nothing navigates. A
- * valid submission reveals the preview notice instead. The `?state=validation`
- * fixture renders the designed validation state directly (touched, empty
- * name) for review and capture; it is also reachable by submitting the
- * default state with an empty name.
+ * Two modes:
+ * - FIXTURE (`variant` prop, `?state=` URLs): the static designed states
+ *   for review and visual capture. A valid submission reveals the preview
+ *   notice instead of saving; nothing navigates.
+ * - LIVE (`live` prop, the bare /onboarding route, 004e): submits to the
+ *   `completeOnboardingAction` server action, which re-validates every
+ *   rule server-side and persists through the owner-only RLS grant, then
+ *   navigates to `/home`. The rendered states (empty form, validation
+ *   errors) are identical to the fixture states — the committed onboarding
+ *   baselines stay valid.
  *
  * The reference prefilled the name from the prototype's fake session email;
- * the static slice has no session, so the field starts empty with the
- * reference's placeholder (documented difference).
+ * the form starts empty with the reference's placeholder (documented
+ * difference).
  */
 
-const NAME_MAX = 40;
 const NAME_ERROR = "Friends need something to call you.";
+const NAME_TOO_LONG_COPY = `That’s a bit long — ${DISPLAY_NAME_MAX} characters at most.`;
+const LINE_TOO_LONG_COPY = `Keep it to ${TASTE_LINE_MAX} characters.`;
+const SAVE_FAILED_COPY =
+  "We couldn’t save that just now. Try again in a moment.";
 
-export function OnboardingForm({ variant }: { variant: OnboardingVariant }) {
+export function OnboardingForm({
+  variant,
+  live = false,
+}: {
+  variant?: OnboardingVariant;
+  /** Live mode: the real server-action submission (004e). */
+  live?: boolean;
+}) {
   const parsed = parseOnboardingVariant(variant);
   const [name, setName] = useState("");
   const [line, setLine] = useState("");
   const [touched, setTouched] = useState(parsed === "validation");
   const [preview, setPreview] = useState(false);
+  const [submitState, submitFormAction] = useActionState(
+    completeOnboardingAction,
+    { status: "idle" } as OnboardingSubmitState,
+  );
   const nameErrorId = useId();
   const noticeId = useId();
   const lineHelpId = useId();
+  const saveErrorId = useId();
 
-  const nameError = touched && name.trim() === "";
+  // One validation function for the client convenience check and the
+  // server action alike (the action re-runs it — the client check is not
+  // proof). Blankness follows the one shared whitespace rule.
+  const clientValidation = validateOnboardingInput(name, line);
+  const nameError =
+    touched &&
+    (!clientValidation.ok ? clientValidation.errors.displayName : undefined);
 
   function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
     setTouched(true);
-    if (name.trim() === "") {
+    if (!clientValidation.ok) {
+      event.preventDefault();
       setPreview(false);
       return;
     }
-    // Static slice: no profile is saved, nobody navigates. Say so.
-    setPreview(true);
+    if (!live) {
+      // Fixture mode only: no profile is saved, nobody navigates.
+      event.preventDefault();
+      setPreview(true);
+    }
   }
+
+  const serverErrors =
+    submitState.status === "error" && "errors" in submitState
+      ? submitState.errors
+      : undefined;
+  const saveFailed =
+    submitState.status === "error" && "failure" in submitState
+      ? submitState.failure
+      : undefined;
 
   return (
     <AuthLayout back={{ href: "/", label: "Home" }}>
@@ -72,29 +117,47 @@ export function OnboardingForm({ variant }: { variant: OnboardingVariant }) {
           This is how you’ll show up in groups and on your wishlist.
         </p>
 
-        <form onSubmit={submit} noValidate className="mt-7 flex flex-col gap-6">
+        <form
+          action={live ? submitFormAction : undefined}
+          onSubmit={submit}
+          noValidate
+          className="mt-7 flex flex-col gap-6"
+        >
           <div className="block">
             <label htmlFor="display-name" className="block text-sm font-bold">
               What should friends call you?
             </label>
             <input
               id="display-name"
+              name="displayName"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="e.g. Arjun"
               autoComplete="name"
-              maxLength={NAME_MAX}
-              aria-invalid={nameError || undefined}
-              aria-describedby={nameError ? nameErrorId : undefined}
-              className={cx(authInputClassName({ invalid: nameError }), "pl-4")}
+              maxLength={DISPLAY_NAME_MAX}
+              aria-invalid={
+                nameError || serverErrors?.displayName ? true : undefined
+              }
+              aria-describedby={
+                nameError || serverErrors?.displayName ? nameErrorId : undefined
+              }
+              className={cx(
+                authInputClassName({
+                  invalid: Boolean(nameError || serverErrors?.displayName),
+                }),
+                "pl-4",
+              )}
             />
-            {nameError ? (
+            {nameError || serverErrors?.displayName ? (
               <span
                 id={nameErrorId}
                 role="alert"
                 className="mt-1.5 block text-sm font-semibold text-feedback-error"
               >
-                {NAME_ERROR}
+                {nameError === "too-long" ||
+                serverErrors?.displayName === "too-long"
+                  ? NAME_TOO_LONG_COPY
+                  : NAME_ERROR}
               </span>
             ) : null}
           </div>
@@ -108,15 +171,25 @@ export function OnboardingForm({ variant }: { variant: OnboardingVariant }) {
             </label>
             <input
               id="personality-line"
+              name="tasteLine"
               value={line}
               onChange={(event) =>
                 setLine(event.target.value.slice(0, TASTE_LINE_MAX))
               }
               placeholder="e.g. currently in my tiny-luxuries era"
               maxLength={TASTE_LINE_MAX}
+              aria-invalid={serverErrors?.tasteLine ? true : undefined}
               aria-describedby={lineHelpId}
               className={cx(authInputClassName({ invalid: false }), "pl-4")}
             />
+            {serverErrors?.tasteLine ? (
+              <span
+                role="alert"
+                className="mt-1.5 block text-sm font-semibold text-feedback-error"
+              >
+                {LINE_TOO_LONG_COPY}
+              </span>
+            ) : null}
             <div
               id={lineHelpId}
               className="mt-1.5 flex items-center justify-between text-caption text-content-muted"
@@ -150,6 +223,16 @@ export function OnboardingForm({ variant }: { variant: OnboardingVariant }) {
               ))}
             </div>
           </div>
+
+          {saveFailed ? (
+            <p
+              id={saveErrorId}
+              role="alert"
+              className="text-sm font-semibold text-feedback-error"
+            >
+              {SAVE_FAILED_COPY}
+            </p>
+          ) : null}
 
           {preview ? <PreviewNotice id={noticeId} /> : null}
 

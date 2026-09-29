@@ -83,8 +83,12 @@ const FAMILIES: readonly Family[] = [
     heading: "This link has expired.",
   },
   {
+    // 004e: the bare /onboarding route is the real gated flow; the fixture
+    // states moved to the explicit `?state=` URLs, exactly as 004c did for
+    // /auth/verify. The fixture screens render identically to the states
+    // the committed baselines captured, so the baselines stay valid.
     name: "onboarding",
-    url: "/onboarding",
+    url: "/onboarding?state=default",
     heading: "Tell friends who you are.",
   },
   {

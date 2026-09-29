@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { OnboardingForm } from "@/src/auth/onboarding-form";
 import { parseOnboardingVariant } from "@/src/auth/fixtures";
+import { getOwnProfile, getSessionUser } from "@/src/profile/session";
+import { isProfileComplete } from "@/src/profile/profile";
+import { resolveSafeRedirectTarget } from "@/src/auth/link-intents";
 
 export const metadata: Metadata = {
   title: "Get Me This | Tell friends who you are",
@@ -9,8 +13,19 @@ export const metadata: Metadata = {
 };
 
 /**
- * Static first-time onboarding route. The designed validation state is a
- * URL fixture (`?state=validation`); the bare route renders the empty form.
+ * The real onboarding route (004e) for profiles that still need a display
+ * name, plus the static URL-fixture states (`?state=`) kept for
+ * deterministic review and visual capture — those render the designed
+ * states directly and are not part of the live flow.
+ *
+ * Live gate, evaluated server-side on every request (defense in depth —
+ * proxy.ts already redirects anonymous requests):
+ * - signed out → `/auth` (the safe default intent);
+ * - complete profile → the destination resolved ONLY through 004d's tested
+ *   intent table (unbuilt intents land on `/home`); a complete profile can
+ *   never be forced back into onboarding;
+ * - incomplete profile → the onboarding form backed by the
+ *   `completeOnboardingAction` server action.
  */
 export default async function OnboardingPage({
   searchParams,
@@ -19,6 +34,17 @@ export default async function OnboardingPage({
 }) {
   const params = await searchParams;
   const raw = params.state;
-  const variant = parseOnboardingVariant(Array.isArray(raw) ? raw[0] : raw);
-  return <OnboardingForm variant={variant} />;
+  if (raw !== undefined) {
+    const variant = parseOnboardingVariant(Array.isArray(raw) ? raw[0] : raw);
+    return <OnboardingForm variant={variant} />;
+  }
+
+  const user = await getSessionUser();
+  if (!user) redirect("/auth");
+  const profile = await getOwnProfile(user.id);
+  if (isProfileComplete(profile?.displayName ?? null)) {
+    redirect(resolveSafeRedirectTarget(undefined));
+  }
+
+  return <OnboardingForm live />;
 }

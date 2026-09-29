@@ -2,8 +2,9 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * Local Mailpit-backed end-to-end proof of the real email-code flow (004c),
- * against the local Supabase stack and its built-in Mailpit inbox.
+ * Local Mailpit-backed end-to-end proof of the real email-code flow
+ * (004c/004d) and the onboarding/session-lifecycle slice (004e), against
+ * the local Supabase stack and its built-in Mailpit inbox.
  *
  * Run through `pnpm test:e2e:auth` (scripts/e2e-auth-local.sh), which builds
  * the app with the LOCAL stack's public configuration and exports the
@@ -87,6 +88,40 @@ async function requestCode(page: Page, email: string): Promise<void> {
   );
 }
 
+/**
+ * Verifies the six-digit code. Both verification paths reach the SAME
+ * post-auth rules (004e): a fresh user's incomplete profile lands on
+ * /onboarding; a complete profile goes straight to its destination.
+ */
+async function verifyCode(page: Page, code: string): Promise<void> {
+  await enterCode(page, code);
+  await page.getByRole("button", { name: "Verify and continue" }).click();
+}
+
+/**
+ * Completes onboarding with a display name and optional taste line, and
+ * lands on /home.
+ */
+async function completeOnboarding(
+  page: Page,
+  displayName: string,
+  tasteLine?: string,
+): Promise<void> {
+  await page.waitForURL("**/onboarding");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Tell friends who you are.",
+  );
+  await page.getByLabel("What should friends call you?").fill(displayName);
+  if (tasteLine !== undefined) {
+    await page.getByLabel(/Describe your taste in one line/i).fill(tasteLine);
+  }
+  await page.getByRole("button", { name: /Let’s go/i }).click();
+  await page.waitForURL("**/home");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    `Welcome, ${displayName}.`,
+  );
+}
+
 const RESEND_BUTTON = "Start a new code";
 /** The named server-side cooldown (60s), plus a second so the jump is
  *  unambiguous. */
@@ -102,7 +137,7 @@ async function advancePastResendCooldown(page: Page): Promise<void> {
 const OVER_LIMIT_COPY =
   "That’s a few codes too fast. Wait a moment, then try again.";
 
-test("the full request → read-the-code → verify loop signs in, and local sign-out clears it", async ({
+test("a fresh user signs in, completes onboarding, lands on /home, and confirmed logout clears the session", async ({
   page,
 }) => {
   const email = newEmail();
@@ -122,32 +157,101 @@ test("the full request → read-the-code → verify loop signs in, and local sig
       response.request().method() === "POST" &&
       response.request().headerValue("next-action") !== null,
   );
-  await enterCode(page, code);
-  await page.getByRole("button", { name: "Verify and continue" }).click();
+  await verifyCode(page, code);
   const response = await verifyResponse;
   // Non-cacheable on the wire (the framework's action header also carries
   // no-store; what matters is that no cached copy can leak Set-Cookie).
   expect(response.headers()["cache-control"]).toContain("no-store");
 
-  // The approved signed-in boundary, with the minimal sign-out control.
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "You’re in.",
-  );
+  // The 004e post-auth gate: a fresh profile is incomplete → onboarding.
+  await completeOnboarding(page, "Ada", "currently in my tiny-luxuries era");
 
-  // The session exists: a reload keeps the signed-in state.
+  // The persisted profile: a refresh keeps the session AND skips
+  // onboarding (complete profiles never repeat it).
   await page.reload();
+  await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "You’re in.",
+    "Welcome, Ada.",
   );
+  // The taste line is shown in the profile block.
+  await expect(
+    page.getByText("currently in my tiny-luxuries era"),
+  ).toBeVisible();
 
-  // Local-scoped sign-out clears the session.
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/auth$/);
-  await page.goto("/auth/verify");
-  await expect(page).toHaveURL(/\/auth$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+  // A new tab in the same browser retains the session (cookie storage).
+  const secondTab = await page.context().newPage();
+  await secondTab.goto("/home");
+  await expect(secondTab.getByRole("heading", { level: 1 })).toHaveText(
+    "Welcome, Ada.",
+  );
+  await secondTab.close();
+
+  // A fresh browser context with no cookies is signed out and redirected
+  // safely — session state is inferred only from the session cookies.
+  const freshContext = await page.context().browser()!.newContext();
+  const freshPage = await freshContext.newPage();
+  await freshPage.goto("/home");
+  await expect(freshPage).toHaveURL(/\/auth$/);
+  await expect(freshPage.getByRole("heading", { level: 1 })).toHaveText(
     "Welcome to Get Me This.",
   );
+  await freshContext.close();
+
+  // Logout requires confirmation (signing in again needs email access).
+  await page.getByRole("button", { name: /Account/i }).click();
+  await expect(page.getByText(email)).toBeVisible();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page.getByText("Log out of Get Me This?")).toBeVisible();
+  // Cancel keeps the session.
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/home$/);
+
+  // Confirming logs out (the menu is still open after Cancel), and the
+  // landing page shows the approved copy.
+  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/\?loggedOut=1$/);
+  await expect(
+    page.getByText("You’re logged out. See you soon."),
+  ).toBeVisible();
+
+  // The session is really gone: /home redirects to the entry screen.
+  await page.goto("/home");
+  await expect(page).toHaveURL(/\/auth$/);
+});
+
+test("a returning user with a complete profile goes straight to their destination and never repeats onboarding", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const email = newEmail();
+  await requestCode(page, email);
+  const { code } = await readMailFor(email);
+  await verifyCode(page, code);
+  await completeOnboarding(page, "Rohan");
+
+  // Sign out through the account menu (confirmation → logout).
+  await page.getByRole("button", { name: /Account/i }).click();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/\?loggedOut=1$/);
+
+  // Return trip: same email, complete profile — straight to /home.
+  await page.goto("/auth");
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("button", { name: "Continue with email" }).click();
+  await page.waitForURL("**/auth/verify");
+  const second = await readMailFor(email);
+  await verifyCode(page, second.code);
+  await page.waitForURL("**/home");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Welcome, Rohan.",
+  );
+
+  // Direct-link access to onboarding with a complete profile is routed
+  // away — a complete profile cannot be forced back into onboarding.
+  await page.goto("/onboarding");
+  await expect(page).toHaveURL(/\/home$/);
 });
 
 test("a link GET is non-consuming: the choice state renders and the code still verifies", async ({
@@ -177,17 +281,18 @@ test("a link GET is non-consuming: the choice state renders and the code still v
   );
 
   // The explicit alternative: back to code entry, the one-time token was
-  // NOT consumed by the GET, and the code still verifies.
+  // NOT consumed by the GET, and the code still verifies — through the
+  // same post-auth gate as the code path.
   await page
     .getByRole("link", { name: "Use your six-digit code instead" })
     .click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Check your inbox.",
   );
-  await enterCode(page, code);
-  await page.getByRole("button", { name: "Verify and continue" }).click();
+  await verifyCode(page, code);
+  await page.waitForURL("**/onboarding");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "You’re in.",
+    "Tell friends who you are.",
   );
 });
 
@@ -208,21 +313,27 @@ test("a link click completes sign-in only through the explicit action, with an e
   await expect(page).toHaveURL(/\/auth\/link$/);
 
   // The explicit user action is the only verification path; success lands
-  // on the approved signed-in boundary — the same state the code path
-  // produces.
+  // through the same post-auth gate the code path produces.
   await page.getByRole("button", { name: "Use my sign-in link" }).click();
-  await expect(page).toHaveURL(/\/auth\/verify$/);
+  await page.waitForURL("**/onboarding");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "You’re in.",
+    "Tell friends who you are.",
   );
   // No request to /auth/link ever carried the token material.
   expect(requestUrls.every((url) => !url.includes("token_hash"))).toBe(true);
 
   // Session equivalence with the code path: the link-created session is
-  // real — local sign-out clears it, and without a session (or carry)
-  // /auth/verify bounces back to the entry screen.
+  // real — the signed-in boundary on /auth/verify still shows, and local
+  // sign-out clears it.
+  await page.goto("/auth/verify");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "You’re in.",
+  );
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/auth$/);
+  await expect(page).toHaveURL(/\/\?loggedOut=1$/);
+  await expect(
+    page.getByText("You’re logged out. See you soon."),
+  ).toBeVisible();
   await page.goto("/auth/verify");
   await expect(page).toHaveURL(/\/auth$/);
 });
@@ -240,10 +351,7 @@ test("the six-digit code no longer verifies after a successful link verification
   await page.goto(`/auth/confirm?token_hash=${tokenHash}&type=email`);
   await expect(page).toHaveURL(/\/auth\/link$/);
   await page.getByRole("button", { name: "Use my sign-in link" }).click();
-  await expect(page).toHaveURL(/\/auth\/verify$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "You’re in.",
-  );
+  await page.waitForURL("**/onboarding");
 
   // The same email's six-digit code — never yet entered — is consumed:
   // the local provider refuses the spent token (one-time credential
@@ -276,10 +384,7 @@ test("a replayed link (double-click or back button) finds no second session", as
   await page.goto(`/auth/confirm?token_hash=${tokenHash}&type=email`);
   await expect(page).toHaveURL(/\/auth\/link$/);
   await page.getByRole("button", { name: "Use my sign-in link" }).click();
-  await expect(page).toHaveURL(/\/auth\/verify$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "You’re in.",
-  );
+  await page.waitForURL("**/onboarding");
 
   // Second click of the same link, a fresh request: the one-shot cookie
   // was deleted on the completed attempt (a re-parking GET re-parks the
@@ -320,12 +425,15 @@ test("a malformed link lands on the honest recovery with no session created", as
     "One more step.",
   );
 
-  // No session exists: /auth/verify redirects to the signed-out entry.
+  // No session exists: /auth/verify redirects to the signed-out entry,
+  // and a protected route redirects there too.
   await page.goto("/auth/verify");
   await expect(page).toHaveURL(/\/auth$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Welcome to Get Me This.",
   );
+  await page.goto("/home");
+  await expect(page).toHaveURL(/\/auth$/);
 });
 
 test("a wrong code recovers safely with no session", async ({ page }) => {
@@ -376,11 +484,11 @@ test("a superseded code fails safely and the current code still verifies", async
     page.getByRole("alert").filter({ hasText: "That code didn’t work" }),
   ).toBeVisible();
 
-  // The current code verifies.
-  await enterCode(page, second.code);
-  await page.getByRole("button", { name: "Verify and continue" }).click();
+  // The current code verifies — through the same post-auth gate.
+  await verifyCode(page, second.code);
+  await page.waitForURL("**/onboarding");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "You’re in.",
+    "Tell friends who you are.",
   );
 });
 
@@ -432,14 +540,14 @@ test("the real verify screens stay accessible", async ({ page }) => {
   expect(entry.violations).toEqual([]);
 
   const { code } = await readMailFor(email);
-  await enterCode(page, code);
-  await page.getByRole("button", { name: "Verify and continue" }).click();
+  await verifyCode(page, code);
+  await page.waitForURL("**/onboarding");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "You’re in.",
+    "Tell friends who you are.",
   );
 
-  const signedIn = await new AxeBuilder({ page })
+  const onboarding = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
     .analyze();
-  expect(signedIn.violations).toEqual([]);
+  expect(onboarding.violations).toEqual([]);
 });

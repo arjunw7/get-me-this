@@ -33,7 +33,7 @@ Errors include invalid code, expired code/link, excessive attempts, and unavaila
 
 ## Onboarding
 
-Only users without a completed profile see onboarding. Required field: display name. Optional field: avatar. Completion returns the user to the preserved destination.
+Only users without a completed profile see onboarding. Required field: display name. Optional field: taste line (per the 004e owner decisions; the earlier avatar idea was not shipped). Completion returns the user to the honest authenticated `/home` — the validated return intent is not preserved past onboarding, so no preserved-destination redirect happens here.
 
 Returning users never repeat onboarding unless their required profile data is missing.
 
@@ -52,5 +52,5 @@ All application routes require a valid session except the landing page, auth rou
 
 ## Logout
 
-The account menu shows the user's email, My wishlist, Edit profile, and Log out. Logout requires confirmation because signing in again requires email access. After logout, clear local session data and return to the landing page with: **You're logged out. See you soon.**
+The account menu currently shows the user's email and a confirmed Log out only — the flow's My wishlist and Edit profile entries are deferred until those routes exist (004e owner decision). Logout requires confirmation because signing in again requires email access. After logout, clear local session data and return to the landing page with: **You're logged out. See you soon.**
 

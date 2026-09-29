@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   cleanConfirmUrl,
+  isProtectedRoutePath,
   isServerActionRequest,
   shouldRedirectToCleanConfirmUrl,
 } from "./proxy-policy";
 
 /**
- * The request-level policies behind proxy.ts (004c).
+ * The request-level policies behind proxy.ts (004c/004e).
  */
 describe("proxy policy", () => {
   it("redirects any /auth/confirm query — the token hash is authentication material", () => {
@@ -38,5 +39,29 @@ describe("proxy policy", () => {
     expect(isServerActionRequest("POST", null)).toBe(false);
     expect(isServerActionRequest("GET", "some-action-id")).toBe(false);
     expect(isServerActionRequest("GET", null)).toBe(false);
+  });
+});
+
+describe("protected routes (004e)", () => {
+  it("protects the authenticated routes", () => {
+    expect(isProtectedRoutePath("/home")).toBe(true);
+    expect(isProtectedRoutePath("/onboarding")).toBe(true);
+  });
+
+  it("keeps the landing page, auth routes, and everything else public", () => {
+    for (const path of [
+      "/",
+      "/auth",
+      "/auth/verify",
+      "/auth/confirm",
+      "/auth/link",
+      "/onboarding?state=validation", // query strings never count
+      "/health",
+      "/design-foundation",
+      "/HOME", // case-sensitive, exact match only
+      "/home/extra",
+    ]) {
+      expect(isProtectedRoutePath(path), path).toBe(false);
+    }
   });
 });
