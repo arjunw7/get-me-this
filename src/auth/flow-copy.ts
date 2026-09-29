@@ -66,6 +66,14 @@ export const verifySubmitLabel = "Verify and continue";
 export const resendButtonLabel = "Start a new code";
 export const changeEmailLabel = "Change email";
 
+/**
+ * The approved logged-out confirmation (004e): shown on the landing page
+ * after a confirmed logout, rendered from a `?loggedOut=1` query flag —
+ * the normal landing visit renders unchanged (its baseline is untouched;
+ * the logged-out state has its own separately reviewed candidate).
+ */
+export const loggedOutConfirmation = "You’re logged out. See you soon.";
+
 export function resendCountdownLabel(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const padded = String(seconds % 60).padStart(2, "0");

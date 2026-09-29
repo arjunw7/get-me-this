@@ -9,6 +9,7 @@ import {
   NO_REFERRER,
   NO_STORE,
   cleanConfirmUrl,
+  isProtectedRoutePath,
   isServerActionRequest,
   linkLandingUrl,
   shouldRedirectToCleanConfirmUrl,
@@ -27,8 +28,8 @@ import {
  * It is the session-maintenance point of the standard `@supabase/ssr`
  * cookie scheme: expired access tokens are refreshed with the provider and
  * written back through this response before any page or action reads them.
- * Redirecting signed-out users away from authenticated data access is 004e
- * scope and deliberately absent here.
+ * Signed-out requests for protected routes are redirected to /auth here
+ * (the 004e protected-route block below).
  *
  * Cache policy (004c): every response that sets or clears session or carry
  * cookies is non-cacheable — cached Set-Cookie responses can leak one
@@ -108,7 +109,29 @@ export async function proxy(request: NextRequest) {
     });
     // getUser() validates the session with the provider — never trust a
     // client-held session claim — and refreshes expired tokens via setAll.
-    await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    // 4. Protected routes (004e): anonymous requests for authenticated
+    // routes — page GETs, refreshes, direct links, and the Server Actions
+    // that POST to those same pathnames — are redirected to /auth before
+    // any page or action runs. /auth without an intent parameter is the
+    // safe default (`home`); no return destination beyond that enum is
+    // ever reconstructed from the attempted URL. Each protected route
+    // ALSO verifies the session server-side (requireCompleteProfile), so
+    // a matcher gap is never the sole control. When no provider is
+    // configured, this whole block is skipped and the server-side gate
+    // remains the control.
+    if (user === null && isProtectedRoutePath(pathname)) {
+      const signedOutResponse = NextResponse.redirect(`${origin}/auth`, 302);
+      // The redirect bounces an unauthenticated request away from
+      // authenticated data access; it sets no cookies but must never be
+      // cached as a signed-in-page response.
+      signedOutResponse.headers.set("Cache-Control", NO_STORE);
+      signedOutResponse.headers.set("Referrer-Policy", NO_REFERRER);
+      return signedOutResponse;
+    }
   }
 
   // 3. Cache policy on the final response: Server Action responses can set

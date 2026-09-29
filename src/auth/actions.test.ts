@@ -37,10 +37,26 @@ const signInWithOtp = vi.fn();
 const verifyOtp = vi.fn();
 const signOut = vi.fn();
 const getUser = vi.fn();
+const profilesFrom = vi.fn();
+
+/** The profile row the mocked profile query returns (null → no row). */
+let profileRow: { display_name: string | null } | null = null;
+
+function mockProfileRow(row: { display_name: string | null } | null) {
+  profileRow = row;
+  profilesFrom.mockImplementation(() => ({
+    select: () => ({
+      eq: () => ({
+        single: async () => ({ data: profileRow }),
+      }),
+    }),
+  }));
+}
 
 vi.mock("@/src/supabase/server", () => ({
   createSupabaseServerClient: async () => ({
     auth: { signInWithOtp, verifyOtp, signOut, getUser },
+    from: profilesFrom,
   }),
 }));
 
@@ -88,6 +104,8 @@ beforeEach(() => {
   verifyOtp.mockReset();
   signOut.mockReset();
   getUser.mockReset();
+  profilesFrom.mockReset();
+  profileRow = null;
   vi.mocked(resolveSafeRedirectTarget).mockClear();
   process.env.AUTH_LINK_COOKIE_SECRET = "test-secret";
 });
@@ -210,24 +228,55 @@ describe("verifyCodeAction", () => {
     });
   }
 
-  it("verifies the code against the carried email and clears the carry on success", async () => {
+  it("verifies the code against the carried email, clears the carry, and routes through the post-auth gate", async () => {
     carryValidValue();
     verifyOtp.mockResolvedValue({
-      data: { user: { email: "you@example.com" } },
+      data: { user: { id: "user-1", email: "you@example.com" } },
       error: null,
     });
+    // An incomplete profile (null display name): the gate routes to
+    // onboarding.
+    mockProfileRow({ display_name: null });
+    getUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
-    const result = await verifyCodeAction(IDLE, formData({ code: "123456" }));
+    await expect(
+      verifyCodeAction(IDLE, formData({ code: "123456" })),
+    ).rejects.toThrow(new RedirectSignal("/onboarding"));
 
     expect(verifyOtp).toHaveBeenCalledWith({
       email: "you@example.com",
       token: "123456",
       type: "email",
     });
-    expect(result).toEqual({ status: "verified" });
     expect(cookieStore.get(CARRY_COOKIE_NAME)?.options).toMatchObject({
       maxAge: 0,
     });
+  });
+
+  it("a complete profile goes straight to the tested intent table's destination", async () => {
+    carryValidValue();
+    cookieStore.set(CARRY_COOKIE_NAME, {
+      name: CARRY_COOKIE_NAME,
+      value: JSON.stringify({
+        email: "you@example.com",
+        intent: "wishlist",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }),
+    });
+    verifyOtp.mockResolvedValue({
+      data: { user: { id: "user-1", email: "you@example.com" } },
+      error: null,
+    });
+    mockProfileRow({ display_name: "Ada" });
+    getUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+
+    await expect(
+      verifyCodeAction(IDLE, formData({ code: "123456" })),
+    ).rejects.toThrow(new RedirectSignal("/home"));
+    // The destination came from the safe table — never user input.
+    expect(
+      vi.mocked(resolveSafeRedirectTarget).mock.results.at(-1)?.value,
+    ).toBe("/home");
   });
 
   it("restarts safely when the carry cookie is missing or expired", async () => {
@@ -371,13 +420,15 @@ describe("cancelAuthFlowAction", () => {
 });
 
 describe("signOutAction", () => {
-  it("signs out with local scope only and clears the carry cookie", async () => {
+  it("signs out with local scope only, clears the carry cookie, and returns to the landing page's logged-out state", async () => {
     signOut.mockResolvedValue({ error: null });
 
-    await expect(signOutAction()).rejects.toThrow(RedirectSignal);
+    await expect(signOutAction()).rejects.toThrow(
+      new RedirectSignal("/?loggedOut=1"),
+    );
 
     // Local scope: this browser's session is cleared without revoking
-    // other devices' sessions (004c's minimal boundary).
+    // other devices' sessions.
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(cookieStore.get(CARRY_COOKIE_NAME)?.options).toMatchObject({
       maxAge: 0,
@@ -401,7 +452,7 @@ describe("verifyMagicLinkAction", () => {
     });
   }
 
-  it("verifies the carried token hash and redirects to the signed-in boundary", async () => {
+  it("verifies the carried token hash and routes through the shared post-auth gate", async () => {
     await parkValidLink();
     const exp = Math.floor(Date.now() / 1000) + 3600;
     cookieStore.set(CARRY_COOKIE_NAME, {
@@ -413,11 +464,15 @@ describe("verifyMagicLinkAction", () => {
       }),
     });
     verifyOtp.mockResolvedValue({ data: {}, error: null });
+    // A complete profile: the gate resolves the carried intent through the
+    // tested table.
+    mockProfileRow({ display_name: "Ada" });
+    getUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
-    // Success redirects to the verified screen's approved signed-in
-    // boundary — the same state the code path produces.
+    // Success redirects through the same post-auth gate the code path
+    // uses — the tested intent table's destination.
     await expect(verifyMagicLinkAction(IDLE_LINK)).rejects.toThrow(
-      new RedirectSignal("/auth/verify"),
+      new RedirectSignal("/home"),
     );
 
     expect(verifyOtp).toHaveBeenCalledWith({
@@ -433,17 +488,34 @@ describe("verifyMagicLinkAction", () => {
       maxAge: 0,
     });
     // Pin the resolved redirect value for the known `wishlist` intent so
-    // the action's (currently value-only) binding cannot silently rot.
+    // the gate's binding cannot silently rot.
     expect(
       vi.mocked(resolveSafeRedirectTarget).mock.results.at(-1)?.value,
     ).toBe("/home");
   });
 
+  it("routes an incomplete profile to onboarding on the magic-link path too", async () => {
+    await parkValidLink();
+    verifyOtp.mockResolvedValue({ data: {}, error: null });
+    mockProfileRow({ display_name: null });
+    getUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
+
+    await expect(verifyMagicLinkAction(IDLE_LINK)).rejects.toThrow(
+      new RedirectSignal("/onboarding"),
+    );
+    // The intent is not honored for incomplete profiles: the gate never
+    // reached the intent table.
+    expect(
+      vi.mocked(resolveSafeRedirectTarget).mock.results.at(-1)?.value,
+    ).toBeUndefined();
+  });
+
   it("resolves the intent destination as a value only through the safe table", async () => {
     // With an attacker-controlled intent string in the carry, resolution
     // still lands on a server-defined route (exercised via the successful
-    // verification path — the value itself is 004e's navigation input and
-    // is unit-tested in link-intents.test.ts).
+    // verification path — the value is consumed only inside the shared
+    // post-auth gate, through `resolveSafeRedirectTarget`, and is
+    // unit-tested in link-intents.test.ts).
     await parkValidLink();
     const exp = Math.floor(Date.now() / 1000) + 3600;
     cookieStore.set(CARRY_COOKIE_NAME, {
@@ -455,6 +527,8 @@ describe("verifyMagicLinkAction", () => {
       }),
     });
     verifyOtp.mockResolvedValue({ data: {}, error: null });
+    mockProfileRow({ display_name: "Ada" });
+    getUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
 
     await expect(verifyMagicLinkAction(IDLE_LINK)).rejects.toThrow(
       RedirectSignal,

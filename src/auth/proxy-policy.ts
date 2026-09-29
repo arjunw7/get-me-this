@@ -50,5 +50,25 @@ export function isServerActionRequest(
   return method === "POST" && nextActionHeader !== null;
 }
 
+/**
+ * The protected application routes (004e): every authenticated route is
+ * listed here explicitly — the landing page, the auth routes, the interim
+ * confirm route, and the limited invitation preview stay public per the
+ * permissions matrix.
+ *
+ * The proxy redirects anonymous requests for these paths to `/auth` (whose
+ * default is the safe `home` intent) BEFORE any page or action reads
+ * cookies, covering refresh and direct-link requests alike. Server Actions
+ * POST to the page's own URL, so pathname protection covers them too. Each
+ * protected route ALSO verifies the session server-side
+ * (`requireCompleteProfile`): a proxy matcher gap must never be the sole
+ * control.
+ */
+const PROTECTED_ROUTE_PATHS: readonly string[] = ["/home", "/onboarding"];
+
+export function isProtectedRoutePath(pathname: string): boolean {
+  return PROTECTED_ROUTE_PATHS.includes(pathname);
+}
+
 export const NO_STORE = "no-store";
 export const NO_REFERRER = "no-referrer";

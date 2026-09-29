@@ -168,4 +168,71 @@ describe("proxy responses", () => {
     const response = await proxy(requestFor("/auth/verify"));
     expect(response.status).toBe(200);
   });
+
+  describe("protected routes (004e)", () => {
+    // Point the proxy at a closed local port: getUser() fails fast with a
+    // connection refusal, which is exactly the signed-out/no-provider
+    // outcome the redirect must be built on.
+    const UNREACHABLE_CONFIG = {
+      NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:59999",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "local-test-key",
+    };
+
+    function withLocalConfig(run: () => Promise<void>): () => Promise<void> {
+      return async () => {
+        for (const [key, value] of Object.entries(UNREACHABLE_CONFIG)) {
+          process.env[key] = value;
+        }
+        try {
+          await run();
+        } finally {
+          delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+          delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+        }
+      };
+    }
+
+    it(
+      "redirects an anonymous request for a protected route to /auth with no-store",
+      withLocalConfig(async () => {
+        for (const pathname of ["/home", "/onboarding"]) {
+          const response = await proxy(requestFor(pathname));
+          expect(response.status, pathname).toBe(302);
+          expect(response.headers.get("location"), pathname).toBe(
+            `${APP_ORIGIN}/auth`,
+          );
+          expect(response.headers.get("cache-control"), pathname).toBe(
+            NO_STORE,
+          );
+          expect(response.headers.get("referrer-policy"), pathname).toBe(
+            NO_REFERRER,
+          );
+        }
+      }),
+    );
+
+    it(
+      "covers Server Actions on protected pages (they POST to the page's own URL)",
+      withLocalConfig(async () => {
+        const response = await proxy(
+          requestFor("/home", {
+            method: "POST",
+            headers: { "next-action": "test-action-id" },
+          }),
+        );
+        expect(response.status).toBe(302);
+        expect(response.headers.get("location")).toBe(`${APP_ORIGIN}/auth`);
+      }),
+    );
+
+    it(
+      "keeps public routes public even when signed out",
+      withLocalConfig(async () => {
+        for (const pathname of ["/", "/auth", "/auth/verify", "/auth/link"]) {
+          const response = await proxy(requestFor(pathname));
+          expect(response.status, pathname).not.toBe(302);
+        }
+      }),
+    );
+  });
 });
