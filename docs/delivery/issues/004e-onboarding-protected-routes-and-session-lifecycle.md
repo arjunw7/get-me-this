@@ -15,23 +15,38 @@ slice, with no simulated wishlist or group work.
 - A **forward-only migration** adds `taste_line text` to `public.profiles`
   alongside `display_name` and `avatar_path`, per the data model's rule that
   exact SQL belongs in reviewed migrations. Never edit the 004a migration.
+- **One whitespace rule (owner correction, 2026-09-29):** a single,
+  explicit rule defines **blank** for both `display_name` and `taste_line`,
+  and it is evaluated identically by the database CHECK constraints, the
+  normalization trigger, and server-side validation: **a value is blank if
+  it is null, the empty string, or consists solely of whitespace characters**
+  (spaces, tabs, newlines, and other whitespace), i.e. the value matches the
+  anchored pattern `'^\s*$'` (`value ~ '^\s*$'`). PostgreSQL's `btrim()` with no
+  trim characters removes **spaces only** — tabs and newlines would pass a
+  `btrim`-based check — so `btrim` is not used as the blank definition
+  anywhere. Non-blank values are stored exactly as provided (nothing trims,
+  rewrites, or otherwise normalizes them).
 - **Nullable, limited, normalized:** `taste_line` is nullable; the approved
   screen's **60-character limit** is enforced **by a database CHECK
   constraint** and mirrored by server-side validation on the onboarding submit
   action (rejecting longer input before any write, not truncating silently).
-  **Blank or whitespace-only input is normalized to null**, never stored as an
-  empty string, so empty and never-provided are indistinguishable downstream.
+  **Blank input (per the whitespace rule above) is normalized to null**, never
+  stored as an empty or whitespace-only string, so empty and never-provided
+  are indistinguishable downstream.
 - **Database-level normalization (owner correction, 2026-09-29):** the
   blank-to-null guarantee is enforced **in the database**, not only in the
   onboarding action. The same migration adds a BEFORE INSERT OR UPDATE
   trigger on `public.profiles` that sets `taste_line` to null when the value
-  is blank or whitespace-only. The 004a grant lets an authenticated user
-  update the column directly, bypassing the onboarding server action, so the
-  normalization must hold for **direct authenticated updates** — and the
-  migration tests must prove it that way: a direct UPDATE writing `''` or a
-  whitespace-only value stores null, not the blank string. Non-blank values
-  pass through unmodified (the trigger does not trim or otherwise rewrite
-  them; only the blank-to-null rule applies).
+  is blank under the whitespace rule above. The 004a grant lets an
+  authenticated user update the column directly, bypassing the onboarding
+  server action, so the normalization must hold for **direct authenticated
+  updates** — and the migration tests must prove it that way: a direct
+  UPDATE writing a blank value stores null, not the blank string. The blank
+  corpus for those tests includes the **empty string, ordinary spaces, tabs,
+  and newlines** (a spaces-only corpus would not prove the rule, since
+  `btrim`-style trimming handles spaces but not tabs or newlines).
+  Non-blank values pass through unmodified (the trigger does not trim or
+  otherwise rewrite them; only the blank-to-null rule applies).
 - **Permissions:** the authenticated column-limited UPDATE grant extends to
   `taste_line` (owner-only RLS is unchanged from 004a; `id`, `created_at`,
   `updated_at` remain non-updatable); the migration ships with owner-only
@@ -86,13 +101,14 @@ slice, with no simulated wishlist or group work.
   non-blank constraint, so an empty or whitespace-only value written by any
   path other than the onboarding form would pass a null-only completeness
   gate. The same 004e migration therefore adds a CHECK constraint:
-  `display_name` is **null (incomplete) or non-blank**
-  (`btrim(display_name) <> ''`); a blank `display_name` is rejected by the
-  database on every write path, including direct authenticated updates.
-  Never edit the 004a migration; the constraint ships as a new forward-only
-  migration and is covered by migration tests that UPDATE the column
-  **directly** with `''` and whitespace-only values and assert rejection —
-  not only through the onboarding form.
+  `display_name` is **null (incomplete) or non-blank under the whitespace
+  rule above** — `display_name is null or display_name !~ '^\s*$'` — and a
+  blank `display_name` is rejected by the database on every write path,
+  including direct authenticated updates. Never edit the 004a migration;
+  the constraint ships as a new forward-only migration and is covered by
+  migration tests that UPDATE the column **directly** with blank values —
+  the empty string, ordinary spaces, **tabs, and newlines** — and assert
+  rejection, not only through the onboarding form.
 - A profile with a null `display_name` (004a: null means incomplete) routes to
   `/onboarding`; profiles with a display name set **never repeat onboarding**
   and go straight to their destination. Given the constraint above, "set"
@@ -105,6 +121,19 @@ slice, with no simulated wishlist or group work.
 
 ### Honest authenticated `/home`
 
+- **Design reference (owner correction, 2026-09-29):** the reference for the
+  minimal `/home` is the pinned V18 `home-new-account` frozen reference
+  (`docs/design-reference/baselines/v18/home-new-account--{mobile,desktop}*.png`),
+  the state a user just out of onboarding sees, with `home-active` used where
+  relevant for an established profile. The `auth-home` reference is **not**
+  the comparison target for this screen.
+- **Documented omissions:** the reference screens show surfaces this issue
+  intentionally does not build — wishlist items and content, group surfaces,
+  and navigation to unbuilt routes (wishlist, create-group, My wishlist, Edit
+  profile). The implementation omits them deliberately per the minimal,
+  honest rule below, and the omissions (plus the approved honest copy
+  replacing them) are recorded for the owner's side-by-side review so the
+  diff against the reference is reviewed as a stated decision, not as drift.
 - `/home` is a **minimal, honest** authenticated home: the user's display name
   and the account menu, with honest copy about what exists now. No simulated
   wishlist items, group content, or Coming-Soon-only-for-layout placeholders
@@ -153,17 +182,19 @@ templates, or the pinned link URL form.
 
 - **Unit/component tests:** onboarding validation (display name required;
   taste line ≤ 60 characters, rejected server-side, never silently truncated;
-  blank/whitespace-only normalized to null); profile-completeness gate logic;
-  account-menu states; confirmation flow for logout.
+  blank values normalized to null under the shared whitespace rule — the test
+  corpus covers the empty string, ordinary spaces, tabs, and newlines);
+  profile-completeness gate logic; account-menu states; confirmation flow
+  for logout.
 - **Migration/permission tests (same pull request, per the matrix):**
   `taste_line` column exists with the CHECK constraint; the authenticated
   UPDATE grant covers it; anon denied; cross-user SELECT and UPDATE denied;
   over-60-character writes rejected by the database; blank input stored as
-  null **proven by direct authenticated UPDATEs with `''` and whitespace-only
-  values, not only through the onboarding action**; the `display_name`
-  non-blank CHECK constraint rejects direct authenticated UPDATEs writing `''`
-  or whitespace-only values; a user cannot read or edit another user's
-  profile.
+  null **proven by direct authenticated UPDATEs with blank values (empty
+  string, ordinary spaces, tabs, and newlines), not only through the
+  onboarding action**; the `display_name` non-blank CHECK constraint rejects
+  direct authenticated UPDATEs writing the same blank corpus; a user cannot
+  read or edit another user's profile.
 - **Proxy/protected-route tests:** the matcher covers authenticated routes
   and Server Actions; anonymous requests for protected routes redirect to
   `/auth` with a safe return intent; **each protected route denies
@@ -188,15 +219,18 @@ templates, or the pinned link URL form.
   logged-out landing have committed baselines
   (`tests/visual/baselines/`), and those comparisons happen at the same
   route, viewport, and content fixture. **`/home` and the account menu have
-  no committed baselines**; the approved V18 frozen reference images
-  (`auth-home`, `account-menu`, `logout-confirmation` under
-  `docs/design-reference/baselines/v18/`) serve as the design reference for
-  owner side-by-side review, and new committed baselines for those surfaces
-  are generated as **candidates** and committed only after explicit owner
-  approval per `docs/delivery/visual-baselines.md` (candidates are never
-  committed before approval, and the human reviewer fills the manifest
-  approval fields by hand). Owner copy review before merge; no invented
-  avatar control.
+  no committed baselines**; the design references for owner side-by-side
+  review are the pinned V18 **`home-new-account`** frozen reference for
+  `/home` (**`home-active` where relevant** for an established profile) plus
+  `account-menu` and `logout-confirmation` under
+  `docs/design-reference/baselines/v18/`, with the reference screens'
+  unbuilt surfaces covered by the **documented omissions** in the
+  authenticated-`/home` section above; new committed baselines for those
+  surfaces are generated as **candidates** and committed only after
+  explicit owner approval per `docs/delivery/visual-baselines.md`
+  (candidates are never committed before approval, and the human reviewer
+  fills the manifest approval fields by hand). Owner copy review before
+  merge; no invented avatar control.
 
 ## Required proof
 
