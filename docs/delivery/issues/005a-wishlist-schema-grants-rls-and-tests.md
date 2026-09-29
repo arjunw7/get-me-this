@@ -22,7 +22,11 @@ protected display path is the first consumer of the schema this slice lands.
   enable row level security`, policies named `<table>_<action>_own`, and
   `updated_at` maintained by a BEFORE UPDATE trigger using
   `clock_timestamp()` (the same transaction-fixed-`now()` reasoning as
-  004a). Never edit an applied migration; fix forward.
+  004a; triggers `wishlists_set_updated_at` and
+  `wishlist_items_set_updated_at` executing
+  `public.set_wishlists_updated_at()` and
+  `public.set_wishlist_items_updated_at()`, mirroring the 004a naming).
+  Never edit an applied migration; fix forward.
 - **`public.wishlists`**: `id uuid primary key default gen_random_uuid()`;
   `owner_id uuid not null unique` referencing `auth.users(id) on delete
   cascade` (the UNIQUE constraint is the one-wishlist-per-owner invariant's
@@ -106,7 +110,10 @@ protected display path is the first consumer of the schema this slice lands.
   profile and wishlist triggers, plus a small fixed set of wishlist items
   for local development and the gated e2e specs. Every statement is
   idempotent (`on conflict do nothing` on deterministic UUIDs), contains no
-  credentials, tokens, or real personal data, and is safe to re-run. Seed
+  credentials, tokens, or real personal data, and is safe to re-run. The
+  fixture wishlist's id is trigger-generated, so the seed resolves
+  `wishlist_id` by the fixture `owner_id` (never hard-codes it), keeping
+  re-runs unambiguous. Seed
   data exists only in the local/CI stack (migrations-only deployments never
   run seed against staging or production), which is the sense in which it
   is non-persistent.
@@ -142,7 +149,8 @@ alternatives are recorded with each.
    closed vocabulary is exact and enums self-document.
 3. **Money representation.** `original_amount_minor bigint` and
    `original_currency char(3)`, both nullable, with CHECK constraints
-   enforcing (a) both null or both non-null, (b) amounts `>= 0`, (c)
+   enforcing (a) both null or both non-null, (b) amounts `>= 0` (the
+   same non-negativity CHECK applies to `converted_amount_minor`), (c)
    currency matching `^[A-Z]{3}$` (uppercase ISO 4217). Minor units are
    never floating point (`docs/architecture/data-model.md`), and
    `bigint` removes any overflow class for even zero-decimal high-unit
@@ -189,7 +197,12 @@ alternatives are recorded with each.
    constraint violation rather than an application bug. The alternative
    (no redundancy; policies use `EXISTS (SELECT 1 FROM wishlists ...)`)
    is correct but gives up the database-level guarantee that the redundant
-   question "who owns this item" can never drift from its parent.
+   question "who owns this item" can never drift from its parent. No
+   secondary index on `wishlist_items (wishlist_id, owner_id)` is pinned
+   here — the composite FK alone does not create one — and personal
+   wishlists make the omission immaterial at Phase 4 scale; the Phase 5
+   group-visibility brief should revisit it when member reads fan out
+   across items.
 6. **Deletion policy — hard delete, cascade upward.** `wishlist_items`
    rows are hard-deleted by their owner (005c's confirmed delete); no
    `deleted_at` soft-delete column exists in Phase 4. Wishlists cascade
@@ -211,7 +224,10 @@ alternatives are recorded with each.
    falls back to `image_url`, then the branded placeholder (005b's
    contract). Creating the Storage bucket, upload/snapshot mechanics, and
    path conventions are owned by the 005e/005f briefs — 005a ships the
-   columns and their bounds only. A `jsonb` candidates array was
+   columns and their bounds only. The flow doc's "optional candidate
+   images" item field is acknowledged here as deliberately unpersisted:
+   candidates matter only while the extraction-review screen is open. A
+   `jsonb` candidates array was
    rejected: candidate images are transient extraction-review state, and
    persisting them would store data no screen reads.
 8. **One-wishlist-per-owner enforcement.** `owner_id uuid not null unique`
@@ -289,7 +305,8 @@ mandatory.
    exists and no second plain `wishlist_id` FK exists; both enum types
    exist with exactly the pinned labels in order; RLS is enabled on both
    tables; the four item policies and the wishlist select policy exist
-   under their pinned names; both `updated_at` triggers and
+   under their pinned names; the `updated_at` triggers
+   (`wishlists_set_updated_at`, `wishlist_items_set_updated_at`) and
    `on_auth_user_wishlist_created` exist; all CHECK constraints from
    resolutions 3, 4 (money, bounds), and 10 exist.
 2. **Auto-creation and backfill (pgTAP).** A new `auth.users` insert gets
@@ -322,7 +339,9 @@ mandatory.
    A's items affect zero rows and change nothing; B's INSERT with
    `owner_id = A` raises 42501 (WITH CHECK); B's INSERT with their own
    `owner_id` but A's `wishlist_id` raises 23503 (composite FK); B's
-   UPDATE of A's wishlist row raises 42501 (SELECT-only grant).
+   UPDATE of A's wishlist row raises 42501 (SELECT-only grant), and
+   authenticated INSERT and DELETE on `wishlists` each raise 42501
+   (behavioral proof of the SELECT-only grant).
 9. **Uniqueness (pgTAP).** A second `wishlists` row for the same owner
    raises 23505, including via the trigger's own insert path context
    (insert as the table owner in-transaction).
@@ -339,8 +358,9 @@ mandatory.
     without amount, negative amounts, a lowercase currency code, and a
     two-letter code each raise 23514; JPY and INR/USD amounts round-trip
     exactly as stored minor units; a converted tuple missing any one of
-    its four columns raises 23514, an invalid converted currency code
-    raises 23514, and a complete tuple round-trips.
+    its four columns raises 23514, an invalid converted currency code and
+    a negative converted amount raise 23514, and a complete tuple
+    round-trips.
 12. **Enum and bound rejections (pgTAP).** A non-enum desire level and a
     non-enum extraction status raise 22P02; a 201-character title, a
     blank-only title, a 2001-character note, a 2049-character
