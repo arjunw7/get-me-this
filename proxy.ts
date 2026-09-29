@@ -5,12 +5,22 @@ import { createServerClient } from "@supabase/ssr";
 import { getSupabasePublicConfig } from "@/src/supabase/config";
 import {
   AUTH_CONFIRM_PATH,
+  AUTH_LINK_PATH,
   NO_REFERRER,
   NO_STORE,
   cleanConfirmUrl,
   isServerActionRequest,
+  linkLandingUrl,
   shouldRedirectToCleanConfirmUrl,
 } from "@/src/auth/proxy-policy";
+import { AUTH_LINK_CARRY_MAX_AGE_SECONDS } from "@/src/auth/flow-config";
+import {
+  LINK_COOKIE_NAME,
+  encodeLinkEnvelope,
+  getAuthLinkCookieSecret,
+  linkCookieOptions,
+  parseLinkLandingQuery,
+} from "@/src/auth/link-cookie";
 
 /**
  * Next.js 16 proxy (the renamed middleware) for the email-code flow (004c).
@@ -35,12 +45,34 @@ export async function proxy(request: NextRequest) {
   // 1. /auth/confirm with any query: discard the query (it may carry the
   // one-time token hash) before substantive rendering or analytics, with
   // the required headers on the initial redirect response itself. The route
-  // never verifies on GET.
+  // never verifies on GET. 004d: when the query is a valid link landing
+  // (present token_hash, closed `type` enum), the hash is PARKED in the
+  // signed, HttpOnly link cookie and the clean 302 goes to /auth/link,
+  // where the explicit user action verifies; any other query — missing,
+  // empty, or unknown `type` — is rejected to the clean recovery route.
+  // Neither branch consumes the one-time token or creates a session.
   if (shouldRedirectToCleanConfirmUrl(pathname, search)) {
+    const secret = getAuthLinkCookieSecret();
+    const landing =
+      secret !== null
+        ? parseLinkLandingQuery(request.nextUrl.searchParams)
+        : null;
     const redirectResponse = NextResponse.redirect(
-      cleanConfirmUrl(origin),
+      landing !== null ? linkLandingUrl(origin) : cleanConfirmUrl(origin),
       302,
     );
+    if (landing !== null && secret !== null) {
+      redirectResponse.cookies.set(
+        LINK_COOKIE_NAME,
+        await encodeLinkEnvelope(
+          landing.tokenHash,
+          "email",
+          Date.now(),
+          secret,
+        ),
+        linkCookieOptions(AUTH_LINK_CARRY_MAX_AGE_SECONDS),
+      );
+    }
     redirectResponse.headers.set("Cache-Control", NO_STORE);
     redirectResponse.headers.set("Referrer-Policy", NO_REFERRER);
     return redirectResponse;
@@ -88,7 +120,7 @@ export async function proxy(request: NextRequest) {
   ) {
     response.headers.set("Cache-Control", NO_STORE);
   }
-  if (pathname === AUTH_CONFIRM_PATH) {
+  if (pathname === AUTH_CONFIRM_PATH || pathname === AUTH_LINK_PATH) {
     response.headers.set("Cache-Control", NO_STORE);
     response.headers.set("Referrer-Policy", NO_REFERRER);
   }

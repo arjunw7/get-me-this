@@ -18,6 +18,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   SENSITIVE_BLOCK_CLASS,
   SENSITIVE_MASK_CLASS,
+  sanitizeAbsoluteUrl,
   sanitizeClientEventForSend,
   sanitizeRoutePath,
   sanitizeRouteUrl,
@@ -33,6 +34,7 @@ describe("sanitizeRoutePath: approved route templates only", () => {
     expect(sanitizeRoutePath("/")).toBe("/");
     expect(sanitizeRoutePath("/onboarding")).toBe("/onboarding");
     expect(sanitizeRoutePath("/auth/callback")).toBe("/auth/callback");
+    expect(sanitizeRoutePath("/auth/link")).toBe("/auth/link");
   });
 
   it("replaces an invitation token with the approved template placeholder", () => {
@@ -52,6 +54,22 @@ describe("sanitizeRoutePath: approved route templates only", () => {
     expect(
       sanitizeRoutePath("/invite/SECRETTOKEN123?email=user@example.com"),
     ).toBe("/invite/:token");
+  });
+
+  it("emits the 004d magic-link landing route as a bare template carrying no URL parameters", () => {
+    // The /auth/link landing receives the token hash and type as query
+    // parameters; analytics events from that route must never carry them.
+    expect(sanitizeRoutePath("/auth/link?token_hash=abc&type=email")).toBe(
+      "/auth/link",
+    );
+    expect(sanitizeRoutePath("/auth/link?token_hash=abc&type=email#frag")).toBe(
+      "/auth/link",
+    );
+    expect(
+      sanitizeAbsoluteUrl(
+        "https://app.getmethis.test/auth/link?token_hash=abc",
+      ),
+    ).toBe("https://app.getmethis.test/auth/link");
   });
 
   it("replaces group identifiers with the approved template placeholder", () => {

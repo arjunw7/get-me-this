@@ -1,19 +1,36 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { NextRequest } from "next/server";
 
-import { AUTH_CONFIRM_PATH, NO_REFERRER, NO_STORE } from "./proxy-policy";
+import {
+  AUTH_CONFIRM_PATH,
+  AUTH_LINK_PATH,
+  NO_REFERRER,
+  NO_STORE,
+} from "./proxy-policy";
+import { LINK_COOKIE_NAME } from "./link-cookie";
 import { config, proxy } from "../../proxy";
 
 /**
- * The Next.js 16 proxy (004c): its matcher covers the auth Server Action
- * requests (actions POST to the page's own URL — a matcher that excluded
- * page paths would silently exclude the auth actions), cookie-setting and
- * cookie-clearing responses are non-cacheable, and /auth/confirm strips
- * its query with the required headers on the initial redirect response.
+ * The Next.js 16 proxy (004c/004d): its matcher covers the auth Server
+ * Action requests (actions POST to the page's own URL — a matcher that
+ * excluded page paths would silently exclude the auth actions), cookie-
+ * setting and cookie-clearing responses are non-cacheable, /auth/confirm
+ * strips its query with the required headers on the initial redirect
+ * response, and a valid link GET parks the token hash in the signed link
+ * cookie before the clean 302 to /auth/link (never verifying on GET).
  */
 
 const APP_ORIGIN = "http://localhost:3100";
+const TEST_SECRET = "proxy-test-secret";
+
+beforeEach(() => {
+  process.env.AUTH_LINK_COOKIE_SECRET = TEST_SECRET;
+});
+
+afterEach(() => {
+  delete process.env.AUTH_LINK_COOKIE_SECRET;
+});
 
 function requestFor(
   path: string,
@@ -48,21 +65,74 @@ describe("proxy matcher", () => {
 });
 
 describe("proxy responses", () => {
-  it("redirects /auth/confirm with a query to the clean URL, no-store and no-referrer, before any rendering", async () => {
+  it("parks a valid link GET in the signed cookie and redirects clean to /auth/link", async () => {
     const response = await proxy(
       requestFor(`${AUTH_CONFIRM_PATH}?token_hash=abc&type=email`),
     );
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      `${APP_ORIGIN}${AUTH_CONFIRM_PATH}`,
+      `${APP_ORIGIN}${AUTH_LINK_PATH}`,
     );
     expect(response.headers.get("cache-control")).toBe(NO_STORE);
     expect(response.headers.get("referrer-policy")).toBe(NO_REFERRER);
+    const cookie = response.cookies.get(LINK_COOKIE_NAME);
+    expect(cookie).toBeDefined();
+    // The approved carry-cookie pattern: HttpOnly, Secure, SameSite=Lax,
+    // scoped to /auth, within the named carry window.
+    expect(cookie).toMatchObject({
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/auth",
+    });
+    expect(cookie?.maxAge).toBeGreaterThan(0);
+    // The parked value is a signed two-part envelope, never the raw query.
+    expect(cookie?.value).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    expect(cookie?.value).not.toContain("abc");
+  });
+
+  it("rejects an invalid link query to the clean recovery route with no cookie", async () => {
+    for (const query of [
+      "type=email", // missing token_hash
+      "token_hash=&type=email", // empty token_hash
+      "token_hash=abc&type=magiclink", // outside the closed enum
+      "token_hash=abc", // missing type
+    ]) {
+      const response = await proxy(requestFor(`${AUTH_CONFIRM_PATH}?${query}`));
+      expect(response.status, query).toBe(302);
+      expect(response.headers.get("location"), query).toBe(
+        `${APP_ORIGIN}${AUTH_CONFIRM_PATH}`,
+      );
+      expect(
+        response.cookies.get(LINK_COOKIE_NAME)?.value,
+        query,
+      ).toBeUndefined();
+      expect(response.headers.get("cache-control"), query).toBe(NO_STORE);
+      expect(response.headers.get("referrer-policy"), query).toBe(NO_REFERRER);
+    }
+  });
+
+  it("fails safe to recovery when the link-carriage secret is unset", async () => {
+    delete process.env.AUTH_LINK_COOKIE_SECRET;
+    const response = await proxy(
+      requestFor(`${AUTH_CONFIRM_PATH}?token_hash=abc&type=email`),
+    );
+    expect(response.headers.get("location")).toBe(
+      `${APP_ORIGIN}${AUTH_CONFIRM_PATH}`,
+    );
+    expect(response.cookies.get(LINK_COOKIE_NAME)?.value).toBeUndefined();
   });
 
   it("keeps the interim /auth/confirm page itself non-cacheable and non-referring", async () => {
     const response = await proxy(requestFor(AUTH_CONFIRM_PATH));
+
+    expect(response.headers.get("cache-control")).toBe(NO_STORE);
+    expect(response.headers.get("referrer-policy")).toBe(NO_REFERRER);
+  });
+
+  it("keeps the /auth/link choice route non-cacheable and non-referring", async () => {
+    const response = await proxy(requestFor(AUTH_LINK_PATH));
 
     expect(response.headers.get("cache-control")).toBe(NO_STORE);
     expect(response.headers.get("referrer-policy")).toBe(NO_REFERRER);

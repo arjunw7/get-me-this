@@ -150,7 +150,7 @@ test("the full request → read-the-code → verify loop signs in, and local sig
   );
 });
 
-test("a link click on /auth/confirm is non-consuming: the interim state renders and the code still verifies", async ({
+test("a link GET is non-consuming: the choice state renders and the code still verifies", async ({
   page,
 }) => {
   const email = newEmail();
@@ -168,14 +168,19 @@ test("a link click on /auth/confirm is non-consuming: the interim state renders 
   expect(response.headers()["cache-control"]).toBe("no-store");
   expect(response.headers()["referrer-policy"]).toBe("no-referrer");
 
-  // The clean URL renders the honest interim state — no session was created.
-  await expect(page).toHaveURL(/\/auth\/confirm$/);
+  // The clean 004d choice state — never the token in the URL — and no
+  // session was created or token consumed by the GET.
+  await expect(page).toHaveURL(/\/auth\/link$/);
+  expect(page.url()).not.toContain("token_hash");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "One more step.",
+    "Finish signing in.",
   );
 
-  // Back to code entry: the one-time token was NOT consumed.
-  await page.getByRole("link", { name: "Back to your code" }).click();
+  // The explicit alternative: back to code entry, the one-time token was
+  // NOT consumed by the GET, and the code still verifies.
+  await page
+    .getByRole("link", { name: "Use your six-digit code instead" })
+    .click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Check your inbox.",
   );
@@ -183,6 +188,143 @@ test("a link click on /auth/confirm is non-consuming: the interim state renders 
   await page.getByRole("button", { name: "Verify and continue" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "You’re in.",
+  );
+});
+
+test("a link click completes sign-in only through the explicit action, with an equivalent session", async ({
+  page,
+}) => {
+  const email = newEmail();
+  await requestCode(page, email);
+  const { tokenHash } = await readMailFor(email);
+  expect(tokenHash).toBeTruthy();
+
+  // The link lands on the clean choice state; no URL ever keeps the hash.
+  const requestUrls: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/auth/link")) requestUrls.push(request.url());
+  });
+  await page.goto(`/auth/confirm?token_hash=${tokenHash}&type=email`);
+  await expect(page).toHaveURL(/\/auth\/link$/);
+
+  // The explicit user action is the only verification path; success lands
+  // on the approved signed-in boundary — the same state the code path
+  // produces.
+  await page.getByRole("button", { name: "Use my sign-in link" }).click();
+  await expect(page).toHaveURL(/\/auth\/verify$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "You’re in.",
+  );
+  // No request to /auth/link ever carried the token material.
+  expect(requestUrls.every((url) => !url.includes("token_hash"))).toBe(true);
+
+  // Session equivalence with the code path: the link-created session is
+  // real — local sign-out clears it, and without a session (or carry)
+  // /auth/verify bounces back to the entry screen.
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/auth$/);
+  await page.goto("/auth/verify");
+  await expect(page).toHaveURL(/\/auth$/);
+});
+
+test("the six-digit code no longer verifies after a successful link verification", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const email = newEmail();
+  await requestCode(page, email);
+  const { code, tokenHash } = await readMailFor(email);
+  expect(tokenHash).toBeTruthy();
+
+  // Verify through the link first (one-time credential semantics).
+  await page.goto(`/auth/confirm?token_hash=${tokenHash}&type=email`);
+  await expect(page).toHaveURL(/\/auth\/link$/);
+  await page.getByRole("button", { name: "Use my sign-in link" }).click();
+  await expect(page).toHaveURL(/\/auth\/verify$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "You’re in.",
+  );
+
+  // The same email's six-digit code — never yet entered — is consumed:
+  // the local provider refuses the spent token (one-time credential
+  // semantics), checked directly against the local auth endpoint so the
+  // UI's carry state cannot mask it. The response is a 4xx refusal.
+  const apiUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const apiKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  expect(apiUrl).toBeTruthy();
+  const spend = await fetch(`${apiUrl}/auth/v1/verify`, {
+    method: "POST",
+    headers: { "content-type": "application/json", apikey: apiKey ?? "" },
+    body: JSON.stringify({ type: "email", token: code, email }),
+  });
+  // A refusal (any 4xx) is the one-time proof: the correct code, had the
+  // link verification not consumed it, would verify with a session here.
+  expect(spend.ok).toBe(false);
+  expect(spend.status).toBeGreaterThanOrEqual(400);
+  expect(spend.status).toBeLessThan(500);
+});
+
+test("a replayed link (double-click or back button) finds no second session", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const email = newEmail();
+  await requestCode(page, email);
+  const { tokenHash } = await readMailFor(email);
+
+  // First click: verify through the explicit action.
+  await page.goto(`/auth/confirm?token_hash=${tokenHash}&type=email`);
+  await expect(page).toHaveURL(/\/auth\/link$/);
+  await page.getByRole("button", { name: "Use my sign-in link" }).click();
+  await expect(page).toHaveURL(/\/auth\/verify$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "You’re in.",
+  );
+
+  // Second click of the same link, a fresh request: the one-shot cookie
+  // was deleted on the completed attempt (a re-parking GET re-parks the
+  // same hash), and the consumed provider token fails into the honest
+  // recovery — no second session, no silent success.
+  await page.goto(`/auth/confirm?token_hash=${tokenHash}&type=email`);
+  await expect(page).toHaveURL(/\/auth\/link$/);
+  await page.getByRole("button", { name: "Use my sign-in link" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "This link didn’t work.",
+  );
+
+  // The replay did not clear the existing session: /auth/verify still
+  // shows the signed-in boundary.
+  await page.goto("/auth/verify");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "You’re in.",
+  );
+});
+
+test("a malformed link lands on the honest recovery with no session created", async ({
+  page,
+}) => {
+  // Missing token hash: rejected to the clean interim route, no cookie.
+  await page.goto("/auth/confirm?token_hash=&type=email");
+  await expect(page).toHaveURL(/\/auth\/confirm$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "One more step.",
+  );
+
+  // A type outside the closed enum: the same recovery.
+  await page.goto("/auth/confirm?token_hash=abc&type=signup");
+  await expect(page).toHaveURL(/\/auth\/confirm$/);
+
+  // A link without any query: the same interim state, still no session.
+  await page.goto("/auth/confirm");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "One more step.",
+  );
+
+  // No session exists: /auth/verify redirects to the signed-out entry.
+  await page.goto("/auth/verify");
+  await expect(page).toHaveURL(/\/auth$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Welcome to Get Me This.",
   );
 });
 

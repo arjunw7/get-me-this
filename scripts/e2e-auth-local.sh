@@ -35,5 +35,13 @@ export E2E_MAILPIT_URL="$(node -e '
 # Guard for the specs: absent in a plain `pnpm test:e2e` run.
 export E2E_LOCAL_SUPABASE=1
 
+# The 004d link-carriage secret: a local development fixture generated per
+# run when not already provided. It protects only the local stack's parked
+# token hashes; it is never printed, logged, or committed.
+if [ -z "${AUTH_LINK_COOKIE_SECRET:-}" ]; then
+  AUTH_LINK_COOKIE_SECRET="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
+  export AUTH_LINK_COOKIE_SECRET
+fi
+
 pnpm build
 pnpm exec playwright test tests/e2e/auth-otp.spec.ts

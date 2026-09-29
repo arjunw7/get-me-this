@@ -78,3 +78,27 @@ export const confirmInterimText =
   "This sign-in link isn’t active yet — tapping it did nothing. Your six-digit code works right now.";
 export const confirmBackToCodeLabel = "Back to your code";
 export const confirmChangeEmailLabel = "Use a different email";
+
+/**
+ * The /auth/link states (004d): the parked link's explicit-action choice
+ * and the missing/expired/already-used recovery. Copy gets the owner's
+ * side-by-side review at ARJ-23 acceptance; it promises only the explicit
+ * verification action — no automatic sign-in, no claim of arrival at a
+ * wishlist or group, no account-specific provider message.
+ */
+
+/** The choice state: what the parked link can do, and the alternative. */
+export const linkChoiceHeading = "Finish signing in.";
+export const linkChoiceText =
+  "You opened your sign-in link here. Tap below to finish signing in on this device — or use your six-digit code instead.";
+export const linkVerifyButtonLabel = "Use my sign-in link";
+export const linkBackToCodeLabel = "Use your six-digit code instead";
+
+/** A verification attempt the provider refused (closed generic set). */
+export const linkRejectedCopy =
+  "This sign-in link didn’t work — it may have expired or already been used. Request a new code to try again.";
+
+/** The missing/expired/already-used link recovery state (no valid carry). */
+export const linkRecoveryHeading = "This link didn’t work.";
+export const linkRecoveryText =
+  "It may have expired or already been used. Your six-digit code works right now — request a new one if you need it.";
