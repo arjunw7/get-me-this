@@ -163,7 +163,10 @@ alternatives are recorded with each.
    chars), `conversion_rate_at timestamptz` — carries the same all-or-
    nothing CHECK across all four columns, so a stored conversion always
    has its rate provenance (005g's display contract depends on this).
-   Both currency columns carry the same `^[A-Z]{3}$` CHECK.
+   Both currency columns carry the same `^[A-Z]{3}$` CHECK; the
+   migration includes a comment explaining why `char(3)` plus this regex
+   is preferred over `varchar(3)` (a blank-padded or short value fails
+   the CHECK, so the interplay is safe but non-obvious).
    Storing a single JSON blob for money was rejected: constraints and
    indexes on typed columns are what make the guarantees testable.
 4. **Sort position representation.** `sort_position double precision not
@@ -252,7 +255,9 @@ alternatives are recorded with each.
     2048 chars and matching `^https?://` case-insensitively when present
     (URL semantics beyond the scheme are 005e's server-side validation);
     `retailer` ≤ 120 characters, non-blank when present; `image_url` ≤
-    2048 chars and `http(s)`; `image_snapshot_path` ≤ 1024 chars. Tighter
+    2048 chars and `http(s)`; `image_snapshot_path` ≤ 1024 chars.
+    App-level-only bounds were rejected: database CHECKs make a bypass
+    impossible regardless of write path. Tighter
     product-level rules (e.g. rejecting whitespace-padded titles) live in
     005c's server validation and its tests.
 
@@ -347,9 +352,10 @@ mandatory.
    (insert as the table owner in-transaction).
 10. **Timestamps (pgTAP).** `created_at`/`updated_at` default to
     non-null values on insert; an owner edit advances `updated_at`
-    strictly within `clock_timestamp()` bounds taken inside the test
-    transaction and a later edit lands at or after an earlier one (no
-    `now()` reliance); client attempts to change `id`, `wishlist_id`,
+    within inclusive `clock_timestamp()` bounds taken inside the test
+    transaction (the 004a pattern — strict inequalities would be flaky
+    on equal readings) and a later edit lands at or after an earlier one
+    (no `now()` reliance); client attempts to change `id`, `wishlist_id`,
     `owner_id`, `created_at`, or `updated_at` on an existing item via
     UPDATE raise 42501 (column grant), and the database-set `updated_at`
     cannot be overwritten directly; client INSERT attempts supplying
@@ -382,8 +388,9 @@ mandatory.
     (count 3, each `has_table`-asserted); exactly one seeded synthetic
     user exists (the `.invalid` fixture), with its trigger-created
     profile and wishlist and its fixture items — and nothing else; and
-    the unchanged `profiles.sql` enumeration assertions (criteria 3 and
-    7's profile counterparts) still pass with the fixture user present.
+    `profiles.sql`'s own sections 3 and 8 (the profile counterparts of
+    this brief's criteria 3 and 7) still pass unchanged with the fixture
+    user present.
 16. **Seed hygiene (pgTAP/smoke + review).** The seed contains no
     credentials, tokens, or real personal data; re-running the seed is
     idempotent (fixture counts unchanged after a second application);
