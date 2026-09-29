@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+#
+# CI-facing runner for the E2E_LOCAL_SUPABASE-gated Playwright suites (005h).
+#
+# The CI `database` job starts and resets the local Supabase stack in earlier
+# steps; this script then wires the local-stack environment exactly the way
+# scripts/e2e-auth-local.sh does (silent `supabase status -o json` parsing of
+# the API URL, publishable key, and Mailpit URL; a per-run
+# AUTH_LINK_COOKIE_SECRET), builds the production bundle against that
+# environment, and runs ONLY the specs gated by
+# `test.skip(!process.env.E2E_LOCAL_SUPABASE, ...)`, named as explicit
+# Playwright paths.
+#
+# Coupling rule (brief 005h): any PR adding a new E2E_LOCAL_SUPABASE-gated
+# spec must add it to the explicit list below in the same PR, and that PR's
+# description must cite the green `database` job.
+#
+# The local stack's publishable key is a development fixture, but it is
+# treated as secret anyway: parsed silently through node, exported, and never
+# printed, logged, or committed. Plain `pnpm test:e2e` (no gate set) does not
+# use this script and stays untouched.
+
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if ! pnpm exec supabase status -o json > /tmp/gmt-supabase-status.json 2>/dev/null; then
+  echo "error: the local Supabase stack is not running; the CI database job starts it in an earlier step (locally, run 'pnpm db:start' where a container runtime exists)." >&2
+  exit 1
+fi
+
+# Export the local configuration without echoing any credential material.
+export NEXT_PUBLIC_SUPABASE_URL="$(node -e '
+  const s = require("/tmp/gmt-supabase-status.json");
+  process.stdout.write(s.API_URL);
+')"
+export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$(node -e '
+  const s = require("/tmp/gmt-supabase-status.json");
+  process.stdout.write(s.PUBLISHABLE_KEY ?? s.ANON_KEY);
+')"
+export E2E_MAILPIT_URL="$(node -e '
+  const s = require("/tmp/gmt-supabase-status.json");
+  process.stdout.write(s.MAILPIT_URL ?? "http://127.0.0.1:54324");
+')"
+# Guard for the specs: absent in a plain `pnpm test:e2e` run.
+export E2E_LOCAL_SUPABASE=1
+
+# The 004d link-carriage secret: a local development fixture generated per
+# run when not already provided. It protects only the local stack's parked
+# token hashes; it is never printed, logged, or committed.
+if [ -z "${AUTH_LINK_COOKIE_SECRET:-}" ]; then
+  AUTH_LINK_COOKIE_SECRET="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
+  export AUTH_LINK_COOKIE_SECRET
+fi
+
+pnpm build
+
+# Gated-spec explicit list (brief 005h): keep in sync with the
+# E2E_LOCAL_SUPABASE skip guards in tests/e2e.
+pnpm exec playwright test tests/e2e/auth-otp.spec.ts
