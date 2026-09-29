@@ -17,7 +17,6 @@
 
 export type AuthIntent = "home" | "wishlist" | "create-group";
 export type VerifyVariant = "default" | "error" | "expired";
-export type ConfirmVariant = "loading" | "valid" | "expired";
 export type OnboardingVariant = "default" | "validation";
 
 const INTENTS: readonly AuthIntent[] = ["home", "wishlist", "create-group"];
@@ -39,14 +38,6 @@ export function parseVerifyVariant(value: string | undefined): VerifyVariant {
   return VERIFY_VARIANTS.includes(value as VerifyVariant)
     ? (value as VerifyVariant)
     : "default";
-}
-
-export function parseConfirmVariant(value: string | undefined): ConfirmVariant {
-  // The bare route renders the static loading frame, matching the frozen
-  // reference capture; success and recovery are explicit fixtures so the
-  // final states render directly with no timer or animation gating state.
-  if (value === "valid" || value === "expired") return value;
-  return "loading";
 }
 
 export function parseOnboardingVariant(

@@ -1,0 +1,108 @@
+import { NextResponse, type NextRequest } from "next/server";
+
+import { createServerClient } from "@supabase/ssr";
+
+import { getSupabasePublicConfig } from "@/src/supabase/config";
+import {
+  AUTH_CONFIRM_PATH,
+  NO_REFERRER,
+  NO_STORE,
+  cleanConfirmUrl,
+  isServerActionRequest,
+  shouldRedirectToCleanConfirmUrl,
+} from "@/src/auth/proxy-policy";
+
+/**
+ * Next.js 16 proxy (the renamed middleware) for the email-code flow (004c).
+ * It is the session-maintenance point of the standard `@supabase/ssr`
+ * cookie scheme: expired access tokens are refreshed with the provider and
+ * written back through this response before any page or action reads them.
+ * Redirecting signed-out users away from authenticated data access is 004e
+ * scope and deliberately absent here.
+ *
+ * Cache policy (004c): every response that sets or clears session or carry
+ * cookies is non-cacheable — cached Set-Cookie responses can leak one
+ * user's session to another. The library itself supplies no-store headers
+ * alongside auth-cookie writes; the proxy also marks Server Action
+ * responses (which may set or clear the carry cookie and session cookies)
+ * and the interim /auth/confirm route as no-store. Both policies are
+ * pinned by src/auth/proxy.test.ts and by e2e header assertions.
+ */
+
+export async function proxy(request: NextRequest) {
+  const { pathname, search, origin } = request.nextUrl;
+
+  // 1. /auth/confirm with any query: discard the query (it may carry the
+  // one-time token hash) before substantive rendering or analytics, with
+  // the required headers on the initial redirect response itself. The route
+  // never verifies on GET.
+  if (shouldRedirectToCleanConfirmUrl(pathname, search)) {
+    const redirectResponse = NextResponse.redirect(
+      cleanConfirmUrl(origin),
+      302,
+    );
+    redirectResponse.headers.set("Cache-Control", NO_STORE);
+    redirectResponse.headers.set("Referrer-Policy", NO_REFERRER);
+    return redirectResponse;
+  }
+
+  // 2. Session maintenance first: a refresh rebuilds the response (the
+  // updated request cookies must flow downstream), so cache policy is
+  // applied to the final response object afterwards.
+  let response = NextResponse.next({ request });
+
+  const config = getSupabasePublicConfig();
+  if (config) {
+    const supabase = createServerClient(config.url, config.publishableKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet, headers) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options),
+          );
+          // The library passes no-store cache headers whenever auth cookies
+          // are written; forward them onto the outgoing response.
+          for (const [key, value] of Object.entries(headers)) {
+            response.headers.set(key, value);
+          }
+        },
+      },
+    });
+    // getUser() validates the session with the provider — never trust a
+    // client-held session claim — and refreshes expired tokens via setAll.
+    await supabase.auth.getUser();
+  }
+
+  // 3. Cache policy on the final response: Server Action responses can set
+  // or clear session and carry cookies; the interim /auth/confirm route
+  // must also never be cached (its initial redirect carries the headers
+  // above; the rendered page stays non-cacheable too).
+  if (
+    isServerActionRequest(request.method, request.headers.get("next-action"))
+  ) {
+    response.headers.set("Cache-Control", NO_STORE);
+  }
+  if (pathname === AUTH_CONFIRM_PATH) {
+    response.headers.set("Cache-Control", NO_STORE);
+    response.headers.set("Referrer-Policy", NO_REFERRER);
+  }
+
+  return response;
+}
+
+export const config = {
+  // Runs on every route and Server Action request except Next's static
+  // assets. Server Actions POST to the page's own URL, so a matcher that
+  // excludes page paths would silently exclude the auth actions — this
+  // matcher is pinned by test (src/auth/proxy.test.ts) and the no-store
+  // headers on action responses are proven end-to-end (tests/e2e).
+  matcher: [
+    "/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
+};

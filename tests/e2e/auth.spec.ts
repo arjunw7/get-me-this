@@ -1,18 +1,21 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * End-to-end coverage for the static auth and onboarding routes (003b).
+ * End-to-end coverage for the auth routes (004c), running against the
+ * production build WITHOUT provider configuration (the plain `pnpm
+ * test:e2e` environment; the configured local-stack flow is covered by
+ * tests/e2e/auth-otp.spec.ts via `pnpm test:e2e:auth`).
  *
- * Every designed state is reachable through its deterministic URL fixture,
- * every navigation is exercised by CLICK-THROUGH with rendered-content
- * assertions (never a bare href check), and the keyboard contract is
- * walked on the OTP input. The static-preview boundary is asserted: no
- * interaction may produce a delivery, verification, or completed-sign-in
- * claim.
+ * Covered here: the approved intent helper copy, client-side validation,
+ * the honest generic recovery when the provider is not configured, the
+ * `?state=` URL fixtures (kept only for deterministic capture and tests),
+ * the OTP keyboard contract, the interim /auth/confirm behavior (query
+ * stripped before rendering, no-store, no-referrer, never verifying on
+ * GET), the missing-carry restart, and the proxy's no-store header on the
+ * auth Server Action response.
  */
 
-const NOTICE =
-  "Preview only — this static preview doesn’t send email or sign you in yet.";
+const RESEND_CODES = "482913"; // the deterministic fixture code
 
 /**
  * The instant the fake clock is paused at for the countdown assertion
@@ -41,98 +44,100 @@ test("each email-entry intent renders its designed helper copy", async ({
   await expect(page.getByText(/First, a quick sign-in/)).toHaveCount(0);
 });
 
-test("a valid email submission reveals the honest preview notice and nothing else", async ({
+test("the entry screen promises the working code flow, not a preview", async ({
   page,
 }) => {
-  await page.goto("/auth?intent=wishlist");
-  await page.getByLabel("Email").fill("arjun@example.com");
-  await page.getByRole("button", { name: "Continue with email" }).click();
+  await page.goto("/auth");
 
-  await expect(page.getByText(NOTICE)).toBeVisible();
-  // No navigation away from the entry screen.
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Welcome to Get Me This.",
-  );
+  await expect(
+    page.getByText("No password. We’ll send you a secure code to sign in."),
+  ).toBeVisible();
+  const body = await page.locator("body").innerText();
+  expect(body).not.toMatch(/static preview|preview only/i);
+  expect(body).not.toMatch(/sign-in link|either works/i);
 });
 
-test("the verify flow is traversable by click-through with no 404 anywhere", async ({
+test("client-side validation rejects empty and malformed emails before any request", async ({
   page,
 }) => {
-  // Email entry → honest submit → verify by direct fixture navigation.
-  await page.goto("/auth?intent=home");
-  await page.getByRole("link", { name: "Back to home" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    /Make a wishlist\. Share it with your\s+people\./,
-  );
-
   await page.goto("/auth");
-  await page.getByRole("button", { name: "Continue with email" }).click();
-  await expect(page.getByText("Enter your email to continue.")).toBeVisible();
 
-  // Verify default fixture, including the inbox preview's link. install()
-  // alone does not freeze timers: the clock is PAUSED at a fixed instant
-  // (page.clock.pauseAt) so the assertion reads the deterministic initial
-  // value, then resumed before click-through so navigation runs on a live
-  // clock. The ticking behaviour is covered by fake-timer unit tests.
+  const submit = page.getByRole("button", { name: "Continue with email" });
+  await submit.click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Enter your email" }),
+  ).toBeVisible();
+
+  await page.getByLabel("Email").fill("not-an-email");
+  await submit.click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Check for typos?" }),
+  ).toBeVisible();
+});
+
+test("a valid submission without provider configuration recovers honestly, with no-store on the action response", async ({
+  page,
+}) => {
+  await page.goto("/auth");
+  await page.getByLabel("Email").fill("you@example.com");
+
+  // The auth Server Action POSTs to /auth itself: the response must be
+  // non-cacheable (the proxy matcher covers Server Action requests —
+  // this header is that proof at the HTTP level).
+  const actionResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().replace(/\/$/, "").endsWith("/auth") &&
+      response.request().headerValue("next-action") !== null,
+  );
+  await page.getByRole("button", { name: "Continue with email" }).click();
+  const response = await actionResponse;
+
+  // Non-cacheable on the wire (the framework's action header also carries
+  // no-store; what matters is that no cached copy can ever leak Set-Cookie).
+  expect(response.headers()["cache-control"]).toContain("no-store");
+  // Honest generic recovery: no navigation, no carry, the control usable.
+  await expect(page).toHaveURL(/\/auth$/);
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "We couldn’t send your code just now.",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Continue with email" }),
+  ).toBeEnabled();
+});
+
+test("the verify flow fixtures render by URL for deterministic capture", async ({
+  page,
+}) => {
+  // The ?state= fixtures are the static reference states, kept only for
+  // deterministic fixture capture and tests — the bare route is the real
+  // flow and restarts without a carried email.
   await page.clock.install({ time: FROZEN_AT });
   await page.clock.pauseAt(FROZEN_AT);
-  await page.goto("/auth/verify");
+  await page.goto("/auth/verify?state=default");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Check your inbox.",
   );
   await expect(page.getByText("Resend code in 0:30")).toBeVisible();
-  await expect(page.getByText(NOTICE)).toBeVisible();
   await page.clock.resume();
 
-  // In-box mock link click-through to the confirm success frame.
-  await page.getByRole("link", { name: "Sign in to Get Me This" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "You’re in.",
-  );
-  await expect(page.getByText(NOTICE)).toBeVisible();
-
-  // Recovery frame, back to verify, then change email back to entry.
-  await page.goto("/auth/confirm?state=expired");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "This link has expired.",
-  );
-  await page.getByRole("link", { name: "Try again with a new code" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Check your inbox.",
-  );
-
-  await page.goto("/auth/confirm?state=expired");
-  await page.getByRole("link", { name: "Use a different email" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Welcome to Get Me This.",
-  );
-});
-
-test("the designed verify error and expired fixtures render by URL", async ({
-  page,
-}) => {
   await page.goto("/auth/verify?state=error");
   await expect(page.getByText(/That code doesn’t match/i)).toBeVisible();
-  await expect(page.getByText("Resend code in 0:30")).toBeVisible();
 
   await page.goto("/auth/verify?state=expired");
   await expect(page.getByText("That code has expired.")).toBeVisible();
-  // Both restart controls (primary and elapsed resend link) are present and
-  // honest.
-  await expect(
-    page.getByRole("button", { name: "Start a new code" }),
-  ).toHaveCount(2);
-  await expect(
-    page.getByRole("textbox", { name: "Digit 1 of 6" }),
-  ).toBeDisabled();
 });
 
-test("the OTP keyboard contract works end to end", async ({ page }) => {
-  await page.goto("/auth/verify");
+test("the OTP keyboard contract works end to end on the verify fixture", async ({
+  page,
+}) => {
+  await page.goto("/auth/verify?state=default");
 
   const first = page.getByRole("textbox", { name: "Digit 1 of 6" });
   await first.click();
-  await first.pressSequentially("482913");
+  await first.pressSequentially(RESEND_CODES);
   await expect(page.getByRole("textbox", { name: "Digit 6 of 6" })).toHaveValue(
     "3",
   );
@@ -156,52 +161,75 @@ test("the OTP keyboard contract works end to end", async ({ page }) => {
   await expect(page.getByText("Enter all six digits.")).toBeVisible();
 });
 
-test("onboarding renders validation by fixture and by interaction, and submits honestly", async ({
+test("bare /auth/verify without a carried email restarts safely at the entry screen", async ({
   page,
 }) => {
-  await page.goto("/onboarding?state=validation");
-  await expect(
-    page.getByText("Friends need something to call you."),
-  ).toBeVisible();
-
-  await page.goto("/onboarding");
-  await expect(
-    page.getByText("Friends need something to call you."),
-  ).toHaveCount(0);
-
-  await page.getByRole("button", { name: /Let’s go/i }).click();
-  await expect(
-    page.getByText("Friends need something to call you."),
-  ).toBeVisible();
-
-  await page.getByLabel("What should friends call you?").fill("Arjun");
-  await page
-    .getByRole("button", {
-      name: "will travel for good coffee",
-    })
-    .click();
-  await expect(page.getByLabel(/Describe your taste in one line/i)).toHaveValue(
-    "will travel for good coffee",
-  );
-
-  await page.getByRole("button", { name: /Let’s go/i }).click();
-  await expect(page.getByText(NOTICE)).toBeVisible();
-  // No navigation: still onboarding.
+  await page.goto("/auth/verify");
+  await expect(page).toHaveURL(/\/auth$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Tell friends who you are.",
+    "Welcome to Get Me This.",
   );
+});
 
-  // The Home back link resolves by click-through.
-  await page.getByRole("link", { name: "Home", exact: true }).click();
+test("the confirm route strips its query before rendering and never verifies on GET", async ({
+  page,
+}) => {
+  // A synthetic token value: the route discards the whole query without
+  // ever reading it, so no real credential is needed — and none is logged.
+  const redirectResponse = page.waitForResponse((response) =>
+    response.url().includes("/auth/confirm?"),
+  );
+  await page.goto("/auth/confirm?token_hash=not-a-real-hash&type=email");
+  const response = await redirectResponse;
+
+  // The initial redirect response itself carries the required headers.
+  expect(response.status()).toBe(302);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  expect(response.headers()["referrer-policy"]).toBe("no-referrer");
+  expect(response.headers()["location"] ?? "").toMatch(/\/auth\/confirm$/);
+
+  // The clean URL renders the honest interim state.
+  await expect(page).toHaveURL(/\/auth\/confirm$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    /Make a wishlist\. Share it with your\s+people\./,
+    "One more step.",
+  );
+  await expect(page.getByText(/isn’t active yet.*did nothing/i)).toBeVisible();
+  const body = await page.locator("body").innerText();
+  expect(body).not.toMatch(/you’re in|signing you in|this link has expired/i);
+
+  // The rendered page response is non-cacheable too (asserted in the
+  // clean-URL test below; the redirect target is the same document).
+
+  // The interim state offers the path back to code entry.
+  await page.getByRole("link", { name: "Back to your code" }).click();
+  // Without a carried email the verify route restarts at entry.
+  await expect(page).toHaveURL(/\/auth$/);
+});
+
+test("the clean confirm route renders the interim state and stays non-cacheable", async ({
+  page,
+}) => {
+  const response = page.waitForResponse((r) =>
+    r.url().replace(/\/$/, "").endsWith("/auth/confirm"),
+  );
+  await page.goto("/auth/confirm");
+  const documentResponse = await response;
+  expect(documentResponse.headers()["cache-control"]).toBe("no-store");
+  expect(documentResponse.headers()["referrer-policy"]).toBe("no-referrer");
+
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "One more step.",
+  );
+  await page.getByRole("link", { name: "Use a different email" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Welcome to Get Me This.",
   );
 });
 
 test("keyboard traversal reaches every control with visible focus", async ({
   page,
 }) => {
-  await page.goto("/auth/verify");
+  await page.goto("/auth/verify?state=default");
 
   // Header links, the six OTP cells, and the primary button are all
   // reachable by Tab in order, each with a visible focus stop.

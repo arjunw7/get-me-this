@@ -20,6 +20,13 @@ import { AuthCollage } from "./auth-collage";
 export type AuthLayoutBack = {
   href: string;
   label: string;
+  /**
+   * When provided, the header control performs this server action instead
+   * of plain navigation (the real verify screen's "Change email" must
+   * clear the carry cookie — 004c). Fixture screens omit it and keep the
+   * plain anchor rendering.
+   */
+  action?: () => Promise<void>;
 };
 
 export function AuthLayout({
@@ -42,13 +49,24 @@ export function AuthLayout({
         <Link href="/" aria-label="Get Me This home">
           <Wordmark className="text-2xl sm:text-3xl" />
         </Link>
-        <Link
-          href={back.href}
-          className="inline-flex h-11 items-center gap-1.5 rounded-surface px-3 text-sm font-bold hover:bg-surface-sunken"
-        >
-          <ArrowLeftIcon className="h-4 w-4" />
-          {back.label}
-        </Link>
+        {back.action ? (
+          <button
+            type="button"
+            onClick={() => void back.action?.()}
+            className="inline-flex h-11 items-center gap-1.5 rounded-surface px-3 text-sm font-bold hover:bg-surface-sunken"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            {back.label}
+          </button>
+        ) : (
+          <Link
+            href={back.href}
+            className="inline-flex h-11 items-center gap-1.5 rounded-surface px-3 text-sm font-bold hover:bg-surface-sunken"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            {back.label}
+          </Link>
+        )}
       </header>
       <main className="mx-auto flex w-full max-w-content-max flex-col px-5 pt-2 pb-16 sm:pt-8">
         <AuthCollage />

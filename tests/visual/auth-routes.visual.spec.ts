@@ -31,18 +31,29 @@ type Family = {
 
 const FAMILIES: readonly Family[] = [
   {
+    // 004c changes the entry screen's helper copy to the real code-flow
+    // promise ("No password. We'll send you a secure code to sign in."),
+    // so this family's rendering no longer matches the committed baseline.
+    // SKIPPED pending the owner's side-by-side copy review and baseline
+    // regeneration (docs/delivery/visual-baselines.md) — do not unskip by
+    // regenerating without approval.
     name: "auth-wishlist",
     url: "/auth?intent=wishlist",
     heading: "Welcome to Get Me This.",
   },
   {
+    // See the auth-wishlist note: 004c copy change, regeneration gate.
     name: "auth-create-group",
     url: "/auth?intent=create-group",
     heading: "Welcome to Get Me This.",
   },
   {
+    // 004c: the bare /auth/verify route is now the real flow (carry-cookie
+    // driven); the static reference state moved to the explicit
+    // `?state=default` fixture URL. The fixture screen renders
+    // byte-identically there, so the committed baseline stays valid.
     name: "verify-default",
-    url: "/auth/verify",
+    url: "/auth/verify?state=default",
     heading: "Check your inbox.",
   },
   {
@@ -56,11 +67,17 @@ const FAMILIES: readonly Family[] = [
     heading: "Check your inbox.",
   },
   {
+    // 004c: the confirm route renders ONE honest interim state ("One more
+    // step.") — the old loading/valid/expired frames are gone, so these
+    // families cannot match their committed baselines. SKIPPED pending the
+    // owner's side-by-side review of the interim screen and the baseline
+    // regeneration (or retirement) decision.
     name: "confirm-valid",
     url: "/auth/confirm?state=valid",
     heading: "You’re in.",
   },
   {
+    // See the confirm-valid note: 004c interim state, regeneration gate.
     name: "confirm-expired",
     url: "/auth/confirm?state=expired",
     heading: "This link has expired.",
@@ -84,10 +101,24 @@ const FAMILIES: readonly Family[] = [
  */
 const FROZEN_AT = new Date("2026-01-01T00:00:00Z");
 
+/** Baseline families whose rendering 004c deliberately changed; their
+ *  committed baselines cannot be regenerated without the owner's explicit
+ *  side-by-side approval (AGENTS.md, docs/delivery/visual-baselines.md). */
+const PENDING_BASELINE_APPROVAL = new Set([
+  "auth-wishlist",
+  "auth-create-group",
+  "confirm-valid",
+  "confirm-expired",
+]);
+
 for (const family of FAMILIES) {
   test(`${family.name} is visually stable in its fixture state`, async ({
     page,
   }, testInfo) => {
+    test.skip(
+      PENDING_BASELINE_APPROVAL.has(family.name),
+      "004c changes this screen's copy or state; baseline regeneration awaits the owner's side-by-side review (docs/delivery/visual-baselines.md)",
+    );
     // Test-only determinism, using Playwright's documented "pause time"
     // mechanism: install the fake clock and PAUSE it (page.clock.pauseAt)
     // BEFORE navigation. While paused, no page timer fires, so the resend
@@ -146,7 +177,7 @@ test("the paused fake clock holds the countdown at 0:30 past one second of real 
   // deterministic initial value when a baseline is captured.
   await page.clock.install({ time: FROZEN_AT });
   await page.clock.pauseAt(FROZEN_AT);
-  await page.goto("/auth/verify");
+  await page.goto("/auth/verify?state=default");
 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Check your inbox.",

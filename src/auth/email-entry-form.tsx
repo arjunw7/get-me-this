@@ -1,11 +1,20 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useActionState, useId, useState, type FormEvent } from "react";
 
 import { buttonClassName, cx } from "@/src/ui/styles";
 import { ArrowRightIcon, MailIcon } from "@/src/landing/icons";
-import { emailHelpText } from "./copy";
-import { PreviewNotice } from "./preview-notice";
+import { requestCodeAction } from "./actions";
+import type { RequestCodeState } from "./action-state";
+import {
+  invalidEmailCopy,
+  overLimitCopy,
+  requestCodeHelpText,
+  requestCodePendingText,
+  unavailableCopy,
+} from "./flow-copy";
+import { EMAIL_PATTERN } from "./email";
+import type { AuthIntent } from "./fixtures";
 import {
   authCardClassName,
   authInputClassName,
@@ -13,58 +22,68 @@ import {
 } from "./auth-layout";
 
 /**
- * Static email-entry screen, ported from the frozen V18 reference
- * (pages/auth/AuthEmail.tsx). 003b adds the intent helper notes; the
- * `home` intent (and a bare route) renders the 003a default state.
+ * The email-entry screen of the real email-code flow (004c).
  *
- * STATIC PREVIEW BOUNDARY: this slice has no backend. Client-side
- * validation works exactly as designed; a valid submission performs no
- * navigation and sends nothing. No copy on this screen promises a code or
- * a sign-in: the helper text and empty-email error are neutral, and a
- * valid submit reveals the explicit preview notice (src/auth/copy.ts).
- * These are documented copy differences from V18 (approved for this
- * slice).
- *
- * Phase 3 adds the real verification flow (Supabase + Resend delivery).
+ * Client-side validation rejects empty and malformed input before any
+ * request is made; a valid submission calls the request-code server action,
+ * which re-validates, performs signInWithOtp with an allowlisted
+ * emailRedirectTo, sets the HttpOnly carry cookie, and redirects to the
+ * verify screen. Provider failures render from the closed generic set only
+ * — nothing here distinguishes new from returning users.
  */
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// No delivery promise anywhere: the static slice sends nothing.
 const EMPTY_EMAIL_ERROR = "Enter your email to continue.";
-const INVALID_EMAIL_ERROR = "That email looks a little off. Check for typos?";
 
-type FormState =
-  { kind: "idle" } | { kind: "error"; message: string } | { kind: "preview" };
+type ClientError = "empty" | "invalid";
+
+function failureCopy(
+  failure: Extract<RequestCodeState, { status: "error" }>["failure"],
+) {
+  switch (failure) {
+    case "invalid-email":
+      return invalidEmailCopy;
+    case "over-limit":
+      return overLimitCopy;
+    case "unavailable":
+      return unavailableCopy;
+  }
+}
 
 export function EmailEntryForm({
+  intent,
   intentNote,
 }: {
+  /** The parsed approved intent, carried through the server action. */
+  intent: AuthIntent;
   /** Intent-specific helper copy from the frozen reference; null for home. */
   intentNote?: string | null;
 }) {
   const [email, setEmail] = useState("");
-  const [state, setState] = useState<FormState>({ kind: "idle" });
+  const [clientError, setClientError] = useState<ClientError | null>(null);
+  const [state, formAction, pending] = useActionState(requestCodeAction, {
+    status: "idle",
+  } as RequestCodeState);
   const errorId = useId();
   const helpId = useId();
-  const noticeId = useId();
 
   function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
     const value = email.trim();
-    if (!value) {
-      setState({ kind: "error", message: EMPTY_EMAIL_ERROR });
+    if (!value || !EMAIL_PATTERN.test(value)) {
+      event.preventDefault();
+      setClientError(value ? "invalid" : "empty");
       return;
     }
-    if (!EMAIL_PATTERN.test(value)) {
-      setState({ kind: "error", message: INVALID_EMAIL_ERROR });
-      return;
-    }
-    // Static slice: nothing is sent and nobody is signed in. Say so.
-    setState({ kind: "preview" });
+    setClientError(null);
   }
 
-  const error = state.kind === "error" ? state.message : undefined;
+  const serverError =
+    state.status === "error" ? failureCopy(state.failure) : undefined;
+  const error =
+    clientError === "empty"
+      ? EMPTY_EMAIL_ERROR
+      : clientError === "invalid"
+        ? invalidEmailCopy
+        : serverError;
 
   return (
     <AuthLayout>
@@ -81,7 +100,15 @@ export function EmailEntryForm({
           Enter your email to start a wishlist, join a group, or pick up where
           you left off.
         </p>
-        <form onSubmit={submit} noValidate className="mt-7 flex flex-col gap-4">
+        <form
+          action={formAction}
+          onSubmit={submit}
+          noValidate
+          className="mt-7 flex flex-col gap-4"
+        >
+          {/* The approved intent travels with the action and is re-validated
+              against the closed enum server-side. */}
+          <input type="hidden" name="intent" value={intent} />
           <label className="block">
             <span className="text-sm font-bold">Email</span>
             <div className="relative">
@@ -93,13 +120,11 @@ export function EmailEntryForm({
                 value={email}
                 onChange={(event) => {
                   setEmail(event.target.value);
-                  if (state.kind !== "preview") setState({ kind: "idle" });
+                  if (clientError) setClientError(null);
                 }}
                 placeholder="you@example.com"
                 aria-invalid={error ? true : undefined}
-                aria-describedby={
-                  error ? errorId : state.kind === "preview" ? noticeId : helpId
-                }
+                aria-describedby={error ? errorId : helpId}
                 className={authInputClassName({ invalid: Boolean(error) })}
               />
             </div>
@@ -113,19 +138,19 @@ export function EmailEntryForm({
               {error}
             </p>
           ) : null}
-          {state.kind === "preview" ? <PreviewNotice id={noticeId} /> : null}
           <button
             type="submit"
+            disabled={pending}
             className={cx(
               "mt-1",
               `${buttonClassName({ variant: "primary", size: "lg" })} w-full`,
             )}
           >
-            Continue with email
-            <ArrowRightIcon className="h-5 w-5" />
+            {pending ? requestCodePendingText : "Continue with email"}
+            {pending ? null : <ArrowRightIcon className="h-5 w-5" />}
           </button>
           <p id={helpId} className="text-center text-sm text-content-muted">
-            {emailHelpText}
+            {requestCodeHelpText}
           </p>
         </form>
       </div>

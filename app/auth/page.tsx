@@ -10,9 +10,11 @@ export const metadata: Metadata = {
 };
 
 /**
- * Static email-entry destination. The `intent` query parameter selects the
- * reference's intent-specific helper copy; `home` (and any unknown value)
- * renders the default state approved with 003a.
+ * The email-entry destination of the real email-code flow (004c). The
+ * `intent` query parameter selects the reference's intent-specific helper
+ * copy; `home` (and any unknown value) renders the default state approved
+ * with 003a, and the parsed intent travels through the server action,
+ * which re-validates it against the closed enum.
  */
 export default async function AuthPage({
   searchParams,
@@ -22,5 +24,5 @@ export default async function AuthPage({
   const params = await searchParams;
   const raw = params.intent;
   const intent = parseIntent(Array.isArray(raw) ? raw[0] : raw);
-  return <EmailEntryForm intentNote={INTENT_NOTES[intent]} />;
+  return <EmailEntryForm intent={intent} intentNote={INTENT_NOTES[intent]} />;
 }

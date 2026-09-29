@@ -93,11 +93,9 @@ test.describe("landing CTA click-through", () => {
 test("email entry validates before any submission state", async ({ page }) => {
   await page.goto("/auth");
 
-  // The pre-submit helper text is honest: no delivery or sign-in promise.
+  // The pre-submit helper text promises exactly the working code flow.
   await expect(
-    page.getByText(
-      "No password. This static preview doesn’t send email or sign anyone in.",
-    ),
+    page.getByText("No password. We’ll send you a secure code to sign in."),
   ).toBeVisible();
 
   const email = page.getByLabel("Email");
@@ -115,19 +113,22 @@ test("email entry validates before any submission state", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("a valid submission is honest: a visible preview notice, no navigation, no claims", async ({
+test("a valid submission recovers honestly when the provider is not configured", async ({
   page,
 }) => {
+  // The plain e2e build carries no Supabase configuration, so the request
+  // action lands in the generic recovery state: no navigation, no carry,
+  // no fake success, the control stays usable.
   await page.goto("/auth");
   await page.getByLabel("Email").fill("you@example.com");
   await page.getByRole("button", { name: "Continue with email" }).click();
 
-  const notice = page.getByRole("status");
-  await expect(notice).toHaveText(
-    "Preview only — this static preview doesn’t send email or sign you in yet.",
-  );
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "We couldn’t send your code just now.",
+    }),
+  ).toBeVisible();
   await expect(page).toHaveURL(/\/auth$/);
-  // The control stays usable; no disabled, fake-sending, or success state.
   await expect(
     page.getByRole("button", { name: "Continue with email" }),
   ).toBeEnabled();
