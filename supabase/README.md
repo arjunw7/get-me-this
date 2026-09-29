@@ -1,9 +1,23 @@
 # Local Supabase
 
 This directory holds the local Supabase project: `config.toml`, committed
-migrations, the synthetic seed, and pgTAP database tests. Everything here is
-**local only**. No command in this repository links to, deploys to, or mutates a
-hosted Supabase project.
+migrations, the synthetic seed, local email templates, and pgTAP database
+tests. Everything here is **local only**. No command in this repository links
+to, deploys to, or mutates a hosted Supabase project.
+
+## Local email templates
+
+`supabase/templates/` holds the local mirrors of the staging project's
+branded sign-in messages (004b) in their 004c form, wired through
+`[auth.email.template.*]` in `config.toml`. The local stack's default
+template carries a link but no code, so the Mailpit-based local e2e suite
+(`pnpm test:e2e:auth`) could not read the six-digit code without them. The
+local templates carry `{{ .Token }}` and a link built from the trusted
+destination plus `{{ .TokenHash }}`, pointing at this app's non-consuming
+`/auth/confirm` route — never Supabase's verification endpoint. Staging
+renders the same message shape through the dashboard-hosted templates.
+Keep template files world-readable (644): the local mail server reads them
+across a container mount.
 
 ## Commands
 

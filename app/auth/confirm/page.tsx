@@ -1,26 +1,20 @@
 import type { Metadata } from "next";
 
 import { ConfirmScreen } from "@/src/auth/confirm-screen";
-import { parseConfirmVariant } from "@/src/auth/fixtures";
 
 export const metadata: Metadata = {
-  title: "Get Me This | Signing you in",
-  description: "Magic-link sign-in confirmation.",
+  title: "Get Me This | One more step",
+  description: "The emailed link isn't active yet — your six-digit code works.",
 };
 
 /**
- * Static magic-link confirmation route. Every state renders directly from
- * its URL fixture — no timer or animation gates application state:
- * bare route and `?state=loading` render the loading frame;
- * `?state=valid` the success frame; `?state=expired` the recovery frame.
+ * The interim link-landing route (004c). proxy.ts discards any query —
+ * the token hash is authentication material — before this page renders,
+ * and the route never verifies on GET, so a link click (or an email
+ * scanner's prefetch) cannot consume the one-time token or create a
+ * session. 004d adds the explicit-action verification on top of this
+ * cleanup; until then the honest interim state is the route's only state.
  */
-export default async function ConfirmPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const params = await searchParams;
-  const raw = params.state;
-  const variant = parseConfirmVariant(Array.isArray(raw) ? raw[0] : raw);
-  return <ConfirmScreen variant={variant} />;
+export default function ConfirmPage() {
+  return <ConfirmScreen />;
 }

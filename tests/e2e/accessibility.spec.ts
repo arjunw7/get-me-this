@@ -20,18 +20,19 @@ const WCAG_TAGS = [
 
 const INJECTED_ID = "arj-10-injected-a11y-violation";
 
-/** Static public routes shipped so far, scanned at both viewports. */
+/** Static public routes shipped so far, scanned at both viewports.
+ *  The verify `?state=` URLs are the static reference fixtures (kept only
+ *  for deterministic capture and tests); the bare verify route restarts
+ *  without a carried email, and /auth/confirm renders its interim state. */
 const PUBLIC_ROUTES = [
   "/",
   "/auth",
   "/auth?intent=wishlist",
   "/auth?intent=create-group",
-  "/auth/verify",
+  "/auth/verify?state=default",
   "/auth/verify?state=error",
   "/auth/verify?state=expired",
-  "/auth/confirm?state=loading",
-  "/auth/confirm?state=valid",
-  "/auth/confirm?state=expired",
+  "/auth/confirm",
   "/onboarding",
   "/onboarding?state=validation",
   "/design-foundation",

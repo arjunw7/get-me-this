@@ -247,6 +247,22 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# Local mirrors of the staging project's branded sign-in messages (004b) in
+# their 004c form: both templates carry the six-digit code ({{ .Token }}) and
+# a link built from the trusted destination plus {{ .TokenHash }}, pointing
+# at this app's non-consuming /auth/confirm route. Without them the local
+# default template carries a link but no code, so the Mailpit-based local
+# e2e suite (tests/e2e/auth-otp.spec.ts) could not read the OTP. Staging
+# renders the same message shape through the dashboard-hosted templates;
+# these entries affect the local stack only.
+[auth.email.template.confirmation]
+subject = "Your Get Me This sign-in code"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "Your Get Me This sign-in code"
+content_path = "./supabase/templates/magic_link.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

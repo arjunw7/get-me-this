@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   DEMO_CODE,
   INTENT_NOTES,
-  parseConfirmVariant,
   parseIntent,
   parseOnboardingVariant,
   parseVerifyVariant,
@@ -45,14 +44,6 @@ describe("auth fixtures", () => {
     expect(parseVerifyVariant("default")).toBe("default");
     expect(parseVerifyVariant(undefined)).toBe("default");
     expect(parseVerifyVariant("nonsense")).toBe("default");
-  });
-
-  it("renders confirm states directly: bare route and unknown values load; valid and expired are explicit", () => {
-    expect(parseConfirmVariant("valid")).toBe("valid");
-    expect(parseConfirmVariant("expired")).toBe("expired");
-    expect(parseConfirmVariant("loading")).toBe("loading");
-    expect(parseConfirmVariant(undefined)).toBe("loading");
-    expect(parseConfirmVariant("nonsense")).toBe("loading");
   });
 
   it("parses onboarding variants with a safe default", () => {
