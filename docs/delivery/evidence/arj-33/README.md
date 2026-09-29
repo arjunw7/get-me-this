@@ -10,17 +10,18 @@
 1. `.github/workflows/ci.yml` — a distinct `database` job ("Database and stack e2e")
    alongside the unchanged `Install and verify` job, running on `ubuntu-24.04` with
    `timeout-minutes: 30` on every pull request and push to `main`. Steps (each with a
-   bounded `timeout-minutes`): install (5), `pnpm exec supabase start -o json` with the
+   bounded `timeout-minutes`): install (5), `pnpm exec supabase start` with the
    repository's `supabase` 2.118.0 devDependency against the committed
-   `supabase/config.toml` (10; JSON output filtered through node so no key material is
-   echoed), a deliberate `pnpm exec supabase db reset --local` proving the schema
-   rebuilds from committed migrations and seed alone (5), `pnpm test:db` for the pgTAP
-   suites in `supabase/tests/` (5), `pnpm exec playwright install --with-deps chromium`
-   (5), and one step running `scripts/e2e-local-stack.sh` — silent local-stack
-   environment wiring, production build, and the `E2E_LOCAL_SUPABASE`-gated specs
-   (25 = build ≤ 10 + e2e ≤ 15 guide budgets combined). The header comment now
-   describes the two-job contract and cites the 2026-09-30 owner merge-gate
-   authorization recorded in the brief.
+   `supabase/config.toml` (10; the key-bearing start table is written to a temp file
+   and never echoed), a deliberate `pnpm exec supabase db reset --local` proving the
+   schema rebuilds from committed migrations and seed alone (5), `pnpm test:db` for the
+   pgTAP suites in `supabase/tests/` (5), `pnpm exec playwright install --with-deps
+   chromium` (5), and one step running `scripts/e2e-local-stack.sh` — silent
+   local-stack environment wiring, production build, and the `E2E_LOCAL_SUPABASE`-gated
+   specs (25 = build ≤ 10 + e2e ≤ 15 guide budgets combined). The sanitized status
+   summary is printed from `supabase status -o json` through a node filter that drops
+   key/secret material. The header comment now describes the two-job contract and
+   cites the 2026-09-30 owner merge-gate authorization recorded in the brief.
 2. `scripts/e2e-local-stack.sh` — the CI-facing runner required by the brief: parses
    `supabase status -o json` silently through node, exports the API URL, publishable
    key, and Mailpit URL, generates a per-run `AUTH_LINK_COOKIE_SECRET`, sets

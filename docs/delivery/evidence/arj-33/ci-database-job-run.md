@@ -3,7 +3,13 @@
 - Run: https://github.com/arjunw7/get-me-this/actions/runs/36636862499
 - Job: "Database and stack e2e" —
   https://github.com/arjunw7/get-me-this/actions/runs/36636862499/job/109639531137
-- Head: `65a26e2` on `ci/arj-33-ci-database-gate` (final PR head).
+- Head at this run: `65a26e2` on `ci/arj-33-ci-database-gate` (first fully green
+  `database` job; the commits after it are docs-only evidence-pack fixes).
+  The binding green-on-exact-head evidence for criterion 2 is `gh pr checks` on the
+  merged PR: both jobs run on every PR and push to `main` and are green on every
+  commit of this PR, including the exact merge head. Also recorded: run 36637921203
+  (head `7a082cc`, `Database and stack e2e` pass 5m11s, `Install and verify` pass
+  1m41s).
 - Result: **pass**, job wall time **5m21s** (bound: ≤ 25 min, 30-min timeout).
 - Companion job "Install and verify" (unchanged `verify` job): **pass**, 1m12s —
   https://github.com/arjunw7/get-me-this/actions/runs/36636862499/job/109639530930
