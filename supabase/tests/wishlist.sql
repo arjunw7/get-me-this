@@ -14,7 +14,7 @@
 
 begin;
 
-select plan(154);
+select plan(163);
 
 -- Synthetic test identities; rolled back at the end of the suite.
 select gen_random_uuid() as uid_a \gset
@@ -56,6 +56,18 @@ select has_column('public', 'wishlist_items', 'conversion_rate_at', 'wishlist_it
 select has_column('public', 'wishlist_items', 'desire_level', 'wishlist_items.desire_level exists');
 select has_column('public', 'wishlist_items', 'extraction_status', 'wishlist_items.extraction_status exists');
 select has_column('public', 'wishlist_items', 'sort_position', 'wishlist_items.sort_position exists');
+select has_column('public', 'wishlist_items', 'client_submission_id', 'wishlist_items.client_submission_id exists');
+select is(
+  (
+    select is_nullable
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'wishlist_items'
+      and column_name = 'client_submission_id'
+  ),
+  'YES',
+  'client_submission_id is nullable for legacy rows'
+);
 select has_column('public', 'wishlist_items', 'created_at', 'wishlist_items.created_at exists');
 select has_column('public', 'wishlist_items', 'updated_at', 'wishlist_items.updated_at exists');
 
@@ -455,6 +467,42 @@ select is(
   ),
   'manual',
   'extraction_status defaults to manual on a minimal insert'
+);
+
+select gen_random_uuid() as submission_key_a \gset
+
+insert into public.wishlist_items (
+  wishlist_id, owner_id, title, sort_position, client_submission_id
+)
+values (
+  :'wid_a'::uuid,
+  :'uid_a'::uuid,
+  'Submission key item',
+  4,
+  :'submission_key_a'::uuid
+);
+
+select throws_ok(
+  format(
+    'insert into public.wishlist_items (wishlist_id, owner_id, title, sort_position, client_submission_id) values (%L, %L, ''Duplicate submission key'', 5, %L)',
+    :'wid_a',
+    :'uid_a',
+    :'submission_key_a'
+  ),
+  '23505',
+  NULL,
+  'the same owner cannot reuse a live client_submission_id'
+);
+
+select is(
+  (
+    select client_submission_id::text
+    from public.wishlist_items
+    where owner_id = :'uid_a'::uuid
+      and title = 'Mystery novel'
+  ),
+  NULL,
+  'older rows without a client_submission_id remain valid'
 );
 
 select ok(
@@ -1079,8 +1127,19 @@ select is(
       and table_name = 'wishlist_items'
       and privilege_type = 'INSERT'
   ),
-  17,
-  'the authenticated INSERT grant covers exactly the 17 client-writable columns (excluding only id, created_at, updated_at)'
+  18,
+  'the authenticated INSERT grant covers exactly the 18 client-writable columns (excluding only id, created_at, updated_at)'
+);
+
+select ok(
+  has_column_privilege('authenticated', 'public.wishlist_items', 'client_submission_id', 'INSERT')
+    and not has_column_privilege('authenticated', 'public.wishlist_items', 'client_submission_id', 'UPDATE'),
+  'client_submission_id is INSERT-only'
+);
+
+select has_index(
+  'public', 'wishlist_items', 'wishlist_items_owner_submission_live_key',
+  'the owner-scoped live submission-key uniqueness index exists'
 );
 
 select is(
@@ -1244,6 +1303,27 @@ values
   (:'wid_b'::uuid, :'uid_b'::uuid, 'B item one', 1),
   (:'wid_b'::uuid, :'uid_b'::uuid, 'B item two', 2);
 
+insert into public.wishlist_items (
+  wishlist_id, owner_id, title, sort_position, client_submission_id
+)
+values (
+  :'wid_b'::uuid,
+  :'uid_b'::uuid,
+  'B reused submission key',
+  3,
+  :'submission_key_a'::uuid
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.wishlist_items
+    where client_submission_id = :'submission_key_a'::uuid
+  ),
+  1,
+  'user B sees only their own row for a submission key also used by user A'
+);
+
 select is(
   (
     select count(*)::int
@@ -1272,7 +1352,7 @@ select is(
 
 select is(
   (select count(*)::int from public.wishlist_items),
-  2,
+  3,
   'authenticated user B''s visible item count is exactly their own'
 );
 
@@ -1297,6 +1377,31 @@ select is(
   (select count(*)::int from attempted),
   0,
   'user B''s DELETE targeting user A''s items affects zero rows'
+);
+
+with attempted as (
+  update public.wishlist_items
+  set title = 'Submission key hijack'
+  where owner_id = :'uid_a'::uuid
+    and client_submission_id = :'submission_key_a'::uuid
+  returning id
+)
+select is(
+  (select count(*)::int from attempted),
+  0,
+  'user B cannot update user A''s live submission-key row'
+);
+
+with attempted as (
+  delete from public.wishlist_items
+  where owner_id = :'uid_a'::uuid
+    and client_submission_id = :'submission_key_a'::uuid
+  returning id
+)
+select is(
+  (select count(*)::int from attempted),
+  0,
+  'user B cannot delete user A''s live submission-key row'
 );
 
 select throws_ok(
