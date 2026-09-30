@@ -179,19 +179,17 @@ describe("ARJ-28 local transport controller", () => {
       decision: "noop",
       reason: "target-mismatch",
     });
-    const held = fetch(`${controlUrl}/arrive`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-arj28-control-token": token,
-      },
-      body: JSON.stringify({
-        caseId,
-        stage,
-        participant: "first",
-        probeId: randomUUID(),
-        targetId: itemId,
-      }),
+    const injected = await request("/arrive", {
+      caseId,
+      stage,
+      participant: "first",
+      probeId: randomUUID(),
+      targetId: itemId,
+    });
+    expect(injected.status).toBe(200);
+    expect(await injected.json()).toMatchObject({
+      decision: "released",
+      effect: "owner-read-abort",
     });
     await request(`/wait?caseId=${caseId}&stage=${stage}`);
     const contender = await request("/arrive", {
@@ -204,11 +202,6 @@ describe("ARJ-28 local transport controller", () => {
     expect(await contender.json()).toMatchObject({
       decision: "noop",
       reason: "consumed",
-    });
-    await request("/release", { caseId, stage });
-    expect(await (await held).json()).toMatchObject({
-      decision: "released",
-      effect: "owner-read-abort",
     });
     await request("/observe", {
       caseId,

@@ -68,7 +68,7 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     );
     const undersized = await page
       .locator(
-        "button:visible, a[href]:visible, input:visible, select:visible, textarea:visible",
+        "button:visible, a[href]:visible, input:not([type=radio]):visible, select:visible, textarea:visible",
       )
       .evaluateAll((nodes) =>
         nodes
@@ -79,6 +79,14 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
           .filter((node) => node.height < 44),
       );
     expect(undersized).toEqual([]);
+    const radioLabels = await page
+      .locator('label:has(input[type="radio"]):visible')
+      .evaluateAll((nodes) =>
+        nodes
+          .map((node) => Math.round(node.getBoundingClientRect().height))
+          .filter((height) => height < 44),
+      );
+    expect(radioLabels).toEqual([]);
   };
   const caseId = randomUUID();
   try {

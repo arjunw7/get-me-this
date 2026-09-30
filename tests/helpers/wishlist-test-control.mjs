@@ -224,6 +224,10 @@ export function createWishlistTestControlServer({
             : injectionStages.has(stage)
               ? "owner-read-abort"
               : "continue";
+      if (arm.oneShot) {
+        json(response, 200, { decision: "released", effect });
+        return;
+      }
       const timer = setTimeout(() => {
         entry.failed = true;
         entry.held.delete(holdId);

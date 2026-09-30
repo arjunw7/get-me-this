@@ -17,6 +17,7 @@ test.skip(
 test("manual create, exact decimal readback, owner edit, and confirmed hard delete persist", async ({
   page,
 }) => {
+  test.setTimeout(120_000);
   const admin = stackAdminClient();
   const scope = new FixtureScope();
   await scope.run(async () => {

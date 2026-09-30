@@ -376,7 +376,7 @@ test("a fresh owner with zero items sees the V18 empty composition and its CTA n
     await expect(page.getByText("Page not found")).toHaveCount(0);
 
     // And a visible way back.
-    await page.getByRole("link", { name: "Back to your wishlist" }).click();
+    await page.getByRole("link", { name: "Cancel" }).click();
     await expect(page).toHaveURL(/\/wishlist$/);
     await expect(
       page.getByRole("heading", { name: "Very minimalist of you." }),

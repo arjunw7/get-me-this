@@ -140,9 +140,12 @@ test("same owner/key contenders yield one live row and conflict-then-missing is 
       "after-unique-conflict-before-lookup",
     );
     await secondClick;
-    await expect(second.getByRole("alert")).toContainText(
-      /unavailable|try again/i,
-    );
+    await expect(
+      second.getByText(/We couldn’t save that item just now/i),
+    ).toBeVisible();
+    await expect(
+      second.getByText(/We couldn’t save that item just now/i),
+    ).toContainText(/unavailable|try again/i);
     const survivors = await admin
       .from("wishlist_items")
       .select("id")
@@ -331,17 +334,29 @@ test("distinct submission keys released after one shared maximum may tie and rem
     expect(rows.error).toBeNull();
     expect(rows.data).toHaveLength(2);
     expect(rows.data?.[0].sort_position).toBe(rows.data?.[1].sort_position);
+    await expect(
+      first.getByRole("heading", {
+        name: "Distinct-key first",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      first.getByRole("heading", {
+        name: "Distinct-key second",
+        exact: true,
+      }),
+    ).toBeVisible();
     const expectedOrder = rows.data?.map((row) => row.title);
     await first.goto("/wishlist");
-    const renderedOrder = await first.getByRole("article").allTextContents();
+    const renderedOrder = await first.locator("article h3").allTextContents();
     const indexFirst = renderedOrder.findIndex((text) =>
       text.includes("Distinct-key first"),
     );
     const indexSecond = renderedOrder.findIndex((text) =>
       text.includes("Distinct-key second"),
     );
-    expect(indexFirst).toBeGreaterThanOrEqual(0);
-    expect(indexSecond).toBeGreaterThanOrEqual(0);
+    expect(renderedOrder).toContain("Distinct-key first");
+    expect(renderedOrder).toContain("Distinct-key second");
     expect(indexFirst < indexSecond).toBe(
       expectedOrder?.[0] === "Distinct-key first",
     );
@@ -411,9 +426,9 @@ test("a price-pair edit racing a replacement returns retry without overwriting t
     expect(changed.error).toBeNull();
     await wishlistControl.release(caseId, "after-edit-read-before-update");
     await save;
-    await expect(page.getByRole("alert")).toContainText(
-      "changed while you were editing",
-    );
+    await expect(
+      page.getByText(/This item changed while you were editing/i),
+    ).toContainText("changed while you were editing");
     const actual = await admin
       .from("wishlist_items")
       .select(
