@@ -87,17 +87,17 @@ function ProfileHeaderCard({
         </svg>
       </div>
       <div className="flex flex-col gap-5 px-5 pb-6 sm:flex-row sm:items-start sm:justify-between sm:px-7">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-5">
+        <div className="flex flex-col gap-3 sm:relative sm:min-w-0 sm:flex-1 sm:flex-row sm:items-start sm:gap-5">
           <span
             aria-hidden="true"
             className="-mt-12 flex h-16 w-16 flex-none items-center justify-center rounded-full border-2 border-outline-strong bg-accent-fresh font-display text-2xl font-extrabold text-content-primary shadow-chunk-sm ring-4 ring-surface-raised sm:h-20 sm:w-20"
           >
             {displayName.charAt(0).toUpperCase()}
           </span>
-          <div className="sm:-mt-8">
+          <div className="sm:mt-2">
             <h1
               id="wishlist-owner"
-              className={`font-display font-extrabold tracking-tight ${typography.profileName}`}
+              className={`font-display font-extrabold tracking-tight sm:absolute sm:right-0 sm:bottom-[calc(100%+0.75rem)] sm:left-[6.25rem] ${typography.profileName}`}
             >
               {displayName}
             </h1>

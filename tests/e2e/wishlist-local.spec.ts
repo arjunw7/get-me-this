@@ -65,18 +65,26 @@ const UNREACHABLE_IMAGE = "http://127.0.0.1:59999/broken.jpg";
 async function assertProfileGeometry(
   page: Page,
   empty: boolean,
+  profile = PROFILE,
 ): Promise<void> {
   const band = await page
     .locator('[aria-labelledby="wishlist-owner"] > div[aria-hidden="true"]')
     .boundingBox();
-  const taste = await page.getByText(PROFILE.tasteLine).boundingBox();
+  const heading = page.getByRole("heading", { name: profile.displayName });
+  const name = await heading.boundingBox();
+  const taste = await page.getByText(profile.tasteLine).boundingBox();
   expect(band).not.toBeNull();
+  expect(name).not.toBeNull();
   expect(taste).not.toBeNull();
   expect(taste!.y).toBeGreaterThanOrEqual(band!.y + band!.height + 4);
-  const expectedNameSize = page.viewportSize()?.width === 390 ? "30px" : "36px";
-  await expect(
-    page.getByRole("heading", { name: PROFILE.displayName }),
-  ).toHaveCSS("font-size", expectedNameSize);
+  const desktop = page.viewportSize()?.width !== 390;
+  if (desktop) {
+    expect(
+      name!.y + name!.height,
+      `${profile.displayName} touches the desktop band divider`,
+    ).toBeLessThanOrEqual(band!.y + band!.height - 10);
+  }
+  await expect(heading).toHaveCSS("font-size", desktop ? "36px" : "30px");
   if (empty) {
     await expect(
       page.getByRole("heading", { name: "Very minimalist of you." }),
@@ -212,7 +220,10 @@ function privateItemMarkers(wishlistId: string): string[] {
 }
 
 /** Creates a signed-in fixture user on the page and returns its ids. */
-async function signedInFixture(page: Page): Promise<{
+async function signedInFixture(
+  page: Page,
+  profile = PROFILE,
+): Promise<{
   admin: ReturnType<typeof stackAdminClient>;
   userId: string;
   scope: FixtureScope;
@@ -223,7 +234,7 @@ async function signedInFixture(page: Page): Promise<{
     page,
     admin,
     "wishlist-e2e",
-    PROFILE,
+    profile,
     scope,
   );
   return { admin, userId, scope };
@@ -322,6 +333,23 @@ test("a fresh owner with zero items sees the V18 empty composition and its CTA n
     await expect(
       page.getByRole("heading", { name: "Very minimalist of you." }),
     ).toBeVisible();
+  });
+});
+
+test("an owner name with descenders clears the desktop divider while the taste line stays below", async ({
+  page,
+}) => {
+  const profile = {
+    displayName: "Jaya",
+    tasteLine: PROFILE.tasteLine,
+  };
+  const { scope } = await signedInFixture(page, profile);
+  await scope.run(async () => {
+    await page.goto("/wishlist");
+    await expect(
+      page.getByRole("heading", { name: profile.displayName }),
+    ).toBeVisible();
+    await assertProfileGeometry(page, true, profile);
   });
 });
 
