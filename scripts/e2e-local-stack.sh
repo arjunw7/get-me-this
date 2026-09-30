@@ -41,6 +41,20 @@ export E2E_MAILPIT_URL="$(node -e '
   const s = require("/tmp/gmt-supabase-status.json");
   process.stdout.write(s.MAILPIT_URL ?? "http://127.0.0.1:54324");
 ')"
+# The service-role key of the LOCAL stack: a development fixture used ONLY
+# by the stack-gated specs' fixture management (tests/helpers/local-stack.ts)
+# for synthetic setup/teardown — the same pattern as the local-stack status
+# keys above: parsed silently through node, exported, and never printed,
+# logged, or committed. Never present in application code or client bundles.
+export SUPABASE_SERVICE_ROLE_KEY="$(node -e '
+  const s = require("/tmp/gmt-supabase-status.json");
+  const key = s.SERVICE_KEY ?? s.SERVICE_ROLE_KEY ?? s.SECRET_KEY;
+  if (!key) {
+    process.stderr.write("error: no service-role key in the local stack status; the stack-gated wishlist specs cannot manage their fixtures.\n");
+    process.exit(1);
+  }
+  process.stdout.write(key);
+')"
 # Guard for the specs: absent in a plain `pnpm test:e2e` run.
 export E2E_LOCAL_SUPABASE=1
 
@@ -55,5 +69,13 @@ fi
 pnpm build
 
 # Gated-spec explicit list (brief 005h): keep in sync with the
-# E2E_LOCAL_SUPABASE skip guards in tests/e2e.
-pnpm exec playwright test tests/e2e/auth-otp.spec.ts
+# E2E_LOCAL_SUPABASE skip guards in tests/e2e and tests/visual. 005b adds
+# the wishlist specs: the plain signed-out protection spec (environment-
+# agnostic assertions) and the stack-gated e2e, axe, and visual specs
+# whose fixtures need the running local stack.
+pnpm exec playwright test \
+  tests/e2e/auth-otp.spec.ts \
+  tests/e2e/wishlist.spec.ts \
+  tests/e2e/wishlist-local.spec.ts \
+  tests/visual/wishlist-empty.visual.spec.ts \
+  tests/visual/wishlist-filled.visual.spec.ts
