@@ -237,6 +237,72 @@ shareable-invitation version except for the common group-first lock order.
 Generic issue or revoke never creates, revokes, or otherwise changes a targeted
 row.
 
+### Deterministic populated-state upgrade
+
+The forward migration must succeed against any valid populated ARJ-35 state,
+not only an empty database. It performs this upgrade in one transaction before
+adding the final not-null and uniqueness constraints:
+
+1. Lock `groups`, then `group_invitations`, then `audit_events` against
+   concurrent writes for the migration transaction. Add the group version and
+   invitation shareable-version columns as nullable, with no client grant.
+   Capture one `migration_checked_at := clock_timestamp()` value for the whole
+   backfill only after those locks are held.
+2. For each group, select legacy generic rows only, identified by both target
+   fields being null. Order them by `created_at asc, id asc` and assign
+   `shareable_version = row_number()` starting at 1. Targeted rows retain null
+   shareable version and are otherwise unchanged.
+3. Rank rows whose stored status is active within each group. A row with
+   `expires_at > migration_checked_at` ranks ahead of an expired row; ties are
+   ordered by `created_at desc, id desc`. If more than one stored-active row
+   exists, keep exactly the first ranked row and mark every other stored-active
+   generic row revoked. This preserves the newest still-usable link when one
+   exists; if all are expired, it preserves the newest expired row so organizer
+   state honestly becomes `issued_expired`.
+4. Initialize `groups.shareable_invitation_version` to 0 when the group has no
+   generic history. Otherwise initialize it to the maximum assigned row version
+   plus 1 only when step 3 revoked one or more duplicate stored-active rows;
+   without a normalization revocation, initialize it to the maximum assigned
+   row version. The single extra increment represents the atomic migration
+   normalization, regardless of how many duplicate rows it revoked.
+5. For each row revoked by step 3, append one existing-type
+   `invitation_revoked` audit event at `migration_checked_at`, referencing the
+   group and invitation and containing only `migration_version = '006b'` and
+   `reason = 'multiple_stored_active'`. It has a null actor so no organizer or
+   invitation creator is falsely represented as taking the action. If needed,
+   the migration removes the actor column's blanket not-null constraint and
+   replaces it with an equivalence check: actor ID is null if and only if the
+   event is `invitation_revoked` with both exact migration metadata values above.
+   Thus only this system-marked use of the existing event type has a null actor;
+   every application event, including ordinary invitation revocation, still
+   requires a nonnull actor. The existing restrictive actor foreign key remains
+   for every nonnull actor. Application roles receive no way to insert the
+   system-marked event or any audit row.
+6. Add the nonnegative/default/not-null group-version constraint, the generic
+   row version/pairing checks, unique `(group_id, shareable_version)`, and the
+   one-stored-active-generic partial unique index only after the backfill and
+   audit inserts succeed. Any error rolls back columns, row changes, versions,
+   and audit events together.
+
+The zero/one/multiple behavior is therefore fixed:
+
+- zero stored-active generic rows: revoke nothing; no migration audit; state is
+  `never_issued` with no history or `revoked` with prior generic history;
+- one stored-active generic row: preserve it, even if expired; no migration
+  audit; state is `active` or `issued_expired` from the single captured clock;
+- multiple stored-active generic rows: preserve the deterministic ranked
+  winner, revoke and audit every loser, and advance the initialized group
+  version by one normalization epoch.
+
+The user-visible impact is explicit: in the multiple-active legacy case, every
+superseded link stops working immediately after migration and only the selected
+winner remains usable if unexpired. No plaintext token is available to the
+migration or audit. The release/staging note reports affected synthetic row
+counts without names, hashes, or tokens. An organizer reopening the created
+route sees active-link-lost, issued-expired, or revoked from the projection and
+can explicitly create a replacement. The migration never guesses or displays a
+legacy token.
+
 The organizer-only projection has the exact signature:
 
 ```sql
@@ -491,7 +557,14 @@ exact evidence.
     allowed properties and internal UUID context. Replay, validation failure,
     idempotency conflict, token issuance, rotation, copy, and share do not emit
     duplicate or token-bearing events.
-14. **Fresh-stack and exact-head gates.** Any schema/API addition is a committed
+14. **Deterministic populated upgrade.** Applying the migration to valid
+    populated ARJ-35 states assigns legacy generic versions by creation time and
+    ID, initializes every group counter exactly, leaves targeted rows unchanged,
+    and handles zero, one, expired, and multiple stored-active generic rows by
+    the pinned ranking. Multiple-active losers are revoked with truthful
+    actor-null system audit rows, the winner and user impact are deterministic,
+    and a forced migration failure rolls everything back.
+15. **Fresh-stack and exact-head gates.** Any schema/API addition is a committed
     forward migration with explicit REVOKE/GRANT, RLS, pgTAP, race tests, and a
     deliberate smoke inventory update. `pnpm verify`, the CI database job, the
     stack-gated browser suite, visual checks, and Railway deployment are green
@@ -525,6 +598,19 @@ exact evidence.
   payload mismatch, replay, rollback, generic version transitions, exact
   generic issue/revoke results, targeted issue/revoke isolation, old-token
   revocation, state projection values, and exact return columns.
+- A committed `pnpm test:db:group-upgrade` harness creates a disposable local
+  database at the exact ARJ-35 predecessor migration, inserts synthetic valid
+  populated states, applies the 006b migration once, and asserts the resulting
+  schema and data. Fixtures include: no generic history; only revoked generic
+  history; one active unexpired row; one stored-active expired row; multiple
+  active rows with mixed expiry; multiple equally timed active rows requiring
+  the UUID tie-break; targeted rows beside every generic case; and at least two
+  groups proving partitioned numbering. It verifies assigned versions, group
+  counters, deterministic winner, loser revocations, one truthful system audit
+  per loser, null-actor check enforcement, targeted byte-for-byte preservation,
+  constraints, and rollback after an induced failure. The harness has finite
+  timeouts, never targets staging/production, emits no raw tokens or hashes, and
+  is an explicit bounded step in the CI database job.
 - The committed bounded two-session harness uses independent sessions, real
   barriers, and finite lock/statement/client timeouts for same-key create,
   changed-payload conflict, create rollback/waiter success, same-version issue,
@@ -568,8 +654,10 @@ exact evidence.
 - `pnpm verify` transcript and green exact-head `verify` and `database` jobs,
   including the named race step and stack-gated spec.
 - Migration ledger, grants/RLS/function inventory, race transcript with token
-  redaction, forward-fix/rollback notes, and synthetic-fixture cleanup proof if
-  this slice adds the prerequisite migration.
+  redaction, populated-state upgrade transcript and before/after counts,
+  deterministic multiple-active decision, system-audit inventory,
+  forward-fix/rollback notes, and synthetic-fixture cleanup proof if this slice
+  adds the prerequisite migration.
 - Mobile and desktop before/after screenshots for every changed visual family,
   independent image-review signoff by exact file hash, and the Railway preview
   URL.
@@ -584,9 +672,10 @@ exact evidence.
 1. **Close the database contract first.** Compare the merged ARJ-35 function,
    schema, privilege, and race contract with this brief. If receipts or
    durable expected-version issue/revoke are absent, add the narrow forward
-   migration, exact overload cleanup/grants, pgTAP suite, and two-session/
-   clock-boundary cases first. Obtain fresh independent database/security
-   signoff before application work consumes it.
+   migration, deterministic populated-state backfill and audit, exact overload
+   cleanup/grants, pgTAP suite, dedicated predecessor-state upgrade harness,
+   and two-session/clock-boundary cases first. Obtain fresh independent
+   database/security signoff before application work consumes it.
 2. **Build the typed server boundary.** Add shared normalized input/result
    types, exact money/date/time-zone validation, the authenticated create and
    invitation Server Actions, safe error mapping, no-store handling, and
