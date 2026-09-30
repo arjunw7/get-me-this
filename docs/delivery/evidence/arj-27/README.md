@@ -1,6 +1,6 @@
 # ARJ-27 evidence: protected owner wishlist (005b)
 
-Status on 2026-10-01: the consolidated responsive source correction at `0cd11a2` passed scoped independent review. Configured CI at the earlier `b50a5b3` passed 233 database assertions and 52 browser cases, but four old-baseline comparisons failed. Final-head configured CI, new Linux captures, exact-hash image approval, baseline adoption, an actual successful Railway deployment, and final review remain open. This is not merge approval. Historical `verify-pass.txt`, OCR, and earlier green CI claims do not prove the amended brief or the recovered tree. The binding 005b brief is committed at `fdd69e91b0ff48fb0f3b53f343379d8dd389cba1`. Implementation PR: [#28](https://github.com/arjunw7/get-me-this/pull/28). Detailed reviews are indexed in [`reviews/`](reviews/); external updates summarize major gates rather than each review round.
+Status on 2026-10-01: the consolidated responsive source correction at `0cd11a2` passed scoped independent review. [Configured CI at `9ed952a`](ci-9ed952a.md) passed verification, 233 database assertions and all 56 functional browser cases. Its four expected visual failures captured the new image set, which then received independent exact-hash approval. Railway deployed that exact revision successfully. The approved baseline adoption, zero-diff final CI and final review remain open. This is not merge approval. Historical `verify-pass.txt`, OCR, and earlier green CI claims do not prove the amended brief or the recovered tree. The binding 005b brief is committed at `fdd69e91b0ff48fb0f3b53f343379d8dd389cba1`. Implementation PR: [#28](https://github.com/arjunw7/get-me-this/pull/28). Detailed reviews are indexed in [`reviews/`](reviews/); external updates summarize major gates rather than each review round.
 
 ## Current implementation and evidence boundary
 
@@ -29,8 +29,8 @@ The Railway GitHub check reported success for `b50a5b3`, but Railway's deploymen
 | 11 Stale session | Dead-cookie recovery and re-sign-in cases passed at b50a5b3; final-head rerun required. |
 | 12 Keyboard and axe | Keyboard/focus/activation and both axe states passed at b50a5b3. Two destination-stream-closed warnings are retained in the CI report, not silently omitted. |
 | 13 Loading/error | Mounted skeleton/status and generic retry unit tests passed; reduced-motion CSS source review and missing-row branch retained. Browser state capture is not claimed. |
-| 14 Empty visuals | Source correction approved; fresh mobile and desktop captures plus full-set exact-hash approval pending. |
-| 15 Filled visuals | Source correction approved; fresh mobile and desktop captures plus full-set exact-hash approval pending. |
+| 14 Empty visuals | Fresh mobile and desktop images approved by exact hash; baseline adoption and zero-diff final CI pending. |
+| 15 Filled visuals | Fresh mobile and desktop images approved by exact hash; baseline adoption and zero-diff final CI pending. |
 | 16 Unknown child | Not-found and zero owner-marker DOM/document/Flight cases passed at both viewports at b50a5b3; final-head rerun required. |
 | 17 No mocks shipped | Covered by the independent source review; final diff inspection still required before merge. |
 | 18 CI wiring | Explicit stack spec list executed 233 database assertions and 56 browser/image cases. Verify passed, but four old-baseline comparisons failed. Green final-head verify and database jobs remain mandatory. |

@@ -22,6 +22,7 @@ Earlier reports and decisions were mirrored on [PR #28](https://github.com/arjun
 | Desktop name repair, first round | [Author report](arj27-desktop-name-fix-report.md) and [independent source review](arj27-desktop-name-code-review.md) | Short-name gap resolved; long wrapped names at 640px exposed a containment defect |
 | Responsive repair review | [Independent R4 review](arj27-r4-code-review.md) | Three-line vertical containment passed; avatar stacking and unbroken-name clipping required correction |
 | Consolidated responsive correction | [Scoped R5/R6 re-review](arj27-r5-r6-rereview.md) | Source and quality approved at 0cd11a2; avatar pixels, 40-character containment, typography and ordinary wrapping verified at 390, 640 and 1440px |
+| Final configured candidates | [CI 9ed952a](../ci-9ed952a.md) and [independent actual-image review](arj27-final-visual-review.md) | All 56 functional browser cases passed; exact four-image set approved as new baselines, with final zero-diff CI still required |
 
 The [approved recovery implementation plan](arj27-recovery-implementation-plan.md) is preserved for audit. Its reviewed SHA-256 is `93d83c2dc56720b4640dce2f9b4d8cdf9312bb64e94d5f77eae20d722944ce03`. It schedules proof; it does not establish that proof passed.
 
@@ -31,7 +32,7 @@ Historical report paths refer to the isolated recovery checkout as it existed at
 
 ## Gate at this checkpoint
 
-The responsive source correction is approved. The complete image set, final-head configured CI, actual reviewed Railway deployment, and final merge review remain open. No staging acceptance is claimed by this checkpoint. Later rounds are retained here; concise external summaries report significant gate outcomes rather than every review.
+The responsive source correction and exact four-image set are approved. The reviewed revision deployed successfully to Railway. Baseline adoption, zero-diff final-head CI, and final merge review remain open. Later rounds are retained here; concise external summaries report significant gate outcomes rather than every review.
 
 ## Implementation handoff
 
