@@ -94,7 +94,7 @@ function ProfileHeaderCard({
           >
             {displayName.charAt(0).toUpperCase()}
           </span>
-          <div className="sm:-mt-9">
+          <div className="sm:-mt-8">
             <h1
               id="wishlist-owner"
               className={`font-display font-extrabold tracking-tight ${typography.profileName}`}
