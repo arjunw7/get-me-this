@@ -194,7 +194,21 @@ test("a committed delete with a lost response stays uncertain and failed owner r
     });
     expect(inserted.error).toBeNull();
     await page.goto(`/wishlist/items/${itemId}/edit`);
-    await page.getByRole("button", { name: "Delete item" }).click();
+    const deleteOpener = page.getByRole("button", { name: "Delete item" });
+    await deleteOpener.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        deleteOpener.evaluate((node) => {
+          const bounds = node.getBoundingClientRect();
+          const hit = document.elementFromPoint(
+            bounds.left + bounds.width / 2,
+            bounds.top + bounds.height / 2,
+          );
+          return bounds.height >= 44 && (hit === node || node.contains(hit));
+        }),
+      )
+      .toBe(true);
+    await deleteOpener.click();
     await wishlistControl.arm(
       caseId,
       "postgrest-delete-response-loss",

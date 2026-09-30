@@ -107,7 +107,21 @@ test("manual create, exact decimal readback, owner edit, and confirmed hard dele
     await page
       .getByRole("link", { name: "Edit Manual e2e fixture lamp" })
       .click();
-    await page.getByRole("button", { name: "Delete item" }).click();
+    const deleteOpener = page.getByRole("button", { name: "Delete item" });
+    await deleteOpener.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        deleteOpener.evaluate((node) => {
+          const bounds = node.getBoundingClientRect();
+          const hit = document.elementFromPoint(
+            bounds.left + bounds.width / 2,
+            bounds.top + bounds.height / 2,
+          );
+          return bounds.height >= 44 && (hit === node || node.contains(hit));
+        }),
+      )
+      .toBe(true);
+    await deleteOpener.click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await page.getByRole("button", { name: "Cancel" }).click();
