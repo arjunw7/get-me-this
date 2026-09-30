@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/src/supabase/server";
 
+import { wishlistTestBarrier } from "./test-barrier";
 import type { OriginalPair, ValidItem, ValidatedEdit } from "./item-input";
 
 const EDIT_ITEM_COLUMNS = [
@@ -139,6 +140,7 @@ export async function saveReviewedItem(
     return { kind: "unavailable" };
   }
   if (existing) return replayOutcome(existing, value as ValidItem);
+  await wishlistTestBarrier("after-live-key-before-insert");
   const parent = await ownerWishlist(client, ownerId);
   if (!parent) return { kind: "unavailable" };
 
@@ -161,6 +163,7 @@ export async function saveReviewedItem(
     currentMax >= MAX_SORT_POSITION
   )
     return { kind: "unavailable" };
+  await wishlistTestBarrier("after-max-before-insert");
 
   const insertPayload = {
     wishlist_id: parent.id,
@@ -191,6 +194,7 @@ export async function saveReviewedItem(
     };
   if ((error as { code?: string } | null)?.code !== "23505")
     return { kind: "unavailable" };
+  await wishlistTestBarrier("after-unique-conflict-before-lookup");
   let afterConflict: (ValidItem & { id: string }) | null;
   try {
     afterConflict = await findSubmission(
@@ -219,6 +223,7 @@ async function saveEdit(
     return { kind: "unavailable" };
   }
   if (!current) return { kind: "unavailable" };
+  await wishlistTestBarrier("after-edit-read-before-update");
   if (
     value.price.kind === "preserve" &&
     !samePair(current, value.price.expected)

@@ -147,6 +147,10 @@ export async function deleteItemAction(
   const outcome = await deleteOwnItem(userId, itemId);
   if (outcome.kind === "deleted") {
     revalidatePath("/wishlist");
+    // The edit route re-reads the owner row after a Server Action. Since a
+    // committed delete makes that row unavailable, redirect in the action so
+    // the edit page cannot unmount the dialog before it observes success.
+    redirect("/wishlist?item=deleted");
     return { status: "deleted" };
   }
   return { status: outcome.kind };

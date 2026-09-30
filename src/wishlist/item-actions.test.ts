@@ -209,6 +209,20 @@ describe("wishlist item actions", () => {
     expect(mocks.reconcile).toHaveBeenCalledWith(userId, itemId);
   });
 
+  it("redirects only after the owner-scoped delete proves one row was removed", async () => {
+    const redirectSignal = new Error("NEXT_REDIRECT:/wishlist?item=deleted");
+    mocks.remove.mockResolvedValueOnce({ kind: "deleted" });
+    mocks.redirect.mockImplementationOnce(() => {
+      throw redirectSignal;
+    });
+    await expect(
+      deleteItemAction(itemId, { status: "idle" }, formData()),
+    ).rejects.toBe(redirectSignal);
+    expect(mocks.remove).toHaveBeenCalledWith(userId, itemId);
+    expect(mocks.revalidate).toHaveBeenCalledWith("/wishlist");
+    expect(mocks.redirect).toHaveBeenCalledWith("/wishlist?item=deleted");
+  });
+
   it("does not query malformed route IDs after the profile gate", async () => {
     expect(
       await deleteItemAction("not-an-id", { status: "idle" }, formData()),

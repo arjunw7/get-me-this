@@ -68,6 +68,33 @@ fi
 
 pnpm build
 
+# Test-only outbound transport controller. It has no Supabase credentials and
+# is reachable only from this runner's loopback network namespace.
+export E2E_WISHLIST_CONTROL_URL="http://127.0.0.1:3199"
+E2E_WISHLIST_CONTROL_TOKEN="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
+export E2E_WISHLIST_CONTROL_TOKEN
+env -i PATH="$PATH" E2E_WISHLIST_CONTROL_TOKEN="$E2E_WISHLIST_CONTROL_TOKEN" \
+  E2E_WISHLIST_CONTROL_PORT=3199 node tests/helpers/wishlist-test-control.mjs \
+  >/tmp/gmt-arj28-control.log 2>&1 &
+WISHLIST_CONTROL_PID=$!
+cleanup_control() {
+  kill "$WISHLIST_CONTROL_PID" 2>/dev/null || true
+  wait "$WISHLIST_CONTROL_PID" 2>/dev/null || true
+}
+trap cleanup_control EXIT
+for attempt in $(seq 1 50); do
+  if grep -q 'wishlist test control ready' /tmp/gmt-arj28-control.log; then break; fi
+  if ! kill -0 "$WISHLIST_CONTROL_PID" 2>/dev/null; then
+    echo "error: local wishlist test controller failed to start" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+if ! grep -q 'wishlist test control ready' /tmp/gmt-arj28-control.log; then
+  echo "error: local wishlist test controller did not become ready" >&2
+  exit 1
+fi
+
 # Gated-spec explicit list (brief 005h): keep in sync with the
 # E2E_LOCAL_SUPABASE skip guards in tests/e2e and tests/visual. 005b adds
 # the wishlist specs: the plain signed-out protection spec (environment-
@@ -78,5 +105,7 @@ pnpm exec playwright test \
   tests/e2e/wishlist.spec.ts \
   tests/e2e/wishlist-local.spec.ts \
   tests/e2e/wishlist-items-local.spec.ts \
+  tests/e2e/wishlist-items-races-local.spec.ts \
   tests/visual/wishlist-empty.visual.spec.ts \
-  tests/visual/wishlist-filled.visual.spec.ts
+  tests/visual/wishlist-filled.visual.spec.ts \
+  tests/visual/wishlist-items.visual.spec.ts

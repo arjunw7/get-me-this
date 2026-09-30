@@ -118,6 +118,18 @@ jobs:
       - name: Build and run the stack-gated e2e suites
         timeout-minutes: 25
         run: bash scripts/e2e-local-stack.sh
+      - name: Collect ARJ-28 responsive candidates and axe evidence
+        if: always()
+        id: collect_arj28
+        run: node scripts/collect-arj28-candidates.mjs test-results/arj28-candidates arj28-candidate-evidence
+      - name: Upload ARJ-28 review candidates
+        if: steps.collect_arj28.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: arj28-responsive-candidates
+          path: arj28-candidate-evidence/
+          if-no-files-found: error
+          retention-days: 3
       # The collector admits only the four wishlist names with actual/diff
       # PNG suffixes from wishlist visual result folders. Error contexts,
       # auth captures, traces, and reports never enter the artifact directory.

@@ -10,26 +10,31 @@
 - Fail-closed read-error correction: `3e8a0dd80738d006e0db8a25501c15bf2585f8d6`.
 - Delete confirmation and reconciliation: `b6f298918b44f3191ee73425f1e4fb6a82f4b44f`.
 - Verified upstream PR #29 merge included on the branch: `7eb9a78`.
+- pgTAP owner-row count correction after adding live-key coverage: `47f1d7925541fad97b434452d96dec56e46468d6`.
 
 ## Executed proof
 
-- `pnpm verify`: passed (format check, lint, typecheck, 57 Vitest files/464 tests, and production build).
+- `pnpm verify`: passed before Task 6A/7 extension (format check, lint, typecheck, 57 Vitest files/464 tests, and production build).
+- Current local `pnpm verify`: passed (format check, lint, typecheck, 59 Vitest files/474 tests, and production build). Lint has one unrelated pre-existing warning in `src/analytics/event-definitions.test.ts`.
+- Focused Task 6A controller, sanitized transport observer, pinned Supabase `AbortError`, candidate collector, and action regressions: 17 tests passed.
 - `pnpm lint`: passed with one pre-existing unused-type warning in `src/analytics/event-definitions.test.ts`.
 - `pnpm exec vitest run tests/helpers/no-provider-env.test.ts`: passed; explicitly empty variables remain empty despite synthetic dotenv values.
 - `bash scripts/e2e-no-provider-actions.sh`: passed production build plus create/edit/delete Server Action submissions on desktop and mobile. All Supabase, service-role, Mailpit, and test-control values were explicitly empty; all actions returned to `/auth` and were non-cacheable.
 - `pnpm test:db`: local Supabase was unavailable (`127.0.0.1:54322` refused the connection). No container was installed or started; CI database proof is pending.
-- `tests/e2e/wishlist-items-local.spec.ts` and its explicit `scripts/e2e-local-stack.sh` entry are committed but not executed locally because the Supabase stack is unavailable.
+- `tests/e2e/wishlist-items-local.spec.ts`, `tests/e2e/wishlist-items-races-local.spec.ts`, and `tests/visual/wishlist-items.visual.spec.ts` are explicitly wired into `scripts/e2e-local-stack.sh`; local execution remains unavailable because no Supabase stack is running.
+- Exact-head CI run `36784414410` passed pgTAP (242 assertions) but its browser suite reported 54 passed and 8 failed across both viewports: stale empty-form copy assertions, keyboard focus targeting the removed interim link, delete-success navigation not completing after the edit row was removed, and the existing filled-wishlist baseline diff from newly approved edit controls/card height. The owner-count pgTAP regression is corrected in `47f1d79`; the other code/test root causes are corrected in the current unpushed extension. No visual baseline was changed.
+- New exact-head CI with Task 6A/7 wired is pending. Matched candidate screenshots and their hash manifest have not yet been captured; independent code/security and visual review are open.
 
 ## Acceptance map and remaining gates
 
 1. Fresh complete-profile gates are exercised in action unit tests; signed-out current-build create/edit/delete requests are covered by the passing no-provider browser proof. Incomplete and expired-session browser cases remain pending the local-stack CI run.
-2. The manual create/edit/delete full-stack spec asserts exact owner/wishlist and price-pair persistence. Cross-user real-action and direct authenticated RLS API attempts remain pending stack coverage; migration pgTAP was not run locally.
+2. The manual create/edit/delete full-stack spec asserts exact owner/wishlist and price-pair persistence. A new spec replays a captured current-build edit action under a second complete profile and verifies no owner row changes. pgTAP covers cross-user RLS; exact-head stack re-execution is pending.
 3. Pure tests cover decimal syntax, bigint maximum and overflow, 0/2/3/4 precisions, Unicode bounds, blank values, desires, safe URL cases, opaque stored codes, and zero remote fetch calls.
-4. Migration pgTAP covers the submission-key schema/grants/RLS. Simultaneous create, key conflict followed by deletion, hard-delete/retry, and multi-session races remain open; a deterministic Task 6A transport controller/observer has not been implemented.
-5. Persistence tests cover pair-conditioned updates, preservation/clearing of all four conversion fields, stale pair retry, and definite/uncertain delete outcomes. Real conversion and lost-response stack interleavings remain pending.
-6. A new item uses the branded placeholder and source URLs are never server-fetched in unit tests. Server transport observation and existing remote-image browser evidence remain pending Task 6A/CI.
-7. Form controls have persistent labels, associated field errors, opaque-price actions, keyboard-operable confirmation with focus restoration, and minimum touch-height classes. Axe runs, matched 390×844 and 1440×1000 screenshot candidates, and independent product/design review are still required. No visual baselines were changed.
-8. Local `pnpm verify` is green. Exact-head CI, preview deployment, and final independent code/security review remain gates. No pull request was opened by this task.
+4. Migration pgTAP covers the submission-key schema/grants/RLS. A deterministic controller now coordinates same-key duplicate, conflict-then-missing, distinct-key position ties, pair-update races, and delete/read transport failures; exact-head local-stack execution is pending.
+5. Persistence tests cover pair-conditioned updates, preservation/clearing of all four conversion fields, stale pair retry, and definite/uncertain delete outcomes. New stack schedules assert that current conversion values survive a raced edit and lost delete responses remain uncertain until owner-read reconciliation.
+6. A new item uses the branded placeholder and source URLs are never server-fetched in unit tests. The local-only transport wrapper records only safe classifications/digests and rejects unobserved control failures. Exact-head observer proof remains pending.
+7. Form controls have persistent labels, associated field errors, opaque-price actions, keyboard-operable confirmation with focus restoration, and minimum touch-height classes. A new two-viewport spec captures the nine approved states and per-state axe/target-size evidence; CI candidate collection, hashes, and independent product/design review remain pending. No visual baselines were changed.
+8. Local `pnpm verify` is green. The no-provider action CI job passed on prior head `88111c6`; exact-head CI on the current extension, Railway preview, and final independent code/security review remain gates. The draft PR is #31.
 
 No staging migration was applied. The migration is forward-only; dropping its index and column during rollback would discard live submission keys and remove duplicate-live-row protection. Prefer a forward correction after deployment. No Magic Patterns mock data or editor artifacts were added; application wishlist writes use the authenticated public-key client, not the service-role client.
 
@@ -74,12 +79,25 @@ Application and tests:
 - `src/wishlist/wishlist-card.test.tsx`
 - `src/wishlist/wishlist-view.tsx`
 - `src/wishlist/wishlist-view.test.tsx`
+- `src/wishlist/test-barrier.ts`
+- `instrumentation.ts`
+- `src/arj28-candidate-collector.test.ts`
 
 Test infrastructure:
 
 - `tests/helpers/no-provider-env.test.ts`
 - `tests/e2e/wishlist-items-no-provider.spec.ts`
 - `tests/e2e/wishlist-items-local.spec.ts`
+- `tests/e2e/wishlist-items-races-local.spec.ts`
+- `tests/visual/wishlist-items.visual.spec.ts`
+- `tests/helpers/wishlist-control-client.ts`
+- `tests/helpers/wishlist-test-control.mjs`
+- `tests/helpers/wishlist-test-control.d.mts`
+- `tests/helpers/wishlist-test-control.test.ts`
+- `tests/helpers/wishlist-test-participant.mjs`
 - `scripts/e2e-no-provider-actions.sh`
 - `scripts/e2e-local-stack.sh`
+- `scripts/collect-arj28-candidates.mjs`
+- `scripts/collect-arj28-candidates.d.mts`
 - `.github/workflows/ci.yml`
+- `package.json`

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { expect, test } from "@playwright/test";
 
 import {
@@ -123,4 +125,108 @@ test("manual create, exact decimal readback, owner edit, and confirmed hard dele
     expect(absent.error).toBeNull();
     expect(absent.data).toEqual([]);
   });
+});
+
+test("a foreign complete profile cannot replay a real owner edit action", async ({
+  browser,
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  const foreignScope = new FixtureScope();
+  const foreignContext = await browser.newContext();
+  const foreignPage = await foreignContext.newPage();
+  let captured:
+    { url: string; headers: Record<string, string>; body: Buffer } | undefined;
+  try {
+    const ownerId = await createSignedInFixture(
+      page,
+      admin,
+      "arj28-owner-action",
+      { displayName: "Ada" },
+      scope,
+    );
+    const wishlistId = await fixtureWishlistId(admin, ownerId);
+    const itemId = randomUUID();
+    const inserted = await admin.from("wishlist_items").insert({
+      id: itemId,
+      wishlist_id: wishlistId,
+      owner_id: ownerId,
+      title: "Owner-only action row",
+      sort_position: 1,
+    });
+    expect(inserted.error).toBeNull();
+    const before = await admin
+      .from("wishlist_items")
+      .select("id,title,note,owner_id,wishlist_id")
+      .eq("id", itemId)
+      .single();
+    expect(before.error).toBeNull();
+
+    await page.goto(`/wishlist/items/${itemId}/edit`);
+    await page.getByLabel("Item name").fill("Forged cross-user update");
+    await page.route("**/*", async (route) => {
+      const request = route.request();
+      if (request.method() === "POST" && request.headers()["next-action"]) {
+        const rawHeaders = request.headers();
+        const allowedHeaders = [
+          "accept",
+          "content-type",
+          "next-action",
+          "next-router-state-tree",
+          "origin",
+          "referer",
+          "rsc",
+        ];
+        const headers = Object.fromEntries(
+          allowedHeaders.flatMap((name) =>
+            rawHeaders[name] ? [[name, rawHeaders[name]]] : [],
+          ),
+        );
+        captured = {
+          url: request.url(),
+          headers,
+          body: request.postDataBuffer() ?? Buffer.alloc(0),
+        };
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect.poll(() => captured?.body.length ?? 0).toBeGreaterThan(0);
+
+    await createSignedInFixture(
+      foreignPage,
+      admin,
+      "arj28-foreign-action",
+      { displayName: "Bea" },
+      foreignScope,
+    );
+    const replay = await foreignContext.request.post(captured!.url, {
+      headers: captured!.headers,
+      data: captured!.body,
+      timeout: 15_000,
+    });
+    expect(replay.status()).toBeGreaterThanOrEqual(200);
+    expect(replay.status()).toBeLessThan(500);
+    const after = await admin
+      .from("wishlist_items")
+      .select("id,title,note,owner_id,wishlist_id")
+      .eq("id", itemId)
+      .single();
+    expect(after.error).toBeNull();
+    expect(after.data).toEqual(before.data);
+
+    await foreignPage.goto(`/wishlist/items/${itemId}/edit`);
+    await expect(
+      foreignPage.getByRole("heading", { name: "This item isn’t available." }),
+    ).toBeVisible();
+    await expect(foreignPage.getByText("Owner-only action row")).toHaveCount(0);
+  } finally {
+    await foreignScope.cleanup();
+    await scope.cleanup();
+    await foreignContext.close();
+  }
 });
