@@ -67,4 +67,22 @@ describe("wishlist item actions", () => {
     expect(result).toMatchObject({ status: "invalid", errors: { priceIntent: "invalid" }, draft: { amount: "999", sourceUrl: "https://bad.invalid/", priceIntent: "tampered" } });
     expect(mocks.save).not.toHaveBeenCalled();
   });
+
+  it("keeps deletion and reconciliation outcomes explicit and owner-scoped", async () => {
+    mocks.remove.mockResolvedValueOnce({ kind: "uncertain" });
+    expect(await deleteItemAction(itemId, { status: "idle" }, formData())).toEqual({ status: "uncertain" });
+    expect(mocks.remove).toHaveBeenCalledWith(userId, itemId);
+    mocks.reconcile.mockResolvedValueOnce({ kind: "present" });
+    expect(await reconcileDeleteAction(itemId, { status: "idle" }, formData())).toEqual({ status: "present" });
+    expect(mocks.reconcile).toHaveBeenCalledWith(userId, itemId);
+  });
+
+  it("does not query malformed route IDs after the profile gate", async () => {
+    expect(await deleteItemAction("not-an-id", { status: "idle" }, formData())).toEqual({ status: "unavailable" });
+    expect(await reconcileDeleteAction("not-an-id", { status: "idle" }, formData())).toEqual({ status: "uncertain" });
+    expect(await editItemAction("not-an-id", { status: "idle" }, formData({ priceIntent: "bad" }))).toMatchObject({ status: "unavailable" });
+    expect(mocks.load).not.toHaveBeenCalled();
+    expect(mocks.remove).not.toHaveBeenCalled();
+    expect(mocks.reconcile).not.toHaveBeenCalled();
+  });
 });

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -52,6 +52,17 @@ describe("ItemForm price intent", () => {
     const submitted = (actions.edit.mock.calls[0] as [string, unknown, FormData])[2];
     expect(submitted.get("priceIntent")).toBe("replace");
     expect(submitted.get("amount")).toBe("2.50");
+  });
+
+  it("submits an explicit clear for an opaque stored price", async () => {
+    const user = userEvent.setup();
+    render(<ItemForm mode="edit" itemId={itemId} item={fixture({ original_amount_minor: "9007199254740993", original_currency: "ZZZ" })} initialDraft={{ title: "Lamp", sourceUrl: "", retailer: "", amount: "", currency: "INR", note: "", desireLevel: "would_love", priceIntent: "preserve" }} />);
+    await user.click(screen.getByRole("button", { name: "Clear price" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(actions.edit).toHaveBeenCalledTimes(1));
+    const submitted = (actions.edit.mock.calls[0] as [string, unknown, FormData])[2];
+    expect(submitted.get("priceIntent")).toBe("clear");
+    expect(submitted.get("amount")).toBe("");
   });
 
   it("retains a rejected replacement amount and intent", async () => {

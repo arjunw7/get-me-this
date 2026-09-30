@@ -72,8 +72,10 @@ export async function editItemAction(itemId: string, _previous: ItemActionState,
   return { status: outcome.kind === "retry" ? "retry" : "unavailable", draft };
 }
 
-export async function deleteItemAction(itemId: string, _previous: DeleteActionState, _data: FormData): Promise<DeleteActionState> {
+export async function deleteItemAction(itemId: string, previous: DeleteActionState, data: FormData): Promise<DeleteActionState> {
   const { userId } = await requireCompleteProfile();
+  void previous;
+  void data;
   if (!validUuid(itemId)) return { status: "unavailable" };
   const outcome = await deleteOwnItem(userId, itemId);
   if (outcome.kind === "deleted") {
@@ -83,8 +85,10 @@ export async function deleteItemAction(itemId: string, _previous: DeleteActionSt
   return { status: outcome.kind };
 }
 
-export async function reconcileDeleteAction(itemId: string, _previous: ReconcileActionState, _data: FormData): Promise<ReconcileActionState> {
+export async function reconcileDeleteAction(itemId: string, previous: ReconcileActionState, data: FormData): Promise<ReconcileActionState> {
   const { userId } = await requireCompleteProfile();
+  void previous;
+  void data;
   if (!validUuid(itemId)) return { status: "uncertain" };
   const outcome = await reconcileOwnItem(userId, itemId);
   return { status: outcome.kind };

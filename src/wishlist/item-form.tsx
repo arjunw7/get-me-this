@@ -9,6 +9,8 @@ import {
   type ItemActionState,
 } from "./item-actions";
 import { createDraftDefaults } from "./item-drafts";
+import { DeleteDialog } from "./delete-dialog";
+import { DeleteErrorBoundary } from "./delete-error-boundary";
 import type { CreateDraft, EditDraft } from "./item-input";
 import { SUPPORTED_CURRENCY_CODES } from "./currency-metadata";
 import type { EditItem } from "./item-write";
@@ -75,6 +77,7 @@ function ItemFormFields({ mode, item, initialDraft, formAction, pending, state }
       state.status === "submission-conflict" ? "This entry couldn’t be confirmed. Start over and try again." : null;
 
   return (
+    <>
     <form action={formAction} className="mx-auto w-full max-w-2xl space-y-6 pb-28 sm:pb-12">
       <div>
         <h1 className="font-display text-display-sm font-extrabold tracking-tight">{mode === "create" ? "Add an item" : "Edit item"}</h1>
@@ -131,5 +134,7 @@ function ItemFormFields({ mode, item, initialDraft, formAction, pending, state }
       </div>
       {mode === "create" ? <button type="button" onClick={startOver} className="min-h-touch-min font-bold underline underline-offset-4">Start over</button> : null}
     </form>
+    {mode === "edit" && item ? <DeleteErrorBoundary itemId={item.id}><DeleteDialog itemId={item.id} title={item.title} /></DeleteErrorBoundary> : null}
+    </>
   );
 }
