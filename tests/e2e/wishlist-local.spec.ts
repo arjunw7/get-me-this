@@ -281,7 +281,7 @@ test("the populated view renders every snapshot field in the pinned read order, 
     await expect(
       third.getByText("Just an idea for now, no link yet."),
     ).toBeVisible();
-    await expect(third.getByText("Just an idea")).toBeVisible();
+    await expect(third.getByText("Just an idea", { exact: true })).toBeVisible();
 
     // The unreachable image degrades to the branded placeholder — never a
     // broken-image icon or blank gap.
@@ -399,6 +399,9 @@ test("a second user's wishlist reveals nothing about the first user's rows", asy
 test("a stale session cookie recovers to the auth flow with no leak, and re-signing in restores the wishlist", async ({
   page,
 }) => {
+  // Two full sign-in UI flows plus seeding on a cold CI box: the default
+  // 30s test timeout is too tight here.
+  test.setTimeout(120_000);
   const { admin, userId } = await signedInFixture(page);
   try {
     await seedWishlistItems(admin, userId, populatedFixtures());

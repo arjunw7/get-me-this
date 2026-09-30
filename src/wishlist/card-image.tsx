@@ -37,11 +37,17 @@ export function CardImage({ src, title }: { src: string; title: string }) {
  * display type on the cream field, at the V18 placeholder scale. Rendered
  * for items with no image URL, snapshot-path-only items, and images that
  * fail at runtime.
+ *
+ * The art is a faint, decorative echo of the title that is already
+ * announced by the card's heading, so it is hidden from the accessibility
+ * tree (its 25%-tone contrast is a deliberate V18 visual choice that would
+ * otherwise fail WCAG contrast rules for content).
  */
 export function PlaceholderArt({ title }: { title: string }) {
   return (
     <span
       data-testid="wishlist-image-placeholder"
+      aria-hidden="true"
       className="flex h-full w-full items-center justify-center p-6 text-center font-display text-2xl font-extrabold text-content-primary/25"
     >
       {title}
