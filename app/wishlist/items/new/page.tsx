@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: "Get Me This | Add an item",
   description: "Add the first thing to your wishlist.",
 };
+export const dynamic = "force-dynamic";
 
 /**
  * Protected, manual wishlist entry. No extraction or third-party URL fetch
@@ -25,7 +26,10 @@ export default async function NewWishlistItemPage() {
       <AnalyticsIdentity userId={userId} />
       <WishlistShellHeader email={email} displayName={displayName} />
       <main className="mx-auto w-full max-w-[var(--spacing-content-max)] px-5 pt-10 pb-16 sm:px-8">
-        <ItemForm mode="create" initialDraft={createDraftDefaults(crypto.randomUUID())} />
+        <ItemForm
+          mode="create"
+          initialDraft={createDraftDefaults(crypto.randomUUID())}
+        />
       </main>
     </div>
   );

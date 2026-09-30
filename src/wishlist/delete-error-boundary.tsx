@@ -1,7 +1,7 @@
 "use client";
 
 import { Component, type ReactNode } from "react";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { unstable_rethrow } from "next/navigation";
 
 type Props = { itemId: string; children: ReactNode };
 type State = { failed: boolean };
@@ -9,8 +9,8 @@ type State = { failed: boolean };
 export class DeleteErrorBoundary extends Component<Props, State> {
   state: State = { failed: false };
 
-  static getDerivedStateFromError(error: unknown): State | null {
-    if (isRedirectError(error)) throw error;
+  static getDerivedStateFromError(error: unknown): State {
+    unstable_rethrow(error);
     return { failed: true };
   }
 
@@ -20,9 +20,22 @@ export class DeleteErrorBoundary extends Component<Props, State> {
 
   render() {
     if (!this.state.failed) return this.props.children;
-    return <section role="alert" className="mt-6 rounded-surface border-2 border-outline-strong bg-surface-raised p-4">
-      <p>We couldn’t confirm the delete request. Check the item from a fresh page load.</p>
-      <a className="mt-3 inline-flex min-h-touch-min items-center font-bold underline" href={`/wishlist/items/${this.props.itemId}/edit`}>Check item status</a>
-    </section>;
+    return (
+      <section
+        role="alert"
+        className="mt-6 rounded-surface border-2 border-outline-strong bg-surface-raised p-4"
+      >
+        <p>
+          We couldn’t confirm the delete request. Check the item from a fresh
+          page load.
+        </p>
+        <a
+          className="mt-3 inline-flex min-h-touch-min items-center font-bold underline"
+          href={`/wishlist/items/${this.props.itemId}/edit`}
+        >
+          Check item status
+        </a>
+      </section>
+    );
   }
 }

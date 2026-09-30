@@ -239,7 +239,12 @@ describe("proxy responses", () => {
     it(
       "covers Server Actions on protected pages (they POST to the page's own URL)",
       withLocalConfig(async () => {
-        for (const pathname of ["/home", "/wishlist", "/wishlist/items/new", "/wishlist/items/00000000-0000-4000-8000-000000000001/edit"]) {
+        for (const pathname of [
+          "/home",
+          "/wishlist",
+          "/wishlist/items/new",
+          "/wishlist/items/00000000-0000-4000-8000-000000000001/edit",
+        ]) {
           const response = await proxy(
             requestFor(pathname, {
               method: "POST",

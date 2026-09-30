@@ -68,7 +68,8 @@ export function formatMoneyMinor(
 ): string {
   assertExactMinorAmount(amountMinor);
   const digits = currencyMinorDigits(currency);
-  if (digits === null) throw new Error("currency has no supported numeric minor-unit precision");
+  if (digits === null)
+    throw new Error("currency has no supported numeric minor-unit precision");
   const padded = amountMinor.padStart(digits + 1, "0");
   const major =
     digits === 0

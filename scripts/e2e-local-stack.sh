@@ -77,5 +77,6 @@ pnpm exec playwright test \
   tests/e2e/auth-otp.spec.ts \
   tests/e2e/wishlist.spec.ts \
   tests/e2e/wishlist-local.spec.ts \
+  tests/e2e/wishlist-items-local.spec.ts \
   tests/visual/wishlist-empty.visual.spec.ts \
   tests/visual/wishlist-filled.visual.spec.ts

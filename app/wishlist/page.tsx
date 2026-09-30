@@ -23,10 +23,17 @@ export const metadata: Metadata = {
  * violation and renders the designed error state — never a fake empty
  * state and never raw error detail.
  */
-export default async function WishlistPage({ searchParams }: { searchParams: Promise<{ item?: string }> }) {
+export default async function WishlistPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ item?: string }>;
+}) {
   const { userId, email, profile } = await requireCompleteProfile();
   const { item: marker } = await searchParams;
-  const notice = marker === "added" || marker === "updated" || marker === "deleted" ? marker : null;
+  const notice =
+    marker === "added" || marker === "updated" || marker === "deleted"
+      ? marker
+      : null;
   const wishlist = await getOwnWishlist(userId);
   // requireCompleteProfile guarantees a non-blank display name.
   const displayName = profile.displayName as string;

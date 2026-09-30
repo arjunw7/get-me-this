@@ -2,7 +2,11 @@ import Link from "next/link";
 
 import { CardImage, PlaceholderArt } from "./card-image";
 import type { WishlistItemSnapshot } from "./display";
-import { DESIRE_LEVELS, currencyMinorDigits, formatMoneyMinor } from "./display";
+import {
+  DESIRE_LEVELS,
+  currencyMinorDigits,
+  formatMoneyMinor,
+} from "./display";
 import { Tape } from "./tape";
 import typography from "./wishlist-typography.module.css";
 
@@ -121,7 +125,10 @@ export function WishlistCard({
                 <span className="font-bold tabular-nums text-content-primary">
                   {currencyMinorDigits(item.originalCurrency) === null
                     ? `${item.originalAmountMinor} ${item.originalCurrency} — price display unavailable`
-                    : formatMoneyMinor(item.originalAmountMinor, item.originalCurrency)}
+                    : formatMoneyMinor(
+                        item.originalAmountMinor,
+                        item.originalCurrency,
+                      )}
                 </span>
               ) : null}
             </p>
@@ -133,7 +140,11 @@ export function WishlistCard({
           ) : null}
         </div>
         <div className="px-4 pb-4">
-          <Link href={`/wishlist/items/${item.id}/edit`} className="inline-flex min-h-touch-min items-center font-bold underline decoration-2 underline-offset-4 hover:text-action-primary-strong" aria-label={`Edit ${item.title}`}>
+          <Link
+            href={`/wishlist/items/${item.id}/edit`}
+            className="inline-flex min-h-touch-min items-center font-bold underline decoration-2 underline-offset-4 hover:text-action-primary-strong"
+            aria-label={`Edit ${item.title}`}
+          >
             Edit item
           </Link>
         </div>

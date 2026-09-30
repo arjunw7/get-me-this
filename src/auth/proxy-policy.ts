@@ -77,8 +77,10 @@ const PROTECTED_ROUTE_PATHS: readonly string[] = [
 ];
 
 export function isProtectedRoutePath(pathname: string): boolean {
-  return PROTECTED_ROUTE_PATHS.includes(pathname) ||
-    /^\/wishlist\/items\/[^/]+\/edit$/.test(pathname);
+  return (
+    PROTECTED_ROUTE_PATHS.includes(pathname) ||
+    /^\/wishlist\/items\/[^/]+\/edit$/.test(pathname)
+  );
 }
 
 export const NO_STORE = "no-store";
