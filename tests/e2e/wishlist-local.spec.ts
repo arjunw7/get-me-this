@@ -455,6 +455,9 @@ test("a valid unbroken 40-character owner name fits at mobile, breakpoint, and d
 test("the populated view renders every snapshot field in the pinned read order, with the branded placeholder and runtime fallback", async ({
   page,
 }) => {
+  await page.route(UNREACHABLE_IMAGE, async (route) => {
+    await route.abort("failed");
+  });
   const { admin, userId, scope } = await signedInFixture(page);
   await scope.run(async () => {
     await seedWishlistItems(admin, userId, populatedFixtures());
@@ -527,6 +530,10 @@ test("the populated view renders every snapshot field in the pinned read order, 
       "https://example.invalid/products/film",
     );
     await expect(source).toHaveAttribute("rel", "noreferrer");
+    // The image is lazy-loaded, so explicitly bring the final card into the
+    // load zone. The route above makes the runtime failure deterministic
+    // instead of depending on an unused localhost port and viewport timing.
+    await fourth.scrollIntoViewIfNeeded();
     await expect(
       fourth.getByTestId("wishlist-image-placeholder"),
     ).toBeVisible();
