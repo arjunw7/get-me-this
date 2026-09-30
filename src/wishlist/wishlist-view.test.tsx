@@ -123,6 +123,7 @@ describe("WishlistView state selection", () => {
     render(<WishlistView {...viewProps(wishlist)} />);
 
     expect(screen.getByText("2 things")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Add an item" })).toHaveAttribute("href", "/wishlist/items/new");
     const cards = screen.getAllByRole("article");
     expect(cards).toHaveLength(2);
     // Pinned read order (sort_position ASC, id ASC — preserved by data.ts).
@@ -133,6 +134,14 @@ describe("WishlistView state selection", () => {
       "Ceramic pour-over coffee set",
       "The Overstory paperback",
     ]);
+  });
+
+  it("renders only closed success-marker copy", () => {
+    const wishlist: OwnWishlist = { wishlistId: "w-1", items: [] };
+    const { rerender } = render(<WishlistView {...viewProps(wishlist)} notice="added" />);
+    expect(screen.getByRole("status")).toHaveTextContent("Item added to your wishlist.");
+    rerender(<WishlistView {...viewProps(wishlist)} notice={null} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("renders the designed error state for the missing-wishlist invariant violation, never the empty state", () => {

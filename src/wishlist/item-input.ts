@@ -39,7 +39,7 @@ export type ValidatedEdit = {
 export type Validation<T> =
   | { ok: true; value: T }
   | { ok: false; errors: Partial<Record<keyof ItemFields | "submissionId" | "priceIntent", string>>; rawDraft: ItemFields & Record<string, string> };
-export type CreateValidation = Validation<ValidItem & { submission_id: string }>;
+export type CreateValidation = Validation<ValidItem>;
 export type EditValidation = Validation<ValidatedEdit>;
 
 const MAX_BIGINT = BigInt("9223372036854775807");
@@ -144,7 +144,7 @@ export function validateCreateDraft(draft: CreateDraft): CreateValidation {
     else originalCurrency = draft.currency.trim().toUpperCase();
   }
   if (Object.keys(errors).length) return failed(draft, errors);
-  return { ok: true, value: { ...fields, desire_level: draft.desireLevel as ValidItem["desire_level"], original_amount_minor: originalAmount, original_currency: originalCurrency, submission_id: draft.submissionId } };
+  return { ok: true, value: { ...fields, desire_level: draft.desireLevel as ValidItem["desire_level"], original_amount_minor: originalAmount, original_currency: originalCurrency } };
 }
 
 export function prefillOriginal(pair: OriginalPair):
@@ -165,7 +165,7 @@ export function validateEditDraft(draft: EditDraft, current: OriginalPair): Edit
   let price: ValidatedEdit["price"] | null = null;
   if (draft.priceIntent === "preserve") {
     if (current.original_amount_minor === null || current.original_currency === null || currencyMinorDigits(current.original_currency) !== null) errors.priceIntent = "Invalid price action.";
-    else price = { kind: "preserve", expected: { ...current, original_amount_minor: current.original_amount_minor, original_currency: current.original_currency } };
+    else price = { kind: "preserve", expected: { original_amount_minor: current.original_amount_minor, original_currency: current.original_currency } };
   } else if (draft.priceIntent === "clear") {
     if (draft.amount.trim()) errors.amount = "Clear the amount before removing the price.";
     else price = { kind: "clear" };

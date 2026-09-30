@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { formatItemCount } from "./display";
 import type { OwnWishlist } from "./data";
 import { WishlistCardGrid, WishlistEmpty } from "./wishlist-card";
@@ -20,10 +22,12 @@ export function WishlistView({
   displayName,
   tasteLine,
   wishlist,
+  notice = null,
 }: {
   displayName: string;
   tasteLine: string | null;
   wishlist: OwnWishlist | null;
+  notice?: "added" | "updated" | "deleted" | null;
 }) {
   if (wishlist === null) {
     return <WishlistError />;
@@ -35,11 +39,17 @@ export function WishlistView({
         tasteLine={tasteLine}
         itemCount={wishlist.items.length}
       />
+      {notice ? <p role="status" className="mt-5 rounded-surface border-2 border-outline-strong bg-accent-fresh-soft px-4 py-3 font-bold">{notice === "added" ? "Item added to your wishlist." : notice === "updated" ? "Item changes saved." : "Item removed from your wishlist."}</p> : null}
       <div className="mt-8">
         {wishlist.items.length === 0 ? (
           <WishlistEmpty />
         ) : (
-          <WishlistCardGrid items={wishlist.items} />
+          <>
+            <div className="mb-6 flex justify-end">
+              <Link href="/wishlist/items/new" className="inline-flex min-h-touch-min items-center rounded-surface border-2 border-outline-strong bg-action-primary px-5 font-bold text-content-primary shadow-chunk-sm">Add an item</Link>
+            </div>
+            <WishlistCardGrid items={wishlist.items} />
+          </>
         )}
       </div>
     </div>

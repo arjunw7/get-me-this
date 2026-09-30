@@ -132,6 +132,11 @@ export function WishlistCard({
             </p>
           ) : null}
         </div>
+        <div className="px-4 pb-4">
+          <Link href={`/wishlist/items/${item.id}/edit`} className="inline-flex min-h-touch-min items-center font-bold underline decoration-2 underline-offset-4 hover:text-action-primary-strong" aria-label={`Edit ${item.title}`}>
+            Edit item
+          </Link>
+        </div>
       </article>
     </div>
   );
