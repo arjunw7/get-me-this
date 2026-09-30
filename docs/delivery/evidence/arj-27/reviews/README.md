@@ -12,12 +12,14 @@ Full reports and the decision journal are also recorded on [PR #28](https://gith
 | Spec follow-up | [Spec re-review](arj27-spec-rereview.md) | Changes requested: propagate resolution 8 to required proof |
 | Spec and plan | [Plan review](arj27-plan-review.md) | Spec approved; explicit provider-disabled browser proof missing |
 | Plan follow-up | [Plan re-review](arj27-plan-rereview.md) | Plan approved; provider-disabled proof scheduled |
+| Money transport addendum | [Independent addendum review](money-addendum-review.md) | Plan approved; exact full-bigint transport and formatting required |
 
 The [approved recovery implementation plan](arj27-recovery-implementation-plan.md) is preserved for audit. Its reviewed SHA-256 is `93d83c2dc56720b4640dce2f9b4d8cdf9312bb64e94d5f77eae20d722944ce03`. It schedules proof; it does not establish that proof passed.
+
+The [money precision addendum](money-addendum.md), SHA-256 `68e3cd23f9a5f8877e45c34f320ff05dc84c30bceb85127fb29610eb1aa3f2c3`, supersedes Task 2's numeric amount interface and divide/toFixed instruction. A reproduced precision defect requires a read-time text cast and exact formatting, without changing schema or permissions. Its full approval and controller decision are [recorded on GitHub](https://github.com/arjunw7/get-me-this/pull/28#issuecomment-5916873593) and mirrored on ARJ-27, Linear comment `76b60ba6-23ed-422f-8cf5-242592f890ee`. Approval covers the plan, not its implementation or CI results.
 
 Historical report paths refer to the isolated recovery checkout as it existed at review time. That checkout was subsequently relocated into the project with the original working diff unchanged. Reviewer text is preserved apart from punctuation normalization requested by the owner. The external journal records original source-report hashes.
 
 ## Gate at this checkpoint
 
 The recovered code and images are not approved. Corrections are in progress. No final green CI or staging acceptance is claimed by this checkpoint. Later rounds must be added here and to both external logs before merge or task closure.
-
