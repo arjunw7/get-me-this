@@ -39,9 +39,11 @@ dependencies.
 
 The issue introduces no new launch target. It supplies the existing
 `invite_accepted` funnel signal and contributes to the Phase 5 exit proof that
-four seeded users can join a private group while a fifth user is denied. Event
-delivery is measured under the privacy limits in this brief and never
-substitutes for database membership evidence.
+four seeded users can join a private group while a fifth user, still an
+outsider, is denied its private data. It does not deny a valid unlimited
+generic invitation to that fifth user. Event delivery is measured under the
+privacy limits in this brief and never substitutes for database membership
+evidence.
 
 ## Dependency contract
 
@@ -165,9 +167,9 @@ substitutes for database membership evidence.
   invitation reference, browser-secret SHA-256 digest, optional requested
   email binding digest, optional verified user ID, whether the flow began with
   a valid authenticated session, monotonically increasing revision, expiry,
-  accepted timestamp, and managed timestamps. It stores no raw token, token
-  hash duplicate, browser secret, plaintext email, group content, or auth
-  credential.
+  accepted timestamp, invalidated timestamp, and managed timestamps. It stores
+  no raw token, token hash duplicate, browser secret, plaintext email, group
+  content, or auth credential.
 - The requested-email binding is
   `HMAC-SHA256(lower(trim(email)), browser_secret)` using the high-entropy
   browser secret as the key. The same normalization is applied to the
@@ -202,6 +204,13 @@ substitutes for database membership evidence.
   the verified user ID once. The same user may replay safely. Another user,
   another email, a null session, an expired flow, or a changed browser secret
   gets the same account-mismatch/restart result and cannot alter the binding.
+- Verification is also the idempotent reconciliation primitive. After the
+  provider has created a valid session, it may be called again using only that
+  session, flow ID, and browser secret. It never replays `verifyOtp`, consumes
+  another code or link, creates membership, changes the requested email, or
+  changes a different verified-user binding. This closes the gap where the
+  provider succeeded but the database bind failed, timed out, or committed
+  without its response reaching the browser.
 - A small authenticated continuation-state projection returns only
   `verified` or `accepted`, plus group ID only after that same verified user has
   joined. It never returns email, invitation ID, target, generation, browser
@@ -221,10 +230,13 @@ required capabilities are:
 2. Read the seven-field preview through a valid flow and browser secret,
    callable by `anon` and `authenticated`.
 3. Bind the requested email once, callable by `anon` and `authenticated`.
-4. Bind the provider-verified user, callable only by `authenticated`.
+4. Bind or idempotently reconcile the provider-verified user from the current
+   session, callable only by `authenticated`.
 5. Read the minimal verified/accepted continuation state, callable only by
    `authenticated`.
 6. Accept through the continuation, callable only by `authenticated`.
+7. Atomically invalidate a bounded list of browser-proven continuations for
+   confirmed local logout, callable only by `authenticated`.
 
 No function accepts an actor ID, arbitrary invitation ID, group ID,
 membership generation, profile-complete flag, audit metadata, or caller-chosen
@@ -249,10 +261,16 @@ function exists.
   binding succeeds. No existing `gmt-auth-carry` value is read, overwritten,
   or used as fallback.
 - OTP verification reads the requested email only from the matching sealed
-  flow cookie, verifies the six-digit code with Supabase, then calls the
-  authenticated verified-user binding. A code submitted under another flow or
-  email cannot select this continuation. Provider errors use the existing
-  non-enumerating recovery classes.
+  flow cookie. Before calling `verifyOtp`, the action reads the current
+  provider-validated session. With no session, it verifies the six-digit code
+  and then calls the session-derived reconciliation primitive. With a session
+  whose provider user and normalized email match the continuation binding, it
+  skips `verifyOtp` and reconciles idempotently from that session. With any
+  other existing session, it does not call the provider or alter that session;
+  it shows account-mismatch recovery and requires confirmed local logout and a
+  fresh invitation-auth attempt. A code submitted under another flow or email
+  cannot select this continuation. Provider errors use the existing
+  non-enumerating recovery classes and leave any pre-existing session intact.
 
 ### Magic link
 
@@ -274,10 +292,38 @@ function exists.
   malformed query, or link opened in another browser reaches the same clean
   recovery and creates no session.
 - The clean magic-link screen requires the user's explicit **Use my sign-in
-  link** action. The action removes the parked auth token on every completed
-  attempt, verifies it with Supabase, and binds the resulting authenticated
-  user to that exact continuation. Prefetch, GET, back navigation, and email
-  scanners never verify, join, or consume an invitation use.
+  link** action. Before calling `verifyOtp`, it applies the same existing-session
+  rule as OTP: a matching provider-validated session reconciles without
+  re-verification; a mismatched session is preserved and the parked credential
+  is not consumed; only an absent session allows provider verification. After
+  any provider verification attempt, the action removes the parked auth token;
+  on success it reconciles the resulting session to that exact continuation.
+  Provider denial or failure preserves any session that existed when the
+  action began. Prefetch, GET, back navigation, and email scanners never
+  verify, join, or consume an invitation use.
+
+### Session reconciliation and account restart
+
+- Provider authentication and continuation binding are two separate commits.
+  A successful provider verification is never rolled back by a later database
+  error. If binding fails, times out, or its response is lost, the verify or
+  magic-link route detects the now-valid session and shows **Continue this
+  invitation**. That POST calls only the idempotent session-derived
+  reconciliation primitive. It does not call the provider again and does not
+  accept the invitation.
+- If reconciliation had already committed, repeating it returns the same
+  verified state. If it had not committed, the matching session completes the
+  binding once. A changed user, changed normalized email, missing browser
+  secret, expired or invalidated flow, or another flow returns the same restart
+  result and changes neither the continuation nor membership.
+- A pre-existing mismatched session is never silently replaced. The recovery
+  action **Log out and restart sign-in** requires confirmation, signs out the
+  current Supabase session with local scope, removes only parked provider
+  material for that invitation attempt, retains the browser-bound unverified
+  continuation and requested-email binding, and returns to
+  `/auth/invite/[flowId]` for a fresh send. If local sign-out fails, the
+  existing session and continuation remain unchanged and the UI does not claim
+  restart success.
 
 ### Post-auth and onboarding
 
@@ -285,6 +331,12 @@ function exists.
   incomplete profile goes to `/onboarding/invite/[flowId]`. This is an
   invitation-specific exception to 004e's default-home onboarding decision;
   generic onboarding remains unchanged.
+- A user who was already signed in when the raw invitation opened is bound by
+  the continuation-begin transaction. If that profile is incomplete, the
+  first **Join the group** action routes directly to invitation onboarding. It
+  does not show email auth, invoke acceptance, or discard the existing user
+  binding. After onboarding, the clean preview returns and requires a second
+  explicit **Join the group** action.
 - Invitation onboarding repeats the current authenticated-session and
   continuation-user checks on every render and submit. It reuses the approved
   onboarding validation and profile write, then returns to the clean
@@ -297,12 +349,16 @@ function exists.
 
 ## Explicit acceptance
 
-- The Join Server Action reads only flow ID from its route and the matching
-  sealed browser cookie. It revalidates the Supabase user and completed
-  profile, then calls the continuation-bound database acceptance function
-  using the authenticated user's session. It never uses a service-role client
-  or accepts an actor, invitation, target, group, generation, or completion
-  flag from the browser.
+- The dedicated same-origin Join POST handler reads only flow ID from its route
+  and the matching sealed browser cookie. It uses a request-only authenticated
+  Supabase client that may validate the current access token but may not
+  refresh, set, clear, or reseal any session or invitation cookie. An expired
+  session returns safe reauthentication instead of a Set-Cookie response. The
+  handler revalidates the user and completed profile, then calls the
+  continuation-bound database acceptance function using that user's session.
+  It never uses a service-role client or accepts an actor, invitation, target,
+  group, generation, or completion flag from the browser. It rejects missing
+  or foreign Origin and Fetch Metadata before any database call.
 - Inside one transaction, acceptance follows the ARJ-35 group-first lock order,
   rechecks continuation expiry/browser/email/user binding, rechecks profile
   completion from `profiles`, rechecks the current invitation after locks, and
@@ -311,11 +367,17 @@ function exists.
   acceptance audit event, and marks the continuation accepted. All effects
   commit or roll back together.
 - Same-user replay in the still-joined accepted generation returns the same
-  safe success without another use, count, generation change, or audit event.
-  A joined user who did not use this invitation receives the 006a
-  `already_joined` result with no write. Leave or removal prevents the
-  continuation from restoring membership. Only a matching new targeted
-  invitation may reinstate a removed user under 006a.
+  safe success without another membership, invitation use, count, membership
+  generation change, or audit event. Repeating acceptance through the same
+  already-accepted continuation is fully write-free. When the same user opens
+  the same token as a second independent continuation and explicitly joins,
+  the transaction recognizes the existing 006a use and may mark only that
+  second continuation accepted. This continuation-only reconciliation emits
+  no acceptance audit or analytics event. A joined user who did not use this
+  invitation receives the 006a `already_joined` result with no continuation or
+  invitation write. Leave or removal prevents any continuation from restoring
+  membership. Only a matching new targeted invitation may reinstate a removed
+  user under 006a.
 - Revoked, expired, exhausted, malformed, unknown, wrong-target, stale-target,
   missing-cookie, expired-continuation, incomplete-profile, switched-account,
   and outsider cases create no partial membership, use, count, continuation,
@@ -324,6 +386,13 @@ function exists.
   the accepted continuation state and 006a replay. Reload or a repeated
   explicit Join shows success without another write. An uncommitted failure
   remains retryable.
+- The same guarantee applies to a second independent flow. If its
+  continuation-only reconciliation commits and the response is lost, reload
+  reads that flow's accepted state and shows success. If it rolls back, a new
+  explicit Join repeats the 006a replay check and marks only that continuation.
+  Tests must not infer success merely from group membership, because an
+  already-joined user with no use of this token is a different write-free
+  outcome.
 - Only the transaction winner returns `accepted_now = true`. The server makes
   one best-effort `invite_accepted` analytics attempt for that result, using
   only `was_authenticated` from the continuation's start state plus internal
@@ -331,6 +400,36 @@ function exists.
   roll back or misreport membership. A response lost after commit may produce
   no external analytics attempt; this slice does not claim exactly-once
   PostHog delivery without the Phase 8 delivery/outbox work.
+
+### Acceptance versus logout
+
+- Confirmed account-menu logout first collects every valid dynamic invitation
+  cookie in the browser and calls one bounded database invalidation function
+  with the matching flow IDs and browser secrets. The function sorts and locks
+  continuation rows in a deterministic order, verifies every supplied secret,
+  and marks all matching unaccepted flows invalidated in one transaction. It
+  never locks a group or invitation after taking a continuation lock. If this
+  database step fails, logout does not clear the session or claim success; the
+  user can retry.
+- Acceptance preserves the ARJ-35 order by resolving its group without a row
+  lock, locking the group and invitation first, and then locking its
+  continuation before any membership write. Logout locks only continuation
+  rows and never later requests a group or invitation lock, so the shared
+  continuation lock is the linearization point without introducing a lock
+  cycle.
+- If acceptance locks the continuation first, it may commit membership and
+  accepted state; logout then invalidates no accepted history, signs out
+  locally, and clears browser material. Membership correctly remains after
+  logout. If logout locks and invalidates first, a waiting acceptance observes
+  invalidation and commits no membership/use/audit/continuation acceptance.
+- Only after database invalidation commits does logout call Supabase local
+  sign-out and clear every invitation envelope and parked auth credential in
+  its response. The proxy and Join handler are configured so a Join response
+  contains no `Set-Cookie`, including a session refresh. A late Join response
+  or redirect therefore cannot resurrect cookies cleared by logout and must
+  pass a fresh server-side session, flow-cookie, and continuation-state check
+  before joined content can render. Browser response reordering cannot restore
+  cleared state or show a signed-out user a stale success screen.
 
 ## User-visible states and copy boundary
 
@@ -361,8 +460,10 @@ function exists.
   or reopen the original invitation link. It does not transfer the flow to the
   new browser.
 - Account mismatch explains that the invitation flow was verified for a
-  different account. It offers confirmed logout and reopen, never a silent
-  account switch or automatic rebinding.
+  different account. Before verification it offers confirmed local logout and
+  a fresh send for the same browser-bound invitation; after a continuation is
+  already verified to another user it requires logout and reopening the raw
+  invitation. It never silently switches accounts or rebinds a verified flow.
 
 ### Joined confirmation
 
@@ -403,56 +504,77 @@ with exact evidence.
    No plaintext email persists outside the sealed cookie or appears in
    evidence.
 5. **OTP completion.** A valid code verifies the cookie-bound email and binds
-   only the provider-derived user. Invalid, expired, excessive-attempt,
-   unavailable-provider, cross-flow, cross-email, and switched-session cases
-   create no membership and have accessible recovery.
+   only the provider-derived user. A matching existing session reconciles
+   without re-verifying; a mismatched existing session is preserved and blocks
+   the provider call until confirmed local logout/restart. Invalid, expired,
+   excessive-attempt, unavailable-provider, cross-flow, cross-email, and
+   switched-session cases create no membership and have accessible recovery.
 6. **Magic-link completion.** The trusted dynamic redirect is flow-specific.
    The initial auth-token URL cleans before content or analytics, GET never
-   verifies, an explicit action verifies once, and another browser or flow
-   cannot adopt the link. Generic magic-link behavior does not regress.
-7. **Onboarding return.** An incomplete verified user completes the existing
-   onboarding rules and returns to the same live preview. A complete user does
-   not repeat onboarding. Neither path accepts automatically.
-8. **Explicit atomic acceptance.** Only POST from the visible Join action can
-   invoke continuation acceptance. A new success atomically creates the 006a
-   membership/use/count/audit effects and accepted continuation state. Rollback
-   leaves all unchanged.
-9. **Lifecycle and replay.** Same-user replay is write-free; an already joined
-   non-user of this token is write-free; leave/removal prevents restoration;
-   only a fresh matching targeted invitation may reinstate a removed user.
-   Expiry, revocation, exhaustion, wrong target, and ARJ-37 rotation block a
-   new acceptance.
-10. **Account and logout safety.** Session switch after verification, changed
+   verifies, an explicit action verifies once only when no session exists, and
+   another browser or flow cannot adopt the link. Matching and mismatched
+   pre-existing sessions follow the same non-destructive rule as OTP. Generic
+   magic-link behavior does not regress.
+7. **Session reconciliation.** Provider success followed by bind failure,
+   timeout, or response loss is recoverable from the matching current session
+   through an idempotent continuation-only POST. It neither re-verifies the
+   credential nor accepts the invitation; mismatch and expiry change neither
+   session nor membership.
+8. **Onboarding return.** An incomplete verified user completes the existing
+   onboarding rules and returns to the same live preview. A directly signed-in
+   incomplete user preserves the initial binding and goes straight to
+   invitation onboarding on the first Join action. A complete user does not
+   repeat onboarding. Every path requires a later explicit Join to accept.
+9. **Explicit atomic acceptance.** Only POST from the visible Join action can
+   invoke continuation acceptance. The same-origin handler rejects CSRF inputs
+   and emits no Set-Cookie or session refresh. A new success atomically creates
+   the 006a membership/use/count/audit effects and accepted continuation state.
+   Rollback leaves all unchanged.
+10. **Lifecycle and replay.** Same-user replay changes no membership, use,
+    count, generation, or audit. The same accepted flow is fully write-free; a
+    second independent flow may mark only itself accepted after proving the
+    existing use, including after reload or lost response. An already joined
+    non-user of this token is write-free. Leave/removal prevents restoration;
+    only a fresh matching targeted invitation may reinstate a removed user.
+    Expiry, revocation, exhaustion, wrong target, and ARJ-37 rotation block a
+    new acceptance.
+11. **Account and logout safety.** Session switch after verification, changed
     provider email, stale user binding, null auth, and incomplete profile are
-    denied. Confirmed logout clears all flow-specific invitation cookies and
-    parked auth material in this browser; stale database rows remain inert.
-11. **Multitab and real races.** Independent flows do not overwrite one
+    denied. Confirmed account-menu logout atomically invalidates every
+    browser-proven unaccepted continuation before local sign-out, then clears
+    all flow cookies and parked auth material. Failure before invalidation
+    preserves the session and reports no success.
+12. **Multitab and real races.** Independent flows do not overwrite one
     another. Same-flow different-email races have one binding winner. Two
     accepts by one user create one use/audit; two users at a one-use limit admit
     at most one. Accept versus revoke, rotation, remove, expiry, logout, and
-    rollback/waiter interleavings preserve the ARJ-35 final states.
-12. **Honest recovery after lost responses.** A committed acceptance whose
+    rollback/waiter interleavings preserve the ARJ-35 final states. Both
+    accept-first and logout-first orders, plus reversed browser response order,
+    have deterministic tested outcomes.
+13. **Honest recovery after lost responses.** A committed acceptance whose
     response is lost reconciles to joined success without a duplicate effect.
-    A rolled-back attempt remains safely retryable. No UI claims failure for a
+    The same proof covers continuation-only reconciliation in a second flow. A
+    rolled-back attempt remains safely retryable. No UI claims failure for a
     known committed join.
-13. **Privacy and authorization.** Direct legacy raw-token acceptance is not
+14. **Privacy and authorization.** Direct legacy raw-token acceptance is not
     executable by application roles. No direct continuation table access or
     broad function overload exists. Tokens, email, browser secrets, hashes,
     targets, member generations, and private group/gifting state are absent
     from analytics, logs, errors, browser-readable storage, evidence, and
     public projections.
-14. **Accessible visual states.** Valid preview and joined confirmation match
+15. **Accessible visual states.** Valid preview and joined confirmation match
     their approved references or documented differences at both viewports.
     Unavailable, email, verify, magic-link recovery, onboarding return,
     pending, account-mismatch, and safe-failure states pass keyboard and axe
     checks. A fresh independent reviewer inspects actual images before any
     baseline update.
-15. **Typed analytics.** Only a newly committed acceptance may attempt the
+16. **Typed analytics.** Only a newly committed acceptance may attempt the
     existing `invite_accepted` event. Its allowed property is
     `was_authenticated`; internal UUID context is permitted. Preview, auth,
-    onboarding, failure, replay, already-joined, logout, and unavailable
-    states emit no invitation event or sensitive property.
-16. **Exact-head gates.** The forward migration, pgTAP, two-session race
+    onboarding, reconciliation, failure, replay, continuation-only replay,
+    already-joined, logout, and unavailable states emit no invitation event or
+    sensitive property.
+17. **Exact-head gates.** The forward migration, pgTAP, two-session race
     harness, unit/component tests, stack-gated browser suite, visual checks,
     `pnpm verify`, database job, and Railway preview are green on the exact
     independently reviewed head. Staging proof uses only the existing staging
@@ -471,8 +593,11 @@ with exact evidence.
   body, Location, and Set-Cookie.
 - Actions prove session-derived authority, no service-role import, no generic
   auth-carry access, bind-before-send, same-email resend, flow-specific OTP and
-  magic link, explicit-only join, post-auth profile routing, logout cleanup,
-  and safe analytics behavior.
+  magic link, matching-session reconciliation without `verifyOtp`, mismatched
+  existing-session preservation, confirmed local logout/restart, direct
+  signed-in incomplete-profile onboarding, explicit-only same-origin Join with
+  no Set-Cookie, batch logout cleanup, late-response handling, and safe
+  analytics behavior.
 - Components cover all states, focus movement, keyboard activation, duplicate
   presses, live-region messages, reduced motion, and no private value in DOM or
   browser-readable storage.
@@ -484,17 +609,21 @@ with exact evidence.
   and overload, owner/security mode, empty search paths, default EXECUTE
   revocation, and revocation of every direct raw-token acceptance overload.
 - Positive and negative tests cover begin/preview/bind/verify/state/accept,
-  profile completeness, generic and targeted invitations, sticky removal,
-  replay generations, revocation, expiry, exhaustion, rotation, rollback, and
-  exact public result columns. Persisted-row and audit scans reject plaintext
-  token, browser secret, or email.
+  session-derived reconciliation after provider/bind uncertainty, profile
+  completeness, generic and targeted invitations, sticky removal, replay
+  generations, second-flow continuation-only reconciliation, batch logout
+  invalidation, revocation, expiry, exhaustion, rotation, rollback, and exact
+  public result columns. Persisted-row and audit scans reject plaintext token,
+  browser secret, or email.
 - A committed bounded harness uses independent database sessions, explicit
   barriers, and finite lock/statement/client timeouts. It covers different
   email binds on one flow; duplicate acceptance; same token through two flows;
   one-use different-user acceptance; accept/revoke; accept/remove;
-  accept/rotation; expiry while blocked; acceptance rollback followed by a
-  waiting success; and lost-response replay. It asserts final membership,
-  generation, use count, invitation, continuation, and audit rows after every
+  accept/rotation; accept/logout in both lock orders; expiry while blocked;
+  acceptance rollback followed by a waiting success; provider-success/bind
+  response loss; same-flow and second-flow acceptance response loss; and
+  reload reconciliation. It asserts final membership, generation, use count,
+  invitation, continuation, invalidation, and audit rows after every
   interleaving and prints no credential material.
 - Add a dedicated package command and an explicit CI database step after
   pgTAP and before stack-gated browser tests. The command must target only the
@@ -506,7 +635,10 @@ with exact evidence.
 - Stack-gated Playwright uses real local Supabase auth and Mailpit to exercise
   signed-out OTP, same-browser magic link, link prefetch, another-browser magic
   link recovery, returning user, new-user onboarding, signed-in join, invalid
-  token families, revocation, rotation, expiry, account switch, logout,
+  token families, directly signed-in incomplete-profile onboarding,
+  provider-success/bind uncertainty, pre-verification matching and mismatched
+  sessions, revocation, rotation, expiry, account switch, confirmed restart,
+  accept/logout with reversed response delivery, same-flow and second-flow
   response loss, reload, and multitab flows at both approved viewports.
 - Tests inspect the initial raw-token and auth-token responses before following
   redirects, asserting clean destinations and headers. Network, DOM, cookie
@@ -520,9 +652,15 @@ with exact evidence.
 - Staging exercises a valid generic link with a returning synthetic user, both
   OTP and same-browser magic link with separate fresh requests, a new synthetic
   user through onboarding, old-token denial after ARJ-37 rotation, revoked and
-  expired denial, account switch, same-user replay, and a fifth-user outsider
-  denial. Test users/groups are cleaned up. Evidence records identifiers and
-  result classes only, never emails, codes, links, tokens, or secrets.
+  expired denial, account switch, and same-user replay. The fifth synthetic
+  user is denied private group, roster, and wishlist access while still an
+  outsider. If staging also proves denial at acceptance, it uses either a
+  one-use invitation whose capacity another user consumed or a targeted
+  invitation for a different user. A fifth user who possesses a valid,
+  unexpired, unrevoked, unlimited generic link and explicitly joins must be
+  admitted, not used as denial evidence. Test users/groups are cleaned up.
+  Evidence records identifiers and result classes only, never emails, codes,
+  links, tokens, or secrets.
 
 ## Required pull-request evidence
 
@@ -558,9 +696,10 @@ with exact evidence.
    ARJ-35/37 schema for the missing continuation boundary.
 3. **Implement the forward migration.** Add the private table, constraints,
    indexes, exact definer functions, minimal projections, explicit REVOKE and
-   GRANT statements, and private shared acceptance core. Preserve ARJ-35 lock
-   order and result semantics. Make pgTAP and every bounded race pass before
-   application code consumes the API.
+   GRANT statements, session-derived reconciliation, bounded batch
+   invalidation, and private shared acceptance core. Preserve ARJ-35 lock order
+   and result semantics, including continuation-only second-flow replay. Make
+   pgTAP and every bounded race pass before application code consumes the API.
 4. **Build the sealed browser boundary.** Add focused server-only modules for
    flow IDs, dynamic cookie names, AES-GCM envelope sealing, token/email-safe
    error mapping, and cookie cleanup. Use Web Crypto already available in the
@@ -570,17 +709,19 @@ with exact evidence.
    confirm, link, and onboarding route family and actions. Reuse presentational
    auth/onboarding primitives while keeping state and actions flow-specific.
    Update the local auth templates, trusted RedirectTo construction, proxy
-   header policy, and staging-template procedure. Prove the generic auth suite
-   remains unchanged.
+   header policy, existing-session preflight, reconciliation/restart paths, and
+   staging-template procedure. Prove the generic auth suite remains unchanged.
 6. **Build preview and explicit acceptance.** Add the limited-preview loader,
    valid/unavailable/account-mismatch/joined states, explicit Join action,
-   acceptance reconciliation, and typed `invite_accepted` attempt. Do not add a
-   group-room link or re-expose the bearer for copy.
+   signed-in incomplete-profile onboarding, acceptance/replay reconciliation,
+   linearized logout cleanup, and typed `invite_accepted` attempt. Do not add
+   a group-room link or re-expose the bearer for copy.
 7. **Add browser and visual proof.** Extend the explicit stack-gated CI spec
    list and image-only evidence collector for 006c. Exercise the full OTP,
-   magic-link, onboarding, multitab, switch/logout, replay, race, response-loss,
-   privacy, keyboard, axe, and both-viewport visual matrix. Baseline adoption
-   requires a fresh independent reviewer who opens the actual images.
+   magic-link, reconciliation, onboarding, multitab, switch/logout, replay,
+   second-flow replay, race, response-loss, response-reordering, privacy,
+   keyboard, axe, and both-viewport visual matrix. Baseline adoption requires a
+   fresh independent reviewer who opens the actual images.
 8. **Review and stage.** Obtain fresh independent database/security, code,
    accessibility, and image signoff; correct every finding; run green checks
    on that exact head; merge; apply only the reviewed migration and auth
