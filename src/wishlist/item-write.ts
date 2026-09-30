@@ -61,7 +61,8 @@ async function ownerWishlist(client: NonNullable<Awaited<ReturnType<typeof clien
 async function findSubmission(client: NonNullable<Awaited<ReturnType<typeof clientOrNull>>>, ownerId: string, submissionId: string) {
   const { data, error } = await client.from("wishlist_items").select(REPLAY_COLUMNS)
     .eq("owner_id", ownerId).eq("client_submission_id", submissionId).maybeSingle();
-  return error ? null : (data as (ValidItem & { id: string }) | null);
+  if (error) throw new Error("wishlist submission could not be loaded");
+  return data as (ValidItem & { id: string }) | null;
 }
 
 function replayOutcome(row: ValidItem & { id: string }, submitted: ValidItem): SaveOutcome {
@@ -89,7 +90,9 @@ export async function saveReviewedItem(
   if (!client) return { kind: "unavailable" };
   if (operation.kind === "edit") return saveEdit(client, ownerId, operation.itemId, value as ValidatedEdit);
 
-  const existing = await findSubmission(client, ownerId, operation.submissionId);
+  let existing: (ValidItem & { id: string }) | null;
+  try { existing = await findSubmission(client, ownerId, operation.submissionId); }
+  catch { return { kind: "unavailable" }; }
   if (existing) return replayOutcome(existing, value as ValidItem);
   const parent = await ownerWishlist(client, ownerId);
   if (!parent) return { kind: "unavailable" };
@@ -119,7 +122,9 @@ export async function saveReviewedItem(
   const { data: inserted, error } = await client.from("wishlist_items").insert(insertPayload).select("id").single();
   if (!error && inserted) return { kind: "saved", itemId: (inserted as { id: string }).id, replayed: false };
   if ((error as { code?: string } | null)?.code !== "23505") return { kind: "unavailable" };
-  const afterConflict = await findSubmission(client, ownerId, operation.submissionId);
+  let afterConflict: (ValidItem & { id: string }) | null;
+  try { afterConflict = await findSubmission(client, ownerId, operation.submissionId); }
+  catch { return { kind: "unavailable" }; }
   return afterConflict ? replayOutcome(afterConflict, value as ValidItem) : { kind: "unavailable" };
 }
 
@@ -129,7 +134,9 @@ async function saveEdit(
   itemId: string,
   value: ValidatedEdit,
 ): Promise<SaveOutcome> {
-  const current = await loadOwnItemForEditWith(client, ownerId, itemId);
+  let current: EditItem | null;
+  try { current = await loadOwnItemForEditWith(client, ownerId, itemId); }
+  catch { return { kind: "unavailable" }; }
   if (!current) return { kind: "unavailable" };
   if (value.price.kind === "preserve" && !samePair(current, value.price.expected)) return { kind: "retry" };
 
@@ -171,7 +178,8 @@ async function loadOwnItemForEditWith(
 ): Promise<EditItem | null> {
   const { data, error } = await client.from("wishlist_items").select(EDIT_ITEM_COLUMNS)
     .eq("owner_id", ownerId).eq("id", itemId).maybeSingle();
-  return error ? null : (data as EditItem | null);
+  if (error) throw new Error("wishlist item could not be loaded");
+  return data as EditItem | null;
 }
 
 export async function loadOwnItemForEdit(ownerId: string, itemId: string): Promise<EditItem | null> {
