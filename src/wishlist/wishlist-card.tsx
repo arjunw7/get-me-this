@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { CardImage, PlaceholderArt } from "./card-image";
 import type { WishlistItemSnapshot } from "./display";
-import { DESIRE_LEVELS, formatMoneyMinor } from "./display";
+import { DESIRE_LEVELS, currencyMinorDigits, formatMoneyMinor } from "./display";
 import { Tape } from "./tape";
 import typography from "./wishlist-typography.module.css";
 
@@ -119,10 +119,9 @@ export function WishlistCard({
               {item.originalAmountMinor !== null &&
               item.originalCurrency !== null ? (
                 <span className="font-bold tabular-nums text-content-primary">
-                  {formatMoneyMinor(
-                    item.originalAmountMinor,
-                    item.originalCurrency,
-                  )}
+                  {currencyMinorDigits(item.originalCurrency) === null
+                    ? `${item.originalAmountMinor} ${item.originalCurrency} — price display unavailable`
+                    : formatMoneyMinor(item.originalAmountMinor, item.originalCurrency)}
                 </span>
               ) : null}
             </p>

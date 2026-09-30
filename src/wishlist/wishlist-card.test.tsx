@@ -33,6 +33,11 @@ function item(
 }
 
 describe("WishlistCard", () => {
+  it("keeps an unsupported stored currency opaque with an unavailable-price explanation", () => {
+    render(<WishlistCard item={item({ originalAmountMinor: "9007199254740993", originalCurrency: "ZZZ" })} index={0} />);
+    expect(screen.getByText("9007199254740993 ZZZ — price display unavailable")).toBeVisible();
+  });
+
   it("renders the title, linked retailer, pinned money format, note, and desire chip", () => {
     render(<WishlistCard item={item()} index={0} />);
 
