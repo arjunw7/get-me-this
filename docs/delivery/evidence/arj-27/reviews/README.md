@@ -2,7 +2,7 @@
 
 These reports preserve the rejected recovery snapshot and every subsequent review round. Approval of the spec or plan is not approval of the implementation, screenshots, CI, or merge.
 
-Full reports and the decision journal are also recorded on [PR #28](https://github.com/arjunw7/get-me-this/pull/28#issuecomment-5916612079) and mirrored on [Linear ARJ-27](https://linear.app/arjun-wadhwa/issue/ARJ-27/005b-protected-wishlist-display-and-empty-state), comment ID `0e0ccbdc-5c7b-45ae-a7db-e40d6174aac6`.
+Earlier reports and decisions were mirrored on [PR #28](https://github.com/arjunw7/get-me-this/pull/28#issuecomment-5916612079) and [Linear ARJ-27](https://linear.app/arjun-wadhwa/issue/ARJ-27/005b-protected-wishlist-display-and-empty-state). On 2026-10-01 the owner requested concise external updates only for major decisions, material blockers, completed evidence gates, or completion. This directory retains the detailed review trail; subsequent external summaries link to it instead of duplicating each round.
 
 | Round | Report | Result |
 | --- | --- | --- |
@@ -16,7 +16,12 @@ Full reports and the decision journal are also recorded on [PR #28](https://gith
 | Recovery implementation | [Independent code and spec review](arj27-implementation-review.md) | Changes requested: separately obtain and inspect real Flight responses |
 | Flight correction | [Independent scoped re-review](arj27-i1-rereview.md) | Source approved; real configured cases subsequently passed at both viewports |
 | Configured execution | [CI c71f69d](../ci-c71f69d.md) | 233 database and 52 browser passes; four old-image mismatches and failed export |
-| Screenshot export correction | [Author report](arj27-collector-fix-report.md) and [independent re-review](arj27-collector-review.md) | Bounded source correction approved at b50a5b3; actual CI artifact delivery and image review still required |
+| Screenshot export correction | [Author report](arj27-collector-fix-report.md) and [independent re-review](arj27-collector-review.md) | Bounded source correction approved at b50a5b3; eight actual/diff PNGs subsequently exported by CI |
+| Configured execution and artifact delivery | [CI b50a5b3](../ci-b50a5b3.md) | 233 database and 52 browser passes; four old-baseline comparisons failed; artifact identity and all eight PNG hashes verified |
+| Direct image re-review | [Independent visual review](arj27-visual-rereview.md) | Earlier taste-line and typography findings resolved, both mobile images approved by hash; desktop name/divider clearance still requires correction |
+| Desktop name repair, first round | [Author report](arj27-desktop-name-fix-report.md) and [independent source review](arj27-desktop-name-code-review.md) | Short-name gap resolved; long wrapped names at 640px exposed a containment defect |
+| Responsive repair review | [Independent R4 review](arj27-r4-code-review.md) | Three-line vertical containment passed; avatar stacking and unbroken-name clipping required correction |
+| Consolidated responsive correction | [Scoped R5/R6 re-review](arj27-r5-r6-rereview.md) | Source and quality approved at 0cd11a2; avatar pixels, 40-character containment, typography and ordinary wrapping verified at 390, 640 and 1440px |
 
 The [approved recovery implementation plan](arj27-recovery-implementation-plan.md) is preserved for audit. Its reviewed SHA-256 is `93d83c2dc56720b4640dce2f9b4d8cdf9312bb64e94d5f77eae20d722944ce03`. It schedules proof; it does not establish that proof passed.
 
@@ -26,7 +31,7 @@ Historical report paths refer to the isolated recovery checkout as it existed at
 
 ## Gate at this checkpoint
 
-The recovered code and images are not approved. Corrections are in progress. No final green CI or staging acceptance is claimed by this checkpoint. Later rounds must be added here and to both external logs before merge or task closure.
+The responsive source correction is approved. The complete image set, final-head configured CI, actual reviewed Railway deployment, and final merge review remain open. No staging acceptance is claimed by this checkpoint. Later rounds are retained here; concise external summaries report significant gate outcomes rather than every review.
 
 ## Implementation handoff
 
