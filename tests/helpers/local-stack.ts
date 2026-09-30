@@ -28,13 +28,113 @@ export function requireStackEnv(name: string): string {
   return value;
 }
 
+export function isLocalStackUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "http:" &&
+      ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** A service-role client for fixture setup/teardown only — never app code. */
 export function stackAdminClient(): SupabaseClient {
-  return createClient(
-    requireStackEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requireStackEnv("SUPABASE_SERVICE_ROLE_KEY"),
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
+  const url = requireStackEnv("NEXT_PUBLIC_SUPABASE_URL");
+  if (!isLocalStackUrl(url)) {
+    throw new Error(
+      "fixture admin client requires a local HTTP Supabase target",
+    );
+  }
+  return createClient(url, requireStackEnv("SUPABASE_SERVICE_ROLE_KEY"), {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+/** Cleanup registration is immediate and runs in reverse creation order. */
+export class FixtureScope {
+  private pending: Array<() => Promise<void>> = [];
+
+  register(_label: string, cleanup: () => Promise<void>): void {
+    this.pending.push(cleanup);
+  }
+
+  async cleanup(): Promise<void> {
+    const pending = this.pending.splice(0).reverse();
+    const results = await Promise.allSettled(
+      pending.map((step) => Promise.resolve().then(step)),
+    );
+    if (results.some((result) => result.status === "rejected")) {
+      throw new Error(
+        "fixture cleanup failed; all registered cleanup steps were attempted",
+      );
+    }
+  }
+
+  async run<T>(body: () => Promise<T>): Promise<T> {
+    let failed = false;
+    let firstFailure: unknown;
+    let value: T | undefined;
+    try {
+      value = await body();
+    } catch (error) {
+      failed = true;
+      firstFailure = error;
+    }
+    try {
+      await this.cleanup();
+    } catch (cleanupError) {
+      if (failed) {
+        throw new AggregateError(
+          [firstFailure, cleanupError],
+          "fixture work and cleanup failed",
+        );
+      }
+      throw cleanupError;
+    }
+    if (failed) throw firstFailure;
+    return value as T;
+  }
+}
+
+type FixtureOperations = {
+  createUser: typeof createFixtureUser;
+  signIn: typeof signInFixtureUser;
+  deleteUser: typeof deleteFixtureUser;
+};
+
+/** Returns only after sign-in; a failed sign-in deletes its just-created user. */
+export async function createSignedInFixture(
+  page: Page,
+  admin: SupabaseClient,
+  prefix: string,
+  profile: { displayName: string; tasteLine?: string },
+  scope: FixtureScope,
+  operations: FixtureOperations = {
+    createUser: createFixtureUser,
+    signIn: signInFixtureUser,
+    deleteUser: deleteFixtureUser,
+  },
+): Promise<string> {
+  const email = fixtureEmail(prefix);
+  const userId = await operations.createUser(admin, email);
+  scope.register("fixture user", () => operations.deleteUser(admin, userId));
+  try {
+    await operations.signIn(page, admin, email, profile);
+    return userId;
+  } catch (error) {
+    try {
+      await scope.cleanup();
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        "fixture sign-in and cleanup failed",
+      );
+    }
+    throw error;
+  }
 }
 
 /** A fresh synthetic address per run; local-stack data only. The
@@ -100,21 +200,25 @@ export async function signInFixtureUser(
   await expect(page).toHaveURL(/\/auth\/link$/);
   await page.getByRole("button", { name: "Use my sign-in link" }).click();
 
-  // A profile-less user lands on onboarding; complete it.
-  await page.waitForURL("**/onboarding");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Tell friends who you are.",
-  );
-  await page
-    .getByLabel("What should friends call you?")
-    .fill(profile.displayName);
-  if (profile.tasteLine !== undefined) {
+  // A profile-less user lands on onboarding; a user who already has a
+  // complete profile (e.g. re-signing in after a stale session) goes
+  // straight to their destination, which defaults to /home.
+  await page.waitForURL((url) => /\/(onboarding|home)$/.test(url.pathname));
+  if (page.url().endsWith("/onboarding")) {
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Tell friends who you are.",
+    );
     await page
-      .getByLabel(/Describe your taste in one line/i)
-      .fill(profile.tasteLine);
+      .getByLabel("What should friends call you?")
+      .fill(profile.displayName);
+    if (profile.tasteLine !== undefined) {
+      await page
+        .getByLabel(/Describe your taste in one line/i)
+        .fill(profile.tasteLine);
+    }
+    await page.getByRole("button", { name: /Let’s go/i }).click();
+    await page.waitForURL("**/home");
   }
-  await page.getByRole("button", { name: /Let’s go/i }).click();
-  await page.waitForURL("**/home");
 }
 
 export type ItemFixture = {
@@ -127,7 +231,7 @@ export type ItemFixture = {
   note?: string | null;
   desire_level?: "really_want" | "would_love" | "just_an_idea";
   sort_position: number;
-  original_amount_minor?: number | null;
+  original_amount_minor?: string | null;
   original_currency?: string | null;
 };
 

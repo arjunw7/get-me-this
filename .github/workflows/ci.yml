@@ -118,13 +118,17 @@ jobs:
       - name: Build and run the stack-gated e2e suites
         timeout-minutes: 25
         run: bash scripts/e2e-local-stack.sh
-      # TEMPORARY (ARJ-27 diagnosis): upload the failing screenshots' actual
-      # and diff images so the mobile visual-candidate mismatch can be
-      # inspected. Remove once the capture is green.
-      - name: Upload failed screenshot evidence
+      # The collector admits only the four wishlist names with actual/diff
+      # PNG suffixes from wishlist visual result folders. Error contexts,
+      # auth captures, traces, and reports never enter the artifact directory.
+      - name: Collect wishlist visual evidence
+        if: failure()
+        run: node scripts/collect-wishlist-visual-evidence.mjs test-results wishlist-visual-evidence
+      - name: Upload wishlist visual evidence
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: failed-screenshot-evidence
-          path: test-results/
+          name: wishlist-visual-evidence
+          path: wishlist-visual-evidence/
+          if-no-files-found: ignore
           retention-days: 3

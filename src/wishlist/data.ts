@@ -41,11 +41,12 @@ const ITEM_COLUMNS = [
   "note",
   "desire_level",
   "sort_position",
-  "original_amount_minor",
+  "original_amount_minor::text",
   "original_currency",
   "created_at",
   "updated_at",
 ] as const;
+const PAGE_SIZE = 500;
 
 /**
  * The caller's own wishlist under RLS, or null when no wishlist row
@@ -66,18 +67,28 @@ export async function getOwnWishlist(
     .maybeSingle();
   if (!wishlist) return null;
 
-  const { data: items, error } = await supabase
-    .from("wishlist_items")
-    .select(ITEM_COLUMNS.join(","))
-    .eq("wishlist_id", (wishlist as { id: string }).id)
-    .order("sort_position", { ascending: true })
-    .order("id", { ascending: true });
-  if (error) return null;
+  const items: WishlistItemRow[] = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data: page, error } = await supabase
+      .from("wishlist_items")
+      .select(ITEM_COLUMNS.join(","))
+      .eq("wishlist_id", (wishlist as { id: string }).id)
+      .order("sort_position", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (error) return null;
+    items.push(...((page ?? []) as unknown as WishlistItemRow[]));
+    if ((page?.length ?? 0) < PAGE_SIZE) break;
+  }
 
-  return {
-    wishlistId: (wishlist as { id: string }).id,
-    items: (items ?? []).map((row) =>
-      toWishlistItemSnapshot(row as unknown as WishlistItemRow),
-    ),
-  };
+  try {
+    return {
+      wishlistId: (wishlist as { id: string }).id,
+      items: items.map(toWishlistItemSnapshot),
+    };
+  } catch {
+    // A broken cast or stored pair invariant cannot produce a partial or
+    // rounded owner view; the route renders its generic error state.
+    return null;
+  }
 }

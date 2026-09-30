@@ -1,6 +1,7 @@
 import { formatItemCount } from "./display";
 import type { OwnWishlist } from "./data";
 import { WishlistCardGrid, WishlistEmpty } from "./wishlist-card";
+import typography from "./wishlist-typography.module.css";
 
 /**
  * The wishlist presentation and its state selection (005b), extracted from
@@ -85,18 +86,18 @@ function ProfileHeaderCard({
           />
         </svg>
       </div>
-      <div className="flex flex-col gap-5 px-5 pb-6 sm:flex-row sm:items-end sm:justify-between sm:px-7">
-        <div className="-mt-12 flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-5">
+      <div className="flex flex-col gap-5 px-5 pb-6 sm:flex-row sm:items-start sm:justify-between sm:px-7">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-5">
           <span
             aria-hidden="true"
-            className="flex h-16 w-16 flex-none items-center justify-center rounded-full border-2 border-outline-strong bg-accent-fresh font-display text-2xl font-extrabold text-content-primary shadow-chunk-sm ring-4 ring-surface-raised sm:h-20 sm:w-20"
+            className="-mt-12 flex h-16 w-16 flex-none items-center justify-center rounded-full border-2 border-outline-strong bg-accent-fresh font-display text-2xl font-extrabold text-content-primary shadow-chunk-sm ring-4 ring-surface-raised sm:h-20 sm:w-20"
           >
             {displayName.charAt(0).toUpperCase()}
           </span>
-          <div>
+          <div className="sm:-mt-9">
             <h1
               id="wishlist-owner"
-              className="font-display text-display-sm font-extrabold tracking-tight sm:text-display-md"
+              className={`font-display font-extrabold tracking-tight ${typography.profileName}`}
             >
               {displayName}
             </h1>

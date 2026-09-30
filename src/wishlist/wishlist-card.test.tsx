@@ -24,7 +24,7 @@ function item(
     note: "The matte one, not the glossy one.",
     desireLevel: "really_want",
     sortPosition: 1,
-    originalAmountMinor: 249900,
+    originalAmountMinor: "249900",
     originalCurrency: "INR",
     createdAt: "2026-09-30T00:00:00.000Z",
     updatedAt: "2026-09-30T00:00:00.000Z",
@@ -66,6 +66,29 @@ describe("WishlistCard", () => {
     expect(screen.getByText("Fixture Roasters")).toBeVisible();
     expect(screen.queryByRole("link", { name: "Fixture Roasters" })).toBeNull();
     expect(screen.getByText("Would love")).toBeVisible();
+  });
+
+  it("keeps a source link when retailer metadata is absent", () => {
+    render(<WishlistCard item={item({ retailer: null })} index={0} />);
+    const link = screen.getByRole("link", { name: "example.invalid" });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://example.invalid/products/pour-over-set",
+    );
+    expect(link).toHaveAttribute("rel", "noreferrer");
+  });
+
+  it("uses a safe generic label for an unparseable source URL", () => {
+    render(
+      <WishlistCard
+        item={item({ sourceUrl: "bad-url", retailer: null })}
+        index={0}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Source link" })).toHaveAttribute(
+      "href",
+      "bad-url",
+    );
   });
 
   it("omits the money text entirely for items with no stored price", () => {
@@ -175,7 +198,7 @@ describe("WishlistCardGrid", () => {
         note: null,
         desireLevel: "would_love",
         sortPosition: 2,
-        originalAmountMinor: 132000,
+        originalAmountMinor: "132000",
         originalCurrency: "JPY",
       }),
       item({

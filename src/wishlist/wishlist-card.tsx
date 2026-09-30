@@ -4,6 +4,16 @@ import { CardImage, PlaceholderArt } from "./card-image";
 import type { WishlistItemSnapshot } from "./display";
 import { DESIRE_LEVELS, formatMoneyMinor } from "./display";
 import { Tape } from "./tape";
+import typography from "./wishlist-typography.module.css";
+
+function sourceLabel(sourceUrl: string, retailer: string | null): string {
+  if (retailer) return retailer;
+  try {
+    return new URL(sourceUrl).hostname || "Source link";
+  } catch {
+    return "Source link";
+  }
+}
 
 /**
  * One wishlist card (005b), ported from the frozen V18 reference
@@ -88,22 +98,20 @@ export function WishlistCard({
               {item.title}
             </h3>
             <p className="mt-1 text-sm text-content-secondary">
-              {item.retailer !== null ? (
-                item.sourceUrl !== null ? (
-                  <a
-                    href={item.sourceUrl}
-                    rel="noreferrer"
-                    className="font-semibold text-content-primary underline decoration-2 underline-offset-4 hover:text-action-primary-strong"
-                  >
-                    {item.retailer}
-                  </a>
-                ) : (
-                  <span className="font-semibold text-content-primary">
-                    {item.retailer}
-                  </span>
-                )
+              {item.sourceUrl !== null ? (
+                <a
+                  href={item.sourceUrl}
+                  rel="noreferrer"
+                  className="font-semibold text-content-primary underline decoration-2 underline-offset-4 hover:text-action-primary-strong"
+                >
+                  {sourceLabel(item.sourceUrl, item.retailer)}
+                </a>
+              ) : item.retailer !== null ? (
+                <span className="font-semibold text-content-primary">
+                  {item.retailer}
+                </span>
               ) : null}
-              {item.retailer !== null &&
+              {(item.sourceUrl !== null || item.retailer !== null) &&
               item.originalAmountMinor !== null &&
               item.originalCurrency !== null ? (
                 <span aria-hidden="true"> · </span>
@@ -169,12 +177,15 @@ export function WishlistEmpty() {
           </span>
         </div>
       </div>
-      <h2 className="mt-8 font-display text-display-sm font-extrabold tracking-tight sm:text-display-md">
+      <h2
+        className={`mt-8 font-display font-extrabold tracking-tight ${typography.emptyHeading}`}
+      >
         Very minimalist of you.
       </h2>
       <p className="mt-2 max-w-md text-content-secondary">
-        Add the first thing you’d secretly love to unwrap. A candle, a camera,
-        the hoodie you keep looking at. Your friends will take it from there.
+        {
+          "Add the first thing you'd secretly love to unwrap. A candle, a camera, the hoodie you keep looking at."
+        }
       </p>
       <Link
         href="/wishlist/items/new"

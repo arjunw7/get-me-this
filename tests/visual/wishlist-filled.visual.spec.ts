@@ -3,11 +3,9 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
 import {
-  createFixtureUser,
-  deleteFixtureUser,
-  fixtureEmail,
+  FixtureScope,
+  createSignedInFixture,
   seedWishlistItems,
-  signInFixtureUser,
   stackAdminClient,
 } from "../helpers/local-stack";
 
@@ -51,13 +49,18 @@ test("the signed-in populated wishlist matches the pinned V18 filled composition
   );
 
   const admin = stackAdminClient();
-  const email = fixtureEmail("wishlist-visual-filled");
-  const userId = await createFixtureUser(admin, email);
-  try {
-    await signInFixtureUser(page, admin, email, {
-      displayName: "Ada",
-      tasteLine: "currently in my tiny-luxuries era",
-    });
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const userId = await createSignedInFixture(
+      page,
+      admin,
+      "wishlist-visual-filled",
+      {
+        displayName: "Ada",
+        tasteLine: "currently in my tiny-luxuries era",
+      },
+      scope,
+    );
     await seedWishlistItems(admin, userId, [
       {
         id: randomUUID(),
@@ -67,7 +70,7 @@ test("the signed-in populated wishlist matches the pinned V18 filled composition
         note: "The matte one, not the glossy one.",
         desire_level: "really_want",
         sort_position: 1,
-        original_amount_minor: 249900,
+        original_amount_minor: "249900",
         original_currency: "INR",
         image_url: IMAGE_KETTLE,
       },
@@ -79,7 +82,7 @@ test("the signed-in populated wishlist matches the pinned V18 filled composition
         note: null,
         desire_level: "would_love",
         sort_position: 2,
-        original_amount_minor: 132000,
+        original_amount_minor: "132000",
         original_currency: "JPY",
       },
       {
@@ -99,7 +102,7 @@ test("the signed-in populated wishlist matches the pinned V18 filled composition
         note: null,
         desire_level: "would_love",
         sort_position: 4,
-        original_amount_minor: 420000,
+        original_amount_minor: "420000",
         original_currency: "INR",
         image_url: IMAGE_CUPS,
       },
@@ -121,7 +124,5 @@ test("the signed-in populated wishlist matches the pinned V18 filled composition
         caret: "hide",
       },
     );
-  } finally {
-    await deleteFixtureUser(admin, userId);
-  }
+  });
 });

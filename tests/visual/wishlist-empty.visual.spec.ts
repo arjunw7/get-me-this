@@ -1,10 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 import {
-  createFixtureUser,
-  deleteFixtureUser,
-  fixtureEmail,
-  signInFixtureUser,
+  FixtureScope,
+  createSignedInFixture,
   stackAdminClient,
 } from "../helpers/local-stack";
 
@@ -41,13 +39,18 @@ test("the signed-in empty wishlist matches the pinned V18 empty composition", as
   );
 
   const admin = stackAdminClient();
-  const email = fixtureEmail("wishlist-visual-empty");
-  const userId = await createFixtureUser(admin, email);
-  try {
-    await signInFixtureUser(page, admin, email, {
-      displayName: "Ada",
-      tasteLine: "currently in my tiny-luxuries era",
-    });
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    await createSignedInFixture(
+      page,
+      admin,
+      "wishlist-visual-empty",
+      {
+        displayName: "Ada",
+        tasteLine: "currently in my tiny-luxuries era",
+      },
+      scope,
+    );
 
     await page.goto("/wishlist");
     await expect(page).toHaveURL(/\/wishlist$/);
@@ -68,7 +71,5 @@ test("the signed-in empty wishlist matches the pinned V18 empty composition", as
         caret: "hide",
       },
     );
-  } finally {
-    await deleteFixtureUser(admin, userId);
-  }
+  });
 });

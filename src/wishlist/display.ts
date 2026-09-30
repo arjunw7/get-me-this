@@ -23,7 +23,7 @@ export type WishlistItemRow = {
   note: string | null;
   desire_level: string;
   sort_position: number;
-  original_amount_minor: number | null;
+  original_amount_minor: string | null;
   original_currency: string | null;
   created_at: string;
   updated_at: string;
@@ -39,21 +39,55 @@ export const DESIRE_LEVELS: Readonly<Record<StoredDesireLevel, string>> = {
 };
 
 /**
- * ISO 4217 minor-unit (decimal) digits for the currencies Phase 4 can
- * display, pinned by unit tests. Zero-decimal currencies render no
- * fractional digits; three-decimal currencies keep their precision; every
- * other code defaults to two. No locale is ever consulted (brief
- * resolution 4: "No locale-invented symbol sets").
+ * Non-default minor-unit digits from SIX ISO 4217 List One, published
+ * 2026-09-17 and retrieved 2026-09-30:
+ * https://www.six-group.com/dam/download/financial-information/data-center/iso-currrency/lists/list-one.xml
+ * Entries marked N.A. have no published precision and use the documented
+ * two-decimal fallback. No locale is consulted.
  */
 const CURRENCY_MINOR_DIGITS: Readonly<Record<string, number>> = {
-  JPY: 0,
-  KRW: 0,
-  VND: 0,
-  KWD: 3,
   BHD: 3,
+  BIF: 0,
+  CLF: 4,
+  CLP: 0,
+  DJF: 0,
+  GNF: 0,
+  IQD: 3,
+  ISK: 0,
+  JOD: 3,
+  JPY: 0,
+  KMF: 0,
+  KRW: 0,
+  KWD: 3,
+  LYD: 3,
   OMR: 3,
+  PYG: 0,
+  RWF: 0,
+  TND: 3,
+  UGX: 0,
+  UYI: 0,
+  UYW: 4,
+  VND: 0,
+  VUV: 0,
+  XAF: 0,
+  XOF: 0,
+  XPF: 0,
 };
 const DEFAULT_MINOR_DIGITS = 2;
+const MAX_BIGINT_AMOUNT = "9223372036854775807";
+
+function assertExactMinorAmount(value: unknown): asserts value is string {
+  if (
+    typeof value !== "string" ||
+    !/^(0|[1-9][0-9]*)$/.test(value) ||
+    value.length > MAX_BIGINT_AMOUNT.length ||
+    (value.length === MAX_BIGINT_AMOUNT.length && value > MAX_BIGINT_AMOUNT)
+  ) {
+    throw new Error(
+      "original amount is not a canonical PostgreSQL bigint string",
+    );
+  }
+}
 
 /**
  * The pinned money format (brief resolution 4): the stored original amount
@@ -63,12 +97,17 @@ const DEFAULT_MINOR_DIGITS = 2;
  * original is never replaced by a converted value.
  */
 export function formatMoneyMinor(
-  amountMinor: number,
+  amountMinor: string,
   currency: string,
 ): string {
+  assertExactMinorAmount(amountMinor);
   const digits =
     CURRENCY_MINOR_DIGITS[currency.toUpperCase()] ?? DEFAULT_MINOR_DIGITS;
-  const major = (amountMinor / 10 ** digits).toFixed(digits);
+  const padded = amountMinor.padStart(digits + 1, "0");
+  const major =
+    digits === 0
+      ? amountMinor
+      : `${padded.slice(0, -digits)}.${padded.slice(-digits)}`;
   return `${major} ${currency.toUpperCase()}`;
 }
 
@@ -84,6 +123,17 @@ export function formatItemCount(count: number): string {
  * label.
  */
 export function toWishlistItemSnapshot(row: WishlistItemRow) {
+  if (
+    (row.original_amount_minor === null) !==
+    (row.original_currency === null)
+  ) {
+    throw new Error(
+      "original amount and currency must both be present or absent",
+    );
+  }
+  if (row.original_amount_minor !== null) {
+    assertExactMinorAmount(row.original_amount_minor);
+  }
   const desireLevel = DESIRE_LEVELS[row.desire_level as StoredDesireLevel]
     ? (row.desire_level as StoredDesireLevel)
     : null;

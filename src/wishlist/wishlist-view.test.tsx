@@ -28,7 +28,7 @@ function fixtureRow(overrides: Partial<WishlistItemRow> = {}): WishlistItemRow {
     note: "The matte one, not the glossy one.",
     desire_level: "really_want",
     sort_position: 1,
-    original_amount_minor: 249900,
+    original_amount_minor: "249900",
     original_currency: "INR",
     created_at: "2026-09-30T00:00:00.000Z",
     updated_at: "2026-09-30T00:00:00.000Z",
@@ -60,8 +60,13 @@ describe("WishlistView state selection", () => {
       screen.getByRole("heading", { name: "Very minimalist of you." }),
     ).toBeVisible();
     expect(
-      screen.getByText(/Add the first thing you’d secretly love to unwrap/),
+      screen.getByText(
+        "Add the first thing you'd secretly love to unwrap. A candle, a camera, the hoodie you keep looking at.",
+      ),
     ).toBeVisible();
+    expect(
+      screen.queryByText(/Your friends will take it from there/),
+    ).toBeNull();
     // The profile header shows the display name, taste line, and "0 things".
     expect(screen.getByRole("heading", { name: "Ada" })).toBeVisible();
     expect(screen.getByText("currently in my tiny-luxuries era")).toBeVisible();
@@ -108,7 +113,7 @@ describe("WishlistView state selection", () => {
             note: null,
             desire_level: "would_love",
             sort_position: 2,
-            original_amount_minor: 132000,
+            original_amount_minor: "132000",
             original_currency: "JPY",
           }),
         ),

@@ -38,17 +38,20 @@ export function CardImage({ src, title }: { src: string; title: string }) {
  * for items with no image URL, snapshot-path-only items, and images that
  * fail at runtime.
  *
- * The art is a faint, decorative echo of the title that is already
- * announced by the card's heading, so it is hidden from the accessibility
- * tree (its 25%-tone contrast is a deliberate V18 visual choice that would
- * otherwise fail WCAG contrast rules for content).
+ * The art is a decorative echo of the title that is already announced by
+ * the card's heading, so it is hidden from the accessibility tree. Its
+ * tone is text-content-primary/55 rather than V18's faint ink-at-25%:
+ * the fainter prototype tone fails WCAG 2 AA large-text contrast on the
+ * sunken field (1.71:1 vs the required 3:1), and production accessibility
+ * takes precedence over prototype shortcuts (round-3 review decision,
+ * 2026-09-30). Contrast now ≈3.6:1.
  */
 export function PlaceholderArt({ title }: { title: string }) {
   return (
     <span
       data-testid="wishlist-image-placeholder"
       aria-hidden="true"
-      className="flex h-full w-full items-center justify-center p-6 text-center font-display text-2xl font-extrabold text-content-primary/25"
+      className="flex h-full w-full items-center justify-center p-6 text-center font-display text-2xl font-extrabold text-content-primary/55"
     >
       {title}
     </span>
