@@ -1,6 +1,7 @@
 .profileName {
   font-size: 1.875rem;
   line-height: 1.08;
+  overflow-wrap: anywhere;
 }
 
 .emptyHeading {

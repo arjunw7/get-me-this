@@ -67,10 +67,8 @@ async function assertProfileGeometry(
   empty: boolean,
   profile = PROFILE,
 ): Promise<void> {
-  const band = await page
-    .getByRole("region", { name: profile.displayName })
-    .locator(":scope > div:first-child")
-    .boundingBox();
+  const region = page.getByRole("region", { name: profile.displayName });
+  const band = await region.locator(":scope > div:first-child").boundingBox();
   const heading = page.getByRole("heading", { name: profile.displayName });
   const name = await heading.boundingBox();
   const taste = await page.getByText(profile.tasteLine).boundingBox();
@@ -78,6 +76,23 @@ async function assertProfileGeometry(
   expect(name).not.toBeNull();
   expect(taste).not.toBeNull();
   expect(taste!.y).toBeGreaterThanOrEqual(band!.y + band!.height + 4);
+  const avatar = region.locator("span").first();
+  const avatarPaint = await avatar.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const topmost = document.elementFromPoint(
+      box.left + box.width / 2,
+      box.top + 10,
+    );
+    return {
+      color: getComputedStyle(element).backgroundColor,
+      isTopmost: topmost === element || element.contains(topmost),
+    };
+  });
+  expect(avatarPaint.color).toBe("rgb(198, 240, 98)");
+  expect(
+    avatarPaint.isTopmost,
+    `${profile.displayName} avatar is covered within its band overlap`,
+  ).toBe(true);
   const desktop = page.viewportSize()?.width !== 390;
   if (desktop) {
     expect(
@@ -95,6 +110,36 @@ async function assertProfileGeometry(
       page.getByRole("heading", { name: "Very minimalist of you." }),
     ).toHaveCSS("font-size", "30px");
   }
+}
+
+async function assertNameTextContained(page: Page, displayName: string) {
+  const heading = page.getByRole("heading", { name: displayName });
+  const bounds = await heading.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const text = range.getBoundingClientRect();
+    const region = element.closest("section");
+    if (region === null) throw new Error("Profile card is missing");
+    const cardBounds = region.getBoundingClientRect();
+    return {
+      text: {
+        left: text.left,
+        right: text.right,
+        top: text.top,
+        bottom: text.bottom,
+      },
+      card: {
+        left: cardBounds.left,
+        right: cardBounds.right,
+        top: cardBounds.top,
+        bottom: cardBounds.bottom,
+      },
+    };
+  });
+  expect(bounds.text.left).toBeGreaterThanOrEqual(bounds.card.left);
+  expect(bounds.text.right).toBeLessThanOrEqual(bounds.card.right);
+  expect(bounds.text.top).toBeGreaterThanOrEqual(bounds.card.top);
+  expect(bounds.text.bottom).toBeLessThanOrEqual(bounds.card.bottom);
 }
 
 async function navigateWithDocumentAndFlight(page: Page, path: string) {
@@ -382,6 +427,28 @@ test("a valid three-line owner name stays fully inside the band at the desktop b
       "the breakpoint fixture must wrap to three lines",
     ).toBeGreaterThan(100);
     await assertProfileGeometry(page, true, profile);
+  });
+});
+
+test("a valid unbroken 40-character owner name fits at mobile, breakpoint, and desktop widths", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "three-width probe");
+  const profile = {
+    displayName: "W".repeat(40),
+    tasteLine: PROFILE.tasteLine,
+  };
+  const { scope } = await signedInFixture(page, profile);
+  await scope.run(async () => {
+    await page.goto("/wishlist");
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
+    for (const width of [390, 640, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      await assertProfileGeometry(page, true, profile);
+      await assertNameTextContained(page, profile.displayName);
+    }
   });
 });
 

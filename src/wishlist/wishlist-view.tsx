@@ -93,7 +93,7 @@ function ProfileHeaderCard({
         <div className="flex flex-col gap-3 sm:min-w-0 sm:flex-1 sm:flex-row sm:items-start sm:gap-5">
           <span
             aria-hidden="true"
-            className="-mt-12 flex h-16 w-16 flex-none items-center justify-center rounded-full border-2 border-outline-strong bg-accent-fresh font-display text-2xl font-extrabold text-content-primary shadow-chunk-sm ring-4 ring-surface-raised sm:h-20 sm:w-20"
+            className="relative z-10 -mt-12 flex h-16 w-16 flex-none items-center justify-center rounded-full border-2 border-outline-strong bg-accent-fresh font-display text-2xl font-extrabold text-content-primary shadow-chunk-sm ring-4 ring-surface-raised sm:h-20 sm:w-20"
           >
             {displayName.charAt(0).toUpperCase()}
           </span>
