@@ -403,7 +403,7 @@ AND deny cases are all mandatory.
   "after" is the empty and populated states at both viewports.
 - Paired visual comparisons vs the pinned V18 `wishlist-empty` and
   `wishlist-filled` baselines, with the accepted-differences list
-  (resolutions 1, 3, and 4) recorded in the PR and evidence pack.
+  (resolutions 1, 3, 4, and 8) recorded in the PR and evidence pack.
 - Railway preview URL for the PR (the staging Supabase gate is closed —
   the 005a migration is applied to staging — so the empty state is
   signed in via the staging path without further gating).
