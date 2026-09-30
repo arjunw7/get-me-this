@@ -281,7 +281,9 @@ test("the populated view renders every snapshot field in the pinned read order, 
     await expect(
       third.getByText("Just an idea for now, no link yet."),
     ).toBeVisible();
-    await expect(third.getByText("Just an idea", { exact: true })).toBeVisible();
+    await expect(
+      third.getByText("Just an idea", { exact: true }),
+    ).toBeVisible();
 
     // The unreachable image degrades to the branded placeholder — never a
     // broken-image icon or blank gap.
