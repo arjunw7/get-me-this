@@ -564,7 +564,7 @@ select is(
 
 select is(
   (select count(*)::int from public.wishlist_items),
-  3,
+  4,
   'the owner''s item list contains exactly their own rows'
 );
 
