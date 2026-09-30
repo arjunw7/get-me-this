@@ -80,7 +80,7 @@ export function DeleteDialog({
         ref={opener}
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-6 min-h-touch-min font-bold text-feedback-error underline underline-offset-4"
+        className="mt-6 mb-28 inline-flex min-h-touch-min items-center font-bold text-feedback-error underline underline-offset-4 sm:mb-0"
       >
         Delete item
       </button>

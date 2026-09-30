@@ -46,6 +46,8 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
   page,
 }, testInfo) => {
   test.setTimeout(180_000);
+  page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(20_000);
   mkdirSync(CANDIDATE_DIR, { recursive: true });
   const admin = stackAdminClient();
   const scope = new FixtureScope();
