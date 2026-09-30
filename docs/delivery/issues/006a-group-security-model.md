@@ -27,8 +27,9 @@ choice prevents a group row and a membership role from disagreeing.
   optional location/description, budget, currency, lifecycle status,
   nullable current draw version, organizer id, and timestamps. The draw
   version is inert in 006a; no assignment table or draw operation is added.
-- `public.groups.organizer_id` references `auth.users(id)` and is the only
-  organizer-authority field. `public.group_members` has a unique
+- `public.groups.organizer_id` is the sole organizer-authority field. It
+  references `auth.users(id)` with `ON DELETE RESTRICT`.
+  `public.group_members` has a unique
   `(group_id, user_id)` key, one of `invited`, `joined`, `declined`, `left`,
   `removed`, a participation flag, joined/left timestamps, and a monotonically
   increasing `membership_generation`. It has no role column. A group is
@@ -38,6 +39,17 @@ choice prevents a group row and a membership role from disagreeing.
   memberships, requires the destination to be joined, changes
   `groups.organizer_id`, and appends one audit event. No intermediate state
   with zero or two organizers can commit.
+- Every auth-user reference introduced here uses the explicit foreign-key
+  action `ON DELETE RESTRICT`: `groups.organizer_id`, `group_members.user_id`,
+  `group_invitations.creator_id`, nullable
+  `group_invitations.target_user_id`,
+  `group_invitation_uses.user_id`, and audit actor/subject references.
+  The database denies account deletion while any such group history or
+  membership still references that user; account deletion/anonymization
+  is a later reviewed workflow. Existing profile/wishlist cascades do not
+  override these restrictive FKs: a failed auth-user deletion rolls the
+  entire transaction back. No client-facing delete function for a group,
+  invitation, membership, use, or audit row is added.
 - Status is durable history, not an insert/delete proxy. A targeted issue
   for a known user creates an `invited` row if none exists; an invited user
   may decline. Leaving and declining do not erase the member row. Every
@@ -87,6 +99,24 @@ choice prevents a group row and a membership role from disagreeing.
   no direct audit INSERT, UPDATE, DELETE, or TRUNCATE privilege. Definer
   functions owned by a trusted, non-client database role perform the
   narrowly authorized inserts. No UPDATE/DELETE/TRUNCATE function is exposed.
+- Audit history is never changed indirectly by deleting a referenced row.
+  `audit_events.group_id` references `groups.id ON DELETE RESTRICT`;
+  `audit_events.actor_id` references `auth.users.id ON DELETE RESTRICT`;
+  nullable `audit_events.subject_user_id` separately references
+  `auth.users.id ON DELETE RESTRICT`; nullable
+  `(audit_events.group_id, audit_events.invitation_id)` references a
+  declared unique `(group_invitations.group_id, group_invitations.id)`
+  with `ON DELETE RESTRICT`; and nullable
+  `(audit_events.group_id, audit_events.subject_user_id)` references the
+  unique `(group_members.group_id, group_members.user_id)` with
+  `ON DELETE RESTRICT` when a member is the event subject. These composite FKs also
+  prevent a subject from being attached to the wrong group. No audit FK uses
+  `CASCADE` or `SET NULL`; optional identifiers remain null only when the
+  event was created without that subject. Other parent references in this
+  slice also use `ON DELETE RESTRICT`: member and invitation group IDs,
+  and invitation-use invitation IDs. The migration and pgTAP prove that
+  deleting a referenced group, invitation, member, or auth user is denied
+  and leaves every existing audit row byte-for-byte unchanged.
 
 ### Database API and authorization
 
@@ -129,6 +159,21 @@ choice prevents a group row and a membership role from disagreeing.
   `host_display_name`, `group_name`, `occasion_at`,
   `budget_amount_minor`, `budget_currency`, `mode`, and
   `joined_member_count`.
+- The authenticated projections also have closed result shapes:
+  `group_detail` returns exactly `id`, `organizer_id`, `name`,
+  `occasion`, `occasion_at`, `time_zone`, `location`, `description`,
+  `budget_amount_minor`, `budget_currency`, `mode`, `status`, and
+  `joined_member_count` for a joined caller;
+  `group_roster` returns exactly `user_id`, `display_name`,
+  `participating`, and `joined_at` for joined members of that group;
+  `group_admin_members` returns exactly `user_id`, `display_name`,
+  `status`, `participating`, `joined_at`, and `left_at` for the joined
+  organizer, including pending and former membership rows. A missing
+  display name uses the same generic organizer/member label as preview.
+  No projection may add email, avatar path, invitation details, member
+  generation, audit data, draw version, wishlist data, or gifting state
+  without a new reviewed brief and authorization tests. pgTAP inspects
+  declared return columns and runtime results, rejecting extra fields.
 - Exact authenticated functions cover transactional group creation,
   organizer-only group settings update, invitation issuance/revocation,
   organizer removal/reinvitation, organizer transfer, member leave/decline,
@@ -168,7 +213,12 @@ All functions that can contend on a group follow one order:
    group lock after holding an invitation or membership lock.
 3. In acceptance, check a prior use by this authenticated user after locks.
    If the membership is still joined at that use's accepted generation,
-   return the same safe success without another use or audit event.
+   return the same safe replay success without another use or audit event,
+   even if the invitation was subsequently revoked, expired, or exhausted.
+   Preview remains empty in those states. A joined user with **no** use
+   of this token is not a replay: require an active, unexpired,
+   unexhausted invitation and matching target constraints, then return
+   `already_joined` without creating membership, use, count, or audit.
    Otherwise evaluate `clock_timestamp()` **after** the group and
    invitation locks are held and the invitation has been re-read. Require
    `expires_at > checked_at`, `active`, and capacity for a _new_ use at that
@@ -184,6 +234,18 @@ removed and prevents replay. A concurrent duplicate acceptance by the
 same user has one counted use and a safe idempotent result. A use-limit race
 by two different users admits at most the configured number. Functions
 return generic, non-enumerating failures for invalid tokens and authority.
+
+Account deletion is constrained by the explicit restrictive FKs, not by
+an application-side precheck. If deletion of a previously unreferenced
+invitee commits before a membership-creating accept's FK check, accept
+fails atomically with no use/count/audit; if accept commits first, the
+new membership/use references deny the deletion. Transfer requires an
+already joined destination, whose membership FK already denies auth-user
+deletion; a concurrent deletion of either organizer cannot leave a group
+pointing at a missing user. A failed transfer or deletion rolls back its
+audit and authority changes. The two-session suite exercises deletion
+against acceptance and transfer, and verifies both allowed commit orders
+where one can occur. No FK cascade or nulling can erase audit context.
 
 ## Privilege inventory to implement and test
 
@@ -261,11 +323,17 @@ with evidence.
    admin operations. The organizer cannot leave/remove self before
    transfer. A removed member cannot use generic or stale targeted links;
    a matching new targeted invite can reinstate exactly that user once.
+   Every auth-user and audit-reference FK has the exact `ON DELETE RESTRICT`
+   action above; deleting a referenced auth user, group,
+   invitation, or member is denied and does not mutate audit history.
 5. **Acceptance and audit (pgTAP).** New acceptance changes status,
    inserts one use, increments count once, and appends one safe event.
-   Same-user replay in the same joined generation is idempotent. Leave or
-   removal makes replay fail. Rollback after an induced failure leaves
-   membership, use count, and audit unchanged. Audit is append-only for
+   Same-user replay in the same joined generation remains idempotent after
+   revocation, expiry, or exhaustion; an already joined user presenting
+   an unused valid token gets `already_joined` with no writes; an unused
+   revoked/expired/exhausted token cannot create membership or yield that
+   result. Leave or removal makes replay fail. Rollback after an induced
+   failure leaves membership, use count, and audit unchanged. Audit is append-only for
    application roles and contains no token/email/private gifting fields.
 6. **Real races (two-session CI harness).** Use two independent database
    sessions with barriers and strict timeouts, never two sequential calls
@@ -275,8 +343,15 @@ with evidence.
    final rows, use count, authority, and audit after each. Hold an accept
    behind the group lock until expiry passes to prove the after-lock
    `clock_timestamp()` rejection. Force a losing transaction to roll back
-   and prove no partial use/member/audit effects. The harness must fail
-   CI on assertion failure or timeout and clean up its synthetic fixtures.
+   and prove no partial use/member/audit effects. Include the critical
+   one-use rollback interleaving: session A tentatively accepts the final
+   use while holding its transaction open; session B waits on the group;
+   A rolls back; B then succeeds, leaving one use/audit for B and no
+   membership/use/audit for A. Race auth-user deletion against acceptance
+   of an unreferenced invitee and against organizer transfer; assert the
+   restrictive FK outcomes and no dangling organizer/audit references.
+   The harness must fail CI on assertion failure or timeout and clean up
+   its synthetic fixtures.
 7. **Fresh migration and CI.** A reset from committed migrations and seed
    succeeds; all existing pgTAP suites and the new suite pass in the CI
    `database` job. Update `smoke.sql`'s exact public-table inventory and
@@ -292,6 +367,17 @@ editor artifacts shipped. This database-only slice has no changed UI, so
 before/after screenshots and a Railway preview comparison are not applicable
 and must be stated as such rather than fabricated.
 
+The implementation must commit `pnpm test:db:races`, backed by a new
+`scripts/test-group-races-local.sh` and a matching `package.json` script.
+It selects this repository's local Supabase database container exactly,
+opens two independent `psql` sessions with explicit barriers, sets finite
+statement/lock/client timeouts, emits no bearer or credential material,
+and exits nonzero on any unexpected result. The implementation PR adds an
+explicit `Run group two-session races` step to the existing CI `database`
+job **after** `pnpm test:db` and **before** the stack-gated e2e step, with
+`run: pnpm test:db:races` and `timeout-minutes: 5`. A green pgTAP step
+alone never satisfies criterion 6.
+
 ## Implementation plan and gates
 
 1. Review the existing 004a/005a migration and pgTAP patterns. Implement
@@ -300,17 +386,20 @@ and must be stated as such rather than fabricated.
    sensitive functions short and separately reviewable.
 2. Add synthetic pgTAP fixtures and positive/negative assertions for each
    public table and function; deliberately amend smoke inventory. Add the
-   two-session harness with deterministic barriers, finite waits, and no
-   remote database target. Wire it into the existing CI `database` job
+   committed `pnpm test:db:races` harness with deterministic barriers,
+   finite waits, and no remote database target. Wire its explicit step
+   into the existing CI `database` job
    without weakening `verify` or the current gated e2e list.
 3. Review every SECURITY DEFINER body and the exact privilege inventory;
    run formatting/diff checks and available local verification. The
    implementation PR records the fresh-stack CI result and forward-fix
    plan. A red privacy or race assertion blocks the slice.
-4. Complete Phase 4's persistent-wishlist exit before Phase 5 application
-   work consumes this schema. This planning brief may be reviewed in
-   parallel, but 006a implementation merges only after its approved brief
-   and required checks. Group UI, signed-out join, and member wishlist
+4. Complete Phase 4's persistent-wishlist exit before starting any 006a
+   implementation. Planning and review of this brief may run in
+   parallel with Phase 4, but there is no exception for implementation
+   work, migration authoring, or an early implementation PR. The approved
+   exact brief commit and required checks gate the later 006a merge.
+   Group UI, signed-out join, and member wishlist
    browsing then follow as separate bounded slices.
 5. Applying the committed migration to the dedicated **staging** Supabase
    project is a separate owner-approved gate before later Phase 5 staging
