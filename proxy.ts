@@ -137,7 +137,12 @@ export async function proxy(request: NextRequest) {
   // 3. Cache policy on the final response: Server Action responses can set
   // or clear session and carry cookies; the interim /auth/confirm route
   // must also never be cached (its initial redirect carries the headers
-  // above; the rendered page stays non-cacheable too).
+  // above; the rendered page stays non-cacheable too). 005b generalizes the
+  // policy to every response for a protected route path — redirect, rendered
+  // document, or action response — because wishlist content is per-user
+  // data: a cached document could leak one user's items to another through
+  // a shared cache. /home and /onboarding gain no-store as an intended
+  // hardening side effect.
   if (
     isServerActionRequest(request.method, request.headers.get("next-action"))
   ) {
@@ -146,6 +151,9 @@ export async function proxy(request: NextRequest) {
   if (pathname === AUTH_CONFIRM_PATH || pathname === AUTH_LINK_PATH) {
     response.headers.set("Cache-Control", NO_STORE);
     response.headers.set("Referrer-Policy", NO_REFERRER);
+  }
+  if (isProtectedRoutePath(pathname)) {
+    response.headers.set("Cache-Control", NO_STORE);
   }
 
   return response;

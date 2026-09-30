@@ -36,6 +36,20 @@ describe("AccountMenu", () => {
     expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
   });
 
+  it("exposes the My wishlist entry linking to /wishlist (005b)", async () => {
+    render(<AccountMenu email="you@example.com" displayName="Ada" />);
+
+    await userEvent.click(screen.getByRole("button", { name: /account/i }));
+
+    const link = screen.getByRole("link", { name: "My wishlist" });
+    expect(link).toBeVisible();
+    expect(link).toHaveAttribute("href", "/wishlist");
+    // Edit profile remains deferred (no route yet).
+    expect(
+      screen.queryByRole("link", { name: "Edit profile" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("logout requires confirmation — the first click only asks", async () => {
     render(<AccountMenu email="you@example.com" displayName="Ada" />);
 

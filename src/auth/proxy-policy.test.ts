@@ -48,6 +48,11 @@ describe("protected routes (004e)", () => {
     expect(isProtectedRoutePath("/onboarding")).toBe(true);
   });
 
+  it("protects the wishlist routes (005b)", () => {
+    expect(isProtectedRoutePath("/wishlist")).toBe(true);
+    expect(isProtectedRoutePath("/wishlist/items/new")).toBe(true);
+  });
+
   it("keeps the landing page, auth routes, and everything else public", () => {
     for (const path of [
       "/",
@@ -60,6 +65,13 @@ describe("protected routes (004e)", () => {
       "/design-foundation",
       "/HOME", // case-sensitive, exact match only
       "/home/extra",
+      // The wishlist paths are protected by exact match only: unknown child
+      // paths are not blanket-protected (they render the framework's
+      // not-found state, which carries no wishlist data — 005b criterion 1).
+      "/wishlist/unknown",
+      "/wishlist/items",
+      "/WISHLIST", // case-sensitive, exact match only
+      "/wishlist?state=anything", // query strings never count
     ]) {
       expect(isProtectedRoutePath(path), path).toBe(false);
     }

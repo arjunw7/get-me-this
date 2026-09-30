@@ -54,17 +54,28 @@ export function isServerActionRequest(
  * The protected application routes (004e): every authenticated route is
  * listed here explicitly — the landing page, the auth routes, the interim
  * confirm route, and the limited invitation preview stay public per the
- * permissions matrix.
+ * permissions matrix. 005b adds the wishlist routes: `/wishlist` (the
+ * owner's display) and `/wishlist/items/new` (the interim add surface,
+ * later 005c/005f's create flow).
  *
  * The proxy redirects anonymous requests for these paths to `/auth` (whose
  * default is the safe `home` intent) BEFORE any page or action reads
  * cookies, covering refresh and direct-link requests alike. Server Actions
- * POST to the page's own URL, so pathname protection covers them too. Each
+ * POST to the page's own URL, so pathname protection covers them too — a
+ * signed-out POST to `/wishlist` is redirected, never executed. Each
  * protected route ALSO verifies the session server-side
  * (`requireCompleteProfile`): a proxy matcher gap must never be the sole
- * control.
+ * control. Unknown `/wishlist/*` child paths are deliberately NOT
+ * blanket-protected: nothing matches them (the framework's not-found state
+ * renders, which carries no wishlist data), and the e2e suite pins that
+ * consequence.
  */
-const PROTECTED_ROUTE_PATHS: readonly string[] = ["/home", "/onboarding"];
+const PROTECTED_ROUTE_PATHS: readonly string[] = [
+  "/home",
+  "/onboarding",
+  "/wishlist",
+  "/wishlist/items/new",
+];
 
 export function isProtectedRoutePath(pathname: string): boolean {
   return PROTECTED_ROUTE_PATHS.includes(pathname);

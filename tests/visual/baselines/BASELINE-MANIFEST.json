@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "approvedBy": "arjunw7@gmail.com",
-  "approvedDate": "2026-09-28",
+  "approvedBy": "independent AI visual reviewer /root/arj27_final_visual_review, under the owner's delegated baseline-approval authority; exact four-image ARJ-27 set approved in report SHA-256 841e33597bf26d0fda9441bfeb0c46ea6812006453a6826778ee00135bd1d6e2",
+  "approvedDate": "2026-10-01",
   "files": {
     "auth-create-group-desktop.png": "d637310c508a175afcca158868e8df253325b1a4d2a609221bb4f933a90dd096",
     "auth-create-group-mobile.png": "e4e777cdc15d237b6c3918f43268f32b3ffd03c1ce275abb39e2ea72c055448a",
@@ -26,6 +26,10 @@
     "verify-error-desktop.png": "476990a5f67f57687220a632ddfb51e7026980071f13de9f7f36b49d295fd76d",
     "verify-error-mobile.png": "7cd248e399ae8f327399e036cffe6cbf507bd9dad45ee6b4860bff3141b115da",
     "verify-expired-desktop.png": "8806b860c1514bade0bad1a5e76dd705a3fc9e250d3589d4c6c8c4262f056a26",
-    "verify-expired-mobile.png": "493caff115ed1a969208c75369166cd37081c88f051039ca8dfd8e681ea77077"
+    "verify-expired-mobile.png": "493caff115ed1a969208c75369166cd37081c88f051039ca8dfd8e681ea77077",
+    "wishlist-empty-desktop.png": "cb61600cc5a64862e4a516184d5d2b86a3b742da8d8b3d792c34f1c5f0d8c843",
+    "wishlist-empty-mobile.png": "b201fe0a0ca73fc9236b5031dc5c4a163a57abed132e4f884ae3ee82cb2c937b",
+    "wishlist-filled-desktop.png": "53ecd4e5bf8637bef5177742eb9fb0c6ce279bc0f1a250fee5776835fb08cbe1",
+    "wishlist-filled-mobile.png": "44faef7da2f98404337ac5f4f36141af96cd4d475d3234823432a3ca2275379f"
   }
 }

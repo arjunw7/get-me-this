@@ -80,7 +80,7 @@ differences documented for owner review.
   rounded panel with the stacked placeholder cards and "?" card art,
   heading **"Very minimalist of you."**, body copy **"Add the first thing
   you'd secretly love to unwrap. A candle, a camera, the hoodie you keep
-  looking at. Your friends will take it from there."**, and a primary CTA.
+  looking at."**, and a primary CTA.
   The copy never implies public visibility (no "share", no audience
   claims) and there are no fake or mock items, ever.
 - **Populated view.** The V18 `wishlist-filled` composition, reproduced
@@ -135,9 +135,10 @@ differences documented for owner review.
 
 ### Design resolutions owned by this brief
 
-All resolutions are dated owner decisions (2026-09-30), pinning every open
-question left by the Linear draft and the V18 references. Rejected
-alternatives are recorded with each.
+Resolutions 1–7 are dated owner decisions (2026-09-30), pinning every open
+question left by the Linear draft and the V18 references. Resolution 8 is a
+dated agent decision under delegated owner authority. Rejected alternatives
+are recorded with each.
 
 1. **CTA label — "Add an item", a documented divergence from V18.** The
    V18 empty state's CTA reads "Add from a link" (it links to the
@@ -214,6 +215,15 @@ alternatives are recorded with each.
    and the only possible read is the caller's own rows under RLS (the
    005a pgTAP suites prove the cross-user denials at the database; the
    e2e suites here prove the route-level consequences).
+8. **Empty-state audience copy correction (agent decision 2026-09-30,
+   under delegated owner authority).** The required body copy ends with
+   "the hoodie you keep looking at." The pinned V18 copy has one further
+   sentence, "Your friends will take it from there." This sentence is
+   omitted in 005b because this slice has no friend, group, or public
+   access to the wishlist. Keeping it would contradict the owner-only
+   visibility rule and the requirement to make no audience claims. This
+   correction is an agent decision under delegated authority, not a
+   human-authored approval. Record the exact omission in visual evidence.
 
 ### Owner authorizations applied here
 
@@ -279,8 +289,8 @@ AND deny cases are all mandatory.
    the plain spec asserts the redirect and the absence of markup, not the
    response status or headers). Same assertions for
    `/wishlist/items/new`. The stack-gated spec re-proves the full proxy
-   envelope — 302, `Cache-Control: no-store`, `Referrer-Policy:
-   no-referrer` — with the provider configured, and the
+   envelope — 302, `Cache-Control: no-store`,
+   `Referrer-Policy: no-referrer` — with the provider configured, and the
    `src/auth/proxy.test.ts` unreachable-provider pattern pins the
    envelope for both new pathnames at the unit level.
 3. **Signed-out POST deny (e2e, plain).** An anonymous POST to
@@ -292,7 +302,9 @@ AND deny cases are all mandatory.
    `Cache-Control: no-store` (the generalized protected-route policy).
 5. **Empty state (e2e + unit, stack-gated).** A fresh signed-in user with
    zero items sees the V18 empty-state composition: the pinned heading
-   and body copy, and the primary CTA labeled exactly "Add an item" —
+   and body copy exactly "Add the first thing you'd secretly love to
+   unwrap. A candle, a camera, the hoodie you keep looking at.", and the
+   primary CTA labeled exactly "Add an item" —
    no fake items, no loading residue, no public-visibility language
    (a case-insensitive DOM scan finds no "share", "visible to", or
    group-count copy). The profile header shows the display name, taste
@@ -347,9 +359,10 @@ AND deny cases are all mandatory.
     position, no overlays), compared per the route-map review procedure,
     and committed through the baseline-manifest workflow
     (`scripts/update-baseline-manifest.mjs` + guard test) with the
-    accepted differences documented: resolution 1's CTA label and
+    accepted differences documented: resolution 1's CTA label,
     resolution 3's omissions (the empty-state comparison inherits the
-    header omissions — groups line, theme colour, avatar treatment).
+    header omissions — groups line, theme colour, avatar treatment),
+    and resolution 8's omission of V18's final audience sentence.
 15. **Visual — wishlist-filled (visual, stack-gated).** Candidate
     screenshots at 390x844 and 1440x1000 of the deterministic seeded
     populated state are compared against the pinned V18 `wishlist-filled`
@@ -390,7 +403,7 @@ AND deny cases are all mandatory.
   "after" is the empty and populated states at both viewports.
 - Paired visual comparisons vs the pinned V18 `wishlist-empty` and
   `wishlist-filled` baselines, with the accepted-differences list
-  (resolutions 1, 3, and 4) recorded in the PR and evidence pack.
+  (resolutions 1, 3, 4, and 8) recorded in the PR and evidence pack.
 - Railway preview URL for the PR (the staging Supabase gate is closed —
   the 005a migration is applied to staging — so the empty state is
   signed in via the staging path without further gating).

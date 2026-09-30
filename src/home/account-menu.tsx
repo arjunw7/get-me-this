@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useId, useState, useTransition } from "react";
 
 import { buttonClassName, cx } from "@/src/ui/styles";
@@ -7,9 +8,10 @@ import { resetAnalyticsOnLogout, SENSITIVE_BLOCK_CLASS } from "@/src/analytics";
 import { signOutAction } from "@/src/auth/actions";
 
 /**
- * The honest minimal account menu (004e): the signed-in email and a
- * confirmed Log out. The flow doc's My wishlist and Edit profile entries
- * are deferred until those routes exist (no navigation to unbuilt routes).
+ * The honest minimal account menu (004e/005b): the signed-in email, the
+ * My wishlist link to /wishlist (005b lifts this entry's deferral), and a
+ * confirmed Log out. The Edit profile entry stays deferred until that
+ * route exists (no navigation to unbuilt routes).
  *
  * Logout requires confirmation (signing in again requires email access),
  * then resets the typed analytics identity through the approved adapter
@@ -114,10 +116,17 @@ export function AccountMenu({
               >
                 {email ?? "Your email is unavailable right now."}
               </p>
+              {/* 005b lifts this entry's deferral: /wishlist now exists. */}
+              <Link
+                href="/wishlist"
+                className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-surface border-2 border-outline-strong bg-surface-raised px-3 text-sm font-bold hover:bg-surface-sunken"
+              >
+                My wishlist
+              </Link>
               <button
                 type="button"
                 onClick={() => setConfirming(true)}
-                className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-surface border-2 border-outline-strong bg-surface-raised px-3 text-sm font-bold hover:bg-surface-sunken"
+                className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-surface border-2 border-outline-strong bg-surface-raised px-3 text-sm font-bold hover:bg-surface-sunken"
               >
                 Log out
               </button>

@@ -162,6 +162,24 @@ describe("proxy responses", () => {
     expect(response.headers.get("cache-control")).toBeNull();
   });
 
+  it("keeps every response for a protected route path non-cacheable (005b)", async () => {
+    // Wishlist content is per-user data: a cached document could leak one
+    // user's items to another through a shared cache. The generalized
+    // final-response policy pins no-store on protected-route documents even
+    // in this configuration-less environment (the page-level gate, not the
+    // proxy, is the redirect control here — but the response must still
+    // never be cacheable).
+    for (const pathname of [
+      "/home",
+      "/onboarding",
+      "/wishlist",
+      "/wishlist/items/new",
+    ]) {
+      const response = await proxy(requestFor(pathname));
+      expect(response.headers.get("cache-control"), pathname).toBe(NO_STORE);
+    }
+  });
+
   it("passes requests through unchanged when the Supabase configuration is absent", async () => {
     // This test environment has no NEXT_PUBLIC_* values: the proxy must not
     // construct a client or throw — it degrades to a plain pass-through.
@@ -195,7 +213,12 @@ describe("proxy responses", () => {
     it(
       "redirects an anonymous request for a protected route to /auth with no-store",
       withLocalConfig(async () => {
-        for (const pathname of ["/home", "/onboarding"]) {
+        for (const pathname of [
+          "/home",
+          "/onboarding",
+          "/wishlist",
+          "/wishlist/items/new",
+        ]) {
           const response = await proxy(requestFor(pathname));
           expect(response.status, pathname).toBe(302);
           expect(response.headers.get("location"), pathname).toBe(
@@ -214,14 +237,18 @@ describe("proxy responses", () => {
     it(
       "covers Server Actions on protected pages (they POST to the page's own URL)",
       withLocalConfig(async () => {
-        const response = await proxy(
-          requestFor("/home", {
-            method: "POST",
-            headers: { "next-action": "test-action-id" },
-          }),
-        );
-        expect(response.status).toBe(302);
-        expect(response.headers.get("location")).toBe(`${APP_ORIGIN}/auth`);
+        for (const pathname of ["/home", "/wishlist", "/wishlist/items/new"]) {
+          const response = await proxy(
+            requestFor(pathname, {
+              method: "POST",
+              headers: { "next-action": "test-action-id" },
+            }),
+          );
+          expect(response.status, pathname).toBe(302);
+          expect(response.headers.get("location"), pathname).toBe(
+            `${APP_ORIGIN}/auth`,
+          );
+        }
       }),
     );
 
@@ -234,5 +261,10 @@ describe("proxy responses", () => {
         }
       }),
     );
+
+    it("does not blanket-protect unknown /wishlist child paths (they render not-found, which carries no data)", async () => {
+      const response = await proxy(requestFor("/wishlist/unknown"));
+      expect(response.status).not.toBe(302);
+    });
   });
 });
