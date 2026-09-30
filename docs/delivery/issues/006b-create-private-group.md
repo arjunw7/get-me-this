@@ -66,7 +66,7 @@ but correctness never depends on the disabled control.
 
 ### Created and invitation states
 
-The created route has four explicit states:
+The created route has six explicit states:
 
 1. **No link has been issued.** Show the success heading and a **Create invite
    link** action. Do not manufacture a slug or token in the browser.
@@ -78,16 +78,25 @@ The created route has four explicit states:
    after reload or an ambiguous issuance response. Explain that invite links
    are shown only once and cannot be recovered. Offer **Create a new invite
    link**, with confirmation that the previous link will stop working.
-4. **Stale issuance request.** If another tab has already issued or replaced
-   the link, refresh organizer invitation state and show the active-link-lost
-   state. Never retry issuance automatically and never rotate again without a
-   new explicit click.
+4. **The latest issued link has expired.** Show the authoritative expiry from
+   the organizer projection, state that the old link no longer works, and offer
+   **Create a new invite link**. Require confirmation before the new issuance,
+   even though the expired token is already invalid. The confirmation says that
+   a replacement link will be created and the expired link will remain
+   unusable.
+5. **The latest link was explicitly revoked.** Show that no invite link is
+   active and offer **Create invite link**. No raw prior token is recoverable.
+6. **Stale issuance request.** If another tab has already issued, revoked, or
+   replaced the link, refresh organizer invitation state and show the
+   active-link-lost, issued-expired, or revoked state returned by the
+   projection. Never retry issuance automatically and never rotate again
+   without a new explicit click.
 
 The Version 18 `create-group-created` screen is the comparison authority for
-the token-present state. The no-link, lost-token, confirmation, copy-failure,
-pending, and stale-version states are security-required extensions and need
-new independently approved screenshots. The production link uses
-`/invite/[opaqueToken]`, never a name-derived slug.
+the token-present state. The no-link, lost-token, issued-expired, revoked,
+confirmation, copy-failure, pending, and stale-version states are
+security-required extensions and need new independently approved screenshots.
+The production link uses `/invite/[opaqueToken]`, never a name-derived slug.
 
 ## Exact creation contract
 
@@ -147,21 +156,35 @@ share these exact bounds instead of maintaining looser duplicates.
 
 - Each form draft owns a cryptographically random UUID request key. The key is
   scoped by the database to `auth.uid()`. It is not an authorization token.
-- The browser retains only the request key in session storage until success. It
-  does not persist the group name, payload, or payload digest for idempotency.
-  Repeated submission of the unchanged canonical payload reuses the key. A
-  canonical field change in the live form creates a new key. After a reload,
-  the retained key is safe to retry: an unchanged payload replays, while a
-  changed payload receives the database conflict below and must be confirmed as
-  a new request. **Start another group** clears the prior request key and
-  creates a new one, so an intentionally identical second group remains
-  possible.
+- Before the first server submission, the browser owns an unbound draft key.
+  When a submission is sent, the browser binds that key to the attempted
+  canonical-payload SHA-256 digest and retains both values in session storage.
+  It never stores the raw payload or group name. Client-only validation that
+  prevents a server submission does not bind the key.
+- An edit after a submitted attempt does not rotate or silently rebind the key.
+  A subsequent submit whose digest differs must surface
+  `idempotency_conflict` before sending the changed payload. The user can retry
+  the original payload with the original key, discard the edits, or choose the
+  explicit confirmed **Submit changes as a new request** action. Only that
+  confirmation creates a new key, binds it to the changed payload, and submits
+  it. A committed database receipt independently enforces the same conflict if
+  the browser state is missing or forged.
+- Success clears the submitted key/digest pair. An ambiguous response, safe
+  server failure, validation response, reload, navigation away, or field edit
+  does not clear or rotate it. **Start another group** after success and the
+  pre-success **Submit changes as a new request** confirmation are the only UI
+  paths that deliberately create a replacement key. Thus an intentionally
+  identical second group remains possible without making accidental duplicates
+  the retry behavior.
+- If session storage is unavailable, the form shows a safe recovery error and
+  does not submit. It must not silently fall back to a reload-volatile key that
+  can duplicate an ambiguously committed group.
 - The database stores a creation receipt keyed uniquely by actor ID and request
-  key, containing only canonical payload version, SHA-256 payload
-  digest, stable group ID, and managed timestamps. The raw canonical payload
-  and user-entered text are not duplicated into the receipt or audit metadata.
-  Application roles have no direct table privileges or permissive RLS policy
-  on receipts.
+  key, containing only canonical payload version, SHA-256 payload digest,
+  stable group ID, and managed timestamps. The raw canonical payload and
+  user-entered text are not duplicated into the receipt or audit metadata.
+  Application roles have no direct table privileges or permissive RLS policy on
+  receipts.
 - Same user, same key, and same canonical payload returns the original group ID
   without another group, membership, or audit event. Same user and key with a
   different canonical payload returns the typed `idempotency_conflict` result
@@ -174,9 +197,11 @@ share these exact bounds instead of maintaining looser duplicates.
   product does not deduplicate groups by their name or contents.
 
 The request key must be a canonical UUIDv4 generated with the browser crypto
-API. The receipt digest is SHA-256 over the database's deterministic UTF-8
-serialization of canonical payload v1; authentication identity is excluded
-from the digest because it is already part of the unique receipt key.
+API. The submitted browser digest and receipt digest are SHA-256 over the same
+versioned deterministic UTF-8 serialization of canonical payload v1. The
+database recomputes rather than trusts the submitted digest. Authentication
+identity is excluded from the digest because it is already part of the unique
+receipt key.
 
 The internal database result may include `created_now` solely so the server can
 emit analytics once. The browser-visible result is stable and contains only the
@@ -189,61 +214,179 @@ successful group creation.
 
 ## Exact shareable-invitation contract
 
-### Versioned issuance
+### Durable group-scoped version
 
-Shareable invitation issuance is not part of group creation. The organizer
-action sends only `group_id` and `expected_invitation_version` to the server.
-The server supplies a fixed expiry of 30 days from the after-lock
-`clock_timestamp()` check and no use limit. The browser cannot extend expiry,
-set a use limit, target a user, or change authority. The token-present state
-states the expiry date without exposing server time or other invitation data.
+Shareable invitation issuance is not part of group creation. The migration
+adds `groups.shareable_invitation_version bigint not null default 0` with a
+nonnegative check. This is the one durable compare-and-swap version for the
+group's generic shareable link. It is internal: it is excluded from direct
+client SELECT and from `group_detail`, roster, signed-out preview, and every
+non-organizer projection.
 
-The 006a database boundary must provide an organizer-only projection with:
+Generic invitation rows have a nonnull `shareable_version`; targeted rows have
+`shareable_version is null`. The migration enforces unique
+`(group_id, shareable_version)` for generic rows and at most one generic row
+whose stored status is active. The target-field pairing from 006a is extended
+so a row is exactly one of:
 
-- `invitation_version`: a nonnegative monotonically increasing integer,
-  initially 0.
-- `has_active_shareable_invitation`: whether the current generic invitation is
-  active and unexpired at `clock_timestamp()`.
+- generic: null target user/generation and nonnull shareable version; or
+- targeted: nonnull target user/generation and null shareable version.
 
-It must also provide compare-and-swap issuance with this behavior:
+Targeted issue/revoke never reads, changes, or contends on the group's
+shareable-invitation version except for the common group-first lock order.
+Generic issue or revoke never creates, revokes, or otherwise changes a targeted
+row.
 
-1. Derive the actor from `auth.uid()`, lock the group first, and confirm the
-   caller is still its joined organizer.
-2. Re-read the current generic shareable-invitation version under that lock.
-   If it differs from `expected_invitation_version`, return
-   `stale_invitation_version` with no token and no write.
-3. Lock prior invitation rows in the 006a fixed order. Revoke every prior
-   active generic shareable invitation for the group, increment the version by
-   exactly one, and issue one new generic invitation in the same transaction.
-4. Return the new version and the canonical 43-character unpadded base64url
-   token exactly once. Persist only the SHA-256 token digest defined by 006a.
-5. Append the safe invitation-issued audit event. A rotation also appends the
-   old invitation's revocation event. Both events and both invitation changes
-   commit or roll back together. Audit metadata contains identifiers and
-   versions only.
+The organizer-only projection has the exact signature:
 
-The server action returns the raw token and new version only to the initiating
-organizer page. It sets no cookie and writes no cache, database row, URL,
-redirect, flash message, local storage, session storage, analytics event,
-error report, trace, console output, or server log containing the token or
-complete invite URL. The initial HTML and reload response never contain it.
-The token remains only in the live component state until navigation or reload.
+```sql
+public.group_shareable_invitation_state(p_group_id uuid)
+returns table (
+  invitation_version bigint,
+  state text,
+  expires_at timestamptz
+)
+```
+
+It returns one row only to the current joined organizer. `state` is exactly
+`never_issued`, `active`, `issued_expired`, or `revoked`. It evaluates one
+`checked_at := clock_timestamp()` value: stored status active with
+`expires_at > checked_at` is `active`; stored status active with `expires_at <=
+checked_at` is `issued_expired`. `expires_at` is the authoritative stored value
+for active and issued-expired, and null for never-issued or revoked. No
+invitation ID, target, token hash, use count, or token is returned.
+
+### Exact callable overloads
+
+The only callable generic issue RPC is:
+
+```sql
+public.issue_group_invitation(
+  p_group_id uuid,
+  p_expected_invitation_version bigint
+)
+returns table (
+  invitation_version bigint,
+  token text,
+  expires_at timestamptz
+)
+```
+
+The only callable generic revoke RPC is:
+
+```sql
+public.revoke_group_invitation(
+  p_group_id uuid,
+  p_expected_invitation_version bigint
+)
+returns table (
+  invitation_version bigint,
+  revoked boolean,
+  revoked_at timestamptz
+)
+```
+
+The targeted capability required by 006a remains separate overloads:
+
+```sql
+public.issue_group_invitation(
+  p_group_id uuid,
+  p_target_user_id uuid
+)
+returns table (
+  token text,
+  expires_at timestamptz,
+  target_membership_generation bigint
+)
+
+public.revoke_group_invitation(
+  p_group_id uuid,
+  p_invitation_id uuid
+)
+returns table (
+  revoked boolean,
+  revoked_at timestamptz
+)
+```
+
+The targeted issue overload rejects a null target, binds the current target
+membership generation under the 006a locks, uses the same after-lock 30-day
+expiry with a fixed one-use limit, and returns its canonical token and stored
+expiry once. The targeted revoke-by-ID overload rejects a generic invitation.
+It cannot be used to bypass generic compare-and-swap. No overload accepts
+optional/default target, expected version, expiry, use limit, creator, actor,
+raw status, or invitation version. No variadic or JSON wrapper and no
+direct-table write is callable by an application role.
+
+Migration review enumerates every `pg_proc` identity argument list. It drops or
+revokes every older/broader overload before granting EXECUTE on only the four
+signatures above plus the state projection. EXECUTE is revoked from `PUBLIC`,
+`anon`, and `service_role`; exact overloads are granted to `authenticated` and
+derive the actor from `auth.uid()`. The existing anon preview grant is unchanged.
+
+### Compare-and-swap semantics and authoritative expiry
+
+The generic organizer action sends only `group_id` and the projected
+`expected_invitation_version`. It cannot set expiry, use limit, target, actor,
+or authority. Generic issue performs exactly this transaction:
+
+1. Derive the actor, lock the group first, verify joined-organizer authority,
+   and re-read `groups.shareable_invitation_version` under that lock.
+2. Reject a null or negative expected value with SQLSTATE `22023` and safe
+   message `invalid_invitation_version`. If a valid expected value differs from
+   the stored value, raise SQLSTATE `PT409` with message
+   `stale_invitation_version`, no detail/hint, no result row, and no write.
+3. Lock invitation rows in the 006a order. Revoke the prior generic row if its
+   stored status is active, whether still usable or already expired. Do not
+   touch targeted rows.
+4. Capture `checked_at := clock_timestamp()` only after those locks. Set the
+   new authoritative `expires_at` to exactly `checked_at + interval '30 days'`,
+   with no use limit. Increment the group version by exactly one and insert the
+   new generic row with that same shareable version.
+5. Return exactly the committed version, canonical 43-character unpadded
+   base64url token, and stored `expires_at`. Persist only the 006a SHA-256 token
+   digest. Append one issue audit event and, when a prior stored-active generic
+   row was replaced, one revoke event. All changes commit or roll back together.
+   A bigint increment overflow rejects and rolls back the whole operation.
+
+Generic revoke follows the same group-first lock and expected-version check. If
+the current generic row has stored status active, including issued-but-expired,
+it marks that row revoked, increments the group version exactly once, returns
+the new version, `revoked = true`, and authoritative `revoked_at`, and appends
+one event. If there is no current stored-active generic row, it returns the
+unchanged version, `revoked = false`, and null `revoked_at` with no event. A
+stale expected version raises the same `PT409` result and performs no write.
+
+The created UI always renders the returned/projected `expires_at`; it never
+computes 30 days from browser or response time. Preview validity continues to
+require `expires_at > clock_timestamp()`, so the token is invalid at the exact
+expiry instant. Organizer state uses the same strict boundary and shows
+`issued_expired` at equality.
+
+The server action returns the raw token, new version, and authoritative expiry
+only to the initiating organizer page. It sets no cookie and writes no cache,
+database row, URL, redirect, flash message, local storage, session storage,
+analytics event, error report, trace, console output, or server log containing
+the token or complete invite URL. Initial HTML and reload responses never
+contain it. The token remains only in live component state until navigation or
+reload.
 
 There is deliberately no raw-token recovery function. A successful database
 commit followed by a lost response leaves a valid link whose plaintext is
-unknown to the organizer. Repeating the old expected version must return stale
-and must not create another link. Only a new, confirmed **Create a new invite
-link** action using the refreshed version may rotate it. Two tabs issuing from
-the same version yield one winner; the loser receives no token and cannot
-revoke the winner.
+unknown to the organizer. Repeating the old expected version returns stale and
+cannot create another link. Only a new confirmed **Create a new invite link**
+action using freshly projected state may rotate it. This applies equally to an
+active-lost link and an issued-but-expired link. Two tabs issuing from the same
+version yield one winner; the loser receives no token and cannot revoke the
+winner.
 
-If the final ARJ-35 implementation does not yet contain the receipt and
-versioned-issuance primitives above, 006b must add them in one narrow
-forward-only migration with matching pgTAP and two-session race proof. It may
-not emulate either guarantee in process memory, browser state, a service-role
-route, or a check-then-write application sequence. Any amendment to the
-approved 006a signatures and privilege inventory requires fresh independent
-database/security review before 006b implementation approval.
+If the final ARJ-35 implementation does not yet contain the receipt and exact
+versioned primitives above, 006b adds them in one narrow forward-only migration
+with matching pgTAP and two-session race proof. It may not emulate either
+guarantee in process memory, browser state, a service-role route, or a
+check-then-write application sequence. Any amendment to the approved 006a
+signatures and privilege inventory requires fresh independent database/security
+review before 006b implementation approval.
 
 ## Validation and failure behavior
 
@@ -255,11 +398,17 @@ database/security review before 006b implementation approval.
 - An ambiguous creation response offers **Try again** with the same request key
   and unchanged payload. It never tells the user to click repeatedly with new
   keys.
-- A known idempotency conflict explains that the form changed after a prior
-  attempt and asks the user to review and submit as a new request. It does not
-  expose the prior payload or group.
+- A changed payload after any submitted attempt first renders the same safe
+  `idempotency_conflict` state without sending the changed payload. It explains
+  that the form changed after an earlier attempt and asks the user to review
+  the explicit **Submit changes as a new request** confirmation. Cancel retains
+  the original key and attempted binding. Confirm creates the replacement key;
+  neither path exposes the prior payload or group.
 - A stale invitation version refreshes state and explains that another tab may
   have changed the link. It never reveals the current or previous token.
+- An `issued_expired` result is not collapsed into never-issued or active-lost.
+  The UI displays the authoritative expiry and requires the replacement-link
+  confirmation before it calls generic issue with the current version.
 - Database/provider unavailability leaves the form usable and does not claim
   success. Once creation has committed, later analytics or clipboard failure
   cannot turn the result back into a failed creation.
@@ -288,9 +437,12 @@ exact evidence.
 4. **Idempotent replay.** Sequential and concurrent same-user retries with the
    same key and payload return the same group ID and leave one group,
    membership, receipt, audit event, and `group_created` emission. A payload
-   mismatch returns `idempotency_conflict` without change. Another user may use
-   the same UUID independently, and a deliberate new key may create an
-   identical second group.
+   edit retains the submitted key and attempted digest, surfaces
+   `idempotency_conflict` before the changed payload is sent, and rotates only
+   after explicit new-request confirmation. A forged/missing browser guard is
+   still rejected by the database receipt. Another user may use the same UUID
+   independently, and a deliberate confirmed new key may create an identical
+   second group.
 5. **Atomic rollback.** Induced failures at receipt, membership, audit, and
    final-return boundaries leave no partial group or receipt. A waiting retry
    after rollback can succeed once.
@@ -298,29 +450,37 @@ exact evidence.
    action response, analytics, and logs contain no invitation token and do not
    create an invitation. Token issuance never happens on mount, reload,
    redirect, retry, or render.
-7. **Explicit one-time issuance.** A joined organizer's explicit action with
-   the current expected version creates one shareable invitation and returns
-   one canonical token once. Only its digest persists. Initial version 0 moves
-   to 1. Reload shows the active-link-lost state and no token.
-8. **Safe rotation and race.** A confirmed new-link action revokes the old
-   generic link and creates version N+1 atomically. The old token produces the
-   same empty preview as every invalid token and the new token remains valid.
-   Two independent sessions starting at version N produce one N+1 winner; the
-   stale loser gets no token and performs no revoke, issue, or audit write.
+7. **Explicit one-time issuance.** A joined organizer's explicit generic CAS
+   action with expected version 0 creates version 1 and returns exactly version,
+   canonical token, and authoritative stored expiry once. Only its digest
+   persists. Reload shows active-link-lost with that authoritative expiry and
+   no token.
+8. **Safe rotation, expiry, and race.** A confirmed new-link action revokes the
+   prior generic row and creates version N+1 atomically without touching
+   targeted invitations. The old token produces the same empty preview as
+   every invalid token and the new token remains valid until, but not at, its
+   returned expiry. `issued_expired` is distinct, shows the stored expiry, and
+   requires confirmation before replacement. Two independent sessions starting
+   at version N produce one N+1 winner; the stale loser gets no token and
+   performs no revoke, issue, version, or audit write.
 9. **Negative authorization.** Anon, outsider, joined non-organizer, left
    member, removed member, forged actor, cross-group organizer, and null-auth
    calls cannot create for another user, read receipts, read organizer invite
    state, or issue/rotate links. Direct-table, guessed-ID, and function-overload
-   attempts reveal no rows or counts.
+   attempts reveal no rows or counts. Generic issue/revoke through a targeted,
+   legacy, defaulted, null-target, JSON, or by-ID path is unavailable or safely
+   rejected, while valid targeted issue/revoke remains functional and never
+   changes the group shareable version.
 10. **Token secrecy.** Automated scans and response assertions find no raw
     token or full invite URL in persisted rows, audit, seed, logs, analytics,
     cookies, browser storage, initial/RSC HTML, redirects, traces, screenshots,
     or uploaded artifacts. Test tokens are synthetic and evidence redacts them.
 11. **Honest accessible states.** Empty, validation, pending, safe failure,
     success-without-link, token-present, copy-failure, active-link-lost,
-    replacement-confirmation, and stale-version states are keyboard and screen
-    reader usable. Focus moves predictably, pending actions resist duplicate
-    activation, and reduced motion is respected.
+    issued-expired, revoked, replacement-confirmation, new-request-confirmation,
+    and stale-version states are keyboard and screen reader usable. Focus moves
+    predictably, pending actions resist duplicate activation, and reduced
+    motion is respected.
 12. **Visual fidelity.** Initial, validation, and token-present states receive
     apple-to-apple image comparison with frozen Version 18 at both approved
     viewports. Security-required new states receive independent visual review
@@ -343,45 +503,63 @@ exact evidence.
 
 - Canonicalization for Unicode/whitespace, every occasion and mode mapping,
   date/time-zone validation, exact major-to-minor conversion, all field bounds,
-  request-key reuse/rotation/clearing, safe error mapping, and input retention.
+  submitted key/digest retention, changed-payload conflict before RPC,
+  confirmation-only rotation/clearing, unavailable-session-storage blocking,
+  safe error mapping, and input retention.
 - Server Action tests prove session-derived authority, no service-role import,
   no token in create results, stable replay mapping, analytics only on
   `created_now`, and safe behavior when analytics fails.
 - Component tests cover keyboard submission, duplicate activation, error
   summary focus, all created/invitation states, confirmation cancel/accept,
+  issued-expired versus active-lost copy/actions, authoritative expiry display,
   clipboard success/failure, manual copy, and no issuance on render/reload.
 
 ### Database and race tests
 
-- pgTAP inspects receipt/invitation shape, constraints, grants, RLS, function
-  signatures and every overload, owner/security mode, empty search paths,
-  default EXECUTE revocation, audit contents, and absence of plaintext-token
-  storage.
+- pgTAP inspects receipt/invitation shape, the durable group-scoped version,
+  generic/targeted pairing and uniqueness constraints, grants, RLS, the five
+  exact callable signatures and every rejected/absent overload, owner/security
+  mode, empty search paths, default EXECUTE revocation, audit contents, and
+  absence of plaintext-token storage.
 - Positive and negative tests cover every acceptance role and state, canonical
-  payload mismatch, replay, rollback, version transition, old-token revocation,
-  and exact result projections.
+  payload mismatch, replay, rollback, generic version transitions, exact
+  generic issue/revoke results, targeted issue/revoke isolation, old-token
+  revocation, state projection values, and exact return columns.
 - The committed bounded two-session harness uses independent sessions, real
   barriers, and finite lock/statement/client timeouts for same-key create,
   changed-payload conflict, create rollback/waiter success, same-version issue,
+  generic issue versus generic revoke, generic versus targeted issue/revoke,
   issue versus organizer transfer/removal, and rotate rollback/waiter success.
-  It asserts final rows and audit counts after each interleaving and emits no
-  token material.
+  It asserts the durable version, generic/targeted rows, result shape, and audit
+  counts after each interleaving and emits no token material.
+- Clock-boundary tests hold generic issuance behind the group lock, capture
+  database clock bounds immediately before lock release and after return, and
+  prove returned expiry equals the stored value and is exactly 30 days after
+  the function's after-lock `checked_at` within those bounds. Separate tests
+  prove preview/state is active strictly before expiry and empty/
+  `issued_expired` at equality and after it, using `clock_timestamp()` rather
+  than transaction-fixed `now()`.
 
 ### Browser, visual, and staging tests
 
 - Stack-gated Playwright creates synthetic users through the real auth/session
   boundary, exercises valid and invalid creation, double submission, replay,
+  changed-payload conflict before request, confirmation-only new request,
   reload, organizer/outsider denial, explicit issuance, stale-tab behavior,
-  replacement, clipboard failure, and cleanup.
+  authoritative expiry, issued-expired replacement confirmation, targeted-link
+  isolation, clipboard failure, and cleanup.
 - Visual tests use deterministic content, fixed time/date/time zone, local
   assets, fixed fonts, identical viewport and interaction state, and the
   approved Version 18 references. Before/after mobile and desktop images are
-  reviewed by a fresh independent reviewer.
+  reviewed by a fresh independent reviewer. Issued-expired and its replacement
+  confirmation each have explicit mobile and desktop visual proof.
 - The Railway preview is exercised with synthetic data. After the reviewed
   ARJ-35/006b migration is applied to the existing staging Supabase project,
   staging proof covers one creation, safe replay, organizer-only state,
-  one-time issuance, old-token denial after rotation, and outsider denial.
-  Raw tokens are used only transiently and never recorded in evidence.
+  one-time issuance, authoritative expiry, old-token denial after rotation,
+  issued-expired handling with a short-lived synthetic database fixture,
+  targeted-invitation survival, and outsider denial. Raw tokens are used only
+  transiently and never recorded in evidence.
 
 ## Required pull-request evidence
 
@@ -405,18 +583,21 @@ exact evidence.
 
 1. **Close the database contract first.** Compare the merged ARJ-35 function,
    schema, privilege, and race contract with this brief. If receipts or
-   expected-version issuance are absent, add the narrow forward migration,
-   pgTAP suite, and two-session cases first. Obtain fresh independent
-   database/security signoff before application work consumes it.
+   durable expected-version issue/revoke are absent, add the narrow forward
+   migration, exact overload cleanup/grants, pgTAP suite, and two-session/
+   clock-boundary cases first. Obtain fresh independent database/security
+   signoff before application work consumes it.
 2. **Build the typed server boundary.** Add shared normalized input/result
    types, exact money/date/time-zone validation, the authenticated create and
    invitation Server Actions, safe error mapping, no-store handling, and
    typed analytics. Write failing unit tests before behavior.
 3. **Build the protected form and created route.** Reproduce the approved V18
    structure with repository tokens/components. Implement accessible
-   validation, pending and recovery states, idempotency-key lifecycle,
-   organizer-only loading, explicit issuance, one-time in-memory token display,
-   copy/share, replacement confirmation, and stale-version recovery.
+   validation, pending and recovery states, submitted-key binding and explicit
+   new-request confirmation, organizer-only loading, explicit issuance,
+   one-time in-memory token display, authoritative expiry, issued-expired and
+   revoked states, copy/share, replacement confirmation, and stale-version
+   recovery.
 4. **Add real browser and visual proof.** Extend the explicit CI stack-gated
    spec list and image-only evidence collector for the named ARJ-37 images.
    Capture both viewports and all security-required states. Never place token
