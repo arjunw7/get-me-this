@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { expect, test } from "@playwright/test";
 
 import {
@@ -30,10 +32,11 @@ import {
  * Stack-gated: the signed-in owner session is established through the
  * real surface against the local Supabase stack (CI database job), and
  * the four item fixtures are deterministic local-stack inserts, deleted
- * with the fixture user in teardown.
+ * with the fixture user in teardown. Item ids are per-run random UUIDs
+ * (parallel projects each seed their own fixture wishlist, and the table's
+ * primary key is globally unique); the visual order is pinned by distinct
+ * sort_position, never by ids.
  */
-
-const FROZEN_AT = new Date("2026-01-01T00:00:00Z");
 
 /** The reachable vendored asset (served by the app under test itself). */
 const IMAGE_KETTLE = "http://127.0.0.1:3100/assets/landing/k-kettle.jpg";
@@ -57,7 +60,7 @@ test("the signed-in populated wishlist matches the pinned V18 filled composition
     });
     await seedWishlistItems(admin, userId, [
       {
-        id: "00000000-0000-4000-8000-000000000002",
+        id: randomUUID(),
         title: "Ceramic pour-over coffee set",
         source_url: "https://example.invalid/products/pour-over-set",
         retailer: "Fixture Roasters",
@@ -69,7 +72,7 @@ test("the signed-in populated wishlist matches the pinned V18 filled composition
         image_url: IMAGE_KETTLE,
       },
       {
-        id: "00000000-0000-4000-8000-000000000003",
+        id: randomUUID(),
         title: "The Overstory paperback",
         source_url: null,
         retailer: "Fixture Books",
@@ -80,7 +83,7 @@ test("the signed-in populated wishlist matches the pinned V18 filled composition
         original_currency: "JPY",
       },
       {
-        id: "00000000-0000-4000-8000-000000000004",
+        id: randomUUID(),
         title: "Mechanical keyboard keycaps",
         source_url: null,
         retailer: null,
@@ -89,7 +92,7 @@ test("the signed-in populated wishlist matches the pinned V18 filled composition
         sort_position: 3,
       },
       {
-        id: "00000000-0000-4000-8000-000000000005",
+        id: randomUUID(),
         title: "Matcha whisk and bowl",
         source_url: "https://example.invalid/products/matcha-set",
         retailer: "Fixture Kitchen",

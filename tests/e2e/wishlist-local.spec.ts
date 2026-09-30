@@ -1,4 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
+import { randomUUID } from "node:crypto";
+
 import { expect, test, type Page } from "@playwright/test";
 
 import {
@@ -59,13 +61,15 @@ const PROFILE = {
 const REACHABLE_IMAGE = "http://127.0.0.1:3100/assets/landing/k-kettle.jpg";
 const UNREACHABLE_IMAGE = "http://127.0.0.1:59999/broken.jpg";
 
-/** The five seeded items for the populated state, in fixture sort order. */
+/** The seeded items for the populated state, in fixture sort order.
+ *  Item ids are per-run random UUIDs: parallel projects each seed their own
+ *  fixture wishlist, and wishlist_items' primary key is globally unique
+ *  (the fixed-UUID convention is reserved for the single-user seed.sql).
+ *  Read order is pinned by distinct sort_position, never by the ids. */
 function populatedFixtures(): ItemFixture[] {
-  const uuid = (n: number) =>
-    `00000000-0000-4000-8000-0000000000${String(n).padStart(3, "0")}`;
   return [
     {
-      id: uuid(2),
+      id: randomUUID(),
       title: "Ceramic pour-over coffee set",
       source_url: "https://example.invalid/products/pour-over-set",
       retailer: "Fixture Roasters",
@@ -77,7 +81,7 @@ function populatedFixtures(): ItemFixture[] {
       image_url: REACHABLE_IMAGE,
     },
     {
-      id: uuid(3),
+      id: randomUUID(),
       title: "The Overstory paperback",
       source_url: null,
       retailer: "Fixture Books",
@@ -88,7 +92,7 @@ function populatedFixtures(): ItemFixture[] {
       original_currency: "JPY",
     },
     {
-      id: uuid(4),
+      id: randomUUID(),
       title: "Mechanical keyboard keycaps",
       source_url: null,
       retailer: null,
@@ -97,7 +101,7 @@ function populatedFixtures(): ItemFixture[] {
       sort_position: 3,
     },
     {
-      id: uuid(5),
+      id: randomUUID(),
       title: "Film for the half-frame camera",
       source_url: "https://example.invalid/products/film",
       retailer: "Fixture Photo",
