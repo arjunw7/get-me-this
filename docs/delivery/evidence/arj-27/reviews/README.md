@@ -14,6 +14,9 @@ Full reports and the decision journal are also recorded on [PR #28](https://gith
 | Plan follow-up | [Plan re-review](arj27-plan-rereview.md) | Plan approved; provider-disabled proof scheduled |
 | Money transport addendum | [Independent addendum review](money-addendum-review.md) | Plan approved; exact full-bigint transport and formatting required |
 | Recovery implementation | [Independent code and spec review](arj27-implementation-review.md) | Changes requested: separately obtain and inspect real Flight responses |
+| Flight correction | [Independent scoped re-review](arj27-i1-rereview.md) | Source approved; real configured cases subsequently passed at both viewports |
+| Configured execution | [CI c71f69d](../ci-c71f69d.md) | 233 database and 52 browser passes; four old-image mismatches and failed export |
+| Screenshot export correction | [Author report](arj27-collector-fix-report.md) and [independent re-review](arj27-collector-review.md) | Bounded source correction approved at b50a5b3; actual CI artifact delivery and image review still required |
 
 The [approved recovery implementation plan](arj27-recovery-implementation-plan.md) is preserved for audit. Its reviewed SHA-256 is `93d83c2dc56720b4640dce2f9b4d8cdf9312bb64e94d5f77eae20d722944ce03`. It schedules proof; it does not establish that proof passed.
 
