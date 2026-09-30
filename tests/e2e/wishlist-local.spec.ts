@@ -84,29 +84,35 @@ async function assertProfileGeometry(
   }
 }
 
-async function navigateWithPayloads(page: Page, path: string) {
-  const payloadReads: Array<Promise<string>> = [];
-  const target = new URL(path, "http://127.0.0.1:3100").pathname;
-  const capture = (response: import("@playwright/test").Response) => {
-    const url = new URL(response.url());
-    const contentType = response.headers()["content-type"] ?? "";
-    if (
-      url.pathname === target &&
-      /text\/html|text\/x-component/.test(contentType)
-    ) {
-      payloadReads.push(response.text());
-    }
-  };
-  page.on("response", capture);
-  try {
-    const response = await page.goto(path);
-    await page.waitForLoadState("load");
-    const payloads = await Promise.all(payloadReads);
-    expect(payloads.length).toBeGreaterThan(0);
-    return { response, payloads };
-  } finally {
-    page.off("response", capture);
+async function navigateWithDocumentAndFlight(page: Page, path: string) {
+  const response = await page.goto(path);
+  if (response === null) {
+    throw new Error("Expected a document navigation response");
   }
+  await page.waitForLoadState("load");
+  const target = new URL(path, page.url());
+  expect(new URL(response.url()).pathname).toBe(target.pathname);
+  expect(response.headers()["content-type"] ?? "").toMatch(
+    /^text\/html(?:;|$)/i,
+  );
+  const documentBody = await response.text();
+  expect(documentBody.trim().length).toBeGreaterThan(0);
+
+  // BrowserContext.request shares this page's cookies, so this is a fresh
+  // authenticated Flight request for the same target, not an HTML navigation
+  // or a response opportunistically emitted by page.goto(). Next may first
+  // redirect to its cache-busting _rsc URL; the request client follows it.
+  const flightResponse = await page.context().request.get(target.toString(), {
+    headers: { RSC: "1", Accept: "text/x-component" },
+  });
+  expect(new URL(flightResponse.url()).pathname).toBe(target.pathname);
+  expect(flightResponse.headers()["content-type"] ?? "").toMatch(
+    /^text\/x-component(?:;|$)/i,
+  );
+  const flightBody = await flightResponse.text();
+  expect(flightBody.trim().length).toBeGreaterThan(0);
+
+  return { response, documentBody, flightBody };
 }
 
 async function tabTo(
@@ -180,6 +186,28 @@ function populatedFixtures(): ItemFixture[] {
       original_currency: "INR",
       image_url: UNREACHABLE_IMAGE,
     },
+  ];
+}
+
+function privateItemMarkers(wishlistId: string): string[] {
+  return [
+    "Ceramic pour-over coffee set",
+    "The Overstory paperback",
+    "Mechanical keyboard keycaps",
+    "Film for the half-frame camera",
+    "Fixture Roasters",
+    "Fixture Books",
+    "The matte one, not the glossy one.",
+    "Just an idea for now, no link yet.",
+    "249900",
+    "2499.00 INR",
+    "132000",
+    "120000",
+    "1200.00 INR",
+    "4 things",
+    wishlistId,
+    REACHABLE_IMAGE,
+    UNREACHABLE_IMAGE,
   ];
 }
 
@@ -562,7 +590,10 @@ test("a second user's wishlist reveals nothing about the first user's rows", asy
       scope,
     );
 
-    const { payloads } = await navigateWithPayloads(pageB, "/wishlist");
+    const { documentBody, flightBody } = await navigateWithDocumentAndFlight(
+      pageB,
+      "/wishlist",
+    );
 
     // B's own empty state renders; none of A's data — titles, notes,
     // retailers, amounts, item counts, or ids — appears in the DOM or the
@@ -571,27 +602,17 @@ test("a second user's wishlist reveals nothing about the first user's rows", asy
       pageB.getByRole("heading", { name: "Very minimalist of you." }),
     ).toBeVisible();
     await expect(pageB.getByRole("heading", { name: "Rohan" })).toBeVisible();
-    const dom = (await pageB.locator("body").innerText()).toLowerCase();
-    for (const secret of [
-      "ceramic pour-over",
-      "overstory",
-      "keycaps",
-      "fixture roasters",
-      "fixture books",
-      "the matte one",
-      "2499",
-      "132000",
-      "4 things",
-      wishlistIdA,
-      REACHABLE_IMAGE,
-      UNREACHABLE_IMAGE,
-    ]) {
-      expect(dom, `user B's DOM contains "${secret}"`).not.toContain(secret);
-      for (const payload of payloads) {
+    const surfaces = {
+      DOM: await pageB.locator("body").innerText(),
+      document: documentBody,
+      Flight: flightBody,
+    };
+    for (const [surface, body] of Object.entries(surfaces)) {
+      for (const [index, secret] of privateItemMarkers(wishlistIdA).entries()) {
         expect(
-          payload.toLowerCase(),
-          `user B's document/RSC payload contains "${secret}"`,
-        ).not.toContain(secret.toLowerCase());
+          body.toLowerCase().includes(secret.toLowerCase()),
+          `user B's ${surface} contains private fixture marker ${index}`,
+        ).toBe(false);
       }
     }
   });
@@ -780,31 +801,21 @@ test("an unknown /wishlist child path renders not-found with no wishlist data", 
     await seedWishlistItems(admin, userId, populatedFixtures());
     const wishlistId = await fixtureWishlistId(admin, userId);
 
-    const { response, payloads } = await navigateWithPayloads(
-      page,
-      "/wishlist/not-a-real-item",
-    );
+    const { response, documentBody, flightBody } =
+      await navigateWithDocumentAndFlight(page, "/wishlist/not-a-real-item");
     expect(response?.status()).toBe(404);
     await expect(page.getByText("Page not found")).toBeVisible();
-    const body = (await page.locator("body").innerText()).toLowerCase();
-    for (const secret of [
-      "ceramic pour-over",
-      "overstory",
-      "keycaps",
-      "fixture roasters",
-      "the matte one",
-      "2499",
-      "4 things",
-      wishlistId,
-      REACHABLE_IMAGE,
-      UNREACHABLE_IMAGE,
-    ]) {
-      expect(body, `not-found body contains "${secret}"`).not.toContain(secret);
-      for (const payload of payloads) {
+    const surfaces = {
+      DOM: await page.locator("body").innerText(),
+      document: documentBody,
+      Flight: flightBody,
+    };
+    for (const [surface, body] of Object.entries(surfaces)) {
+      for (const [index, secret] of privateItemMarkers(wishlistId).entries()) {
         expect(
-          payload.toLowerCase(),
-          `not-found document/RSC contains "${secret}"`,
-        ).not.toContain(secret.toLowerCase());
+          body.toLowerCase().includes(secret.toLowerCase()),
+          `not-found ${surface} contains private fixture marker ${index}`,
+        ).toBe(false);
       }
     }
   });
