@@ -43,7 +43,7 @@ Binding artifacts:
 Schema and database proof:
 
 - `supabase/migrations/20260930210754_wishlist_item_submission_id.sql`
-- `supabase/tests/005a_wishlist_rls.test.sql`
+- `supabase/tests/wishlist.sql`
 
 Application and tests:
 
