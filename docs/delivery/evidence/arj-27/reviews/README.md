@@ -13,6 +13,7 @@ Full reports and the decision journal are also recorded on [PR #28](https://gith
 | Spec and plan | [Plan review](arj27-plan-review.md) | Spec approved; explicit provider-disabled browser proof missing |
 | Plan follow-up | [Plan re-review](arj27-plan-rereview.md) | Plan approved; provider-disabled proof scheduled |
 | Money transport addendum | [Independent addendum review](money-addendum-review.md) | Plan approved; exact full-bigint transport and formatting required |
+| Recovery implementation | [Independent code and spec review](arj27-implementation-review.md) | Changes requested: separately obtain and inspect real Flight responses |
 
 The [approved recovery implementation plan](arj27-recovery-implementation-plan.md) is preserved for audit. Its reviewed SHA-256 is `93d83c2dc56720b4640dce2f9b4d8cdf9312bb64e94d5f77eae20d722944ce03`. It schedules proof; it does not establish that proof passed.
 
@@ -23,3 +24,7 @@ Historical report paths refer to the isolated recovery checkout as it existed at
 ## Gate at this checkpoint
 
 The recovered code and images are not approved. Corrections are in progress. No final green CI or staging acceptance is claimed by this checkpoint. Later rounds must be added here and to both external logs before merge or task closure.
+
+## Implementation handoff
+
+The [author report](arj27-implementation-report.md) retains the failed formatting attempt, correction, successful local verification and decisions. The [provider-disabled browser proof](arj27-provider-disabled-proof.md) establishes six signed-out browser cases at both viewports on implementation commit `626aba6`; it does not establish configured database or image acceptance. The independent review covers audit head `2baa795`, whose executable code is identical. All three reports and the accepted correction are [published together on GitHub](https://github.com/arjunw7/get-me-this/pull/28#issuecomment-5917192916) and mirrored on ARJ-27, Linear comment `4ce98385-7a90-4d57-824b-7b4e39df0e38`.
