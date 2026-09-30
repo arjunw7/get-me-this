@@ -232,7 +232,7 @@ test("the populated view renders every snapshot field in the pinned read order, 
     await expect(page.getByText("4 things")).toBeVisible();
 
     const cards = page.getByRole("article");
-    await expect(cards).toHaveCount(5);
+    await expect(cards).toHaveCount(4);
     const titles = await cards
       .all()
       .then((all) =>
@@ -305,7 +305,7 @@ test("populated items persist across a full reload and a same-browser new tab", 
     await seedWishlistItems(admin, userId, populatedFixtures());
 
     const assertPopulated = async (surface: Page) => {
-      await expect(surface.getByRole("article")).toHaveCount(5);
+      await expect(surface.getByRole("article")).toHaveCount(4);
       await expect(
         surface.getByRole("heading", { name: "Ceramic pour-over coffee set" }),
       ).toBeVisible();
