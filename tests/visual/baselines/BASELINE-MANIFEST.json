@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "approvedBy": "arjunw7@gmail.com",
-  "approvedDate": "2026-09-28",
+  "approvedBy": "AI reviewer round 2 (2026-09-30): heavy-reasoning subagent, evidence-based baseline approval — no-vision runtime; approved on independently re-run macOS Vision OCR of all 4 candidates vs all 4 pinned V18 references, round-1 programmatic dimension/palette checks, DOM-level e2e content/order/state assertions, axe WCAG A/AA scans, and line-by-line V18 source-port fidelity; accepted differences per 005b resolutions 1, 3, 4 plus the absent V18 mobile bottom navigation (brief-governing header shell). Authorization: 005b brief, 'Owner authorizations applied here' (AI review is the only approval needed for Phase 4 baseline commits; owner decision 2026-09-30, recorded in the merged 005h brief).",
+  "approvedDate": "2026-09-30",
   "files": {
     "auth-create-group-desktop.png": "d637310c508a175afcca158868e8df253325b1a4d2a609221bb4f933a90dd096",
     "auth-create-group-mobile.png": "e4e777cdc15d237b6c3918f43268f32b3ffd03c1ce275abb39e2ea72c055448a",
@@ -26,6 +26,10 @@
     "verify-error-desktop.png": "476990a5f67f57687220a632ddfb51e7026980071f13de9f7f36b49d295fd76d",
     "verify-error-mobile.png": "7cd248e399ae8f327399e036cffe6cbf507bd9dad45ee6b4860bff3141b115da",
     "verify-expired-desktop.png": "8806b860c1514bade0bad1a5e76dd705a3fc9e250d3589d4c6c8c4262f056a26",
-    "verify-expired-mobile.png": "493caff115ed1a969208c75369166cd37081c88f051039ca8dfd8e681ea77077"
+    "verify-expired-mobile.png": "493caff115ed1a969208c75369166cd37081c88f051039ca8dfd8e681ea77077",
+    "wishlist-empty-desktop.png": "2e3c1f0fbbbf67be5b58f6b2c2e893dbc57afef89287eb9b79bcb9f0f4731c12",
+    "wishlist-empty-mobile.png": "c9834fab031e633e60151460af297c40453bd033f061332427fbc12e17742d2f",
+    "wishlist-filled-desktop.png": "ff8619860ea646dc64a9190e91e06e9afa068f720f0b615a71e2e693ddddb4cf",
+    "wishlist-filled-mobile.png": "cef75fb5b36d4e346f0d37ce8712335c01216854945154790e39dbf259eace77"
   }
 }

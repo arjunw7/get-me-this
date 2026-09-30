@@ -37,9 +37,13 @@ export function stackAdminClient(): SupabaseClient {
   );
 }
 
-/** A fresh synthetic address per run; local-stack data only. */
+/** A fresh synthetic address per run; local-stack data only. The
+ *  .invalid domain keeps synthetic users undeliverable by construction
+ *  (the brief's privacy section: fixtures are @example.invalid). */
 export function fixtureEmail(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+  return `${prefix}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}@example.invalid`;
 }
 
 /** Creates the fixture user; fires the real signup triggers. */

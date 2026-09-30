@@ -1,0 +1,74 @@
+=== OCR of candidate: tests/visual/baselines/wishlist-empty-mobile.png ===
+Get Me This
+Account
+A
+Ada
+currently in my tiny-luxuries era
+• O things
+?
+Very minimalist of you.
+Add the first thing you'd secretly love to
+unwrap. A candle, a camera, the hoodie
+you keep looking at. Your friends will
+take it from there.
+Add an item
+
+=== OCR of candidate: tests/visual/baselines/wishlist-empty-desktop.png ===
+Get Me This
+Account
+Ada
+currenty inny tiny-luxuries era
+• O things
+Very minimalist of you.
+Add the first thing you'd secretly love to unwrap. A candle, a
+camera, the hoodie you keep looking at. Your friends will
+take it from there.
+Add an item
+
+=== OCR of candidate: tests/visual/baselines/wishlist-filled-mobile.png ===
+Get Me This
+Account
+Ada
+currently in my tiny-luxuries era
+• 4 things
+• Really want
+Ceramic pour-over coffee set
+Fixture Roasters 2499.00 INR
+The matte one, not the glossy one.
+• Would love
+The Overstory paperback
+The Overstory paperback
+Fixture Books 132000 JPY
+• Just anidea,
+Mechanical keyboard
+keycaps
+Mechanical keyboard keycaps
+Just an idea for now, no link yet.
+• Would love
+Matcha whisk and bowl
+Fixture Kitchen 4200.00 INR
+
+=== OCR of candidate: tests/visual/baselines/wishlist-filled-desktop.png ===
+Get Me This
+A
+Ada
+currently iny tiny-luxuries era
+• 4 things
+• Really want
+• Would love
+The Overstory
+paperback
+The Overstory paperback
+Fixture Books • 132000 JPY
+Ceramic pour-over coffee set
+Fixture Roasters : 2499.00 INR
+Account
+" Just anidoa
+Mechanical keyboard
+keycaps
+Mechanical keyboard keycaps
+Just an idea for now, no link yet.
+• Would love
+Matcha whisk and bowl
+Fixture Kitchen • 4200.00 INR
+
