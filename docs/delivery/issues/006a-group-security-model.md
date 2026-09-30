@@ -227,13 +227,16 @@ All functions that can contend on a group follow one order:
 The group lock serializes accept vs. accept, accept vs. revoke, accept vs.
 remove, and transfer vs. remove for that group. A winning transaction
 commits membership, use count, and audit together; an error or rollback
-commits none. If revoke/removal commits first, the waiting accept sees
-the new state and fails. If accept commits first, later revoke prevents
-new uses but does not undo that joined membership; later removal makes it
-removed and prevents replay. A concurrent duplicate acceptance by the
-same user has one counted use and a safe idempotent result. A use-limit race
-by two different users admits at most the configured number. Functions
-return generic, non-enumerating failures for invalid tokens and authority.
+commits none. If revocation commits first, a waiting new acceptance sees
+the inactive invitation and fails, while an eligible same-user replay in
+the still-joined accepted generation succeeds without another use or audit
+event. If removal commits first, a waiting new acceptance and a replay both
+fail. If acceptance commits first, later revocation prevents new uses but
+does not undo that joined membership; later removal makes it removed and
+prevents replay. A concurrent duplicate acceptance by the same user has one
+counted use and a safe idempotent result. A use-limit race by two different
+users admits at most the configured number. Functions return generic,
+non-enumerating failures for invalid tokens and authority.
 
 Account deletion is constrained by the explicit restrictive FKs, not by
 an application-side precheck. If deletion of a previously unreferenced
