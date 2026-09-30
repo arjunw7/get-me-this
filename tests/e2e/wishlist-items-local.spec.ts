@@ -18,6 +18,8 @@ test("manual create, exact decimal readback, owner edit, and confirmed hard dele
   page,
 }) => {
   test.setTimeout(120_000);
+  page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(20_000);
   const admin = stackAdminClient();
   const scope = new FixtureScope();
   await scope.run(async () => {

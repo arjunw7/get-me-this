@@ -45,8 +45,8 @@ async function attributeEditNavigation(
     const target = new URL(request.url());
     if (
       request.method() === "GET" &&
-      request.isNavigationRequest() &&
-      target.pathname === `/wishlist/items/${itemId}/edit`
+      target.pathname === `/wishlist/items/${itemId}/edit` &&
+      (request.isNavigationRequest() || request.headers().rsc === "1")
     ) {
       await route.continue({
         headers: {
@@ -164,6 +164,8 @@ test("a committed delete with a lost response stays uncertain and failed owner r
   page,
 }) => {
   test.setTimeout(120_000);
+  page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(20_000);
   const admin = stackAdminClient();
   const scope = new FixtureScope();
   const caseId = randomUUID();
@@ -231,9 +233,15 @@ test("a committed delete with a lost response stays uncertain and failed owner r
     );
 
     await page.getByRole("button", { name: "Check status" }).click();
-    await expect(
-      page.getByRole("link", { name: "Check the item" }),
-    ).toBeVisible();
+    const checkItem = page.getByRole("link", { name: "Check the item" });
+    await expect(checkItem).toBeVisible();
+    await expect
+      .poll(() =>
+        checkItem.evaluate((node) =>
+          Math.round(node.getBoundingClientRect().height),
+        ),
+      )
+      .toBeGreaterThanOrEqual(44);
     await wishlistControl.arm(
       caseId,
       "postgrest-edit-read-failure",

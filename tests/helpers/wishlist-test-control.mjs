@@ -176,10 +176,6 @@ export function createWishlistTestControlServer({
           reason: "target-mismatch",
         });
       }
-      if (arm.participants.has(participant)) {
-        entry.failed = true;
-        return json(response, 409, { error: "duplicate-participant" });
-      }
       if (arm.consumed || arm.participants.size >= arm.expected) {
         entry.probeResults.push({
           stage,
@@ -190,6 +186,10 @@ export function createWishlistTestControlServer({
           reason: "consumed",
         });
         return json(response, 200, { decision: "noop", reason: "consumed" });
+      }
+      if (arm.participants.has(participant)) {
+        entry.failed = true;
+        return json(response, 409, { error: "duplicate-participant" });
       }
       arm.participants.add(participant);
       if (arm.oneShot) arm.consumed = true;

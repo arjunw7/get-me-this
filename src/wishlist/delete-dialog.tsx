@@ -128,7 +128,7 @@ export function DeleteDialog({
                 <p>We couldn’t confirm whether the item was removed.</p>
                 {reconcileState.status === "absent" ? (
                   <a
-                    className="font-bold underline"
+                    className="inline-flex min-h-touch-min items-center font-bold underline"
                     href={`/wishlist/items/${itemId}/edit`}
                   >
                     Check the item

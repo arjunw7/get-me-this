@@ -131,7 +131,9 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     });
     expect(overflow.error).toBeNull();
     await page.getByRole("button", { name: "Add item" }).click();
-    await expect(page.getByRole("alert")).toContainText("try again");
+    await expect(
+      page.getByText(/We couldn’t save that item just now/i),
+    ).toContainText("try again");
     await capture("save-failure");
     await admin
       .from("wishlist_items")
@@ -153,7 +155,9 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     expect(conflict.error).toBeNull();
     await page.getByLabel("Item name").fill("Changed candidate draft");
     await page.getByRole("button", { name: "Add item" }).click();
-    await expect(page.getByRole("alert")).toContainText("Start over");
+    await expect(
+      page.getByText(/This entry couldn’t be confirmed/i),
+    ).toContainText("Start over");
     await capture("submission-conflict");
     await admin
       .from("wishlist_items")

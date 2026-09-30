@@ -195,7 +195,7 @@ describe("ARJ-28 local transport controller", () => {
     const contender = await request("/arrive", {
       caseId,
       stage,
-      participant: "second",
+      participant: "first",
       probeId: randomUUID(),
       targetId: itemId,
     });
