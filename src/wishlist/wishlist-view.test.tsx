@@ -67,8 +67,9 @@ describe("WishlistView state selection", () => {
     expect(
       screen.queryByText(/Your friends will take it from there/),
     ).toBeNull();
-    // The profile header shows the display name, taste line, and "0 things".
-    expect(screen.getByRole("heading", { name: "Ada" })).toBeVisible();
+    // The profile region is named for the owner; viewport-specific heading
+    // visibility is checked by the real-browser geometry suite.
+    expect(screen.getByRole("region", { name: "Ada" })).toBeVisible();
     expect(screen.getByText("currently in my tiny-luxuries era")).toBeVisible();
     expect(screen.getByText("0 things")).toBeVisible();
   });

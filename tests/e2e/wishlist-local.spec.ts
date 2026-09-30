@@ -68,7 +68,8 @@ async function assertProfileGeometry(
   profile = PROFILE,
 ): Promise<void> {
   const band = await page
-    .locator('[aria-labelledby="wishlist-owner"] > div[aria-hidden="true"]')
+    .getByRole("region", { name: profile.displayName })
+    .locator(":scope > div:first-child")
     .boundingBox();
   const heading = page.getByRole("heading", { name: profile.displayName });
   const name = await heading.boundingBox();
@@ -79,6 +80,10 @@ async function assertProfileGeometry(
   expect(taste!.y).toBeGreaterThanOrEqual(band!.y + band!.height + 4);
   const desktop = page.viewportSize()?.width !== 390;
   if (desktop) {
+    expect(
+      name!.y,
+      `${profile.displayName} clips above the desktop band`,
+    ).toBeGreaterThanOrEqual(band!.y + 8);
     expect(
       name!.y + name!.height,
       `${profile.displayName} touches the desktop band divider`,
@@ -349,6 +354,33 @@ test("an owner name with descenders clears the desktop divider while the taste l
     await expect(
       page.getByRole("heading", { name: profile.displayName }),
     ).toBeVisible();
+    await assertProfileGeometry(page, true, profile);
+  });
+});
+
+test("a valid three-line owner name stays fully inside the band at the desktop breakpoint", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop breakpoint probe");
+  await page.setViewportSize({ width: 640, height: 844 });
+  const profile = {
+    displayName: "CHRISTOPHER MAXIMILIAN MONTGOMERY",
+    tasteLine: PROFILE.tasteLine,
+  };
+  const { scope } = await signedInFixture(page, profile);
+  await scope.run(async () => {
+    await page.goto("/wishlist");
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
+    const name = await page
+      .getByRole("heading", { name: profile.displayName })
+      .boundingBox();
+    expect(name).not.toBeNull();
+    expect(
+      name!.height,
+      "the breakpoint fixture must wrap to three lines",
+    ).toBeGreaterThan(100);
     await assertProfileGeometry(page, true, profile);
   });
 });

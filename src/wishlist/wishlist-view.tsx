@@ -64,17 +64,15 @@ function ProfileHeaderCard({
 }) {
   return (
     <section
-      aria-labelledby="wishlist-owner"
+      aria-label={displayName}
       className="relative overflow-hidden rounded-surface-2xl border-2 border-outline-strong bg-surface-raised shadow-chunk"
     >
-      <div
-        className="h-24 border-b-2 border-outline-strong bg-action-primary sm:h-28"
-        aria-hidden="true"
-      >
+      <div className="relative h-24 border-b-2 border-outline-strong bg-action-primary sm:flex sm:h-auto sm:min-h-28 sm:items-end sm:px-7 sm:pt-3 sm:pb-3">
         <svg
+          aria-hidden="true"
           viewBox="0 0 400 100"
           preserveAspectRatio="none"
-          className="h-full w-full opacity-30"
+          className="absolute inset-0 h-full w-full opacity-30"
         >
           <path
             d="M-10 70 C 60 20, 110 100, 180 55 S 300 10, 410 60"
@@ -85,9 +83,14 @@ function ProfileHeaderCard({
             strokeLinecap="round"
           />
         </svg>
+        <h1
+          className={`relative hidden font-display font-extrabold tracking-tight sm:ml-[6.25rem] sm:block sm:min-w-0 sm:flex-1 ${typography.profileName}`}
+        >
+          {displayName}
+        </h1>
       </div>
       <div className="flex flex-col gap-5 px-5 pb-6 sm:flex-row sm:items-start sm:justify-between sm:px-7">
-        <div className="flex flex-col gap-3 sm:relative sm:min-w-0 sm:flex-1 sm:flex-row sm:items-start sm:gap-5">
+        <div className="flex flex-col gap-3 sm:min-w-0 sm:flex-1 sm:flex-row sm:items-start sm:gap-5">
           <span
             aria-hidden="true"
             className="-mt-12 flex h-16 w-16 flex-none items-center justify-center rounded-full border-2 border-outline-strong bg-accent-fresh font-display text-2xl font-extrabold text-content-primary shadow-chunk-sm ring-4 ring-surface-raised sm:h-20 sm:w-20"
@@ -96,8 +99,7 @@ function ProfileHeaderCard({
           </span>
           <div className="sm:mt-2">
             <h1
-              id="wishlist-owner"
-              className={`font-display font-extrabold tracking-tight sm:absolute sm:right-0 sm:bottom-[calc(100%+0.75rem)] sm:left-[6.25rem] ${typography.profileName}`}
+              className={`font-display font-extrabold tracking-tight sm:hidden ${typography.profileName}`}
             >
               {displayName}
             </h1>
