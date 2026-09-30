@@ -5,6 +5,14 @@ const source = resolve(process.argv[2] ?? "test-results");
 const target = resolve(process.argv[3] ?? "wishlist-visual-evidence");
 const allowedName =
   /^wishlist-(empty|filled)-(mobile|desktop)-(actual|diff)\.png$/;
+// Playwright 1.63.0 forms each output directory from the spec path and test
+// title, trims it to 60 characters with a five-character hash, then appends
+// the project id. These four values match the pinned visual specs and the
+// configured CI run; an unknown suite, title, state, or viewport fails closed.
+const allowedRunDirectory = {
+  empty: "visual-wishlist-empty.visu-c62a8-inned-V18-empty-composition",
+  filled: "visual-wishlist-filled.vis-24b41-nned-V18-filled-composition",
+};
 
 mkdirSync(target, { recursive: true });
 const copied = new Set();
@@ -21,7 +29,8 @@ function visit(directory) {
     if (!match) continue;
     const components = relative(source, directory).split(sep);
     if (
-      !components.some((part) => part.startsWith(`wishlist-${match[1]}.visual`))
+      components.length !== 1 ||
+      components[0] !== `${allowedRunDirectory[match[1]]}-${match[2]}`
     )
       continue;
     if (copied.has(entry.name))
