@@ -202,12 +202,13 @@ evidence.
   lock, releases only already expired or explicitly invalidated envelopes, and
   counts again under that lock. If eight envelopes remain, creation is refused
   without evicting one, retaining the raw token, or changing an existing flow.
-  The recovery tells the user to finish, sign out, or explicitly discard an
-  existing unaccepted invitation and then reopen the link. A confirmed discard
-  proves the coordinator plus that flow's browser secret and invalidates and
-  releases only that flow. An accepted envelope remains usable for joined
-  reload until expiry or confirmed logout; it is not silently released to make
-  room.
+  The recovery says the browser already has eight invitation flows and offers
+  only confirmed logout when signed in or explicit discard of an existing
+  unaccepted flow; otherwise the user waits for expiry and reopens the link.
+  Completing a flow does not free a slot. A confirmed discard proves the
+  coordinator plus that flow's browser secret and invalidates and releases
+  only that flow. An accepted envelope remains usable for joined reload until
+  expiry or confirmed logout; it is not silently released to make room.
 - Thereafter the shared database lock makes concurrent creates observe
   consecutive counts. Tests must prove that two distinct pending starts in a
   fresh browser establish one coordinator, and that zero through eight
@@ -468,6 +469,45 @@ function exists.
   overlapping cookie delivery through the broker plus server lease; any route
   that can mutate the shared session cookies and bypasses either layer blocks
   approval.
+
+### Automatic Supabase session writers
+
+- The implementation inventory must name every code path that can emit a
+  Supabase auth `Set-Cookie`: OTP and magic-link verification, generic auth
+  confirmation, explicit refresh, account replacement, logout, server-client
+  cookie adapters, proxy/session middleware, and any browser auth client. A
+  repository scan and runtime response matrix prove there is no additional
+  writer. Sending an OTP, reading a session, rendering, reconciling, onboarding,
+  preview, Join, and analytics have read-only cookie adapters and fail closed
+  if Supabase attempts a write.
+- Every browser Supabase client is constructed with automatic token refresh
+  and URL session detection disabled. It does not call `startAutoRefresh`,
+  `refreshSession`, `exchangeCodeForSession`, `verifyOtp`, `setSession`, or a
+  writable auth storage adapter. Focus, visibility, initialization, and refresh
+  timers may request a server session-state read, but they cannot refresh or
+  write a session cookie. Provider verification and code exchange remain
+  reviewed server broker operations.
+- When no invitation coordinator cookie exists, the existing generic proxy
+  refresh behavior may remain. When a coordinator exists, the proxy and all
+  ordinary server clients use a request-only Supabase client whose cookie
+  writer rejects every set/remove attempt. The proxy may validate an access
+  token but must not call a helper that can refresh it. A direct navigation
+  needing refresh returns a clean, `no-store`, `no-referrer` brokered-refresh
+  or re-auth state with no auth `Set-Cookie`; it never refreshes during routing
+  or rendering.
+- The explicit refresh action is an auth mutation. It acquires the origin-wide
+  mutation Web Lock and coordinator server lease, calls Supabase refresh only
+  inside the broker route, enters `delivery_pending`, and uses the same nonce
+  acknowledgement or recovery before another mutation can start. Refresh
+  failure preserves every invitation continuation and returns a safe explicit
+  re-auth choice. No timer or navigation automatically submits that choice.
+- Tests hold the actual refresh response before cookie application and after
+  cookie application. They cover direct navigation with an expired access
+  token, focus/visibility and timer events, refresh in one tab versus logout in
+  another, and refresh versus OTP or magic-link verification in both requested
+  server orders. Each competing mutation stays blocked until delivery is
+  acknowledged or recovered, and response inspection proves no unacknowledged
+  auth `Set-Cookie` path exists.
 
 ### Post-auth and onboarding
 
@@ -744,7 +784,10 @@ with exact evidence.
     the browser broker and server delivery lease. Tests that attempt both
     opposite response orders prove the second mutation remains blocked until
     the first response is acknowledged or recovered; a stale provider session
-    is never delivered after the later mutation.
+    is never delivered after the later mutation. Browser auto-refresh is
+    disabled, every session-cookie writer is inventoried, and proxy or direct
+    navigation bearing a coordinator returns the safe brokered-refresh or
+    re-auth state instead of refreshing or emitting `Set-Cookie`.
 13. **Honest recovery after lost responses.** A committed acceptance whose
     response is lost reconciles to joined success without a duplicate effect.
     The same proof covers continuation-only reconciliation in a second flow. A
@@ -795,6 +838,12 @@ with exact evidence.
   signed-in incomplete-profile onboarding, explicit-only same-origin Join with
   no Set-Cookie, authoritative-inventory logout cleanup, late-response
   handling, and safe analytics behavior.
+- Static and runtime writer-inventory tests prove browser `autoRefreshToken` is
+  disabled; forbidden browser auth mutation methods are absent; ordinary
+  server cookie adapters reject writes; coordinator-bearing proxy navigation
+  never refreshes; and only named broker responses may emit auth `Set-Cookie`.
+  Generic proxy refresh without a coordinator retains its existing regression
+  coverage.
 - Components cover all states, focus movement, keyboard activation, duplicate
   presses, live-region messages, reduced motion, and no private value in DOM or
   browser-readable storage.
@@ -856,6 +905,13 @@ with exact evidence.
   joined reload, logout after more than eight historical acceptances,
   authoritative-inventory logout, reload, and multitab flows at both approved
   viewports.
+- The browser suite separately covers direct navigation with an expired access
+  token, initialization/focus/visibility/timer refresh triggers, brokered
+  refresh response loss before and after cookie application, refresh versus
+  logout across two tabs, and refresh versus OTP and magic-link verification
+  across two tabs. It inspects every response in both requested server orders
+  and fails on any auth `Set-Cookie` not paired with the expected pending lease,
+  delivery nonce, and later acknowledgement or recovery.
 - Tests inspect the initial raw-token and auth-token responses before following
   redirects, asserting clean destinations and headers. Network, DOM, cookie
   plaintext, local/session storage, analytics sink, test logs, screenshots, and
@@ -933,9 +989,11 @@ with exact evidence.
    auth/onboarding primitives while keeping state and actions flow-specific.
    Update the local auth templates, trusted RedirectTo construction, proxy
    header policy, existing-session preflight, split provider/reconciliation
-   requests, browser mutation broker, delivery acknowledgement/recovery,
-   auth-mutation lease/session epoch, reconciliation/restart paths, and
-   staging-template procedure. Prove the generic auth suite remains unchanged.
+   requests, complete session-cookie-writer inventory, disabled browser auto
+   refresh, request-only coordinator proxy, brokered refresh/re-auth state,
+   browser mutation broker, delivery acknowledgement/recovery, auth-mutation
+   lease/session epoch, reconciliation/restart paths, and staging-template
+   procedure. Prove the generic auth suite remains unchanged.
 6. **Build preview and explicit acceptance.** Add the limited-preview loader,
    valid/unavailable/account-mismatch/joined states, explicit Join action,
    signed-in incomplete-profile onboarding, acceptance/replay reconciliation,
