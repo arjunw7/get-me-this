@@ -163,7 +163,11 @@ implemented and tested.
 ### Staleness window
 
 - A stored tuple whose `conversion_rate_at` is older than **24 hours**
-  at server read time is stale. Stale tuples remain displayed with their
+  at server read time is stale. "Older than 24 hours" is strict: the
+  boundary test is `now - conversion_rate_at > 24h`. For example, a
+  tuple captured 23h59m59s ago is **not** stale; a tuple captured
+  exactly 24h ago is **not** stale; a tuple captured 24h and 1s ago
+  **is** stale. Stale tuples remain displayed with their
   approximate marker and captured date; staleness is never silently
   hidden and never blocks the item.
 - The read path never refreshes a rate. Refresh belongs to the future
@@ -276,8 +280,8 @@ Every required column, CHECK, grant, and RLS policy already exists in
 `20260930000000_wishlists.sql` and is exercised by 005c's edit contract.
 This slice adds **no migration** and changes no grant or policy. The
 future rates-cache shape above is planning-only. Existing
-`tests/wishlist.sql` assertions for the converted tuple CHECKs are
-retained unchanged.
+`supabase/tests/wishlist.sql` assertions for the converted tuple CHECKs
+are retained unchanged.
 
 ### Display and rounding algorithm (no floating point)
 
@@ -314,7 +318,12 @@ retained unchanged.
 - The 005c edit rules are restated as binding: converted values are
   never accepted from posted input; all four columns clear atomically
   when the original pair changes or clears and are omitted from the
-  update when it does not.
+  update when it does not. **Scoped amendment, not a faithful
+  restatement:** 005c says the server _may_ additionally null all four
+  converted columns on a changed pair; this brief pins that clearing as
+  unconditional. The stricter semantics are subject to the
+  exact-main recheck gate and must be flagged for review at
+  implementation as an amendment to the approved 005c contract.
 
 ### Separation from group-budget rules
 
@@ -404,7 +413,7 @@ Frozen or production baselines cannot be changed merely to pass CI.
    the original value displays when conversion is unavailable (the
    default dormant state), that a fixture-seeded tuple renders the full
    approximate treatment, and that the wishlist read path makes **zero**
-   outbound requests to any rate provider host.
+   outbound requests to any non-first-party host.
 8. **Visual evidence.** New price states are captured at both viewports
    against the table above; independent product/design review approves
    candidate hashes and the exact head before any baseline commit; no
@@ -433,7 +442,8 @@ Frozen or production baselines cannot be changed merely to pass CI.
 ### Database tests
 
 - No new migration means no new pgTAP obligation; the existing
-  `tests/wishlist.sql` converted-tuple CHECK assertions remain green.
+  `supabase/tests/wishlist.sql` converted-tuple CHECK assertions remain
+  green.
   If the exact-main recheck finds the merged head already covers a
   case this brief cites, reuse is recorded instead of duplicated tests.
 
@@ -454,6 +464,10 @@ the exact PR head (or precise unavailable-check explanations); before/
 after mobile and desktop images for changed states; a Railway preview
 URL when available; the no-migration statement; and confirmation that
 no prototype rate table, mock money data, or editor artifact shipped.
+The PR must also record that this brief's dependency gate (merged 005b,
+005d, and 005h in addition to 005a and 005c) is stricter than Linear's
+stated "005a and 005c plus Phase 3 exit" gate, so the discrepancy stays
+traceable.
 Screenshots and evidence exclude credentials, tokens, real user content,
 and any provider material.
 
