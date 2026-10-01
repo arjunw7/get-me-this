@@ -102,6 +102,10 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     const wishlistId = await fixtureWishlistId(admin, userId);
 
     await page.goto("/wishlist/items/new");
+    await expect(
+      page.getByRole("heading", { name: "Add an item", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Item name")).toBeVisible();
     await capture("manual-clean");
     await page.getByLabel("Item name").fill("ARJ-28 candidate lamp");
     await page.getByLabel("Shop (optional)").fill("Candidate Shop");
@@ -235,6 +239,13 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     ).toBeVisible();
     await page.getByRole("button", { name: "Retry delete" }).click();
     await expect(page).toHaveURL(/\/wishlist\?item=deleted$/);
+    await expect(page.getByRole("heading", { name: "Ada" })).toBeVisible();
+    await expect(
+      page.getByRole("status").getByText("Item removed from your wishlist."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Your wishlist is empty" }),
+    ).toBeVisible();
     await capture("success");
     expect(axeStates).toHaveLength(9);
     writeFileSync(
