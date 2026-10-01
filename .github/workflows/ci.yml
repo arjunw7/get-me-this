@@ -123,7 +123,7 @@ jobs:
         id: collect_arj28
         run: node scripts/collect-arj28-candidates.mjs test-results/arj28-candidates arj28-candidate-evidence
       - name: Upload ARJ-28 review candidates
-        if: steps.collect_arj28.outcome == 'success'
+        if: always() && steps.collect_arj28.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: arj28-responsive-candidates
