@@ -101,17 +101,33 @@ evidence.
   an established coordinator cookie, it generates a fresh 32-byte browser
   secret and calls continuation begin. Without one, it creates only a
   30-second one-use pending-start record containing the invitation reference
-  and a nonce digest, sets a fixed sealed pending-start cookie, and redirects
-  to `/invite/start/[startId]`. It never renders application content, runs
-  client code, loads analytics, or verifies authentication.
-- The token-free start handler verifies the pending cookie, establishes the
-  coordinator once if absent, and then consumes the pending row to begin the
-  flow. The coordinator secret is deterministically derived from the sealed
-  pending nonce and a dedicated server key, so concurrent completion of the
-  same winning pending cookie produces the same coordinator rather than two
-  browser identities. Once a coordinator cookie exists, no bootstrap response
-  may replace it. Superseded, expired, replayed, or cookie-mismatched pending
-  starts create no continuation and retain no recoverable bearer.
+  and a nonce digest, sets a flow-specific sealed pending cookie named with the
+  start ID, and redirects to `/invite/start/[startId]`. It never renders
+  application content, runs client code, loads analytics, or verifies
+  authentication.
+- The token-free start page contains no invitation content or analytics. It
+  acquires one origin-wide Web Lock with a fixed product-owned name before it
+  calls the bootstrap endpoint and holds that lock until the response cookies
+  are applied. The endpoint verifies that start's dynamic pending cookie. If
+  the fixed coordinator cookie is absent, it establishes the coordinator and
+  a 15-second one-use bootstrap lease in the coordinator row, and a matching
+  sealed lease cookie, then returns without creating a continuation. While
+  still holding the browser lock, the page makes a second request that must
+  present the now-established coordinator and lease; only that request may
+  consume the lease and pending row and begin the first flow.
+- If the browser cannot provide the required origin-wide lock, bootstrap shows
+  an accessible unsupported recovery and creates no continuation. It does not
+  fall back to racing coordinator cookies.
+- Two distinct raw landings therefore keep two distinct pending cookies and
+  rows. Their start pages serialize in the browser: the first establishes the
+  coordinator before creating anything, and the second necessarily presents
+  the same server-recognizable coordinator. The server takes that coordinator
+  row's database lock for both begins. A fresh caller that skips the bootstrap
+  phase, lacks its current one-use server lease, or presents no coordinator can
+  never create the first continuation. Later starts require the established
+  coordinator and use its row lock directly. Expired, replayed, or
+  cookie-mismatched pending starts create no continuation and retain no
+  recoverable bearer.
 - A valid begin returns a 302 to `/invite/continue/[flowId]` and sets the
   flow-specific sealed cookie defined below. A malformed, unknown, expired,
   revoked, exhausted, full-inventory, or invalid-bootstrap request returns the
@@ -154,8 +170,8 @@ evidence.
   token, or group value. The server stores only its digest on continuation
   rows and uses the secret solely to serialize flow creation, bound the active
   inventory, serialize invitation-auth mutations, and authenticate logout
-  cleanup. It expires no earlier than the latest possible active flow and is
-  never silently rotated while an active row exists.
+  cleanup. It expires no earlier than the latest possible unreleased envelope
+  and is never silently rotated while an inventory row exists.
 - Every successful raw-token cleanup sets one dynamic cookie named
   `__Host-gmt-invite-[flowId]`. It is HttpOnly, Secure, SameSite=Lax,
   `Path=/`, has no Domain attribute, and expires after 3,600 seconds. The
@@ -178,26 +194,26 @@ evidence.
   same link twice from its raw URL, creates independent flows. No global
   `activeInvite`, singleton destination cookie, local-storage key, or
   session-storage key may select which invitation an auth result belongs to.
-- A browser may have at most eight nonexpired, unaccepted continuations. A
+- A browser may have at most eight nonexpired, unreleased flow envelopes,
+  including accepted continuations. A
   raw landing with no coordinator first uses a clean, token-free bootstrap
   step and creates no continuation until the browser returns the coordinator
   proof. The bootstrap and every creation take the coordinator's database
-  lock, prune only already expired or invalidated rows, and count again
-  under that lock. If eight live rows remain, creation is refused without
-  evicting one, retaining the raw token, or changing an existing flow. The
-  recovery tells the user to complete, sign out, or explicitly discard an
-  existing invitation and then reopen the link. A confirmed discard proves the
-  coordinator plus that flow's browser secret and invalidates only that flow.
-  Accepted, expired, and invalidated envelopes may be cleared as terminal
-  cleanup; a live unaccepted flow is never silently evicted.
-- The clean bootstrap serializes concurrent first-contact tabs before either
-  can create a continuation. Only the pending start matching the browser's
-  fixed pending cookie may complete; concurrent completion of that one start
-  derives the same coordinator, and a superseded start is rejected without a
-  continuation. Thereafter the shared database lock makes two concurrent
-  creates observe consecutive counts. Tests must prove that zero through eight
-  concurrent entries produce no more than eight active rows or eight live
-  dynamic cookies, including lost bootstrap and creation responses.
+  lock, releases only already expired or explicitly invalidated envelopes, and
+  counts again under that lock. If eight envelopes remain, creation is refused
+  without evicting one, retaining the raw token, or changing an existing flow.
+  The recovery tells the user to finish, sign out, or explicitly discard an
+  existing unaccepted invitation and then reopen the link. A confirmed discard
+  proves the coordinator plus that flow's browser secret and invalidates and
+  releases only that flow. An accepted envelope remains usable for joined
+  reload until expiry or confirmed logout; it is not silently released to make
+  room.
+- Thereafter the shared database lock makes concurrent creates observe
+  consecutive counts. Tests must prove that two distinct pending starts in a
+  fresh browser establish one coordinator, and that zero through eight
+  concurrent entries produce no more than eight unreleased rows or eight live
+  dynamic cookies, including accepted flows and lost bootstrap or creation
+  responses.
 
 ### Database shape and lifecycle
 
@@ -207,13 +223,17 @@ evidence.
   optional requested email binding digest, optional verified user ID, whether
   the flow began with a valid authenticated session, monotonically increasing
   revision, expiry, accepted timestamp, invalidated timestamp, and managed
-  timestamps. A second private browser-coordinator row holds only the
-  coordinator digest, current session epoch, an optional short auth-mutation
-  lease identifier and expiry, and managed timestamps. A bounded pending-start
-  table holds a random ID, invitation reference, nonce digest, 30-second
-  expiry, and consumed timestamp. No table stores a raw token, token hash
-  duplicate, browser secret, coordinator secret, plaintext email, group
-  content, provider credential, or session token.
+  timestamps, plus `envelope_released_at` for bounded browser inventory. A
+  second private browser-coordinator row holds only the coordinator digest,
+  current session epoch, optional short bootstrap lease, auth-mutation lease
+  state and identifier, acquisition expiry, delivery-nonce digest, expected
+  provider user ID, and managed timestamps. `delivery_pending` does not expire
+  into permission for a competing mutation; acknowledgement or explicit
+  recovery must resolve it. A bounded pending-start table holds a random ID,
+  invitation reference, nonce digest, 30-second expiry, and consumed timestamp.
+  No table stores a raw token, token hash duplicate, browser secret,
+  coordinator secret, plaintext email, group content, provider credential, or
+  session token.
 - The requested-email binding is
   `HMAC-SHA256(lower(trim(email)), browser_secret)` using the high-entropy
   browser secret as the key. The same normalization is applied to the
@@ -226,11 +246,12 @@ evidence.
   fixed argument and return types, no dynamic SQL, derived `auth.uid()`, and
   exact EXECUTE grants. Revoke EXECUTE from `PUBLIC` and every unapproved role
   for every overload before granting the listed roles.
-- Beginning a flow accepts a canonical raw token and browser secret
-  and browser-coordinator secret transiently, locks the coordinator inventory,
-  enforces the exact eight-flow maximum, resolves the invitation by its ARJ-35
-  digest, checks current preview eligibility, stores the invitation reference
-  plus both secret digests, and returns only flow ID and expiry. If
+- Beginning a flow accepts a canonical raw token, browser secret, and
+  browser-coordinator secret transiently, locks the coordinator inventory,
+  enforces the exact eight-envelope maximum including accepted rows, resolves
+  the invitation by its ARJ-35 digest, checks current preview eligibility,
+  stores the invitation reference plus both secret digests, and returns only
+  flow ID and expiry. If
   `auth.uid()` is present, the same transaction derives that user's canonical
   `auth.users.email`, stores its HMAC binding and verified user ID, and records
   that the flow began authenticated. It never trusts a caller-supplied user or
@@ -286,8 +307,9 @@ required capabilities are:
 6. Accept through the continuation, callable only by `authenticated`.
 7. Explicitly discard one coordinator- and browser-proven unaccepted flow,
    callable by `anon` and `authenticated`.
-8. Atomically invalidate the coordinator's bounded active inventory for
-   confirmed local logout, callable only by `authenticated`.
+8. Atomically invalidate unaccepted rows and release every envelope in the
+   coordinator's bounded unreleased inventory for confirmed local logout,
+   callable only by `authenticated`.
 9. Acquire, finalize, or release one browser-scoped invitation-auth mutation
    lease and advance its session epoch, callable only through the reviewed
    server route boundary.
@@ -318,8 +340,9 @@ function exists.
   flow cookie. Before calling `verifyOtp`, the action reads the current
   provider-validated session. With no session, it verifies the six-digit code
   and returns a response whose only application/browser state mutations are
-  delivery of the new provider session and advanced browser session epoch. It
-  does not bind the continuation in that response. The clean destination then
+  delivery of the new provider session and a mutation-delivery nonce. It does
+  not bind the continuation in that response. After cookie-delivery
+  acknowledgement releases the auth-mutation lease, the clean destination
   requires a separate **Continue this invitation** POST to reconcile the
   current session.
   With a session whose provider user and normalized email match the
@@ -356,12 +379,13 @@ function exists.
   re-verification; a mismatched session is preserved and the parked credential
   is not consumed; only an absent session allows provider verification. After
   any provider verification attempt, the action removes the parked auth token.
-  On success its response delivers only the provider session plus advanced
-  browser session epoch and redirects to the clean reconciliation screen; a
-  subsequent explicit POST binds the session to the continuation. Provider
-  denial or failure preserves any session that existed when the action began.
-  Prefetch, GET, back navigation, and email scanners never verify, join, or
-  consume an invitation use.
+  On success its response delivers only the provider session plus a
+  mutation-delivery nonce. After acknowledgement releases the lease it
+  redirects to the clean reconciliation screen; a subsequent explicit POST
+  binds the session to the continuation. Provider denial or failure preserves
+  any session that existed when the action began. Prefetch, GET, back
+  navigation, and email scanners never verify, join, or consume an invitation
+  use.
 
 ### Session reconciliation and account restart
 
@@ -375,12 +399,13 @@ function exists.
   is therefore retryable from the session already delivered to the browser.
 - A response that is actually lost before its Set-Cookie headers reach the
   browser cannot be recovered as an authenticated session. The UI must not
-  infer provider success or claim a verified continuation. Reload sees no
-  matching session and offers an honest fresh-code or fresh-link restart. If
-  headers were applied but navigation or body was lost, reload observes the
-  session and offers only the separate reconciliation POST. Tests must drop
-  the real verification response both before cookie application and after
-  cookie application and assert these two safe outcomes.
+  infer provider success or claim a verified continuation. Mutation recovery
+  under the still-exclusive lease observes no matching session, abandons
+  delivery, and offers an honest fresh-code or fresh-link restart. If headers
+  were applied but navigation or body was lost, recovery observes and
+  acknowledges the session before offering the separate reconciliation POST.
+  Tests must drop the real verification response both before cookie application
+  and after cookie application and assert these two safe outcomes.
 - If reconciliation had already committed, repeating it returns the same
   verified state. If it had not committed, the matching session completes the
   binding once. A changed user, changed normalized email, missing browser
@@ -401,29 +426,48 @@ function exists.
   confirmed logout is a browser-scoped auth mutation. While a coordinator
   cookie exists, any generic auth or account route that could set, replace,
   refresh, or clear the same Supabase session cookies participates too; absent
-  that cookie its existing behavior is unchanged. Before touching the provider
-  or session cookies, the route acquires the coordinator row's single short
-  lease using the session epoch presented in the sealed coordinator cookie.
-  Another tab waits for the bounded lease or receives a retry result; it never
-  runs a concurrent provider verification or sign-out. A crashed operation
-  expires without advancing the epoch and exposes no credential.
-- A successful auth mutation finalizes the lease and advances the server epoch
-  exactly once before returning cookies. Its response seals the new epoch into
-  the coordinator cookie alongside any provider Set-Cookie or clearing
-  headers. Failure releases the lease without changing epoch or session. Every
-  invitation route compares the cookie epoch with the server row before it
-  trusts a provider session, renders authenticated content, reconciles, or
-  accepts. A stale browser epoch gets only safe session-cookie clearing and a
-  coordinator cookie resealed at the current server epoch; it never gets
-  authenticated content or an implicit retry of the old mutation.
-- Response delivery order is not authority. If verification finalizes first
-  and logout finalizes second, logout's later server epoch wins even when the
-  older verification response reaches the browser last. The stale epoch makes
-  that restored client session unusable and the next server response clears
-  it. If logout finalizes first, the queued verification must reacquire against
-  the new epoch and cannot silently replace the logged-out account; it returns
-  to a fresh explicit sign-in choice. Tests cover both server orders and both
-  opposite browser-response orders across two tabs.
+  that cookie its existing behavior is unchanged. The browser-side mutation
+  broker first acquires a second fixed origin-wide Web Lock, then the route
+  acquires the coordinator row's single server lease using the session epoch
+  presented in the sealed coordinator cookie. A competing tab cannot begin a
+  provider verification, refresh, account replacement, or sign-out while
+  either layer is held.
+- A provider verification that succeeds moves the server lease to
+  `delivery_pending` and returns the provider session cookies plus a sealed
+  one-use delivery nonce. It does not release the lease or advance the epoch.
+  The mutation broker keeps the Web Lock until the fetch has settled and a
+  separate acknowledgement POST presents the nonce and the newly delivered
+  provider session. That POST verifies the expected provider user, advances
+  the epoch exactly once, reseals the coordinator cookie, and releases the
+  server lease. Continuation reconciliation can run only afterward.
+- If the verification fetch settles without the browser receiving cookies,
+  the broker still holds the Web Lock and calls recovery. Recovery sees no
+  matching provider session, abandons the delivery lease, and returns the
+  honest fresh-credential restart. If cookies were applied but navigation or
+  the response body was lost, recovery sees the expected session and nonce and
+  performs the same acknowledgement. A tab crash releases the Web Lock, but a
+  later mutation remains blocked by `delivery_pending` until another tab runs
+  this recovery. The broker invokes recovery only after the original fetch has
+  settled or its abort has completed. If it cannot prove that boundary, the
+  mutation remains blocked rather than allowing a possibly older Set-Cookie
+  response to race a newer one.
+- Logout and account replacement use the same delivery acknowledgement before
+  their lease is released. A logout delivery clears the provider session and
+  invitation-flow cookies but retains only the coordinator and sealed delivery
+  nonce needed for acknowledgement; the acknowledgement then releases the
+  lease and clears those final coordination cookies. Therefore opposite
+  cookie-response delivery orders are prevented, not repaired after the fact:
+  verification must be delivered or abandoned before logout may start, and
+  logout must be delivered before a later verification may start. Tests
+  request both server orders, deliberately hold each response, and prove the
+  competing mutation is blocked until acknowledgement or recovery, so an
+  older valid Supabase session is never delivered after the later mutation.
+- The session epoch is a compare-and-swap version for acquiring leases and
+  detecting protocol errors. It does not revoke, invalidate, or make an
+  otherwise valid Supabase session harmless. Correctness depends on preventing
+  overlapping cookie delivery through the broker plus server lease; any route
+  that can mutate the shared session cookies and bypasses either layer blocks
+  approval.
 
 ### Post-auth and onboarding
 
@@ -517,16 +561,19 @@ function exists.
   cookie in the browser and calls one bounded database invalidation function
   with the coordinator proof and the complete list of at most eight matching
   flow IDs and browser secrets. Under the coordinator lock, the function
-  derives the authoritative database active inventory, sorts and locks every
+  derives the authoritative database unreleased inventory, sorts and locks every
   row in it, verifies that every supplied cookie belongs to that inventory,
-  and marks every active unaccepted row invalidated in one transaction. This
-  includes a row whose creation committed but whose cookie-setting response
-  was lost. An extra, duplicate, or unverified supplied entry rolls the whole
-  operation back; absence of an orphaned cookie cannot strand its row. The
-  function never locks a group or invitation after taking a continuation lock.
-  If this database step fails, logout does not clear the session or claim
-  success; the user can retry. The creation cap is what makes authoritative
-  all-flow invalidation bounded.
+  marks every active unaccepted row invalidated, and sets
+  `envelope_released_at` on every accepted or unaccepted inventory row in one
+  transaction. This includes a row whose creation committed but whose
+  cookie-setting response was lost. An extra, duplicate, or unverified
+  supplied entry rolls the whole operation back; absence of an orphaned cookie
+  cannot strand its row. Historical accepted rows whose envelopes were
+  released by an earlier logout or expiry are not selected. The function never
+  locks a group or invitation after taking a continuation lock. If this
+  database step fails, logout does not clear the session or claim success; the
+  user can retry. The creation cap is what makes authoritative all-envelope
+  cleanup bounded even after more than eight historical acceptances.
 - Acceptance preserves the ARJ-35 order by resolving its group without a row
   lock, locking the group and invitation first, and then locking its
   continuation before any membership write. Logout locks only continuation
@@ -545,12 +592,14 @@ function exists.
   invalidation and commits no membership/use/audit/continuation acceptance.
 - Only after database invalidation commits does logout call Supabase local
   sign-out and clear every invitation envelope and parked auth credential in
-  its response. The proxy and Join handler are configured so a Join response
-  contains no `Set-Cookie`, including a session refresh. A late Join response
-  or redirect therefore cannot resurrect cookies cleared by logout and must
-  pass a fresh server-side session, flow-cookie, and continuation-state check
-  before joined content can render. Browser response reordering cannot restore
-  cleared state or show a signed-out user a stale success screen.
+  its delivery response, retaining only the coordinator and delivery nonce
+  until the broker acknowledges the clearing response. The proxy and Join
+  handler are configured so a Join response contains no `Set-Cookie`,
+  including a session refresh. A late Join response or redirect therefore
+  cannot resurrect cookies cleared by logout and must pass a fresh server-side
+  session, flow-cookie, and continuation-state check before joined content can
+  render. Browser response reordering cannot restore cleared state or show a
+  signed-out user a stale success screen.
 
 ## User-visible states and copy boundary
 
@@ -620,22 +669,27 @@ with exact evidence.
 3. **Independent continuation.** Every raw link opening has an independent
    database row and sealed cookie. Flow-ID guessing, cookie swapping, envelope
    tampering, expiry, and another browser fail. The coordinator-locked active
-   inventory never exceeds eight even under concurrent first contact or lost
-   responses; a ninth live flow is refused and no live flow is silently
-   evicted. Only confirmed proof-bound discard, terminal cleanup, or expiry
-   frees a slot. Existing generic auth carry and intent behavior are unchanged.
+   envelope inventory, including accepted flows, never exceeds eight even
+   under concurrent first contact or lost responses; a ninth envelope is
+   refused and no live flow is silently evicted. Only confirmed proof-bound
+   discard of an unaccepted flow, confirmed logout, or expiry frees a slot.
+   Two distinct first-contact starts establish one coordinator before either
+   continuation exists. Existing generic auth carry and intent behavior is
+   unchanged.
 4. **Requested-email binding.** First valid email binding wins; a same-email
    retry is idempotent; a different or concurrent email cannot overwrite it.
    No plaintext email persists outside the sealed cookie or appears in
    evidence.
 5. **OTP completion.** A valid code verifies the cookie-bound email and binds
    only the provider-derived user through a later reconciliation POST. The
-   verification response delivers session cookies and advances the session
-   epoch but never binds or accepts. A matching existing session reconciles
-   without re-verifying; a mismatched existing session is preserved and blocks
-   the provider call until confirmed local logout/restart. Invalid, expired,
-   excessive-attempt, unavailable-provider, cross-flow, cross-email, and
-   switched-session cases create no membership and have accessible recovery.
+   verification response delivers session cookies and a mutation nonce but
+   never binds or accepts. Delivery acknowledgement advances the session epoch
+   and releases the mutation lease before reconciliation. A matching existing
+   session reconciles without re-verifying; a mismatched existing session is
+   preserved and blocks the provider call until confirmed local logout/restart.
+   Invalid, expired, excessive-attempt, unavailable-provider, cross-flow,
+   cross-email, and switched-session cases create no membership and have
+   accessible recovery.
 6. **Magic-link completion.** The trusted dynamic redirect is flow-specific.
    The initial auth-token URL cleans before content or analytics, GET never
    verifies, an explicit action verifies once only when no session exists, and
@@ -645,10 +699,11 @@ with exact evidence.
 7. **Session reconciliation.** Provider success followed by bind failure,
    timeout, or binding-response loss is recoverable from the matching current
    session through an idempotent continuation-only POST. Loss of the actual
-   verification response before cookie application instead produces an honest
-   fresh-credential restart; loss after cookie application permits the POST.
-   Reconciliation neither re-verifies nor accepts; mismatch and expiry change
-   neither session nor membership.
+   verification response before cookie application is resolved under the
+   still-held mutation lock as an honest fresh-credential restart; loss after
+   cookie application is acknowledged under that lock and then permits the
+   POST. Reconciliation neither re-verifies nor accepts; mismatch and expiry
+   change neither session nor membership.
 8. **Onboarding return.** An incomplete verified user completes the existing
    onboarding rules and returns to the same live preview. A directly signed-in
    incomplete user preserves the initial binding and goes straight to
@@ -671,22 +726,25 @@ with exact evidence.
 11. **Account and logout safety.** Session switch after verification, changed
     provider email, stale user binding, null auth, and incomplete profile are
     denied. Confirmed account-menu logout atomically invalidates every
-    browser-proven unaccepted continuation before local sign-out, then clears
-    all flow cookies and parked auth material. The coordinator derives and
-    invalidates its authoritative at-most-eight active rows, including an
-    orphan after lost cookie delivery; every supplied cookie must match that
-    inventory. Failure before invalidation preserves the session and reports
-    no success.
+    browser-proven unaccepted continuation and releases every accepted or
+    unaccepted envelope before local sign-out, then clears all flow cookies and
+    parked auth material. The coordinator derives its authoritative
+    at-most-eight envelope rows, including an orphan after lost cookie delivery;
+    every supplied cookie must match that inventory. Historical accepted rows
+    are not active envelopes and do not enlarge the locked set. Failure before
+    invalidation preserves the session and reports no success.
 12. **Multitab and real races.** Independent flows do not overwrite one
     another. Same-flow different-email races have one binding winner. Two
     accepts by one user create one use/audit; two users at a one-use limit admit
     at most one. Accept versus revoke, rotation, remove, expiry, logout, and
     rollback/waiter interleavings preserve the ARJ-35 final states. Both
     accept-first and logout-first orders, revoke/rotate versus second-flow
-    reconciliation in both orders, plus reversed browser response order, have
-    deterministic tested outcomes. Provider verification, restart, and logout
-    serialize by browser lease and monotonically checked session epoch, so a
-    stale response cannot silently restore or replace an account.
+    reconciliation in both orders have deterministic tested outcomes. Provider
+    verification, restart, refresh, replacement, and logout serialize through
+    the browser broker and server delivery lease. Tests that attempt both
+    opposite response orders prove the second mutation remains blocked until
+    the first response is acknowledged or recovered; a stale provider session
+    is never delivered after the later mutation.
 13. **Honest recovery after lost responses.** A committed acceptance whose
     response is lost reconciles to joined success without a duplicate effect.
     The same proof covers continuation-only reconciliation in a second flow. A
@@ -733,10 +791,10 @@ with exact evidence.
   magic link, provider-response/session-cookie separation from reconciliation,
   matching-session reconciliation without `verifyOtp`, mismatched
   existing-session preservation, confirmed local logout/restart, auth-mutation
-  lease and epoch checks, direct signed-in incomplete-profile onboarding,
-  explicit-only same-origin Join with no Set-Cookie,
-  authoritative-inventory logout cleanup, late-response handling, and safe
-  analytics behavior.
+  broker, delivery acknowledgement/recovery, lease and epoch checks, direct
+  signed-in incomplete-profile onboarding, explicit-only same-origin Join with
+  no Set-Cookie, authoritative-inventory logout cleanup, late-response
+  handling, and safe analytics behavior.
 - Components cover all states, focus movement, keyboard activation, duplicate
   presses, live-region messages, reduced motion, and no private value in DOM or
   browser-readable storage.
@@ -745,32 +803,36 @@ with exact evidence.
 
 - pgTAP inspects continuation, coordinator, and pending-start shape,
   constraints, indexes, expiry, digest and HMAC lengths, one-use start
-  consumption, exact active-flow cap, session epoch and lease transitions,
-  grants, lack of direct privileges, RLS exposure, every function and overload,
-  owner/security mode, empty search paths, default EXECUTE revocation, and
-  revocation of every direct raw-token acceptance overload.
+  consumption, bootstrap lease, exact all-envelope cap, release state, session
+  epoch, auth acquisition/delivery lease transitions, grants, lack of direct
+  privileges, RLS exposure, every function and overload, owner/security mode,
+  empty search paths, default EXECUTE revocation, and revocation of every direct
+  raw-token acceptance overload.
 - Positive and negative tests cover begin/preview/bind/verify/state/accept,
   session-derived reconciliation after provider/bind uncertainty, profile
   completeness, generic and targeted invitations, sticky removal, replay
   generations, second-flow continuation-only reconciliation only while live,
-  authoritative-inventory logout invalidation, creation refusal, explicit
-  discard, terminal cleanup, revocation, expiry, exhaustion, rotation,
-  rollback, and exact public result columns. Persisted-row and audit scans
-  reject plaintext token, browser or coordinator secret, provider session, or
-  email.
+  authoritative-inventory logout invalidation/release, creation refusal,
+  explicit discard, accepted-envelope retention, expiry cleanup, more than
+  eight historical accepted rows, revocation, exhaustion, rotation, rollback,
+  and exact public result columns. Persisted-row and audit scans reject
+  plaintext token, browser or coordinator secret, provider session, or email.
 - A committed bounded harness uses independent database sessions, explicit
   barriers, and finite lock/statement/client timeouts. It covers different
   email binds on one flow; duplicate acceptance; same token through two flows;
   one-use different-user acceptance; accept/revoke; accept/remove;
   accept/rotation; revoke and rotation versus unaccepted second-flow
   reconciliation in both lock orders and with lost responses; accept/logout in
-  both lock orders; simultaneous flow creation at counts zero through eight;
-  inventory-derived logout during creation; expiry while blocked; acceptance
-  rollback followed by a waiting success; provider-success/bind response loss;
-  same-flow and second-flow acceptance response loss; and reload
-  reconciliation. It asserts final membership, generation, use count,
-  invitation, continuation, invalidation, coordinator epoch, active inventory,
-  and audit rows after every interleaving and prints no credential material.
+  both lock orders; two distinct first-contact pending starts; simultaneous
+  flow creation at envelope counts zero through eight, including accepted
+  rows; inventory-derived logout during creation; logout with more than eight
+  historical accepted rows but at most eight unreleased envelopes; expiry
+  while blocked; acceptance rollback followed by a waiting success;
+  provider-success/bind response loss; same-flow and second-flow acceptance
+  response loss; and reload reconciliation. It asserts final membership,
+  generation, use count, invitation, continuation, invalidation, envelope
+  release, coordinator epoch, unreleased inventory, and audit rows after every
+  interleaving and prints no credential material.
 - Add a dedicated package command and an explicit CI database step after
   pgTAP and before stack-gated browser tests. The command must target only the
   repository's selected local Supabase container and fail on timeout or an
@@ -785,12 +847,15 @@ with exact evidence.
   provider-success/bind uncertainty, pre-verification matching and mismatched
   sessions, actual provider-response loss before and after cookie application,
   revocation, rotation, expiry, account switch, confirmed restart, provider
-  verification versus logout in both server and browser response orders,
-  accept/logout with reversed response delivery, second-flow replay versus
-  revoke/rotation in both orders, same-flow and second-flow response loss,
-  zero-to-eight creation races, ninth-flow refusal, explicit flow discard,
-  terminal envelope cleanup, authoritative-inventory logout, reload, and
-  multitab flows at both approved viewports.
+  verification versus logout in both requested server orders with the second
+  response blocked until delivery acknowledgement/recovery, accept/logout with
+  reversed response delivery, second-flow replay versus revoke/rotation in
+  both orders, same-flow and second-flow response loss, two distinct
+  first-contact starts, zero-to-eight envelope creation races with accepted
+  flows included, ninth-envelope refusal, explicit flow discard, accepted
+  joined reload, logout after more than eight historical acceptances,
+  authoritative-inventory logout, reload, and multitab flows at both approved
+  viewports.
 - Tests inspect the initial raw-token and auth-token responses before following
   redirects, asserting clean destinations and headers. Network, DOM, cookie
   plaintext, local/session storage, analytics sink, test logs, screenshots, and
@@ -826,9 +891,10 @@ with exact evidence.
   confirmation plus changed auth/recovery families, each with exact hashes and
   fresh independent image-review signoff.
 - Safe scans proving no raw invitation/auth token, requested email, browser
-  secret, coordinator secret, provider session, full invite URL, or private
-  projection escaped into persisted state, logs, analytics, browser-readable
-  storage, screenshots, or uploaded artifacts.
+  secret, coordinator secret, bootstrap lease, delivery nonce, provider
+  session, full invite URL, or private projection escaped into persisted state,
+  logs, analytics, browser-readable storage, screenshots, or uploaded
+  artifacts.
 - Confirmation that no Magic Patterns mock data, Vite/editor scaffolding,
   service-role credential, new dependency, production resource, or baseline
   change made only to silence CI shipped.
@@ -842,32 +908,34 @@ with exact evidence.
    signatures before implementation, without loosening this brief.
 2. **Write the database red tests first.** Add the 006c pgTAP suite for the
    private continuation, coordinator, and pending-start tables, function
-   inventory, raw-accept revocation, lifecycle, active-flow cap, session epoch,
-   and negative roles. Add the real two-session harness cases and CI/package
-   command. Demonstrate that the tests fail against the merged ARJ-35/37 schema
-   for the missing continuation boundary.
+   inventory, raw-accept revocation, lifecycle, all-envelope cap, release state,
+   bootstrap and auth-delivery leases, session epoch, and negative roles. Add
+   the real two-session harness cases and CI/package command. Demonstrate that
+   the tests fail against the merged ARJ-35/37 schema for the missing
+   continuation boundary.
 3. **Implement the forward migration.** Add the private tables, constraints,
    indexes, exact definer functions, minimal projections, explicit REVOKE and
    GRANT statements, session-derived reconciliation,
-   authoritative-inventory batch invalidation, auth-mutation lease/epoch
-   operations, and private shared acceptance core. Preserve ARJ-35 lock order
-   and result semantics, including continuation-only second-flow replay only
-   while the invitation is live. Make pgTAP and every bounded race pass before
-   application code consumes the API.
+   authoritative-inventory invalidation/release, bootstrap and auth-mutation
+   lease/acknowledgement operations, and private shared acceptance core.
+   Preserve ARJ-35 lock order and result semantics, including
+   continuation-only second-flow replay only while the invitation is live.
+   Make pgTAP and every bounded race pass before application code consumes the
+   API.
 4. **Build the sealed browser boundary.** Add focused server-only modules for
-   flow IDs, coordinator bootstrap, dynamic cookie names, the exact eight-flow
-   inventory, AES-GCM envelope sealing, token/email-safe error mapping, and
-   cookie cleanup. Use Web Crypto already available in the runtime; add no
-   dependency. Add the raw-token and unavailable route handlers with cleanup
-   headers and leakage tests.
+   flow IDs, two-request coordinator bootstrap, origin-wide bootstrap lock,
+   dynamic cookie names, the exact eight-envelope inventory, AES-GCM envelope
+   sealing, token/email-safe error mapping, and cookie cleanup. Use Web Crypto
+   already available in the runtime; add no dependency. Add the raw-token and
+   unavailable route handlers with cleanup headers and leakage tests.
 5. **Build dedicated invitation auth.** Add the invitation email, verify,
    confirm, link, and onboarding route family and actions. Reuse presentational
    auth/onboarding primitives while keeping state and actions flow-specific.
    Update the local auth templates, trusted RedirectTo construction, proxy
    header policy, existing-session preflight, split provider/reconciliation
-   requests, auth-mutation lease/session epoch, reconciliation/restart paths,
-   and staging-template procedure. Prove the generic auth suite remains
-   unchanged.
+   requests, browser mutation broker, delivery acknowledgement/recovery,
+   auth-mutation lease/session epoch, reconciliation/restart paths, and
+   staging-template procedure. Prove the generic auth suite remains unchanged.
 6. **Build preview and explicit acceptance.** Add the limited-preview loader,
    valid/unavailable/account-mismatch/joined states, explicit Join action,
    signed-in incomplete-profile onboarding, acceptance/replay reconciliation,
