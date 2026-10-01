@@ -173,9 +173,16 @@ and snapshot-first display integration.
   pixels), decode under bounded memory/time, resize preserving aspect ratio
   so the longest output side is at most **1,600 pixels**, and re-encode one
   static **WebP** frame. Strip EXIF/ICC/comments and all remote metadata.
-  Isolation uses a killable **1-second**, **256 MiB** worker; normalized WebP
-  output is at most **2 MiB**. If bounded encoding cannot meet the output cap,
-  or decode/encode fails, return no image. A needed codec dependency must be
+  Isolation uses a separate killable codec process with a **1-second**
+  deadline, a **64 MiB V8 old-space cap**, libvips cache disabled, and codec
+  concurrency limited to one. Together with the **5 MiB input cap** and
+  **20-million-pixel cap**, these are the approved defense-in-depth limits for
+  staging. They do not constitute a hard bound on native-code RSS. Whole-service
+  or container memory remains the deployment boundary, and **production launch
+  is blocked** until a hard OS/container memory limit is enforced or a separate
+  production risk decision is explicitly approved. Normalized WebP output is at
+  most **2 MiB**. If bounded encoding cannot meet the output cap, or
+  decode/encode fails, return no image. A needed codec dependency must be
   justified in the implementation PR; no decoder is added by this planning
   brief.
 - The function neither writes Supabase Storage nor exposes arbitrary bytes
@@ -277,8 +284,13 @@ and snapshot-first display integration.
    input, and blocked redirects produce no bytes for storage. For valid
    JPEG/PNG/WebP input, assert static WebP output only, longest side at most
    1,600 pixels, output at most 2 MiB, aspect ratio retained, and metadata
-   absent. The 1-second/256-MiB worker and 10-second total deadline fail
-   closed. A disallowed candidate causes zero target dial.
+   absent. The separate codec process, 1-second kill deadline, 64-MiB V8
+   old-space cap, disabled libvips cache, single codec concurrency, 5-MiB input
+   cap, 20-million-pixel cap, and 10-second total deadline fail closed. These
+   defense-in-depth limits are approved for staging only; production launch
+   remains blocked until a hard OS/container memory boundary is enforced or a
+   separate production risk decision is explicitly approved. A disallowed
+   candidate causes zero target dial.
 8. **Privacy and no mutation.** The endpoint creates no wishlist row,
    Storage object, analytics event, URL-bearing log, or cacheable response.
    A 005f consumer can edit or discard every proposed field, and a failed
@@ -334,3 +346,15 @@ Brief and implementation plan only. No 005e production behavior is authorized
 by this commit alone. Bind implementation to the reviewed exact brief commit
 before cutting the implementation branch; record any changed limit or policy
 as a reviewed brief amendment rather than an undocumented code choice.
+
+### Staging-only codec-memory exception — 2026-10-01
+
+The owner approved the implemented codec defenses for staging instead of the
+earlier unenforceable 256-MiB per-codec RSS promise: a separate killable codec
+process, one-second deadline, 64-MiB V8 old-space cap, disabled libvips cache,
+single codec concurrency, 5-MiB input cap, and 20-million-pixel cap. Native
+codec allocations are outside the V8 heap and therefore are not hard-bounded by
+that flag. Production launch remains blocked until deployment supplies a hard
+OS/container memory boundary or a separately reviewed and explicitly approved
+production risk decision. The versioned decision record is
+`docs/delivery/evidence/arj-30/security-amendment.md`.

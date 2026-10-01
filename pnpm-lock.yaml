@@ -32,6 +32,9 @@ importers:
       server-only:
         specifier: 0.0.1
         version: 0.0.1
+      sharp:
+        specifier: 0.35.4
+        version: 0.35.4(@types/node@24.19.0)
     devDependencies:
       '@axe-core/playwright':
         specifier: 4.13.0
