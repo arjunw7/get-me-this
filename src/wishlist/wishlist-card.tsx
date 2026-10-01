@@ -113,7 +113,11 @@ export function WishlistCard({
                 <a
                   href={item.sourceUrl}
                   rel="noreferrer"
-                  className="font-semibold text-content-primary underline decoration-2 underline-offset-4 hover:text-action-primary-strong"
+                  // The 44px touch target (DESIGN.md) without a layout
+                  // shift: vertical padding on an inline element does not
+                  // change the line box, and the negative margins keep the
+                  // rule holding if the display ever becomes atomic.
+                  className="py-4 -my-4 font-semibold text-content-primary underline decoration-2 underline-offset-4 hover:text-action-primary-strong"
                 >
                   {sourceLabel(item.sourceUrl, item.retailer)}
                 </a>

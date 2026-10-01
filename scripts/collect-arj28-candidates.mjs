@@ -11,6 +11,7 @@ import {
 import { basename, join } from "node:path";
 
 const STATES = [
+  "add-initial",
   "manual-prefilled",
   "manual-clean",
   "validation",
@@ -22,8 +23,11 @@ const STATES = [
   "success",
 ];
 const VIEWPORTS = ["mobile", "desktop"];
-const IMAGE_NAME =
-  /^arj28-(manual-prefilled|manual-clean|validation|submission-conflict|save-failure|edit|delete-confirm|delete-uncertain|success)-(mobile|desktop)\.png$/;
+// Derived from STATES so the accepted filenames cannot drift from the
+// validated state list.
+const IMAGE_NAME = new RegExp(
+  `^arj28-(${STATES.join("|")})-(mobile|desktop)\\.png$`,
+);
 const AXE_NAME = /^axe-(mobile|desktop)\.json$/;
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 

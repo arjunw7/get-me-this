@@ -89,6 +89,7 @@ async function fillManualForm(
     amount?: string;
     currency?: string;
     sourceUrl?: string;
+    retailer?: string;
   },
 ) {
   await page.getByLabel("Item name").fill(item.title);
@@ -97,6 +98,8 @@ async function fillManualForm(
     await page.getByLabel("Currency").selectOption(item.currency);
   if (item.sourceUrl)
     await page.getByLabel("Link (optional)").fill(item.sourceUrl);
+  if (item.retailer)
+    await page.getByLabel("Shop (optional)").fill(item.retailer);
 }
 
 async function readSubmissionId(page: Page): Promise<string> {
@@ -218,11 +221,16 @@ test("complete extraction: review, explicit save through the 005c contract, exac
     await page
       .getByRole("button", { name: "No link? Add it manually" })
       .click();
+    // Equal payload means every compared field: the extraction save stored
+    // the reviewed retailer, so the replay must fill it too — the 005c
+    // replay check compares title, source URL, retailer, note, desire
+    // level, and the original price pair.
     await fillManualForm(page, {
       title: "Mushroom ceramic table lamp",
       amount: "24.99",
       currency: "INR",
       sourceUrl: "https://shop.example/product/lamp",
+      retailer: "Fixture Shop",
     });
     await overwriteSubmissionId(page, created.data!.client_submission_id);
     await page.getByRole("button", { name: "Add item" }).click();

@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { collectCandidates } from "../scripts/collect-arj28-candidates.mjs";
 
 const states = [
+  "add-initial",
   "manual-prefilled",
   "manual-clean",
   "validation",
@@ -73,7 +74,7 @@ describe("ARJ-28 candidate collector", () => {
         encoding: "utf8",
       }).trim();
       expect(manifest.implementationHead).toBe(head);
-      expect(manifest.candidateCount).toBe(18);
+      expect(manifest.candidateCount).toBe(20);
       expect(manifest.candidates[0].sha256).toBe(
         createHash("sha256").update(png).digest("hex"),
       );
