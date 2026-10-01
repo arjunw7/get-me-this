@@ -6,6 +6,7 @@ import {
   DESIRE_LEVELS,
   currencyMinorDigits,
   formatMoneyMinor,
+  approximateConversionView,
 } from "./display";
 import { Tape } from "./tape";
 import typography from "./wishlist-typography.module.css";
@@ -79,6 +80,12 @@ export function WishlistCard({
   const aspect = ASPECTS[index % ASPECTS.length];
   const tilt = TILTS[index % TILTS.length];
   const showTape = index % 3 === 1;
+  // The approximate-converted line (005g, dormant conversion): null for
+  // every organically created item in V1 — no provider exists, so no
+  // conversion is inferred from locale, language, or symbol. Staleness
+  // was evaluated at server read time; a stale tuple renders the
+  // identical line with its captured date.
+  const approximate = approximateConversionView(item);
 
   return (
     <div className={`relative ${tilt}`}>
@@ -133,6 +140,19 @@ export function WishlistCard({
               ) : null}
             </p>
           </div>
+          {approximate !== null ? (
+            <p
+              className="text-sm text-content-secondary tabular-nums"
+              data-testid="approximate-price-line"
+            >
+              {/* The ≈ glyph is not announced: the accessible text carries
+                  "approximately", the amount and code, the rate source, and
+                  the captured UTC date. The marker is textual, never
+                  color-only, and never replaces the original line. */}
+              <span aria-hidden="true">{approximate.visible}</span>
+              <span className="sr-only">{approximate.accessible}</span>
+            </p>
+          ) : null}
           {item.note !== null ? (
             <p className="relative rounded-surface rounded-tl-sm bg-surface-sunken px-3 py-2 text-sm leading-snug text-content-primary">
               {item.note}

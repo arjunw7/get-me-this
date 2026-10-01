@@ -233,6 +233,12 @@ export type ItemFixture = {
   sort_position: number;
   original_amount_minor?: string | null;
   original_currency?: string | null;
+  /** 005g: the optional stored converted-money tuple, seeded as fixture
+   * data only — no production writer exists in the dormant slice. */
+  converted_amount_minor?: string | null;
+  converted_currency?: string | null;
+  conversion_rate_source?: string | null;
+  conversion_rate_at?: string | null;
 };
 
 /** Resolves the fixture owner's trigger-generated wishlist id. */

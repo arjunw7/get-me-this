@@ -13,7 +13,7 @@ vi.mock("@/src/supabase/server", () => ({
 const WISHLIST_ID = "00000000-0000-4000-8000-000000000001";
 const USER_ID = "00000000-0000-4000-8000-000000000002";
 const COLUMNS =
-  "id,title,source_url,retailer,image_url,image_snapshot_path,note,desire_level,sort_position,original_amount_minor::text,original_currency,created_at,updated_at";
+  "id,title,source_url,retailer,image_url,image_snapshot_path,note,desire_level,sort_position,original_amount_minor::text,original_currency,converted_amount_minor::text,converted_currency,conversion_rate_source,conversion_rate_at,created_at,updated_at";
 
 function rows(count: number): WishlistItemRow[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -28,6 +28,10 @@ function rows(count: number): WishlistItemRow[] {
     sort_position: index === 499 || index === 500 ? 499 : index,
     original_amount_minor: index === 0 ? "9007199254740993" : null,
     original_currency: index === 0 ? "INR" : null,
+    converted_amount_minor: null,
+    converted_currency: null,
+    conversion_rate_source: null,
+    conversion_rate_at: null,
     created_at: "2026-09-30T00:00:00.000Z",
     updated_at: "2026-09-30T00:00:00.000Z",
   }));

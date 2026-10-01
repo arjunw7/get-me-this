@@ -2,13 +2,16 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { WishlistItemSnapshot } from "./display";
+import type { ConvertedMoneyTuple, WishlistItemSnapshot } from "./display";
 import { WishlistCard, WishlistCardGrid } from "./wishlist-card";
 
 /**
- * The wishlist card (005b): snapshot-field rendering, the branded
- * missing-image placeholder (including the runtime image-failure
- * fallback), and the linked/unlinked retailer presentation.
+ * The wishlist card (005b) and its approximate-conversion states (005g):
+ * snapshot-field rendering, the branded missing-image placeholder
+ * (including the runtime image-failure fallback), the linked/unlinked
+ * retailer presentation, and the dormant-conversion display treatments —
+ * original-only default, approximate line, stale tuple, and the fail-safe
+ * degradations, with "approximately" in the accessible text.
  */
 
 function item(
@@ -26,8 +29,23 @@ function item(
     sortPosition: 1,
     originalAmountMinor: "249900",
     originalCurrency: "INR",
+    converted: null,
     createdAt: "2026-09-30T00:00:00.000Z",
     updatedAt: "2026-09-30T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+/** A complete stored converted tuple: 24.99 INR ≈ 29.99 USD. */
+function convertedTuple(
+  overrides: Partial<ConvertedMoneyTuple> = {},
+): ConvertedMoneyTuple {
+  return {
+    amountMinor: "2999",
+    currency: "USD",
+    rateSource: "fixture-provider quote fx-1",
+    rateAt: "2026-10-01T12:00:00.000Z",
+    stale: false,
     ...overrides,
   };
 }
@@ -204,6 +222,98 @@ describe("WishlistCard", () => {
       expect(screen.getByText(label)).toBeVisible();
       unmount();
     }
+  });
+});
+
+describe("WishlistCard approximate-conversion states (005g, dormant)", () => {
+  function renderCard(overrides: Partial<WishlistItemSnapshot> = {}) {
+    return render(<WishlistCard item={item(overrides)} index={0} />);
+  }
+
+  it("shows the original price only when no conversion exists — the default dormant state", () => {
+    renderCard();
+    expect(screen.getByText("2499.00 INR")).toBeVisible();
+    expect(screen.queryByTestId("approximate-price-line")).toBeNull();
+    expect(screen.queryByText(/≈/)).toBeNull();
+    expect(screen.queryByText(/approximately/i)).toBeNull();
+  });
+
+  it("renders the approximate line below the original for a complete supported tuple", () => {
+    renderCard({ originalAmountMinor: "2499", converted: convertedTuple() });
+    expect(screen.getByText("24.99 INR")).toBeVisible();
+    expect(screen.getByTestId("approximate-price-line")).toHaveTextContent(
+      "≈ 29.99 USD · fixture-provider quote fx-1 · captured 2026-10-01",
+    );
+  });
+
+  it("carries 'approximately', amount, code, rate source, and captured date in the accessible text", () => {
+    renderCard({ originalAmountMinor: "2499", converted: convertedTuple() });
+    expect(
+      screen.getByText(
+        "Approximately 29.99 USD — rate source fixture-provider quote fx-1, captured 2026-10-01.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the original line before the approximate line in reading order", () => {
+    const { container } = renderCard({
+      originalAmountMinor: "2499",
+      converted: convertedTuple(),
+    });
+    const original = screen.getByText("24.99 INR");
+    const approximate = screen.getByTestId("approximate-price-line");
+    expect(
+      original.compareDocumentPosition(approximate) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(container.querySelector("article")).toContainElement(approximate);
+  });
+
+  it("renders a stale tuple as the identical line with its older captured date", () => {
+    renderCard({
+      originalAmountMinor: "2499",
+      converted: convertedTuple({ rateAt: "2026-08-01T00:00:00.000Z" }),
+    });
+    expect(screen.getByTestId("approximate-price-line")).toHaveTextContent(
+      "≈ 29.99 USD · fixture-provider quote fx-1 · captured 2026-08-01",
+    );
+    expect(screen.getByText("24.99 INR")).toBeVisible();
+  });
+
+  it("omits the approximate line and shows the original for an unsupported converted code", () => {
+    renderCard({
+      originalAmountMinor: "2499",
+      converted: convertedTuple({ currency: "XYZ" }),
+    });
+    expect(screen.getByText("24.99 INR")).toBeVisible();
+    expect(screen.queryByTestId("approximate-price-line")).toBeNull();
+  });
+
+  it("omits the approximate line and shows the original for a malformed converted amount", () => {
+    renderCard({
+      originalAmountMinor: "2499",
+      converted: convertedTuple({ amountMinor: "12.5" }),
+    });
+    expect(screen.getByText("24.99 INR")).toBeVisible();
+    expect(screen.queryByTestId("approximate-price-line")).toBeNull();
+  });
+
+  it("omits the approximate line for an item with no stored original price", () => {
+    renderCard({
+      originalAmountMinor: null,
+      originalCurrency: null,
+      converted: convertedTuple(),
+    });
+    expect(screen.queryByTestId("approximate-price-line")).toBeNull();
+    expect(screen.queryByText(/≈/)).toBeNull();
+  });
+
+  it("marks approximately with text, never color alone", () => {
+    renderCard({ originalAmountMinor: "2499", converted: convertedTuple() });
+    const line = screen.getByTestId("approximate-price-line");
+    // The textual marker and detail are present as content, not styling.
+    expect(line).toHaveTextContent("≈");
+    expect(line).toHaveTextContent("captured 2026-10-01");
   });
 });
 
