@@ -255,7 +255,6 @@ test("a committed delete with a lost response stays uncertain and failed owner r
         )
           throw error;
       });
-    await wishlistControl.wait(caseId, "postgrest-delete-response-loss");
     await expect(
       page
         .getByRole("dialog")
@@ -288,7 +287,6 @@ test("a committed delete with a lost response stays uncertain and failed owner r
       true,
     );
     await page.getByRole("button", { name: "Check status" }).click();
-    await wishlistControl.wait(caseId, "postgrest-reconcile-read-failure");
     await expect(
       page.getByText("Status is still unclear. Check again when you’re ready."),
     ).toBeVisible();
@@ -321,7 +319,6 @@ test("a committed delete with a lost response stays uncertain and failed owner r
     );
     await attributeEditNavigation(page, itemId, caseId);
     await page.getByRole("link", { name: "Check the item" }).click();
-    await wishlistControl.wait(caseId, "postgrest-edit-read-failure");
     await expect(
       page.getByRole("heading", { name: "We couldn’t load this item." }),
     ).toBeVisible();
