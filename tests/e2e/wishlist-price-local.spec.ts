@@ -195,7 +195,7 @@ test("a fixture-seeded tuple renders the approximate treatment; stale and unsupp
     const staleCard = page
       .getByRole("article")
       .filter({ hasText: seeded.staleTitle });
-    await expect(staleCard.getByText("1320.00 JPY")).toBeVisible();
+    await expect(staleCard.getByText("132000 JPY")).toBeVisible();
     await expect(staleCard.getByTestId("approximate-price-line")).toContainText(
       seeded.staleText,
     );
