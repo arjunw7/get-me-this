@@ -529,8 +529,7 @@ set title = 'Pour-over kettle, matte',
   conversion_rate_source = 'fixture-rate-table-v2',
   conversion_rate_at = clock_timestamp(),
   desire_level = 'would_love',
-  extraction_status = 'manual',
-  sort_position = 1
+  extraction_status = 'manual'
 where owner_id = :'uid_a'::uuid
   and title = 'Pour-over kettle';
 
@@ -538,7 +537,7 @@ select is(
   (
     select title
     from public.wishlist_items
-    where owner_id = :'uid_a'::uuid and sort_position = 1
+    where owner_id = :'uid_a'::uuid and title = 'Pour-over kettle, matte'
   ),
   'Pour-over kettle, matte',
   'the owner update through every granted column landed'
@@ -548,7 +547,7 @@ select is(
   (
     select converted_amount_minor
     from public.wishlist_items
-    where owner_id = :'uid_a'::uuid and sort_position = 1
+    where owner_id = :'uid_a'::uuid and title = 'Pour-over kettle, matte'
   ),
   3100::bigint,
   'the converted tuple updated through the granted columns round-trips'
@@ -1151,8 +1150,8 @@ select is(
       and table_name = 'wishlist_items'
       and privilege_type = 'UPDATE'
   ),
-  15,
-  'the authenticated UPDATE grant covers exactly the 15 client-updatable columns (additionally excluding wishlist_id and owner_id)'
+  14,
+  'the authenticated UPDATE grant covers exactly the 14 non-order client-updatable columns'
 );
 
 select ok(
@@ -1166,17 +1165,19 @@ select ok(
   not has_column_privilege('authenticated', 'public.wishlist_items', 'id', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.wishlist_items', 'wishlist_id', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.wishlist_items', 'owner_id', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.wishlist_items', 'sort_position', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.wishlist_items', 'created_at', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.wishlist_items', 'updated_at', 'UPDATE'),
-  'the UPDATE grant additionally excludes wishlist_id and owner_id (items cannot be moved or re-owned)'
+  'the UPDATE grant excludes identity, ownership, order, and database-managed timestamps'
 );
 
 select ok(
   has_column_privilege('authenticated', 'public.wishlist_items', 'title', 'INSERT')
     and has_column_privilege('authenticated', 'public.wishlist_items', 'title', 'UPDATE')
     and has_column_privilege('authenticated', 'public.wishlist_items', 'sort_position', 'INSERT')
+    and not has_column_privilege('authenticated', 'public.wishlist_items', 'sort_position', 'UPDATE')
     and has_column_privilege('authenticated', 'public.wishlist_items', 'original_amount_minor', 'INSERT'),
-  'the INSERT/UPDATE grants cover the client-writable columns (title, sort_position, money)'
+  'INSERT retains sort_position while direct UPDATE does not'
 );
 
 select ok(

@@ -73,6 +73,23 @@ function setup(
     orders: string[];
   }> = [];
   const client = {
+    async rpc(name: string, payload: unknown) {
+      calls.push({
+        table: name,
+        op: "rpc",
+        filters: [],
+        orders: [],
+        payload,
+      });
+      const response = responses[`rpc:${name}`]?.shift() ?? {
+        data: null,
+        error: null,
+      };
+      return {
+        data: response.data ?? null,
+        error: response.error ?? null,
+      };
+    },
     from(table: string) {
       let operation = "select";
       const call = {
@@ -192,11 +209,13 @@ describe("wishlist item persistence", () => {
     expect(calls[0].select).not.toContain("*");
   });
 
-  it("checks a live submission key before asking for sort position and inserts only reviewed fields", async () => {
+  it("atomically appends through the shared-lock RPC with only reviewed fields", async () => {
     const calls = setup({
-      "wishlists:select": [{ data: wishlist }],
-      "wishlist_items:select": [{ data: null }, { data: null }],
-      "wishlist_items:insert": [{ data: { id: savedId } }],
+      "rpc:append_wishlist_item": [
+        {
+          data: [{ result: "saved", item_id: savedId, replayed: false }],
+        },
+      ],
     });
     const result = await saveReviewedItem(
       ownerId,
@@ -204,58 +223,56 @@ describe("wishlist item persistence", () => {
       item,
     );
     expect(result).toEqual({ kind: "saved", itemId: savedId, replayed: false });
-    expect(calls.map((call) => call.op)).toEqual([
-      "select",
-      "select",
-      "select",
-      "insert",
-    ]);
-    expect(calls[0].filters).toEqual([
-      ["eq", "owner_id", ownerId],
-      ["eq", "client_submission_id", submissionId],
-    ]);
-    expect(calls[2].filters).toEqual([
-      ["eq", "owner_id", ownerId],
-      ["eq", "wishlist_id", wishlist.id],
-    ]);
-    expect(calls[2].orders).toContain("sort_position:false");
-    expect(calls[3].payload).toMatchObject({
-      owner_id: ownerId,
-      wishlist_id: wishlist.id,
-      client_submission_id: submissionId,
-      ...item,
-      extraction_status: "manual",
-      image_url: null,
-      image_snapshot_path: null,
-      sort_position: 1,
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      table: "append_wishlist_item",
+      op: "rpc",
+      payload: {
+        submission_id: submissionId,
+        item_title: item.title,
+        source_url: null,
+        retailer: null,
+        note: null,
+        desire_level: "would_love",
+        original_amount_minor: "9007199254740993",
+        original_currency: "INR",
+      },
     });
   });
 
-  it("rejects an append when the current maximum sort position cannot advance", async () => {
+  it("returns retry when the atomic append response is uncertain without falling back to direct insert", async () => {
     const calls = setup({
-      "wishlist_items:select": [
-        { data: null },
-        { data: { sort_position: 2147483647 } },
-      ],
-      "wishlists:select": [{ data: wishlist }],
+      "rpc:append_wishlist_item": [{ error: { code: "PGRST000" } }],
     });
     expect(
       await saveReviewedItem(ownerId, { kind: "create", submissionId }, item),
     ).toEqual({ kind: "retry" });
-    expect(calls.map((call) => call.op)).toEqual([
-      "select",
-      "select",
-      "select",
-    ]);
+    expect(calls.map((call) => call.op)).toEqual(["rpc"]);
     expect(calls.some((call) => call.op === "insert")).toBe(false);
   });
 
-  it("returns matching live-key replays and rejects a changed payload without reading sort position", async () => {
-    setup({ "wishlist_items:select": [{ data: { id: savedId, ...item } }] });
+  it("preserves matching replay and changed-payload conflict outcomes from the locked append", async () => {
+    setup({
+      "rpc:append_wishlist_item": [
+        { data: [{ result: "replayed", item_id: savedId, replayed: true }] },
+      ],
+    });
     expect(
       await saveReviewedItem(ownerId, { kind: "create", submissionId }, item),
     ).toEqual({ kind: "saved", itemId: savedId, replayed: true });
-    setup({ "wishlist_items:select": [{ data: { id: savedId, ...item } }] });
+    setup({
+      "rpc:append_wishlist_item": [
+        {
+          data: [
+            {
+              result: "submission-conflict",
+              item_id: savedId,
+              replayed: false,
+            },
+          ],
+        },
+      ],
+    });
     expect(
       await saveReviewedItem(
         ownerId,

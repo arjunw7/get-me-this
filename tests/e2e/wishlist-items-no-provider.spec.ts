@@ -5,7 +5,7 @@ test.skip(
   "run through scripts/e2e-no-provider-actions.sh with explicit empty provider configuration",
 );
 
-test("current-build create, edit, and delete actions gate signed-out callers before data access", async ({
+test("current-build create, edit, delete, and reorder actions gate signed-out callers before data access", async ({
   page,
 }) => {
   const actionResponses: Array<{
@@ -24,7 +24,12 @@ test("current-build create, edit, and delete actions gate signed-out callers bef
     }
   });
 
-  for (const button of ["Create action", "Edit action", "Delete action"]) {
+  for (const button of [
+    "Create action",
+    "Edit action",
+    "Delete action",
+    "Reorder action",
+  ]) {
     await page.goto("/test-support/wishlist-action-reference");
     await expect(
       page.locator('[data-no-provider-config="true"]'),
@@ -32,7 +37,7 @@ test("current-build create, edit, and delete actions gate signed-out callers bef
     await page.getByRole("button", { name: button }).click();
     await expect(page).toHaveURL(/\/auth(?:\?|$)/);
   }
-  expect(actionResponses).toHaveLength(3);
+  expect(actionResponses).toHaveLength(4);
   expect(
     actionResponses.every((entry) => entry.cacheControl?.includes("no-store")),
   ).toBe(true);

@@ -158,6 +158,23 @@ export async function deleteItemAction(
   return { status: outcome.kind };
 }
 
+export async function deleteItemFromReorderAction(
+  itemId: string,
+  previous: DeleteActionState,
+  data: FormData,
+): Promise<DeleteActionState> {
+  const { userId } = await requireCompleteProfile();
+  void previous;
+  void data;
+  if (!validUuid(itemId)) return { status: "unavailable" };
+  const outcome = await deleteOwnItem(userId, itemId);
+  if (outcome.kind === "deleted") {
+    revalidatePath("/wishlist");
+    return { status: "deleted" };
+  }
+  return { status: outcome.kind };
+}
+
 export async function reconcileDeleteAction(
   itemId: string,
   previous: ReconcileActionState,

@@ -122,6 +122,7 @@ pnpm exec playwright test \
   tests/e2e/wishlist-local.spec.ts \
   tests/e2e/wishlist-items-local.spec.ts \
   tests/e2e/wishlist-items-races-local.spec.ts \
+  tests/e2e/wishlist-reorder-local.spec.ts \
   tests/visual/wishlist-empty.visual.spec.ts \
   tests/visual/wishlist-filled.visual.spec.ts \
   tests/visual/wishlist-items.visual.spec.ts

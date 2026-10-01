@@ -1,8 +1,10 @@
-import Link from "next/link";
-
 import { formatItemCount } from "./display";
 import type { OwnWishlist } from "./data";
-import { WishlistCardGrid, WishlistEmpty } from "./wishlist-card";
+import type { ReorderActionResult } from "./reorder-actions";
+import type { WishlistMoveInput } from "./reorder-write";
+import type { DeleteActionState } from "./item-actions";
+import { WishlistEmpty } from "./wishlist-card";
+import { WishlistItemsPanel } from "./reorder-list";
 import typography from "./wishlist-typography.module.css";
 
 /**
@@ -23,11 +25,21 @@ export function WishlistView({
   tasteLine,
   wishlist,
   notice = null,
+  reorderAction,
+  refreshAction,
+  deleteAction,
 }: {
   displayName: string;
   tasteLine: string | null;
   wishlist: OwnWishlist | null;
   notice?: "added" | "updated" | "deleted" | null;
+  reorderAction: (input: WishlistMoveInput) => Promise<ReorderActionResult>;
+  refreshAction: () => Promise<ReorderActionResult>;
+  deleteAction: (
+    itemId: string,
+    previous: DeleteActionState,
+    data: FormData,
+  ) => Promise<DeleteActionState>;
 }) {
   if (wishlist === null) {
     return <WishlistError />;
@@ -55,17 +67,12 @@ export function WishlistView({
         {wishlist.items.length === 0 ? (
           <WishlistEmpty />
         ) : (
-          <>
-            <div className="mb-6 flex justify-end">
-              <Link
-                href="/wishlist/items/new"
-                className="inline-flex min-h-touch-min items-center rounded-surface border-2 border-outline-strong bg-action-primary px-5 font-bold text-content-primary shadow-chunk-sm"
-              >
-                Add an item
-              </Link>
-            </div>
-            <WishlistCardGrid items={wishlist.items} />
-          </>
+          <WishlistItemsPanel
+            items={wishlist.items}
+            reorderAction={reorderAction}
+            refreshAction={refreshAction}
+            deleteAction={deleteAction}
+          />
         )}
       </div>
     </div>
