@@ -236,6 +236,59 @@ describe("finalizeItemSnapshot", () => {
     expect(fake.uploads).toHaveLength(2);
   });
 
+  it("a forged over-long candidateImageUrl is discarded to the placeholder fallback before the normalizer or UPDATE can see it", async () => {
+    const fake = mockClient({ updateResults: [{ data: [ITEM] }] });
+
+    const outcome = await finalizeItemSnapshot({
+      ownerId: OWNER,
+      itemId: ITEM,
+      submissionId: SUBMISSION,
+      // 2048 + 6 characters: over the image_url column limit.
+      candidateImageUrl: `https://img.example/${"x".repeat(2_023)}!.webp`,
+      extractionStatus: "extracted",
+    });
+
+    // No normalizer fetch of the forged value, no upload, and the UPDATE
+    // payload cannot fail on length — the row lands on the placeholder path.
+    expect(mocks.normalizeCandidateImage).not.toHaveBeenCalled();
+    expect(fake.uploads).toHaveLength(0);
+    expect(fake.updates).toHaveLength(1);
+    expect(fake.updates[0].payload).toEqual({
+      image_url: null,
+      image_snapshot_path: null,
+      extraction_status: "extracted",
+    });
+    expect(outcome).toEqual({
+      imageUrl: null,
+      snapshotPath: null,
+      uploaded: false,
+    });
+  });
+
+  it("a candidate at exactly the 2048-character column limit is used, not clamped", async () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    mocks.normalizeCandidateImage.mockResolvedValue(bytes);
+    const fake = mockClient({ updateResults: [{ data: [ITEM] }] });
+    const atLimit = `https://img.example/${"x".repeat(2_048 - 25)}.webp`;
+
+    const outcome = await finalizeItemSnapshot({
+      ownerId: OWNER,
+      itemId: ITEM,
+      submissionId: SUBMISSION,
+      candidateImageUrl: atLimit,
+      extractionStatus: "extracted",
+    });
+
+    expect(atLimit).toHaveLength(2_048);
+    expect(mocks.normalizeCandidateImage).toHaveBeenCalledWith(atLimit);
+    expect(outcome).toEqual({
+      imageUrl: atLimit,
+      snapshotPath: PATH,
+      uploaded: true,
+    });
+    expect(fake.updates[0].payload.image_url).toBe(atLimit);
+  });
+
   it("a normalization throw is contained and never propagates", async () => {
     mocks.normalizeCandidateImage.mockRejectedValue(
       new Error("fetch exploded"),

@@ -26,9 +26,11 @@ export default async function NewWishlistItemPage({
 }) {
   const { userId, email, profile } = await requireCompleteProfile();
   const { url } = await searchParams;
-  // Only a bounded, http(s)-shaped value seeds the field; anything else is
-  // treated as absent and the field starts empty. The value is rendered as
-  // a controlled input value, never as HTML.
+  // Only a bounded, non-blank value seeds the field: blankness and the
+  // 2048-character bound are checked here — not the URL's shape, which is
+  // the flow's own validation job. Anything else is treated as absent and
+  // the field starts empty. The value is rendered as a controlled input
+  // value, never as HTML.
   const initialUrl =
     url && url.trim().length > 0 && url.length <= 2048 ? url : undefined;
   // requireCompleteProfile guarantees a non-blank display name.

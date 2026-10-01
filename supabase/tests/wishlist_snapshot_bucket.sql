@@ -16,10 +16,23 @@
 -- synthetic storage object persists. The existing wishlist_items
 -- owner-only suites run unchanged in their own files, proving no grant
 -- drift from this migration.
+--
+-- DELETE semantics on storage.objects: Supabase's storage schema installs
+-- a statement-level BEFORE DELETE trigger (storage.protect_delete) that
+-- raises SQLSTATE 42501 ("Direct deletion from storage tables is not
+-- allowed. Use the Storage API instead.") for EVERY role, including the
+-- row's owner and the service role, unless the session sets
+-- storage.allow_delete_query = 'true' (the Storage API's own escape
+-- hatch). Direct-SQL DELETE therefore cannot exercise RLS at all, so the
+-- pinned `wishlist_item_snapshots_delete_own` grant is NOT proven here —
+-- it remains the policy of record and is exercised by the Storage API
+-- path in production. This suite instead proves the guard fires for both
+-- owner and foreign-user DELETE attempts and that the live row survives
+-- every foreign-user attempt.
 
 begin;
 
-select plan(23);
+select plan(26);
 
 -- Synthetic identities; rolled back with the transaction.
 select gen_random_uuid() as uid_a \gset
@@ -199,9 +212,27 @@ select is(
   'the owner can UPDATE their own object'
 );
 
-delete from storage.objects
-where bucket_id = 'wishlist-item-snapshots'
-  and name = :'uid_a'::text || '/' || :'submission'::text || '.webp';
+-- The object stays live from here on: section 4's foreign-user denials are
+-- only meaningful against a row that exists (a deleted row makes 0-row
+-- results pass under permissive or missing policies alike). The
+-- transaction's rollback is the cleanup.
+--
+-- Direct-SQL DELETE is trigger-guarded for EVERY role (the statement-level
+-- storage.protect_delete trigger, SQLSTATE 42501) — including the owner —
+-- so a raw DELETE can never prove or disprove the delete policy. The
+-- pinned wishlist_item_snapshots_delete_own grant remains the policy of
+-- record and is exercised through the Storage API, which deletes via its
+-- own storage.allow_delete_query escape hatch.
+select throws_ok(
+  format(
+    'delete from storage.objects where bucket_id = %L and name = %L',
+    'wishlist-item-snapshots',
+    :'uid_a'::text || '/' || :'submission'::text || '.webp'
+  ),
+  '42501',
+  'Direct deletion from storage tables is not allowed. Use the Storage API instead.',
+  'a direct-SQL DELETE is trigger-guarded even for the owner (the delete policy is exercised through the Storage API, not raw SQL)'
+);
 
 select is(
   (
@@ -210,11 +241,15 @@ select is(
     where bucket_id = 'wishlist-item-snapshots'
       and name = :'uid_a'::text || '/' || :'submission'::text || '.webp'
   ),
-  0::bigint,
-  'the owner can DELETE their own object'
+  1::bigint,
+  'the guard raised before anything was removed: the owner''s object is still live'
 );
 
 -- 4. Cross-user denial — a second authenticated user, foreign prefix ---------------
+--
+-- Every denial below runs against the owner's LIVE section-3 row, so a
+-- 0-row result can only mean the policy denied the read/write — never that
+-- the row was already gone.
 
 set local role authenticated;
 set local "request.jwt.claim.sub" = :'uid_b';
@@ -245,8 +280,8 @@ select is(
     where bucket_id = 'wishlist-item-snapshots'
       and name = :'uid_a'::text || '/' || :'submission'::text || '.webp'
   ),
-  0::bigint,
-  'no object landed in the foreign prefix after the denied INSERT'
+  1::bigint,
+  'only the owner''s live fixture is in the prefix after the denied INSERT'
 );
 
 select is(
@@ -257,7 +292,7 @@ select is(
       and name = :'uid_a'::text || '/' || :'submission'::text || '.webp'
   ),
   0::bigint,
-  'a foreign authenticated user cannot SELECT another user''s objects'
+  'a foreign authenticated user cannot SELECT the owner''s LIVE object (the row exists; the policy hides it)'
 );
 
 update storage.objects
@@ -276,9 +311,31 @@ select is(
   'a foreign authenticated user cannot UPDATE another user''s objects'
 );
 
-delete from storage.objects
-where bucket_id = 'wishlist-item-snapshots'
-  and name = :'uid_a'::text || '/' || :'submission'::text || '.webp';
+-- The same statement-level storage guard stops a foreign direct-SQL DELETE
+-- (it fires before RLS is even consulted), so the delete-policy denial
+-- itself is evidenced by the 0-row SELECT above; what is provable here is
+-- that nothing the foreign user does removes the live row.
+select throws_ok(
+  format(
+    'delete from storage.objects where bucket_id = %L and name = %L',
+    'wishlist-item-snapshots',
+    :'uid_a'::text || '/' || :'submission'::text || '.webp'
+  ),
+  '42501',
+  'Direct deletion from storage tables is not allowed. Use the Storage API instead.',
+  'a foreign user''s direct-SQL DELETE is stopped (guard first, delete policy denial beneath it)'
+);
+
+-- Back as the owner: the live row survived every foreign-user attempt,
+-- byte-for-byte unchanged.
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_a';
+set local "request.jwt.claim.role" = 'authenticated';
+select set_config(
+  'request.jwt.claims',
+  format('{"sub":"%s","role":"authenticated"}', :'uid_a'),
+  true
+);
 
 select is(
   (
@@ -287,13 +344,33 @@ select is(
     where bucket_id = 'wishlist-item-snapshots'
       and name = :'uid_a'::text || '/' || :'submission'::text || '.webp'
   ),
-  0::bigint,
-  'a foreign authenticated user cannot DELETE another user''s objects'
+  1::bigint,
+  'the owner''s object survives the foreign user''s SELECT, UPDATE, and DELETE attempts'
+);
+
+select is(
+  (
+    select metadata ->> 'fixture'
+    from storage.objects
+    where bucket_id = 'wishlist-item-snapshots'
+      and name = :'uid_a'::text || '/' || :'submission'::text || '.webp'
+  ),
+  'true',
+  'the foreign attempts changed nothing on the owner''s live row'
 );
 
 -- A foreign user writing under their OWN prefix is allowed by design (each
 -- owner is confined to their prefix); prove the insert landed under uid_b,
 -- not uid_a, so the prefix — not a role grant — is what confined writes.
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_b';
+set local "request.jwt.claim.role" = 'authenticated';
+select set_config(
+  'request.jwt.claims',
+  format('{"sub":"%s","role":"authenticated"}', :'uid_b'),
+  true
+);
+
 insert into storage.objects (bucket_id, name, metadata)
 values (
   'wishlist-item-snapshots',
@@ -313,6 +390,9 @@ select is(
 );
 
 -- 5. Anon denial ---------------------------------------------------------------------
+--
+-- Live owner and uid_b fixture objects exist in the bucket at this point;
+-- an anon count of 0 is therefore a real policy denial, not an empty bucket.
 
 set local role anon;
 set local "request.jwt.claim.sub" = '';

@@ -142,7 +142,13 @@ export function AddItemFlow({ initialUrl }: { initialUrl: string }) {
       });
       setCandidates(result.candidateImageUrls);
       setSelectedImage(result.candidateImageUrls[0] ?? null);
-      setPartial(!isCompleteResult(result));
+      // A result whose price carries a valid ISO code OUTSIDE the frozen
+      // supported-currency table cannot be rendered or saved as a price
+      // (prefillOriginal resolves it to "opaque" and drops it), so it is
+      // classified as PARTIAL: the partial notice applies and the price
+      // fields stay empty for manual entry. A currency is never invented.
+      const unsupportedCurrency = pair?.mode === "opaque";
+      setPartial(unsupportedCurrency || !isCompleteResult(result));
       setFailed(false);
       setStep("review");
     },
@@ -196,14 +202,15 @@ export function AddItemFlow({ initialUrl }: { initialUrl: string }) {
   );
 
   // A pasted URL carried in the route starts the extraction straight away
-  // (and a reload during review restarts extraction from it). The zero
-  // timeout keeps the state transitions out of the effect body and gives
-  // an unmounting flow a cancellation point.
+  // (and a reload during review restarts extraction from it). The kick is
+  // called directly in the effect body — never behind a setTimeout — so
+  // React StrictMode's development double-mount (effect runs, cleanup,
+  // effect re-runs) cannot cancel a scheduled kick before it fires: the
+  // autoStarted ref alone keeps it to exactly one run per mounted flow.
   useEffect(() => {
     if (autoStarted.current || !initialUrl.trim()) return;
     autoStarted.current = true;
-    const kick = window.setTimeout(() => void runExtract(initialUrl), 0);
-    return () => window.clearTimeout(kick);
+    void runExtract(initialUrl);
   }, [initialUrl, runExtract]);
 
   function cancelExtract() {

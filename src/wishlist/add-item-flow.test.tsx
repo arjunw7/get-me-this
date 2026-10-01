@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { StrictMode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -117,6 +118,30 @@ describe("initial URL entry", () => {
     expect(screen.getByLabelText("Item name")).toHaveValue(
       "Mushroom ceramic table lamp",
     );
+  });
+
+  it("fires the ?url= auto-extraction exactly once across a StrictMode double mount", async () => {
+    // Development StrictMode mounts, runs the effect, runs its cleanup,
+    // and remounts with the same refs. A kick scheduled behind a timeout
+    // would be cleared by the cleanup and never re-fired (the ref already
+    // consumed) — the exact dev defect this pins: the kick must be called
+    // directly in the effect body and run once and only once.
+    const stub = stubFetch(() =>
+      Promise.resolve(extractResponse(200, { result: COMPLETE_RESULT })),
+    );
+    render(
+      <StrictMode>
+        <AddItemFlow initialUrl="https://shop.example/product/lamp" />
+      </StrictMode>,
+    );
+
+    await waitFor(() =>
+      expect(extractCallBody(stub, 0)).toEqual({
+        url: "https://shop.example/product/lamp",
+      }),
+    );
+    expect(stub).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("Found it. Look right?")).toBeVisible();
   });
 
   it("requires a link before fetching", async () => {
@@ -263,6 +288,36 @@ describe("extracted and partial review", () => {
     expect(
       screen.getByText("Photo preview — adding photos isn’t available yet."),
     ).toBeVisible();
+  });
+
+  it("a result priced in a valid ISO currency outside the supported table reviews as partial with the price left empty", async () => {
+    const user = userEvent.setup();
+    stubFetch(() =>
+      Promise.resolve(
+        extractResponse(200, {
+          result: {
+            sourceUrl: "https://shop.example/product/lamp",
+            title: "Mushroom ceramic table lamp",
+            retailer: "Fixture Shop",
+            originalAmountMinor: "2499",
+            originalCurrency: "XPT",
+            candidateImageUrls: ["https://img.example/lamp-1.webp"],
+          },
+        }),
+      ),
+    );
+    render(<AddItemFlow initialUrl="" />);
+    await submitLink(user, "https://shop.example/product/lamp");
+    await screen.findByText("Found it. Look right?");
+
+    // The unrenderable price classifies the result as partial — never
+    // silently dropped under a "complete" notice.
+    expect(
+      screen.getByText(
+        "Some details couldn’t be read. Fill in anything missing below.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Price")).toHaveValue("");
   });
 
   it("nothing is saved until the explicit submit", async () => {

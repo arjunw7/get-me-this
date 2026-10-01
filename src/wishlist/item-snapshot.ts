@@ -52,6 +52,9 @@ const UPDATE_ATTEMPTS = 3;
 const UPLOAD_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 250;
 
+/** The image_url column limit: the candidate is clamped to it server-side. */
+const MAX_CANDIDATE_URL_LENGTH = 2_048;
+
 function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
@@ -68,15 +71,26 @@ export async function finalizeItemSnapshot(options: {
   const { ownerId, itemId, submissionId, candidateImageUrl, extractionStatus } =
     options;
 
+  // The posted candidate is untrusted input: clamp it to the image_url
+  // column limit (2048 characters) before any use, so a forged over-long
+  // value can neither burn the UPDATE retry loop with a guaranteed-failing
+  // write nor reach the normalizer. An over-long candidate is discarded and
+  // resolves to the designed placeholder fallback (both image columns null).
+  const candidate =
+    candidateImageUrl !== null &&
+    [...candidateImageUrl].length <= MAX_CANDIDATE_URL_LENGTH
+      ? candidateImageUrl
+      : null;
+
   // Phase 2a: normalize the chosen candidate through the 005e boundary.
   // A failed or skipped normalization leaves the snapshot null and never
   // blocks the save; the remote image_url (when a candidate was chosen)
   // remains the designed fallback.
   let snapshotPath: string | null = null;
-  if (candidateImageUrl) {
+  if (candidate) {
     let bytes: Uint8Array | null = null;
     try {
-      bytes = await normalizeCandidateImage(candidateImageUrl);
+      bytes = await normalizeCandidateImage(candidate);
     } catch {
       // Contained: the 005e function already resolves its own failures to
       // null, and a defensive catch keeps any unexpected throw from ever
@@ -94,7 +108,7 @@ export async function finalizeItemSnapshot(options: {
 
   // Phase 2c: the one owner-scoped UPDATE, retried in-flow before success
   // is surfaced. Re-running it with the same values is a no-op.
-  const imageUrl = candidateImageUrl;
+  const imageUrl = candidate;
   let persisted = false;
   for (let attempt = 0; attempt < UPDATE_ATTEMPTS; attempt += 1) {
     if (attempt > 0) await sleep(RETRY_DELAY_MS * attempt);

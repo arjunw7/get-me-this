@@ -21,11 +21,14 @@ export function CardImage({ src, title }: { src: string; title: string }) {
     // A plain <img> is deliberate: retailer image URLs are arbitrary remote
     // hosts (no domain allowlist exists to configure next/image), and the
     // branded placeholder below must control every failure mode.
+    // no-referrer matches the review chooser: retailer hosts learn nothing
+    // about this app from wishlist image loads.
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={title}
       loading="lazy"
+      referrerPolicy="no-referrer"
       className="h-full w-full object-cover"
       onError={() => setFailed(true)}
     />
