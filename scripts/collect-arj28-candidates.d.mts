@@ -1,6 +1,10 @@
 export type CandidateManifest = {
   implementationHead: string;
-  fixture: string;
+  sources: Array<{
+    prefix: string;
+    fixture: string;
+    stateCount: number;
+  }>;
   candidateCount: number;
   candidates: Array<{
     filename: string;
@@ -19,7 +23,8 @@ export type CandidateManifest = {
   }>;
 };
 export function collectCandidates(options: {
-  inputDir: string;
+  arj28Dir: string;
+  arj31Dir: string;
   outputDir: string;
   repositoryRoot?: string;
 }): CandidateManifest;

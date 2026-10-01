@@ -194,6 +194,16 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
       .eq("title", "ARJ-28 candidate lamp")
       .single();
     expect(created.error).toBeNull();
+    // success: the ADD-success notice on /wishlist with the saved item
+    // present, per the 005f visual reference mapping (not the delete
+    // notice). Captured before the edit flow navigates away.
+    await expect(
+      page.getByRole("status").getByText("Item added to your wishlist."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Edit ARJ-28 candidate lamp" }),
+    ).toBeVisible();
+    await capture("success");
     await page
       .getByRole("link", { name: "Edit ARJ-28 candidate lamp" })
       .click();
@@ -286,7 +296,6 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     await expect(
       page.getByRole("region", { name: "Your wishlist is empty" }),
     ).toBeVisible();
-    await capture("success");
     expect(axeStates).toHaveLength(10);
     writeFileSync(
       join(CANDIDATE_DIR, `axe-${viewport}.json`),

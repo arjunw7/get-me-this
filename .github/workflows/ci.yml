@@ -118,10 +118,17 @@ jobs:
       - name: Build and run the stack-gated e2e suites
         timeout-minutes: 25
         run: bash scripts/e2e-local-stack.sh
-      - name: Collect ARJ-28 responsive candidates and axe evidence
+      - name: Collect ARJ-28/ARJ-31 candidates and axe evidence
         if: always()
         id: collect_arj28
-        run: node scripts/collect-arj28-candidates.mjs test-results/arj28-candidates arj28-candidate-evidence
+        env:
+          # The manifest pins the exact pushed head. For pull_request runs
+          # GITHUB_SHA and the checkout's HEAD are the server-side merge
+          # commit, so the event's PR head SHA is passed explicitly; push
+          # runs resolve github.sha. The collector falls back to
+          # `git rev-parse HEAD` when the variable is unset (local runs).
+          CANDIDATE_IMPLEMENTATION_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/collect-arj28-candidates.mjs test-results/arj28-candidates test-results/arj31-candidates arj28-candidate-evidence
       - name: Upload ARJ-28 review candidates
         if: always() && steps.collect_arj28.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
