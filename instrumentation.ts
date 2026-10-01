@@ -83,7 +83,7 @@ async function probeRead(
       return result.effect;
     }
     if (result.reason === "target-mismatch" || result.reason === "consumed")
-      return null;
+      continue;
   }
   return null;
 }

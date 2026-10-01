@@ -60,6 +60,32 @@ async function attributeAndDropActionResponse(page: Page, caseId: string) {
   });
 }
 
+async function attributeEditNavigation(
+  page: Page,
+  itemId: string,
+  caseId: string,
+) {
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const target = new URL(request.url());
+    if (
+      request.method() === "GET" &&
+      target.pathname === `/wishlist/items/${itemId}/edit` &&
+      (request.isNavigationRequest() || request.headers().rsc === "1")
+    ) {
+      await route.continue({
+        headers: {
+          ...request.headers(),
+          "x-arj28-case": caseId,
+          "x-arj28-participant": "first",
+        },
+      });
+      return;
+    }
+    await route.continue();
+  });
+}
+
 test("same owner/key contenders yield one live row and conflict-then-missing is unavailable", async ({
   page,
 }) => {
@@ -291,11 +317,8 @@ test("a committed delete with a lost response stays uncertain and failed owner r
       itemId,
       true,
     );
-    await page.setExtraHTTPHeaders({
-      "x-arj28-case": caseId,
-      "x-arj28-participant": "first",
-    });
-    await page.reload();
+    await attributeEditNavigation(page, itemId, caseId);
+    await checkItem.click();
     await expect(
       page.getByRole("heading", { name: "We couldn’t load this item." }),
     ).toBeVisible();
