@@ -73,6 +73,20 @@ describe("wishlist item input", () => {
     }
   });
 
+  it("rejects oversized decimal text before constructing a BigInt", () => {
+    const bigInt = vi.spyOn(globalThis, "BigInt");
+    const result = validateCreateDraft({
+      ...validDraft,
+      amount: "9".repeat(100_000),
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      errors: { amount: expect.any(String) },
+    });
+    expect(bigInt).not.toHaveBeenCalled();
+    bigInt.mockRestore();
+  });
+
   it("supports the complete numeric-precision table and excludes N.A. and unknown codes", () => {
     expect(currencyMinorDigits("JPY")).toBe(0);
     expect(currencyMinorDigits("INR")).toBe(2);
@@ -221,6 +235,48 @@ describe("wishlist item input", () => {
       expect(validateCreateDraft({ ...validDraft, desireLevel })).toMatchObject(
         { ok: true },
       );
+  });
+
+  it("normalizes retailer and note using the same complete blank-code-point predicate", () => {
+    const blankCodePoints = [
+      "\u0009",
+      "\u000a",
+      "\u000b",
+      "\u000c",
+      "\u000d",
+      " ",
+      "\u0085",
+      "\u00a0",
+      "\u1680",
+      "\u2000",
+      "\u2001",
+      "\u2002",
+      "\u2003",
+      "\u2004",
+      "\u2005",
+      "\u2006",
+      "\u2007",
+      "\u2008",
+      "\u2009",
+      "\u200a",
+      "\u2028",
+      "\u2029",
+      "\u202f",
+      "\u205f",
+      "\u3000",
+      "\ufeff",
+    ];
+    for (const blank of blankCodePoints) {
+      const result = validateCreateDraft({
+        ...validDraft,
+        retailer: blank,
+        note: blank,
+      });
+      expect(result).toMatchObject({
+        ok: true,
+        value: { retailer: null, note: null },
+      });
+    }
   });
 
   it("accepts only safe public HTTP(S) URLs and never fetches them", () => {

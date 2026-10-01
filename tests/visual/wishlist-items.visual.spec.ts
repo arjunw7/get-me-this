@@ -151,19 +151,29 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     const submissionId = await page
       .locator('input[name="submissionId"]')
       .inputValue();
-    const conflict = await admin.from("wishlist_items").insert({
-      wishlist_id: wishlistId,
-      owner_id: userId,
-      title: "Already saved candidate",
-      sort_position: 1,
-      client_submission_id: submissionId,
-    });
+    const conflict = await admin
+      .from("wishlist_items")
+      .insert({
+        wishlist_id: wishlistId,
+        owner_id: userId,
+        title: "Already saved candidate",
+        sort_position: 1,
+        client_submission_id: submissionId,
+      })
+      .select("id")
+      .single();
     expect(conflict.error).toBeNull();
     await page.getByLabel("Item name").fill("Changed candidate draft");
     await page.getByRole("button", { name: "Add item" }).click();
     await expect(
-      page.getByText(/This entry couldn’t be confirmed/i),
-    ).toContainText("Start over");
+      page.getByText(/This entry was already saved with different details/i),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Edit saved item" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Start new draft" }),
+    ).toBeVisible();
     await capture("submission-conflict");
     await admin
       .from("wishlist_items")

@@ -52,6 +52,42 @@ beforeEach(() => {
 });
 
 describe("ItemForm price intent", () => {
+  it("retains a changed-payload draft and offers edit saved item or a new draft", async () => {
+    const user = userEvent.setup();
+    const draft = {
+      title: "Corrected lamp details",
+      sourceUrl: "https://shop.example/lamp",
+      retailer: "Fixture Shop",
+      amount: "24.99",
+      currency: "INR",
+      note: "Keep this draft until I choose.",
+      desireLevel: "really_want",
+      submissionId: "00000000-0000-4000-8000-000000000003",
+    };
+    actions.create.mockResolvedValueOnce({
+      status: "submission-conflict",
+      savedItemId: itemId,
+      draft,
+    });
+    render(<ItemForm mode="create" initialDraft={draft} />);
+
+    expect(screen.getByLabelText("Item name")).toHaveValue(draft.title);
+    expect(screen.getByLabelText("Shop (optional)")).toHaveValue(
+      draft.retailer,
+    );
+    expect(screen.getByLabelText("Price")).toHaveValue(draft.amount);
+    expect(screen.getByLabelText("Note (optional)")).toHaveValue(draft.note);
+    await user.click(screen.getByRole("button", { name: "Add item" }));
+    await waitFor(() => expect(actions.create).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText("Item name")).toHaveValue(draft.title);
+    expect(
+      await screen.findByRole("link", { name: "Edit saved item" }),
+    ).toHaveAttribute("href", `/wishlist/items/${itemId}/edit`);
+    await user.click(screen.getByRole("button", { name: "Start new draft" }));
+    expect(screen.getByLabelText("Item name")).toHaveValue("");
+    expect(screen.getByLabelText("Note (optional)")).toHaveValue("");
+  });
+
   it("submits clear when a supported amount is blanked and replace when an empty pair gets a price", async () => {
     const user = userEvent.setup();
     const supported = fixture({

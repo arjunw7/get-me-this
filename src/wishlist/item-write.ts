@@ -156,13 +156,10 @@ export async function saveReviewedItem(
   if (maxError) return { kind: "unavailable" };
   const currentMax = maxRow
     ? (maxRow as { sort_position: number }).sort_position
-    : -1;
-  if (
-    !Number.isInteger(currentMax) ||
-    currentMax < -1 ||
-    currentMax >= MAX_SORT_POSITION
-  )
+    : 0;
+  if (!Number.isInteger(currentMax) || currentMax < 0)
     return { kind: "unavailable" };
+  if (currentMax >= MAX_SORT_POSITION) return { kind: "retry" };
   await wishlistTestBarrier("after-max-before-insert");
 
   const insertPayload = {
@@ -303,13 +300,13 @@ export async function loadOwnItemForEdit(
   return client ? loadOwnItemForEditWith(client, ownerId, itemId) : null;
 }
 
-function isDefiniteDatabaseRejection(error: unknown): boolean {
-  const candidate = error as { code?: unknown; status?: unknown } | null;
+function isDefiniteDatabaseRejection(error: unknown, status: number): boolean {
+  const candidate = error as { code?: unknown } | null;
   return (
+    status >= 400 &&
+    status < 500 &&
     typeof candidate?.code === "string" &&
-    /^[0-9A-Z]{5}$/.test(candidate.code) &&
-    typeof candidate.status === "number" &&
-    candidate.status >= 400
+    /^[0-9A-Z]{5}$/.test(candidate.code)
   );
 }
 
@@ -319,14 +316,14 @@ export async function deleteOwnItem(
 ): Promise<DeleteOutcome> {
   const client = await clientOrNull();
   if (!client) return { kind: "uncertain" };
-  const { data, error } = await client
+  const { data, error, status } = await client
     .from("wishlist_items")
     .delete()
     .eq("owner_id", ownerId)
     .eq("id", itemId)
     .select("id");
   if (error)
-    return isDefiniteDatabaseRejection(error)
+    return isDefiniteDatabaseRejection(error, status)
       ? { kind: "definite-rejection" }
       : { kind: "uncertain" };
   const rows = data as { id: string }[] | null;

@@ -59,6 +59,7 @@ export type CreateValidation = Validation<ValidItem>;
 export type EditValidation = Validation<ValidatedEdit>;
 
 const MAX_BIGINT = BigInt("9223372036854775807");
+const MAX_BIGINT_TEXT = "9223372036854775807";
 const DESIRE_LEVELS = new Set(["really_want", "would_love", "just_an_idea"]);
 const BLANK_CODE_POINTS = new Set([
   0x0009, 0x000a, 0x000b, 0x000c, 0x000d, 0x0020, 0x0085, 0x00a0, 0x1680,
@@ -80,7 +81,16 @@ function parseMinorAmount(amount: string, currency: string): string | null {
     /^(0|[1-9][0-9]*)(?:\.([0-9]+))?$/,
   )!;
   if (fraction.length > digits) return null;
-  const minor = BigInt(`${whole}${fraction.padEnd(digits, "0")}`);
+  const minorText = `${whole}${fraction.padEnd(digits, "0")}`.replace(
+    /^0+(?=\d)/,
+    "",
+  );
+  if (
+    minorText.length > MAX_BIGINT_TEXT.length ||
+    (minorText.length === MAX_BIGINT_TEXT.length && minorText > MAX_BIGINT_TEXT)
+  )
+    return null;
+  const minor = BigInt(minorText);
   return minor <= MAX_BIGINT ? minor.toString() : null;
 }
 
@@ -175,8 +185,8 @@ function validateFields(
 ) {
   const title = draft.title.trim();
   const sourceUrlText = draft.sourceUrl.trim();
-  const retailerText = draft.retailer.trim();
-  const noteText = draft.note.trim();
+  const retailerText = isBlank(draft.retailer) ? "" : draft.retailer.trim();
+  const noteText = isBlank(draft.note) ? "" : draft.note.trim();
   if (isBlank(title)) errors.title = "Enter a title.";
   else if ([...title].length > 200)
     errors.title = "Use 200 characters or fewer.";
@@ -185,7 +195,7 @@ function validateFields(
     errors.sourceUrl = "Enter a public HTTP or HTTPS link.";
   else if (sourceUrlText.length > 2048)
     errors.sourceUrl = "Use 2048 characters or fewer.";
-  if (retailerText && ([...retailerText].length > 120 || isBlank(retailerText)))
+  if (retailerText && [...retailerText].length > 120)
     errors.retailer = "Use 1–120 characters.";
   if (noteText && [...noteText].length > 2000)
     errors.note = "Use 2000 characters or fewer.";

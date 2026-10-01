@@ -35,6 +35,31 @@ async function attributeAction(
   });
 }
 
+async function attributeAndDropActionResponse(page: Page, caseId: string) {
+  let dropped = false;
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (
+      !dropped &&
+      request.method() === "POST" &&
+      request.headers()["next-action"]
+    ) {
+      const response = await route.fetch({
+        headers: {
+          ...request.headers(),
+          "x-arj28-case": caseId,
+          "x-arj28-participant": "first",
+        },
+      });
+      expect(response.ok()).toBe(true);
+      dropped = true;
+      await route.abort("failed");
+      return;
+    }
+    await route.continue();
+  });
+}
+
 async function attributeEditNavigation(
   page: Page,
   itemId: string,
@@ -246,6 +271,28 @@ test("a committed delete with a lost response stays uncertain and failed owner r
       }),
     );
 
+    await wishlistControl.arm(
+      caseId,
+      "postgrest-reconcile-read-failure",
+      1,
+      itemId,
+      true,
+    );
+    await page.getByRole("button", { name: "Check status" }).click();
+    await wishlistControl.wait(caseId, "postgrest-reconcile-read-failure");
+    await expect(
+      page.getByText("Status is still unclear. Check again when you’re ready."),
+    ).toBeVisible();
+    const failedReconcile = await wishlistControl.events(caseId);
+    expect(failedReconcile.observations).toContainEqual(
+      expect.objectContaining({
+        kind: "local-rest",
+        phase: "settled",
+        outcome: "network-error",
+        targetId: itemId,
+        injected: true,
+      }),
+    );
     await page.getByRole("button", { name: "Check status" }).click();
     const checkItem = page.getByRole("link", { name: "Check the item" });
     await expect(checkItem).toBeVisible();
@@ -305,6 +352,158 @@ test("a committed delete with a lost response stays uncertain and failed owner r
     await wishlistControl.clear(caseId);
     await scope.cleanup();
   }
+});
+
+test("a browser-to-Next response loss after delete commit reconciles from a fresh route", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(20_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  const caseId = randomUUID();
+  const itemId = randomUUID();
+  await wishlistControl.register(caseId);
+  try {
+    const userId = await createSignedInFixture(
+      page,
+      admin,
+      "arj28-browser-response-loss",
+      { displayName: "Ada" },
+      scope,
+    );
+    const parent = await admin
+      .from("wishlists")
+      .select("id")
+      .eq("owner_id", userId)
+      .single();
+    expect(parent.error).toBeNull();
+    const seeded = await admin.from("wishlist_items").insert({
+      id: itemId,
+      wishlist_id: parent.data!.id,
+      owner_id: userId,
+      title: "Browser response-loss fixture",
+      sort_position: 1,
+    });
+    expect(seeded.error).toBeNull();
+    await page.goto(`/wishlist/items/${itemId}/edit`);
+    await page.getByRole("button", { name: "Delete item" }).click();
+    await attributeAndDropActionResponse(page, caseId);
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Delete item" })
+      .click();
+    await expect(
+      page.getByText("We couldn’t confirm the delete request."),
+    ).toBeVisible();
+    const absent = await admin
+      .from("wishlist_items")
+      .select("id")
+      .eq("owner_id", userId)
+      .eq("id", itemId);
+    expect(absent.error).toBeNull();
+    expect(absent.data).toEqual([]);
+    const events = await wishlistControl.events(caseId);
+    expect(events.failed).toBe(false);
+    expect(events.observations).toContainEqual(
+      expect.objectContaining({
+        kind: "local-rest",
+        phase: "settled",
+        outcome: "response",
+        targetId: itemId,
+        injected: false,
+      }),
+    );
+    await page.getByRole("link", { name: "Check item status" }).click();
+    await expect(
+      page.getByRole("heading", { name: "This item isn’t available." }),
+    ).toBeVisible();
+    await expect(page.getByText("Item deleted successfully.")).toHaveCount(0);
+  } finally {
+    await wishlistControl.clear(caseId);
+    await scope.cleanup();
+  }
+});
+
+test("two simultaneous owner delete actions remove one row and report at most one success", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(20_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  const itemId = randomUUID();
+  const second = await page.context().newPage();
+  await scope.run(async () => {
+    const userId = await createSignedInFixture(
+      page,
+      admin,
+      "arj28-concurrent-delete",
+      { displayName: "Ada" },
+      scope,
+    );
+    const parent = await admin
+      .from("wishlists")
+      .select("id")
+      .eq("owner_id", userId)
+      .single();
+    expect(parent.error).toBeNull();
+    const inserted = await admin.from("wishlist_items").insert({
+      id: itemId,
+      wishlist_id: parent.data!.id,
+      owner_id: userId,
+      title: "Concurrent delete fixture",
+      sort_position: 1,
+    });
+    expect(inserted.error).toBeNull();
+    await Promise.all([
+      page.goto(`/wishlist/items/${itemId}/edit`),
+      second.goto(`/wishlist/items/${itemId}/edit`),
+    ]);
+    for (const surface of [page, second])
+      await surface.getByRole("button", { name: "Delete item" }).click();
+    await Promise.all([
+      page
+        .getByRole("dialog")
+        .getByRole("button", { name: "Delete item" })
+        .click(),
+      second
+        .getByRole("dialog")
+        .getByRole("button", { name: "Delete item" })
+        .click(),
+    ]);
+    await expect
+      .poll(async () => {
+        const a = /\/wishlist\?item=deleted$/.test(page.url());
+        const b = /\/wishlist\?item=deleted$/.test(second.url());
+        return Number(a) + Number(b);
+      })
+      .toBeGreaterThanOrEqual(1);
+    await expect
+      .poll(async () => {
+        const row = await admin
+          .from("wishlist_items")
+          .select("id")
+          .eq("owner_id", userId)
+          .eq("id", itemId);
+        return row.data?.length;
+      })
+      .toBe(0);
+    const successfulPages = [page, second].filter((surface) =>
+      /\/wishlist\?item=deleted$/.test(surface.url()),
+    );
+    expect(successfulPages.length).toBe(1);
+    const remainingPage = [page, second].find(
+      (surface) => !successfulPages.includes(surface),
+    );
+    await expect(
+      remainingPage!.getByRole("heading", {
+        name: "This item isn’t available.",
+      }),
+    ).toBeVisible();
+  });
 });
 
 test("distinct submission keys released after one shared maximum may tie and remain stably ordered", async ({

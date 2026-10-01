@@ -127,6 +127,19 @@ describe("wishlist item actions", () => {
     expect(mocks.redirect).toHaveBeenCalledWith("/wishlist?item=added");
   });
 
+  it("returns the owner-scoped saved item id for a changed-payload replay", async () => {
+    mocks.save.mockResolvedValueOnce({
+      kind: "submission-conflict",
+      savedItemId: itemId,
+    });
+    const state = await createItemAction({ status: "idle" }, formData());
+    expect(state).toMatchObject({
+      status: "submission-conflict",
+      savedItemId: itemId,
+      draft: { title: "Lamp" },
+    });
+  });
+
   it("gates every action before item reads or writes", async () => {
     mocks.gate.mockRejectedValueOnce(new Error("gate"));
     await expect(

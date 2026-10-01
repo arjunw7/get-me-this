@@ -56,7 +56,7 @@ test("manual create, exact decimal readback, owner edit, and confirmed hard dele
     const created = await admin
       .from("wishlist_items")
       .select(
-        "id,title,owner_id,wishlist_id,original_amount_minor::text,original_currency,source_url,note,desire_level,extraction_status",
+        "id,title,owner_id,wishlist_id,sort_position,original_amount_minor::text,original_currency,source_url,note,desire_level,extraction_status",
       )
       .eq("owner_id", userId)
       .eq("title", "Manual e2e fixture lamp")
@@ -67,6 +67,7 @@ test("manual create, exact decimal readback, owner edit, and confirmed hard dele
     expect(created.data).toMatchObject({
       owner_id: userId,
       wishlist_id: wishlistId,
+      sort_position: 1,
       original_amount_minor: "2499",
       original_currency: "INR",
       source_url: "https://arj28-fixture.invalid/lamp",
@@ -246,4 +247,281 @@ test("a foreign complete profile cannot replay a real owner edit action", async 
     await scope.cleanup();
     await foreignContext.close();
   }
+});
+
+test("a hard-deleted submission key can be reinserted by a delayed create retry", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const userId = await createSignedInFixture(
+      page,
+      admin,
+      "arj28-hard-delete-reinsert",
+      { displayName: "Ada" },
+      scope,
+    );
+    const submissionId = randomUUID();
+    const title = "Same-key hard-delete retry fixture";
+    await page.goto("/wishlist/items/new");
+    await page.locator('input[name="submissionId"]').evaluate((node, value) => {
+      (node as HTMLInputElement).value = value as string;
+    }, submissionId);
+    await page.getByLabel("Item name").fill(title);
+    await page.getByRole("button", { name: "Add item" }).click();
+    await expect(page).toHaveURL(/\/wishlist\?item=added$/);
+    const first = await admin
+      .from("wishlist_items")
+      .select("id")
+      .eq("owner_id", userId)
+      .eq("client_submission_id", submissionId)
+      .single();
+    expect(first.error).toBeNull();
+    const removed = await admin
+      .from("wishlist_items")
+      .delete()
+      .eq("owner_id", userId)
+      .eq("id", first.data!.id)
+      .select("id");
+    expect(removed.error).toBeNull();
+    expect(removed.data).toEqual([{ id: first.data!.id }]);
+
+    await page.goto("/wishlist/items/new");
+    await page.locator('input[name="submissionId"]').evaluate((node, value) => {
+      (node as HTMLInputElement).value = value as string;
+    }, submissionId);
+    await page.getByLabel("Item name").fill(title);
+    await page.getByRole("button", { name: "Add item" }).click();
+    await expect(page).toHaveURL(/\/wishlist\?item=added$/);
+    const live = await admin
+      .from("wishlist_items")
+      .select("id,client_submission_id")
+      .eq("owner_id", userId)
+      .eq("client_submission_id", submissionId);
+    expect(live.error).toBeNull();
+    expect(live.data).toHaveLength(1);
+    expect(live.data?.[0].id).not.toBe(first.data!.id);
+  });
+});
+
+test("incomplete profiles cannot create, edit, or delete through current actions", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const userId = await createSignedInFixture(
+      page,
+      admin,
+      "arj28-incomplete-action",
+      { displayName: "Ada" },
+      scope,
+    );
+    const parent = await admin
+      .from("wishlists")
+      .select("id")
+      .eq("owner_id", userId)
+      .single();
+    expect(parent.error).toBeNull();
+    const itemId = randomUUID();
+    const seeded = await admin.from("wishlist_items").insert({
+      id: itemId,
+      wishlist_id: parent.data!.id,
+      owner_id: userId,
+      title: "Incomplete gate fixture",
+      sort_position: 1,
+    });
+    expect(seeded.error).toBeNull();
+    const setComplete = async (complete: boolean) => {
+      const result = await admin
+        .from("profiles")
+        .update({
+          display_name: complete ? "Ada" : null,
+          taste_line: null,
+        })
+        .eq("id", userId);
+      expect(result.error).toBeNull();
+    };
+
+    await page.goto("/wishlist/items/new");
+    await page.getByLabel("Item name").fill("Blocked incomplete create");
+    await setComplete(false);
+    await page.getByRole("button", { name: "Add item" }).click();
+    await expect(page).toHaveURL(/\/onboarding(?:\?|$)/);
+    const created = await admin
+      .from("wishlist_items")
+      .select("id")
+      .eq("owner_id", userId)
+      .eq("title", "Blocked incomplete create");
+    expect(created.error).toBeNull();
+    expect(created.data).toEqual([]);
+
+    await setComplete(true);
+    await page.goto(`/wishlist/items/${itemId}/edit`);
+    await page.getByLabel("Item name").fill("Blocked incomplete edit");
+    await setComplete(false);
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page).toHaveURL(/\/onboarding(?:\?|$)/);
+    const afterEdit = await admin
+      .from("wishlist_items")
+      .select("title")
+      .eq("owner_id", userId)
+      .eq("id", itemId)
+      .single();
+    expect(afterEdit.error).toBeNull();
+    expect(afterEdit.data?.title).toBe("Incomplete gate fixture");
+
+    await setComplete(true);
+    await page.goto(`/wishlist/items/${itemId}/edit`);
+    await page.getByRole("button", { name: "Delete item" }).click();
+    await setComplete(false);
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Delete item" })
+      .click();
+    await expect(page).toHaveURL(/\/onboarding(?:\?|$)/);
+    const afterDelete = await admin
+      .from("wishlist_items")
+      .select("id")
+      .eq("owner_id", userId)
+      .eq("id", itemId)
+      .single();
+    expect(afterDelete.error).toBeNull();
+  });
+});
+
+test("expired sessions cannot create, edit, or delete through current actions", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    for (const action of ["create", "edit", "delete"] as const) {
+      await page.context().clearCookies();
+      const userId = await createSignedInFixture(
+        page,
+        admin,
+        `arj28-expired-${action}`,
+        { displayName: "Ada" },
+        scope,
+      );
+      const parent = await admin
+        .from("wishlists")
+        .select("id")
+        .eq("owner_id", userId)
+        .single();
+      expect(parent.error).toBeNull();
+      const itemId = randomUUID();
+      if (action !== "create") {
+        const seeded = await admin.from("wishlist_items").insert({
+          id: itemId,
+          wishlist_id: parent.data!.id,
+          owner_id: userId,
+          title: `Expired ${action} fixture`,
+          sort_position: 1,
+        });
+        expect(seeded.error).toBeNull();
+      }
+
+      if (action === "create") {
+        await page.goto("/wishlist/items/new");
+        await page.getByLabel("Item name").fill("Blocked expired create");
+      } else {
+        await page.goto(`/wishlist/items/${itemId}/edit`);
+        if (action === "edit")
+          await page.getByLabel("Item name").fill("Blocked expired edit");
+        else await page.getByRole("button", { name: "Delete item" }).click();
+      }
+      await page.context().clearCookies();
+      if (action === "create")
+        await page.getByRole("button", { name: "Add item" }).click();
+      else if (action === "edit")
+        await page.getByRole("button", { name: "Save changes" }).click();
+      else
+        await page
+          .getByRole("dialog")
+          .getByRole("button", { name: "Delete item" })
+          .click();
+      await expect(page).toHaveURL(/\/auth(?:\?|$)/);
+      const unchanged = await admin
+        .from("wishlist_items")
+        .select("id,title")
+        .eq("owner_id", userId);
+      expect(unchanged.error).toBeNull();
+      if (action === "create") expect(unchanged.data).toEqual([]);
+      else
+        expect(unchanged.data).toEqual([
+          { id: itemId, title: `Expired ${action} fixture` },
+        ]);
+    }
+  });
+});
+
+test("a real PostgreSQL delete rejection is definite and leaves the owner row intact", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const userId = await createSignedInFixture(
+      page,
+      admin,
+      "arj28-delete-sql-rejection",
+      { displayName: "Ada" },
+      scope,
+    );
+    const parent = await admin
+      .from("wishlists")
+      .select("id")
+      .eq("owner_id", userId)
+      .single();
+    expect(parent.error).toBeNull();
+    const itemId = randomUUID();
+    const inserted = await admin.from("wishlist_items").insert({
+      id: itemId,
+      wishlist_id: parent.data!.id,
+      owner_id: userId,
+      title: "ARJ-28 definite SQL rejection fixture",
+      sort_position: 1,
+    });
+    expect(inserted.error).toBeNull();
+    await page.goto(`/wishlist/items/${itemId}/edit`);
+    await page.getByRole("button", { name: "Delete item" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Delete item" })
+      .click();
+    await expect(
+      page.getByText(
+        "We couldn’t remove this item. It’s still here; you can try again.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("dialog").getByRole("button", { name: "Retry delete" }),
+    ).toBeVisible();
+    const row = await admin
+      .from("wishlist_items")
+      .select("id,title,owner_id,wishlist_id")
+      .eq("owner_id", userId)
+      .eq("id", itemId)
+      .single();
+    expect(row.error).toBeNull();
+    expect(row.data).toEqual({
+      id: itemId,
+      title: "ARJ-28 definite SQL rejection fixture",
+      owner_id: userId,
+      wishlist_id: parent.data!.id,
+    });
+    const renamed = await admin
+      .from("wishlist_items")
+      .update({ title: "ARJ-28 rejection fixture cleanup" })
+      .eq("owner_id", userId)
+      .eq("id", itemId);
+    expect(renamed.error).toBeNull();
+  });
 });

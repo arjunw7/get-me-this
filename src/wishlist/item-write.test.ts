@@ -59,7 +59,10 @@ const editValue: ValidatedEdit = {
 };
 
 function setup(
-  responses: Record<string, { data?: unknown; error?: unknown }[]>,
+  responses: Record<
+    string,
+    { data?: unknown; error?: unknown; status?: number; statusText?: string }[]
+  >,
 ) {
   const calls: Array<{
     table: string;
@@ -83,11 +86,16 @@ function setup(
       calls.push(call);
       const result = () => {
         call.op = operation;
-        const result = responses[`${table}:${operation}`]?.shift() ?? {
+        const response = responses[`${table}:${operation}`]?.shift() ?? {
           data: null,
           error: null,
         };
-        return { data: result.data ?? null, error: result.error ?? null };
+        return {
+          data: response.data ?? null,
+          error: response.error ?? null,
+          status: response.status ?? 200,
+          statusText: response.statusText ?? "OK",
+        };
       };
       const q: Record<string, unknown> = {
         select(columns: string) {
@@ -219,7 +227,27 @@ describe("wishlist item persistence", () => {
       extraction_status: "manual",
       image_url: null,
       image_snapshot_path: null,
+      sort_position: 1,
     });
+  });
+
+  it("rejects an append when the current maximum sort position cannot advance", async () => {
+    const calls = setup({
+      "wishlist_items:select": [
+        { data: null },
+        { data: { sort_position: 2147483647 } },
+      ],
+      "wishlists:select": [{ data: wishlist }],
+    });
+    expect(
+      await saveReviewedItem(ownerId, { kind: "create", submissionId }, item),
+    ).toEqual({ kind: "retry" });
+    expect(calls.map((call) => call.op)).toEqual([
+      "select",
+      "select",
+      "select",
+    ]);
+    expect(calls.some((call) => call.op === "insert")).toBe(false);
   });
 
   it("returns matching live-key replays and rejects a changed payload without reading sort position", async () => {
@@ -338,12 +366,34 @@ describe("wishlist item persistence", () => {
   it("classifies a proved database rejection separately from a committed delete", async () => {
     setup({
       "wishlist_items:delete": [
-        { data: null, error: { code: "23503", status: 409 } },
+        {
+          data: null,
+          error: {
+            code: "23503",
+            details: "Key is still referenced.",
+            hint: null,
+            message: "Foreign key violation",
+          },
+          status: 409,
+          statusText: "Conflict",
+        },
       ],
     });
     expect(await deleteOwnItem(ownerId, itemId)).toEqual({
       kind: "definite-rejection",
     });
+    setup({
+      "wishlist_items:delete": [
+        { data: null, error: { code: "FETCH_ERROR" }, status: 409 },
+      ],
+    });
+    expect(await deleteOwnItem(ownerId, itemId)).toEqual({ kind: "uncertain" });
+    setup({
+      "wishlist_items:delete": [
+        { data: null, error: { code: "23514" }, status: 500 },
+      ],
+    });
+    expect(await deleteOwnItem(ownerId, itemId)).toEqual({ kind: "uncertain" });
     setup({ "wishlist_items:delete": [{ data: [{ id: itemId }] }] });
     expect(await deleteOwnItem(ownerId, itemId)).toEqual({ kind: "deleted" });
   });

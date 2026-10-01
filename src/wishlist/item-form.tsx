@@ -120,7 +120,7 @@ function ItemFormFields({
       : state.status === "retry"
         ? "This item changed while you were editing. Reload the item before trying again."
         : state.status === "submission-conflict"
-          ? "This entry couldn’t be confirmed. Start over and try again."
+          ? "This entry was already saved with different details. Your updated draft is still here."
           : null;
 
   return (
@@ -398,13 +398,27 @@ function ItemFormFields({
           </button>
         </div>
         {mode === "create" ? (
-          <button
-            type="button"
-            onClick={startOver}
-            className="min-h-touch-min font-bold underline underline-offset-4"
-          >
-            Start over
-          </button>
+          <div className="flex flex-wrap items-center gap-4">
+            {stateMatchesDraft &&
+            state.status === "submission-conflict" &&
+            state.savedItemId ? (
+              <Link
+                href={`/wishlist/items/${state.savedItemId}/edit`}
+                className="inline-flex min-h-touch-min items-center font-bold underline underline-offset-4"
+              >
+                Edit saved item
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              onClick={startOver}
+              className="min-h-touch-min font-bold underline underline-offset-4"
+            >
+              {stateMatchesDraft && state.status === "submission-conflict"
+                ? "Start new draft"
+                : "Start over"}
+            </button>
+          </div>
         ) : null}
       </form>
       {mode === "edit" && item ? (

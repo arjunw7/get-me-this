@@ -21,6 +21,7 @@ import {
 
 export type ItemActionState = {
   status: "idle" | "invalid" | "unavailable" | "retry" | "submission-conflict";
+  savedItemId?: string;
   draft?: CreateDraft | EditDraft;
   errors?: Partial<
     Record<keyof ItemFields | "submissionId" | "priceIntent", string>
@@ -92,6 +93,7 @@ export async function createItemAction(
   if (outcome.kind === "submission-conflict")
     return {
       status: "submission-conflict",
+      savedItemId: outcome.savedItemId,
       draft,
       errors: {
         submissionId: "This item entry conflicted. Start over to try again.",
