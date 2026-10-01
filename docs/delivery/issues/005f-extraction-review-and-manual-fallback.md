@@ -102,7 +102,11 @@ Storage bucket and upload, and snapshot-first display.
   while non-null; INSERT-only grant.
 - Owner-only RLS and column grants are unchanged: `image_url` and
   `image_snapshot_path` remain client-updatable only through the owner's own
-  UPDATE grant, which this slice does not alter.
+  UPDATE grant, which this slice does not alter. Because the 005c save
+  boundary is not extended, those two columns (and `extraction_status`) do
+  not arrive in the create payload: this slice sets them in one follow-up
+  owner-scoped UPDATE after the boundary's create, as pinned under
+  "Explicit save".
 
 ### Exact-main recheck gate
 
@@ -205,8 +209,10 @@ rendering appears anywhere (DESIGN.md binds this).
 ### Success and reload persistence
 
 - A successful save creates exactly one row via the 005c create contract
-  with `extraction_status = 'extracted'` or `'manual'` as above, then
-  navigates to `/wishlist` with the short success notice.
+  (image and extraction columns arriving through the pinned follow-up
+  owner-scoped UPDATE) with `extraction_status = 'extracted'` or
+  `'manual'` as above, then navigates to `/wishlist` with the short success
+  notice.
 - The saved item survives reload, second tab, and later retailer failure:
   display prefers the snapshot, falls back to the remote `image_url`, then
   the branded placeholder, exactly per the 005a resolution 7 and 005b
@@ -250,29 +256,70 @@ rendering appears anywhere (DESIGN.md binds this).
 
 ### Explicit save
 
-- Save calls the 005c shared validation and persistence boundary with
-  operation `create`, the draft's `client_submission_id`, and the reviewed
-  fields including the chosen `extraction_status`. Nothing bypasses the
-  boundary: the server revalidates every field, derives `owner_id` and
-  `wishlist_id` from the fresh session, ignores any posted ownership or
-  identity, and computes the append position inside the owner-wishlist lock
-  with 005c's replay and `submission-conflict` semantics.
-- A `submission-conflict` retains the entered draft and offers the saved
-  item's edit route or a new draft, per 005c. A generic write failure keeps
-  the draft recoverable.
-- After a definite or uncertain save outcome the UI never claims a save
-  that did not happen; reconciliation follows 005c's meanings.
+The save is a **two-phase flow through the unmodified 005c boundary**. The
+005c validation/persistence boundary and the `append_wishlist_item` RPC are
+NOT extended; no new `wishlist_items` migration exists in this slice; the
+image and extraction columns reach the row through one later owner-scoped
+UPDATE under the existing 005a UPDATE grant. The phases, in order:
+
+1. **Create first.** Save calls the 005c shared validation and persistence
+   boundary with operation `create`, the draft's `client_submission_id`, and
+   the reviewed text fields. Nothing bypasses the boundary: the server
+   revalidates every field, derives `owner_id` and `wishlist_id` from the
+   fresh session, ignores any posted ownership or identity, and computes the
+   append position inside the owner-wishlist lock with 005c's replay and
+   `submission-conflict` semantics, exactly as 005c pins them. The create
+   payload carries no `image_url`, `image_snapshot_path`, or
+   `extraction_status`; the row is created with the schema defaults.
+2. **Normalize and upload after create.** Only after the create succeeds,
+   the chosen candidate (if any) is normalized by the 005e server-only
+   function and uploaded to the private bucket.
+3. **One owner-scoped UPDATE.** The save flow then performs exactly one
+   UPDATE, filtered to the owner and the just-created row, setting
+   `image_url`, `image_snapshot_path`, and `extraction_status`
+   (`'extracted'` from extracted or partial review, `'manual'` from the
+   fallback). The UPDATE is idempotent — re-running it with the same values
+   is a no-op — and it is retried within the save flow before success is
+   surfaced.
+
+Failure containment, binding for every later step (normalization, upload,
+and the UPDATE alike):
+
+- A later-step failure NEVER blocks or undoes the save. The item exists as
+  a valid saved item; the designed `image_url`/placeholder fallback and the
+  honest visible state apply, and the notice does not promise a stored
+  photo.
+- If the follow-up UPDATE cannot complete after the in-flow retries, the
+  user still sees an honest outcome (saved item with placeholder image and
+  `extraction_status = 'manual'`), and the save is not reported as a
+  failure that would invite a duplicate.
+- Because the create is idempotent on the submission key, a retry of the
+  same `client_submission_id` after an uncertain outcome replays the
+  equal-payload success (005c semantics) and cannot create a duplicate row;
+  the retry then re-attempts the normalization/upload/UPDATE steps.
+
+A `submission-conflict` retains the entered draft and offers the saved
+item's edit route or a new draft, per 005c. A generic write failure keeps
+the draft recoverable. After a definite or uncertain save outcome the UI
+never claims a save that did not happen; reconciliation follows 005c's
+meanings.
 
 ### Snapshot storage and snapshot-first display
 
 - A forward-only migration creates the private Storage bucket
   `wishlist-item-snapshots` (see Migration and rollback notes) with
-  owner-only policies. The save path uploads the already-normalized WebP
-  bytes produced by the 005e server-only normalization function to
+  owner-only policies. Because the 005c create boundary is not extended, the
+  save path is two-phase: the create through the unmodified boundary lands
+  first; then the already-normalized WebP bytes produced by the 005e
+  server-only normalization function are uploaded to
   `wishlist-item-snapshots/{owner_id}/{client_submission_id}.webp` through
   the authenticated server client — no service role anywhere in the
-  application path — and persists `image_snapshot_path` in the same save
-  flow.
+  application path — and the one owner-scoped UPDATE (see "Explicit save")
+  persists `image_snapshot_path`, `image_url`, and `extraction_status`.
+  The upload and the UPDATE both happen after create; neither is part of
+  the create boundary's payload.
+- A Storage object may outlive a failed create (an orphan object with no
+  row referencing its path); this is acceptable and unswept in this slice.
 - If the candidate fetch or normalization fails, the item still saves
   (never blocked) with `image_url` as the selected candidate when one was
   chosen, or both image columns null; display then falls back per the
@@ -389,13 +436,17 @@ open-overlay conditions before approval.
    with empty/placeholder gaps. Nothing is saved until the owner explicitly
    submits; a reload of `/wishlist` after reaching review (without saving)
    shows no new item.
-4. **Explicit save through the 005c contract.** Saving from review
-   revalidates every field server-side, persists exactly one row with
-   `extraction_status = 'extracted'`, the chosen image columns, the exact
-   decimal-string minor units, and the draft's submission key; equal-payload
-   replay succeeds idempotently and changed-payload replay returns
-   `submission-conflict` with the draft retained. Navigation lands on
-   `/wishlist` with the success notice, and a full reload shows the same
+4. **Explicit save through the 005c contract.** Saving from review creates
+   through the unmodified 005c boundary (which revalidates every field
+   server-side), persisting exactly one row with the exact decimal-string
+   minor units and the draft's submission key, with the boundary's create
+   payload carrying no image or extraction columns; the save flow then
+   normalizes/uploads and performs one idempotent owner-scoped UPDATE of
+   `image_url`, `image_snapshot_path`, and
+   `extraction_status = 'extracted'` under the existing 005a grant.
+   Equal-payload replay succeeds idempotently and changed-payload replay
+   returns `submission-conflict` with the draft retained. Navigation lands
+   on `/wishlist` with the success notice, and a full reload shows the same
    item.
 5. **Manual fallback and blocked URLs.** `invalid_url`, `blocked_url`,
    `unavailable`, `timeout`, `too_large`, `unsupported_content`,
@@ -411,12 +462,14 @@ open-overlay conditions before approval.
    silently normalized away.
 7. **Snapshot storage.** A successful save with a chosen candidate uploads
    exactly one WebP object under the owner's own prefix in the private
-   bucket and persists `image_snapshot_path`; the card then renders the
-   signed snapshot URL, falling back to `image_url`, then the branded
-   placeholder. A normalization failure saves the item without a snapshot
-   and renders the fallback image path. A foreign user cannot read the
-   object by direct authenticated storage API, and no raw path or signed
-   URL appears in logs or analytics.
+   bucket after the create, and the one owner-scoped UPDATE persists
+   `image_snapshot_path`; the card then renders the signed snapshot URL,
+   falling back to `image_url`, then the branded placeholder. A
+   normalization, upload, or UPDATE failure never blocks or undoes the
+   save: the item exists with the fallback image path and an honest
+   visible state. A foreign user cannot read the object by direct
+   authenticated storage API, and no raw path or signed URL appears in
+   logs or analytics.
 8. **Negative authorization.** A second authenticated user cannot read or
    mutate the saved item by page, real action, or direct RLS API; forged
    ownership, parent, identity, image, extraction, sort, and submission-key
@@ -429,11 +482,14 @@ open-overlay conditions before approval.
    assertively as designed; axe checks pass at both viewports; reduced
    motion removes decorative movement without removing function.
 10. **Analytics discipline.** The only emissions are the two existing
-    catalog events pinned below, with their closed enums, from the server
-    side. Zero-emission denial tests prove no URL, title, retailer, price,
-    note, image path, storage path, or error detail enters any event
-    property, log, or person property, and that no extraction failure
-    detail is emitted at all.
+    catalog events pinned below, with their closed enums, from the
+    005f-owned server instrumentation points pinned in "Analytics,
+    security, and privacy" (the instrumented route wrapper and this
+    slice's save action). Zero-emission denial tests prove no URL, title,
+    retailer, price, note, image path, storage path, or error detail enters
+    any event property, log, or person property, that no extraction failure
+    detail is emitted at all, and that admission denials (`429`/`503`) emit
+    nothing.
 11. **CI and scope.** `pnpm verify` passes or identifies the exact
     unavailable check. The CI database job resets local Supabase, runs
     `pnpm test:db`, then executes all new `E2E_LOCAL_SUPABASE` specs
@@ -454,7 +510,10 @@ open-overlay conditions before approval.
   fallback, validation errors, submission conflict, and Start over key
   rotation.
 - Response validation: malformed or unexpected extract responses render the
-  generic failure state and never leak content into the DOM.
+  generic failure state and never leak content into the DOM. Unit tests
+  assert the actual response envelope — `{ result }` on success and
+  `{ error }` on failure, per `src/wishlist/extraction/request-boundary.ts`
+  — not a bare `ExtractionResult`.
 - Result-as-untrusted-input: extracted values at the field bounds and
   beyond are revalidated at save; invented fields are never submitted.
 - Reduced-motion and axe coverage at both viewports in the component
@@ -468,7 +527,11 @@ constraints; the owner can INSERT/SELECT (and DELETE their own) objects
 under `wishlist-item-snapshots/{owner_id}/` only; any other authenticated
 user is denied under a foreign prefix; `anon` is denied everywhere; no
 policy on `wishlist_items` changes (the existing owner-only suites from
-005a/005c/005d must pass unchanged, proving no grant drift).
+005a/005c/005d must pass unchanged, proving no grant drift). This is the
+repository's first storage-policy test ground: the pgTAP coverage must be
+verified against Supabase's actual storage schema (`storage.objects`
+columns, helper functions, and role behavior), not just the 005a
+table-test pattern.
 
 ### Browser, visual, and staging tests
 
@@ -504,6 +567,8 @@ policy on `wishlist_items` changes (the existing owner-only suites from
   stubs, or editor artifacts shipped, and that no retailer content, secret
   URL, storage path, or signed URL entered code, logs, analytics, or
   evidence.
+- The implementation PR adds a Storage row (or an explicit note) to
+  `docs/architecture/permissions-matrix.md` for the new private bucket.
 
 ## Migration and rollback notes
 
@@ -521,13 +586,18 @@ excluded.allowed_mime_types;` — the 2 MiB limit matches 005e's normalized
 - Owner-only `storage.objects` policies named
   `wishlist_item_snapshots_select_own`, `wishlist_item_snapshots_insert_own`,
   `wishlist_item_snapshots_update_own`, and
-  `wishlist_item_snapshots_delete_own` for `authenticated`, each scoped to
+  `wishlist_item_snapshots_delete_own` for `authenticated`, each preceded by
+  a `drop policy if exists` guard (symmetric with the idempotent bucket
+  insert), each scoped to
   `bucket_id = 'wishlist-item-snapshots'` with the first
   `storage.foldername(name)` element equal to `auth.uid()::text` (USING on
   read/update/delete, WITH CHECK on insert/update). No anon role and no
   service-role policy is added; no `wishlist_items` column or grant changes.
 - No `wishlist_items` schema migration is needed; this slice's columns all
-  exist from 005a/005c/005d.
+  exist from 005a/005c/005d, and the create boundary and
+  `append_wishlist_item` RPC are consumed unmodified. Image and extraction
+  columns are written after create through one owner-scoped UPDATE under
+  the existing 005a UPDATE grant — no function-changing migration is added.
 - Rollback: remove the four policies and delete the bucket only after a
   decision on retained objects (objects are content the owner chose to
   keep; dropping them destroys data). The UI degrades to the
@@ -547,9 +617,9 @@ excluded.allowed_mime_types;` — the 2 MiB limit matches 005e's normalized
 3. **Wire the review state machine.** Build `/wishlist/items/new` from the
    V18 sources with semantic tokens: the client extract call with bounded
    wait and cancel, the untrusted-result validation, review/partial/fallback
-   compositions, and the explicit save through the 005c boundary including
-   the server-side normalization call, Storage upload, and
-   `image_snapshot_path` persistence in the save flow.
+   compositions, and the explicit two-phase save (unmodified 005c create,
+   then normalization, Storage upload, and the one owner-scoped UPDATE of
+   `image_url`, `image_snapshot_path`, and `extraction_status`).
 4. **Integrate snapshot-first display.** Extend the wishlist card rendering
    with the signed-URL snapshot branch and fallbacks; keep paths off the
    client.
@@ -601,14 +671,27 @@ events receive their first production emission from server code this slice
 introduces, with the closed enums already pinned in
 `src/analytics/event-definitions.ts` and the tracking plan:
 
-- `product_extraction_completed` — emitted server-side at the extract
-  boundary with `outcome` (`succeeded` | `partial` | `failed` mapping from
-  the 005e result/failure taxonomy), `duration_bucket`
+**Emission placement (binding).** Both events are emitted from 005f-owned
+server instrumentation in wrapper code: `product_extraction_completed` from
+a wrapper around the extract route handler (outside `handleExtractionPost`),
+and `wishlist_item_added` from this slice's save action. This changes no
+admission, transport, or security behavior of `handleExtractionPost` and
+nothing inside the 005c boundary modules; the boundary functions remain
+responsible only for their pinned responses. 005e's AC 8 (no analytics
+event) binds only 005e's own slice; it does not forbid 005f from
+instrumenting 005f-owned wrapper code. Admission denials (`429`/`503`) emit
+nothing at all, matching the zero-emission denial tests in AC 10.
+
+- `product_extraction_completed` — emitted server-side from the 005f-owned
+  route wrapper (never inside `handleExtractionPost`) with `outcome`
+  (`succeeded` | `partial` | `failed` mapping from the 005e result/failure
+  taxonomy), `duration_bucket`
   (`under_2s` | `2_to_5s` | `5_to_10s` | `over_10s`, measured server-side),
   and `manual_fallback_offered` (boolean, true whenever the outcome offered
   the manual fallback). No URL, host, reason code beyond `outcome`, or
   content is emitted.
-- `wishlist_item_added` — emitted server-side from the save boundary on
+- `wishlist_item_added` — emitted server-side from this slice's save action
+  (not inside the 005c boundary modules) on
   successful create with `entry_method` = `link` (both extracted and
   manual-fallback saves on this route), `has_price`, and `has_image`.
 
