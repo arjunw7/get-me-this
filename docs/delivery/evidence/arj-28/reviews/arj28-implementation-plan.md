@@ -8,11 +8,15 @@
 
 **Tech Stack:** Next.js 16 App Router, strict TypeScript, React `useActionState`, Supabase Auth/PostgREST/Postgres with pgTAP, Vitest/React Testing Library, Playwright, semantic Tailwind tokens. No new dependency.
 
-**Spec:** `.superpowers/sdd/get-me-this-phase4-controller/arj28-binding-brief-draft.md`, transcribed from approved `.superpowers/sdd/get-me-this-phase4-controller/arj28-proposed-brief.md` SHA-256 `6b7888855f9e075030b49184eaaa788db80c4d2c93487ac3fb0b7e0c67b81dc6`.
+**Binding brief:** `docs/delivery/issues/005c-manual-wishlist-item-crud.md`.
+
+**Implementation base:** `ada6db0ff1ee498514f46c013d570a46823e1cb4` (`test(wishlist): stabilize lazy image fallback`), which includes the merged 005b / ARJ-27 protected wishlist behavior and exact decimal-text read/format interfaces.
+
+**Planning review:** Formal independent planning review is pending. Do not treat the earlier preparation artifacts as approval.
 
 ## Global Constraints
 
-- This is preparation only. Begin implementation after ARJ-27/005b merges and verify the actual 005c base, including `src/wishlist/data.ts` decimal-text select and `src/wishlist/display.ts` exact formatting. Reconcile paths/signatures against that merged commit before the formal plan PR.
+- Preserve the actual base contracts in `src/wishlist/data.ts` decimal-text selection and `src/wishlist/display.ts` exact formatting. Reconcile implementation against the exact branch base above; do not change those read interfaces as part of ARJ-28.
 - Preserve the full nonnegative Postgres signed `bigint` range, 0 through `9223372036854775807`, as canonical decimal strings; no JavaScript `number` transport or `Number.MAX_SAFE_INTEGER` cap.
 - Pin supported currencies to active alphabetic codes with numeric minor digits in SIX ISO 4217 List One dated 2026-09-17; reject `N.A.` and unlisted codes for new/replacement amounts. One table drives validation, prefill, and display.
 - Every create, edit, and delete action calls `requireCompleteProfile()` before any item read or write. Use only `createSupabaseServerClient()` in app code and existing owner RLS; service role is local fixture setup/teardown only.
@@ -84,15 +88,15 @@ For an opaque stored original pair, `priceIntent="preserve"` is the initial edit
 
 The test fixtures for snippets below are a valid create draft `{ title:"Lamp", sourceUrl:"", retailer:"", amount:"", currency:"INR", note:"", desireLevel:"would_love", submissionId:"00000000-0000-4000-8000-000000000003" }`, its normalized item `{ title:"Lamp", source_url:null, retailer:null, note:null, desire_level:"would_love", original_amount_minor:null, original_currency:null }`, and UUIDs `ownerId="00000000-0000-4000-8000-000000000001"`, `savedId="00000000-0000-4000-8000-000000000002"`, `key="00000000-0000-4000-8000-000000000003"`. Define those constants in each owning test file, not in application code.
 
-## Task 0: Rebase gate and precise contract audit
+## Task 0: Base and precise contract audit
 
-**Files:** Read only: `AGENTS.md`, approved proposal, 005a/005b briefs, `src/wishlist/data.ts`, `display.ts`, migration, stack runner, route policy.
+**Files:** Read only: `AGENTS.md`, the binding issue brief, 005a/005b briefs, `src/wishlist/data.ts`, `display.ts`, migration, stack runner, route policy.
 
-**Interfaces:** Consumes merged 005b main commit; produces a recorded exact base SHA and source-interface map for Tasks 1–7.
+**Interfaces:** Base is `ada6db0ff1ee498514f46c013d570a46823e1cb4`; source-interface map is recorded for Tasks 1–7.
 
-- [ ] Verify 005b/ARJ-27 merge and identify the exact main SHA: `git fetch origin main` then `git rev-parse origin/main` and `git log -1 --format='%H %s' origin/main`. Do not start coding on the current dirty ARJ-27 worktree.
-- [ ] Read the actual merged `src/wishlist/data.ts` and `display.ts`; assert that `original_amount_minor::text` selects a string and `formatMoneyMinor` performs string/integer formatting. Record deviations in a new reviewed plan revision; no silent approximation.
-- [ ] Record the actual migration filename ordering, `pnpm` scripts, and the current `scripts/e2e-local-stack.sh` explicit list. Obtain formal binding-brief and planning review against this exact base before implementation.
+- [x] Verify 005b/ARJ-27 is present at the exact branch base `ada6db0ff1ee498514f46c013d570a46823e1cb4` (`test(wishlist): stabilize lazy image fallback`).
+- [x] Read base `src/wishlist/data.ts` and `display.ts`; the read selects `original_amount_minor::text` and formatting uses exact decimal-text/integer operations.
+- [x] Record migration ordering, package scripts, and the explicit local-stack test list in this plan and the evidence README. Formal independent planning review remains pending and is tracked separately from implementation execution.
 
 ## Task 1: Live-row submission key migration
 
@@ -112,7 +116,7 @@ select has_index('public','wishlist_items','wishlist_items_owner_submission_live
 
 Add transaction-isolated `set_config('request.jwt.claim.sub', ...)` cases using the suite's `uid_a`/`uid_b` fixtures: same owner/key duplicate gives `23505`, different owner/same key inserts, own SELECT sees only own key, foreign update/delete remains denied. Assert null keys remain allowed on older rows. Update the existing 17-column message as well as expected count.
 - [ ] Run `pnpm test:db`; expected RED because column/index/grant are absent. If local Docker is unavailable, record that precise check as pending CI instead of installing it.
-- [ ] Discover the pinned CLI contract with `pnpm exec supabase migration --help` and `pnpm exec supabase migration new --help`. Then run `pnpm exec supabase migration new wishlist_item_submission_id` once, record the actual returned path, and verify its generated timestamp sorts after every migration on the actual merged base. Do not use an invented filename or generate this file during the preparation review.
+- [x] Discover the pinned migration CLI contract and record the generated path `supabase/migrations/20260930210754_wishlist_item_submission_id.sql`; it sorts after every migration on base `ada6db0ff1ee498514f46c013d570a46823e1cb4`.
 - [ ] Implement only:
 
 ```sql
@@ -495,12 +499,10 @@ try {
 - [ ] Build the evidence README with acceptance criteria 1–8 mapped to executed unit, pgTAP, real-action, full-reload, race/transport, accessibility, and visual results. Include the sanitized candidate manifest, independent visual decision, forward migration and destructive rollback note, `pnpm verify` result, exact-head `database` and `no-provider-actions` job URLs/status, and actual Railway preview URL if available. Evidence logs and artifacts exclude request bodies, cookies, auth material, unsanitized provider errors, real user content, and private paths; candidate PNGs may contain only named non-sensitive deterministic fixture values. Confirm no Magic Patterns mocks or editor artifacts ship.
 - [ ] Request fresh independent code/security review of the final implementation and evidence. Fix findings and rerun relevant checks on the exact final PR head. The applicable owner authorization in `docs/delivery/issues/005h-ci-database-test-gate.md:123-135` supersedes older human-only wording for Phase 4: AI reviewer signoff plus green checks authorizes merge, and AI visual review may approve baseline commits. Record the actual reviewer identity and decision. This plan neither merges a PR nor approves a baseline now.
 
-## Self-review checklist for planning review
+## Planning review status
 
-- [ ] Map every acceptance criterion in the binding brief to Tasks 1–7, including Task 6A, and evidence. In particular, action-level complete-profile tests, exact bigint read and display, changed-key replay, hard-delete retry, conversion tuple, and both delete uncertainty hops must each have a concrete test.
-- [ ] Confirm all 005b interfaces and migration ordering against the actual merged base; the currently observed ARJ-27 worktree is not a substitute.
-- [ ] Search the plan for placeholders and inconsistent type/field names. Recheck source-provenance table completeness and the precise local-stack script paths before formalizing the plan.
+Formal independent planning review is pending. Add a separate concise record with exact reviewer identity, reviewed commit, decision, and any conditions after that review occurs.
 
-## Proposed implementation interpretation requiring review
+## Implementation rationale
 
-The null-safe original-pair predicate in Task 3 is a proposed implementation detail for the approved requirement to compare the current owner row at save time under concurrent edits. It avoids relying on `updated_at` as a unique version. The distinct `uncertain` delete outcome, owner-scoped reconciliation action, and scoped error boundary are proposed mechanisms for the approved lost-response behavior. The loopback-only action-reference and transport harnesses are proposed test infrastructure, not product routes or auth bypasses. Review these concrete mechanisms with the binding plan; none is presented as a previously approved product decision.
+The null-safe original-pair predicate compares the current owner row at save time under concurrent edits without relying on `updated_at` as a unique version. The `uncertain` delete outcome, owner-scoped reconciliation action, and scoped error boundary implement the brief's lost-response behavior. The loopback-only action-reference and transport harnesses are test infrastructure and do not expose product routes or auth bypasses.

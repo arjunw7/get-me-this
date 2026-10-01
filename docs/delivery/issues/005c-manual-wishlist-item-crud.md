@@ -1,6 +1,6 @@
-# 005c / ARJ-28 binding issue brief draft: manual wishlist item CRUD
+# 005c / ARJ-28 binding issue brief: manual wishlist item CRUD
 
-**Status:** Draft for independent planning review. This transcribes the proposal with SHA-256 `6b7888855f9e075030b49184eaaa788db80c4d2c93487ac3fb0b7e0c67b81dc6`, approved as a proposal in `arj28-spec-rereview.md` on 2026-09-30. It is not a merged binding issue, code authorization, design approval, or proof that 005b has merged. The formal brief and planning PR wait for the 005b / ARJ-27 merge and verification of the actual 005c base.
+**Status:** Binding scope for ARJ-28 implementation. Formal independent planning review is pending. Implementation branch base: `ada6db0ff1ee498514f46c013d570a46823e1cb4` (`test(wishlist): stabilize lazy image fallback`, after the 005b / ARJ-27 merge). At this base, 005b provides the protected persistent wishlist read, owner-scoped list and card presentation, exact decimal-text price read/format interfaces, and authenticated owner-only RLS. This brief binds the 005c route, action, persistence, validation, accessibility, and evidence requirements below; it does not approve visual baseline changes.
 
 ## Outcome
 
@@ -22,13 +22,13 @@ A signed-in owner with a complete profile can manually add an item to their one 
 
 Use `docs/design-reference/magic-patterns-v18/source/components/add/ItemForm.tsx`, `DesireSelector.tsx`, and `pages/AddFromLink.tsx` for form geometry, labels, desire choices, and mobile action bar, expressed with semantic tokens. Edit uses ordinary Cancel/back navigation. Do not claim group visibility after add.
 
-| 005c state | Comparison authority | Required review |
-| --- | --- | --- |
-| Manual form with matching prefilled URL and shop | Frozen `add-manual-fallback` captures at 390x844 and 1440x1000 plus V18 `ItemForm` manual branch | Compare geometry only with matching fixture, scroll, focus, and fields; the frozen extraction-failure banner is not a 005c element. |
-| Clean manual form and title, price, or URL errors | V18 manual source; no matching frozen manual capture | Independent review of new composition. The `add-initial` and `add-empty-error` captures are link-entry screens and cannot be validation baselines. |
-| Save failure or changed-payload conflict | V18 form vocabulary; no matching capture | Independent review including retained values and error focus. |
-| Edit, delete dialog, uncertain delete | V18 form/card vocabulary and `DESIGN.md` dialog rules; no matching screen | Independent review. |
-| List success notice | Frozen empty/filled captures for underlying list only | Compare list with matching fixture; independently review notice. |
+| 005c state                                        | Comparison authority                                                                             | Required review                                                                                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manual form with matching prefilled URL and shop  | Frozen `add-manual-fallback` captures at 390x844 and 1440x1000 plus V18 `ItemForm` manual branch | Compare geometry only with matching fixture, scroll, focus, and fields; the frozen extraction-failure banner is not a 005c element.                |
+| Clean manual form and title, price, or URL errors | V18 manual source; no matching frozen manual capture                                             | Independent review of new composition. The `add-initial` and `add-empty-error` captures are link-entry screens and cannot be validation baselines. |
+| Save failure or changed-payload conflict          | V18 form vocabulary; no matching capture                                                         | Independent review including retained values and error focus.                                                                                      |
+| Edit, delete dialog, uncertain delete             | V18 form/card vocabulary and `DESIGN.md` dialog rules; no matching screen                        | Independent review.                                                                                                                                |
+| List success notice                               | Frozen empty/filled captures for underlying list only                                            | Compare list with matching fixture; independently review notice.                                                                                   |
 
 Capture candidate mobile and desktop states at 390x844 and 1440x1000. Record intentional differences. An actual independent product/design reviewer must approve each new composition and V18 difference against candidate screenshot hashes and the implementation head before any new baseline commit. A delegated AI review must be identified as such; do not invent a human approver. Frozen or production baselines cannot be changed merely to pass CI.
 
@@ -53,10 +53,10 @@ Provide unit/component tests, pgTAP grant/RLS/uniqueness assertions, valid curre
 
 ## Dependencies and risks
 
-- 005a schema/RLS and 005b protected display are predecessors. ARJ-27's exact decimal-text read/format must actually merge; inspect the final base before implementing. The complete supported-currency table remains a 005c obligation even if 005b keeps an exceptional-precision formatter.
+- 005a schema/RLS and 005b protected display are present at the implementation base stated above. Preserve their owner-scoped read and exact decimal-text interfaces. The complete supported-currency table remains a 005c obligation even if 005b keeps an exceptional-precision formatter.
 - Live-row submission uniqueness does not survive hard delete. A delayed request may reinsert. Any new no-resurrection requirement needs a separate reviewed persistence decision.
 - New visual compositions and the omitted V18 photo picker require independent review. Existing remote image browser requests may fail or be trackable until 005e/005f snapshots.
-- This draft is preparation. Publish the approved proposal decision through the controller's normal GitHub/Linear record; formal planning and implementation wait for the 005b merge and actual-base verification.
+- Formal independent planning review is pending. Record the exact reviewer identity, reviewed commit, decision, and any conditions in the versioned review evidence after that review occurs.
 
 ## Analytics, security, and privacy
 
@@ -64,4 +64,4 @@ No new event containing user-entered item fields is authorized. All reads and wr
 
 ## Planning status
 
-Proposal independently approved on 2026-09-30 for binding-brief and planning review. This draft requires independent plan review and later rebasing onto the exact merged 005b main commit. It does not authorize an implementation or baseline update now.
+This binding brief is scoped to the implementation base identified above. Formal independent planning review is pending; no planning-review approval is claimed here. Visual baseline changes remain subject to the candidate-specific independent review required above.
