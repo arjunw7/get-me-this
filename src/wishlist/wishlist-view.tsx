@@ -1,5 +1,5 @@
 import { formatItemCount } from "./display";
-import type { OwnWishlist } from "./data";
+import type { OwnWishlistView } from "./display";
 import type { ReorderActionResult } from "./reorder-actions";
 import type { WishlistMoveInput } from "./reorder-write";
 import type { DeleteActionState } from "./item-actions";
@@ -18,7 +18,8 @@ import typography from "./wishlist-typography.module.css";
  *   state and never raw error detail.
  * - An empty wishlist is "wishlist row present, zero items" and renders the
  *   V18 empty composition.
- * - Otherwise the populated view renders every saved item snapshot.
+ * - Otherwise the populated view renders every saved item as a client-safe
+ *   view (005f): raw snapshot paths never cross into the client components.
  */
 export function WishlistView({
   displayName,
@@ -31,7 +32,7 @@ export function WishlistView({
 }: {
   displayName: string;
   tasteLine: string | null;
-  wishlist: OwnWishlist | null;
+  wishlist: OwnWishlistView | null;
   notice?: "added" | "updated" | "deleted" | null;
   reorderAction: (input: WishlistMoveInput) => Promise<ReorderActionResult>;
   refreshAction: () => Promise<ReorderActionResult>;

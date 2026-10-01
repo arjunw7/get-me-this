@@ -5,17 +5,18 @@ import { revalidatePath } from "next/cache";
 import { requireCompleteProfile } from "@/src/profile/session";
 
 import { getOwnWishlist } from "./data";
+import { toItemViews } from "./item-views";
 import {
   persistWishlistMove,
   type WishlistMoveInput,
   type WishlistMoveOutcome,
 } from "./reorder-write";
-import type { WishlistItemSnapshot } from "./display";
+import type { WishlistItemView } from "./display";
 
 export type ReorderActionResult =
   | {
       status: "saved" | "refreshed";
-      items: readonly WishlistItemSnapshot[];
+      items: readonly WishlistItemView[];
     }
   | { status: "recovery" }
   | { status: "unavailable" };
@@ -39,11 +40,14 @@ function isValidMoveInput(input: WishlistMoveInput): boolean {
   );
 }
 
+// Client-safe item views (005f): raw snapshot paths are resolved to signed
+// URLs server-side and stripped before the result crosses into the client.
 async function freshOwnerItems(
   userId: string,
-): Promise<readonly WishlistItemSnapshot[] | null> {
+): Promise<readonly WishlistItemView[] | null> {
   const wishlist = await getOwnWishlist(userId);
-  return wishlist?.items ?? null;
+  if (!wishlist) return null;
+  return toItemViews(wishlist.items);
 }
 
 async function resultAfterFreshRead(

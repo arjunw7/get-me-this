@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { CardImage, PlaceholderArt } from "./card-image";
-import type { WishlistItemSnapshot } from "./display";
+import type { WishlistItemView } from "./display";
 import {
   DESIRE_LEVELS,
   currencyMinorDigits,
@@ -24,12 +24,13 @@ function sourceLabel(sourceUrl: string, retailer: string | null): string {
  * One wishlist card (005b), ported from the frozen V18 reference
  * (components/ShelfieCard.tsx) with semantic tokens: the image field with
  * the desire chip overlay, title, retailer, original amount with currency,
- * and the note speech-bubble when a note exists. Display preference when
- * both image fields are set: `imageUrl` wins over `imageSnapshotPath` in
- * this slice — a documented supersession of 005a resolution 7's stated
- * preference order, because Storage resolution for snapshot paths does not
- * exist until 005e/005f, so a snapshot-path-only item renders the
- * placeholder rather than a broken image.
+ * and the note speech-bubble when a note exists.
+ *
+ * Image preference (005f, per 005a resolution 7): the card renders the
+ * server-resolved `imageSrc` — the short-expiry signed snapshot URL when
+ * the row references a private snapshot object, else the remote
+ * `image_url`, else the branded placeholder. Raw storage paths never
+ * reach the client: the server strips them into `imageSrc` (005f).
  */
 
 /** The V18 masonry variety: cycling aspect ratios, tilts, and tape. */
@@ -41,22 +42,21 @@ const ASPECTS = [
 ] as const;
 const TILTS = ["", "lg:rotate-[0.6deg]", "", "lg:-rotate-[0.6deg]"] as const;
 
-const DESIRE_CHIP_STYLES: Record<WishlistItemSnapshot["desireLevel"], string> =
-  {
-    really_want: "border-outline-strong bg-action-primary text-content-primary",
-    would_love:
-      "border-outline-strong bg-accent-highlight-soft text-content-primary",
-    just_an_idea:
-      "border-outline-strong/40 border-dashed bg-surface-raised text-content-secondary",
-  };
+const DESIRE_CHIP_STYLES: Record<WishlistItemView["desireLevel"], string> = {
+  really_want: "border-outline-strong bg-action-primary text-content-primary",
+  would_love:
+    "border-outline-strong bg-accent-highlight-soft text-content-primary",
+  just_an_idea:
+    "border-outline-strong/40 border-dashed bg-surface-raised text-content-secondary",
+};
 
-const DESIRE_DOT_STYLES: Record<WishlistItemSnapshot["desireLevel"], string> = {
+const DESIRE_DOT_STYLES: Record<WishlistItemView["desireLevel"], string> = {
   really_want: "bg-content-primary",
   would_love: "bg-accent-highlight-strong",
   just_an_idea: "bg-content-primary/30",
 };
 
-function DesireChip({ level }: { level: WishlistItemSnapshot["desireLevel"] }) {
+function DesireChip({ level }: { level: WishlistItemView["desireLevel"] }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border-2 px-2.5 py-1 text-caption font-bold ${DESIRE_CHIP_STYLES[level]}`}
@@ -74,7 +74,7 @@ export function WishlistCard({
   item,
   index,
 }: {
-  item: WishlistItemSnapshot;
+  item: WishlistItemView;
   index: number;
 }) {
   const aspect = ASPECTS[index % ASPECTS.length];
@@ -94,8 +94,8 @@ export function WishlistCard({
       ) : null}
       <article className="flex h-full flex-col overflow-hidden rounded-surface-lg border-2 border-outline-strong bg-surface-raised shadow-chunk">
         <div className={`relative overflow-hidden bg-surface-sunken ${aspect}`}>
-          {item.imageUrl !== null ? (
-            <CardImage src={item.imageUrl} title={item.title} />
+          {item.imageSrc !== null ? (
+            <CardImage src={item.imageSrc} title={item.title} />
           ) : (
             <PlaceholderArt title={item.title} />
           )}
@@ -177,7 +177,7 @@ export function WishlistCard({
 export function WishlistCardGrid({
   items,
 }: {
-  items: readonly WishlistItemSnapshot[];
+  items: readonly WishlistItemView[];
 }) {
   return (
     <div className="columns-1 gap-6 min-[480px]:columns-2 lg:columns-3">
