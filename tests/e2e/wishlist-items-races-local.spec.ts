@@ -318,7 +318,7 @@ test("a committed delete with a lost response stays uncertain and failed owner r
       true,
     );
     await attributeEditNavigation(page, itemId, caseId);
-    await page.getByRole("link", { name: "Check the item" }).click();
+    await page.reload();
     await expect(
       page.getByRole("heading", { name: "We couldn’t load this item." }),
     ).toBeVisible();
