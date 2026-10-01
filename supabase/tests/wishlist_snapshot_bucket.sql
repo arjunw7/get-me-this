@@ -260,8 +260,12 @@ select set_config(
   true
 );
 
--- A denied INSERT raises a policy violation; pgTAP's savepoint handling
--- keeps the suite transaction alive afterwards.
+-- A denied INSERT raises the standard RLS policy violation; pgTAP's
+-- savepoint handling keeps the suite transaction alive afterwards. Only
+-- the SQLSTATE is asserted: RLS raises Postgres's own message ("new row
+-- violates row-level security policy for table \"objects\""), and the
+-- custom-message argument is reserved for code that actually raises one
+-- (the storage delete guard).
 select throws_ok(
   format(
     'insert into storage.objects (bucket_id, name, metadata) values (%L, %L, %L)',
@@ -270,7 +274,21 @@ select throws_ok(
     '{}'::jsonb
   ),
   '42501',
-  'a foreign authenticated user cannot INSERT into another user''s prefix'
+  NULL,
+  'a foreign authenticated user cannot INSERT into another user''s prefix (42501 RLS denial)'
+);
+
+-- Liveness is proven from the OWNER's session: a count taken as uid_b is
+-- RLS-filtered to 0 even while the row exists, so it would be vacuous.
+-- Switching back here fails loudly at the right place if the fixture row
+-- were ever absent.
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_a';
+set local "request.jwt.claim.role" = 'authenticated';
+select set_config(
+  'request.jwt.claims',
+  format('{"sub":"%s","role":"authenticated"}', :'uid_a'),
+  true
 );
 
 select is(
@@ -281,7 +299,19 @@ select is(
       and name = :'uid_a'::text || '/' || :'submission'::text || '.webp'
   ),
   1::bigint,
-  'only the owner''s live fixture is in the prefix after the denied INSERT'
+  'the owner''s live fixture survives the denied foreign INSERT'
+);
+
+-- Back as the foreign user: every denial below runs against the owner's
+-- LIVE row, so a 0-row result can only mean the policy denied the
+-- read/write — never that the row was already gone.
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_b';
+set local "request.jwt.claim.role" = 'authenticated';
+select set_config(
+  'request.jwt.claims',
+  format('{"sub":"%s","role":"authenticated"}', :'uid_b'),
+  true
 );
 
 select is(
@@ -409,6 +439,8 @@ select is(
   'anon cannot SELECT any snapshot object'
 );
 
+-- Standard RLS denial: SQLSTATE-only assertion (RLS raises its own
+-- message; see the foreign-INSERT note in section 4).
 select throws_ok(
   format(
     'insert into storage.objects (bucket_id, name) values (%L, %L)',
@@ -416,7 +448,8 @@ select throws_ok(
     :'uid_a'::text || '/anon.webp'
   ),
   '42501',
-  'anon cannot INSERT into any snapshot prefix'
+  NULL,
+  'anon cannot INSERT into any snapshot prefix (42501 RLS denial)'
 );
 
 rollback;
