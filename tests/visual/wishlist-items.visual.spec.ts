@@ -166,7 +166,7 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
       page.getByRole("link", { name: "Edit saved item" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Start new draft" }),
+      page.getByRole("button", { name: "Start over" }),
     ).toBeVisible();
     await capture("submission-conflict");
     await admin

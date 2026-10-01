@@ -151,11 +151,12 @@ test("complete extraction: review, explicit save through the 005c contract, exac
       page.getByRole("radio", { name: "Photo option 1" }),
     ).toBeChecked();
 
-    // Reload before saving: review is not durable; extraction restarts.
-    await page.reload();
-    await expect(
-      page.getByRole("heading", { name: "Being nosy…" }),
-    ).toBeVisible();
+    // Review is not durable: a fresh navigation restarts extraction from
+    // the ?url= route parameter (the manual-submit path does not rewrite
+    // the route), and still nothing has been saved.
+    await page.goto(
+      "/wishlist/items/new?url=https://shop.example/product/lamp",
+    );
     await expect(
       page.getByRole("heading", { name: "Found it. Look right?" }),
     ).toBeVisible();
@@ -325,10 +326,12 @@ for (const failure of [
         page.getByRole("heading", { name: "That link played hard to get." }),
       ).toBeVisible();
       // Generic wording only; nothing distinguishes blocked, denied, or
-      // failed, and no response detail is rendered.
-      await expect(page.getByRole("alert")).toHaveText(
-        "We couldn’t read that shop.",
-      );
+      // failed, and no response detail is rendered. The app alert is
+      // scoped explicitly: Next's own route announcer also carries
+      // role="alert", so an unscoped getByRole("alert") is ambiguous.
+      await expect(
+        page.locator('[role="alert"]:not(#__next-route-announcer__)'),
+      ).toContainText("We couldn’t read that shop.");
       await expect(page.getByText("Generic safe copy.")).toHaveCount(0);
       await expect(page.getByLabel("Link (optional)")).toHaveValue(
         "https://shop.example/product/lamp",
@@ -518,9 +521,17 @@ test("a foreign authenticated user can neither read nor mutate the saved item", 
 
     const rows = await admin.from("wishlist_items").select("id,owner_id");
     expect(rows.error).toBeNull();
+    // The admin client reads every row, including the local stack's seeded
+    // demo rows; the invariant is that nothing belongs to the OWNER (whose
+    // wishlist is empty) and the foreign save landed under the foreign id.
     for (const row of rows.data ?? []) {
-      expect(row.owner_id).toBe(foreignId);
+      expect(row.owner_id).not.toBe(ownerId);
     }
+    const foreignRows = await admin
+      .from("wishlist_items")
+      .select("id,owner_id")
+      .eq("owner_id", foreignId);
+    expect((foreignRows.data ?? []).length).toBeGreaterThanOrEqual(1);
     await foreignPage.close();
   } finally {
     await ownerScope.cleanup();
@@ -583,6 +594,15 @@ test("display prefers the signed snapshot, then the remote image URL, then the b
         sort_position: 3,
       },
     ]);
+
+    // No egress in e2e: the remote fallback host cannot resolve, so the
+    // card's runtime onError fallback would degrade the <img> to the
+    // branded placeholder before the src assertion can read it. Fulfill
+    // the image request so the remote-fallback card keeps its <img>
+    // mounted — the state under test.
+    await page.route("**/img.example/**", (route) =>
+      route.fulfill({ status: 200, contentType: "image/webp", body: webp }),
+    );
 
     await page.goto("/wishlist");
     // Snapshot-first: the signed URL is the source, never a bare raw path

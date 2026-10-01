@@ -131,15 +131,18 @@ test("the extraction-review states yield matched responsive candidates and clean
     ).toBeVisible();
     await capture("add-initial");
 
-    // Initial URL entry, prefilled from ?url=.
-    await page.goto(
-      "/wishlist/items/new?url=https://shop.example/product/lamp",
-    );
+    // Initial URL entry, prefilled: the ?url= route parameter seeds the
+    // field AND auto-starts extraction (the approved state machine), so
+    // the prefilled input composition is reached by typing into the field.
+    await page.goto("/wishlist/items/new");
     await expect(
       page.getByRole("heading", {
         name: "Drop the link. We’ll do the nosy part.",
       }),
     ).toBeVisible();
+    await page
+      .getByLabel("Product link")
+      .fill("https://shop.example/product/lamp");
     await expect(page.getByLabel("Product link")).toHaveValue(
       "https://shop.example/product/lamp",
     );
