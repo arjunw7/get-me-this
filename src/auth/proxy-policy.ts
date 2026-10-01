@@ -55,7 +55,8 @@ export function isServerActionRequest(
  * listed here explicitly — the landing page, the auth routes, the interim
  * confirm route, and the limited invitation preview stay public per the
  * permissions matrix. Wishlist routes include the owner's display, manual
- * item create, and owner-scoped item edit surfaces.
+ * item create, owner-scoped item edit surfaces, and 005e's Node-only
+ * extraction POST boundary.
  *
  * The proxy redirects anonymous requests for these paths to `/auth` (whose
  * default is the safe `home` intent) BEFORE any page or action reads
@@ -74,6 +75,7 @@ const PROTECTED_ROUTE_PATHS: readonly string[] = [
   "/onboarding",
   "/wishlist",
   "/wishlist/items/new",
+  "/wishlist/items/extract",
 ];
 
 export function isProtectedRoutePath(pathname: string): boolean {
