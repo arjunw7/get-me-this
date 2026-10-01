@@ -81,7 +81,10 @@ cleanup_control() {
   kill "$WISHLIST_CONTROL_PID" 2>/dev/null || true
   wait "$WISHLIST_CONTROL_PID" 2>/dev/null || true
   pnpm exec supabase db query --local \
-    "drop trigger if exists arj28_test_reject_item_delete on public.wishlist_items; drop function if exists public.arj28_test_reject_item_delete();" \
+    "drop trigger if exists arj28_test_reject_item_delete on public.wishlist_items;" \
+    >/dev/null 2>&1 || true
+  pnpm exec supabase db query --local \
+    "drop function if exists public.arj28_test_reject_item_delete();" \
     >/dev/null 2>&1 || true
 }
 trap cleanup_control EXIT
@@ -101,7 +104,12 @@ fi
 # Install a disposable local-only trigger so the delete action handles a real
 # PostgreSQL SQLSTATE response, not a fabricated PostgREST-shaped test value.
 pnpm exec supabase db query --local \
-  --file tests/fixtures/arj28-delete-rejection-setup.sql >/dev/null
+  --file tests/fixtures/arj28-delete-rejection-function.sql >/dev/null
+pnpm exec supabase db query --local \
+  "drop trigger if exists arj28_test_reject_item_delete on public.wishlist_items;" \
+  >/dev/null
+pnpm exec supabase db query --local \
+  --file tests/fixtures/arj28-delete-rejection-trigger.sql >/dev/null
 
 # Gated-spec explicit list (brief 005h): keep in sync with the
 # E2E_LOCAL_SUPABASE skip guards in tests/e2e and tests/visual. 005b adds

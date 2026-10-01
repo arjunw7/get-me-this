@@ -99,7 +99,8 @@ Test infrastructure:
 - `tests/e2e/wishlist-items-no-provider.spec.ts`
 - `tests/e2e/wishlist-items-local.spec.ts`
 - `tests/e2e/wishlist-items-races-local.spec.ts`
-- `tests/fixtures/arj28-delete-rejection-setup.sql`
+- `tests/fixtures/arj28-delete-rejection-function.sql`
+- `tests/fixtures/arj28-delete-rejection-trigger.sql`
 - `tests/visual/wishlist-items.visual.spec.ts`
 - `tests/visual/baselines/BASELINE-MANIFEST.json`
 - `tests/visual/baselines/wishlist-empty-desktop.png`
