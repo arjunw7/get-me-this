@@ -182,7 +182,16 @@ export function WishlistItemsPanel({
     if (phase !== "idle") return;
     draggedId.current = itemId;
     dragOrigin.current = confirmedItems;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    // Capture is an optimization for real pointers: the browser throws
+    // NotFoundError when the pointer id is not an active pointer (for
+    // example a synthetic or already-released pointer). The drag preview
+    // below works through elementFromPoint, so a failed capture must not
+    // abort the drag.
+    try {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Ignore: drag continues without pointer capture.
+    }
   }
 
   function previewDrag(event: PointerEvent<HTMLButtonElement>) {
@@ -202,7 +211,11 @@ export function WishlistItemsPanel({
   function finishDrag(event: PointerEvent<HTMLButtonElement>) {
     const itemId = draggedId.current;
     draggedId.current = null;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    try {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    } catch {
+      // Ignore: capture may never have been acquired for this pointer.
+    }
     if (!itemId) return;
     const from = dragOrigin.current.findIndex((item) => item.id === itemId);
     const to = displayItems.findIndex((item) => item.id === itemId);

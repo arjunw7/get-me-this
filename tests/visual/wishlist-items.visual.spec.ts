@@ -125,27 +125,10 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     await expect(page.getByText("Enter a title.")).toBeVisible();
     await capture("validation");
 
-    await page.goto("/wishlist/items/new");
-    await page.getByLabel("Item name").fill("Candidate sort overflow");
-    const overflowId = randomUUID();
-    const overflow = await admin.from("wishlist_items").insert({
-      id: overflowId,
-      wishlist_id: wishlistId,
-      owner_id: userId,
-      title: "Candidate sort boundary",
-      sort_position: 2147483647,
-    });
-    expect(overflow.error).toBeNull();
-    await page.getByRole("button", { name: "Add item" }).click();
-    await expect(
-      page.getByText(/This item changed while you were editing/i),
-    ).toContainText("Reload the item before trying again");
-    await capture("save-failure");
-    await admin
-      .from("wishlist_items")
-      .delete()
-      .eq("owner_id", userId)
-      .eq("id", overflowId);
+    // The reviewed 005d append RPC resolves sort-key overflow by
+    // renumbering the owner's rows and saving, so a create can no longer
+    // fail that way. The designed save-failure state is exercised through
+    // the guarded edit path after the successful create below.
 
     await page.goto("/wishlist/items/new");
     const submissionId = await page
@@ -204,6 +187,39 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
       page.getByRole("heading", { name: "Edit item" }),
     ).toBeVisible();
     await capture("edit");
+
+    // save-failure: the row's price pair is changed while the save action
+    // is held at the after-edit-read-before-update barrier, so the guarded
+    // update matches zero rows and the form reports the designed retry
+    // banner without writing.
+    await wishlistControl.register(caseId);
+    await wishlistControl.arm(caseId, "after-edit-read-before-update", 1);
+    await attributeAction(page, caseId);
+    const staleSave = page
+      .getByRole("button", { name: "Save changes" })
+      .click();
+    await wishlistControl.wait(caseId, "after-edit-read-before-update");
+    const stalePair = await admin
+      .from("wishlist_items")
+      .update({
+        original_amount_minor: 5100,
+        original_currency: "USD",
+        converted_amount_minor: null,
+        converted_currency: null,
+        conversion_rate_source: null,
+        conversion_rate_at: null,
+      })
+      .eq("owner_id", userId)
+      .eq("id", created.data!.id);
+    expect(stalePair.error).toBeNull();
+    await wishlistControl.release(caseId, "after-edit-read-before-update");
+    await staleSave;
+    await expect(
+      page.getByText(/This item changed while you were editing/i),
+    ).toContainText("Reload the item before trying again");
+    await capture("save-failure");
+    await page.unroute("**/*");
+
     await page.getByRole("button", { name: "Delete item" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await capture("delete-confirm");

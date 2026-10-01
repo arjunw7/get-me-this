@@ -44,6 +44,16 @@ async function canonicalTitles(page: Page): Promise<string[]> {
   return page.locator("article h3").allTextContents();
 }
 
+/**
+ * The reorder panel's own polite live region. The page-level notice flash
+ * (for example the `?item=added` "Item added to your wishlist." paragraph)
+ * is also role="status" by design, so the reorder announcement is addressed
+ * by its aria-live attribute to keep the locator unambiguous.
+ */
+function reorderStatus(surface: Page) {
+  return surface.locator('p[role="status"][aria-live="polite"]');
+}
+
 test("arrow and touch moves persist across Done, reload, and a second tab", async ({
   page,
 }, testInfo) => {
@@ -75,7 +85,7 @@ test("arrow and touch moves persist across Done, reload, and a second tab", asyn
       fullPage: true,
       animations: "disabled",
     });
-    await page.getByRole("button", { name: "Reorder" }).click();
+    await page.getByRole("button", { name: "Reorder", exact: true }).click();
 
     const reorder = page.getByRole("button", { name: "Done" });
     await expect(reorder).toHaveAttribute("aria-pressed", "true");
@@ -90,7 +100,7 @@ test("arrow and touch moves persist across Done, reload, and a second tab", asyn
     await page
       .getByRole("button", { name: "Move Ceramic matcha set down" })
       .press("Enter");
-    await expect(page.getByRole("status")).toHaveText("Order saved.");
+    await expect(reorderStatus(page)).toHaveText("Order saved.");
 
     const rows = page.getByRole("listitem");
     const firstHandle = page.getByRole("button", {
@@ -124,10 +134,12 @@ test("arrow and touch moves persist across Done, reload, and a second tab", asyn
       clientY: target.y + target.height / 2,
       buttons: 0,
     });
-    await expect(page.getByRole("status")).toHaveText("Order saved.");
+    await expect(reorderStatus(page)).toHaveText("Order saved.");
 
     await page.getByRole("button", { name: "Done" }).click();
-    await expect(page.getByRole("button", { name: "Reorder" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Reorder", exact: true }),
+    ).toBeVisible();
     const expected = [
       "Ceramic matcha set",
       "Linen pyjama set",
@@ -168,7 +180,7 @@ test("incomplete profiles cannot reorder through the current action", async ({
     );
     await seedWishlistItems(admin, ownerId, items);
     await page.goto("/wishlist");
-    await page.getByRole("button", { name: "Reorder" }).click();
+    await page.getByRole("button", { name: "Reorder", exact: true }).click();
     const madeIncomplete = await admin
       .from("profiles")
       .update({ display_name: null, taste_line: null })
@@ -209,17 +221,19 @@ test("a stale second tab refetches the authoritative order before another move",
     await seedWishlistItems(admin, ownerId, items);
     const staleTab = await page.context().newPage();
     await Promise.all([page.goto("/wishlist"), staleTab.goto("/wishlist")]);
-    await page.getByRole("button", { name: "Reorder" }).click();
+    await page.getByRole("button", { name: "Reorder", exact: true }).click();
     await page
       .getByRole("button", { name: "Move Ceramic matcha set down" })
       .click();
-    await expect(page.getByRole("status")).toHaveText("Order saved.");
+    await expect(reorderStatus(page)).toHaveText("Order saved.");
 
-    await staleTab.getByRole("button", { name: "Reorder" }).click();
+    await staleTab
+      .getByRole("button", { name: "Reorder", exact: true })
+      .click();
     await staleTab
       .getByRole("button", { name: "Move Linen pyjama set up" })
       .click();
-    await expect(staleTab.getByRole("status")).toHaveText(
+    await expect(reorderStatus(staleTab)).toHaveText(
       "Order refreshed. Choose another move if needed.",
     );
     const staleRows = await staleTab
@@ -269,7 +283,7 @@ test("create and delete commit orders reconcile without overwriting or resurrect
     expect(wishlist.error).toBeNull();
 
     await page.goto("/wishlist");
-    await page.getByRole("button", { name: "Reorder" }).click();
+    await page.getByRole("button", { name: "Reorder", exact: true }).click();
     const createdFirstId = randomUUID();
     const createdFirst = await admin.from("wishlist_items").insert({
       id: createdFirstId,
@@ -282,7 +296,7 @@ test("create and delete commit orders reconcile without overwriting or resurrect
     await page
       .getByRole("button", { name: "Move Ceramic matcha set down" })
       .click();
-    await expect(page.getByRole("status")).toHaveText(
+    await expect(reorderStatus(page)).toHaveText(
       "Order refreshed. Choose another move if needed.",
     );
     await expect(page.getByText("Created before reorder")).toBeVisible();
@@ -290,7 +304,7 @@ test("create and delete commit orders reconcile without overwriting or resurrect
     await page
       .getByRole("button", { name: "Move Ceramic matcha set down" })
       .click();
-    await expect(page.getByRole("status")).toHaveText("Order saved.");
+    await expect(reorderStatus(page)).toHaveText("Order saved.");
     await page.getByRole("button", { name: "Done" }).click();
     await page.goto("/wishlist/items/new");
     await page.getByLabel("Item name").fill("Created after reorder");
@@ -305,7 +319,7 @@ test("create and delete commit orders reconcile without overwriting or resurrect
     expect(afterCreate.error).toBeNull();
     expect(afterCreate.data?.at(-1)?.title).toBe("Created after reorder");
 
-    await page.getByRole("button", { name: "Reorder" }).click();
+    await page.getByRole("button", { name: "Reorder", exact: true }).click();
     const deletedFirst = await admin
       .from("wishlist_items")
       .delete()
@@ -315,7 +329,7 @@ test("create and delete commit orders reconcile without overwriting or resurrect
     await page
       .getByRole("button", { name: "Move Ceramic matcha set down" })
       .click();
-    await expect(page.getByRole("status")).toHaveText(
+    await expect(reorderStatus(page)).toHaveText(
       "Order refreshed. Choose another move if needed.",
     );
     await expect(page.getByText("Tiny gold hoops")).toHaveCount(0);
@@ -323,7 +337,7 @@ test("create and delete commit orders reconcile without overwriting or resurrect
     await page
       .getByRole("button", { name: "Move Ceramic matcha set down" })
       .click();
-    await expect(page.getByRole("status")).toHaveText("Order saved.");
+    await expect(reorderStatus(page)).toHaveText("Order saved.");
     await page.getByRole("button", { name: "Remove Linen pyjama set" }).click();
     await page.getByRole("button", { name: "Delete item" }).click();
     await expect(page.getByText("Linen pyjama set")).toHaveCount(0);
@@ -353,7 +367,7 @@ test("Done waits for saving, stays open after a lost response, and axe passes", 
     );
     await seedWishlistItems(admin, ownerId, items);
     await page.goto("/wishlist");
-    await page.getByRole("button", { name: "Reorder" }).click();
+    await page.getByRole("button", { name: "Reorder", exact: true }).click();
     const axe = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
       .analyze();
@@ -380,10 +394,12 @@ test("Done waits for saving, stays open after a lost response, and axe passes", 
     ).toBeVisible();
     release();
     await saving;
-    await expect(page.getByRole("button", { name: "Reorder" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Reorder", exact: true }),
+    ).toBeVisible();
     await page.unroute("**/wishlist");
 
-    await page.getByRole("button", { name: "Reorder" }).click();
+    await page.getByRole("button", { name: "Reorder", exact: true }).click();
     let aborted = false;
     await page.route("**/wishlist", async (route) => {
       if (!aborted && route.request().method() === "POST") {
@@ -404,6 +420,8 @@ test("Done waits for saving, stays open after a lost response, and axe passes", 
       page.getByRole("button", { name: "Retry refresh" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Retry refresh" }).click();
-    await expect(page.getByRole("button", { name: "Reorder" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Reorder", exact: true }),
+    ).toBeVisible();
   });
 });
