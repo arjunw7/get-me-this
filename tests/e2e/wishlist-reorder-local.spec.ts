@@ -307,6 +307,9 @@ test("create and delete commit orders reconcile without overwriting or resurrect
     await expect(reorderStatus(page)).toHaveText("Order saved.");
     await page.getByRole("button", { name: "Done" }).click();
     await page.goto("/wishlist/items/new");
+    await page
+      .getByRole("button", { name: "No link? Add it manually" })
+      .click();
     await page.getByLabel("Item name").fill("Created after reorder");
     await page.getByRole("button", { name: "Add item" }).click();
     await expect(page).toHaveURL(/\/wishlist\?item=added$/);

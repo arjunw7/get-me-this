@@ -16,16 +16,15 @@ vi.mock("next/navigation", () => ({
 }));
 
 import type { ReorderActionResult } from "./reorder-actions";
-import type { WishlistItemSnapshot } from "./display";
+import type { WishlistItemView } from "./display";
 import { WishlistItemsPanel } from "./reorder-list";
 
-const first: WishlistItemSnapshot = {
+const first: WishlistItemView = {
   id: "00000000-0000-4000-8000-000000000001",
   title: "Ceramic matcha set",
   sourceUrl: null,
   retailer: null,
-  imageUrl: null,
-  imageSnapshotPath: null,
+  imageSrc: null,
   note: null,
   desireLevel: "really_want",
   sortPosition: 1,
@@ -35,11 +34,11 @@ const first: WishlistItemSnapshot = {
   createdAt: "2026-10-01T00:00:00Z",
   updatedAt: "2026-10-01T00:00:00Z",
 };
-const second: WishlistItemSnapshot = {
+const second: WishlistItemView = {
   ...first,
   id: "00000000-0000-4000-8000-000000000002",
   title: "Tiny gold hoops",
-  imageUrl: "/assets/landing/k-kettle.jpg",
+  imageSrc: "/assets/landing/k-kettle.jpg",
   desireLevel: "would_love",
   sortPosition: 2,
 };

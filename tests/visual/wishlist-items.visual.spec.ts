@@ -102,9 +102,17 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     const wishlistId = await fixtureWishlistId(admin, userId);
 
     await page.goto("/wishlist/items/new");
+    // Since 005f the add route opens with the extraction flow; the manual
+    // composition is the deliberate manual-entry state of that flow.
     await expect(
-      page.getByRole("heading", { name: "Add an item", exact: true }),
+      page.getByRole("heading", {
+        name: "Drop the link. We’ll do the nosy part.",
+      }),
     ).toBeVisible();
+    await capture("add-initial");
+    await page
+      .getByRole("button", { name: "No link? Add it manually" })
+      .click();
     await expect(page.getByLabel("Item name")).toBeVisible();
     await capture("manual-clean");
     await page.getByLabel("Item name").fill("ARJ-28 candidate lamp");
@@ -131,6 +139,9 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     // the guarded edit path after the successful create below.
 
     await page.goto("/wishlist/items/new");
+    await page
+      .getByRole("button", { name: "No link? Add it manually" })
+      .click();
     const submissionId = await page
       .locator('input[name="submissionId"]')
       .inputValue();
@@ -165,6 +176,9 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
       .eq("client_submission_id", submissionId);
 
     await page.goto("/wishlist/items/new");
+    await page
+      .getByRole("button", { name: "No link? Add it manually" })
+      .click();
     await page.getByLabel("Item name").fill("ARJ-28 candidate lamp");
     await page.getByLabel("Price").fill("24.99");
     await page.getByLabel("Currency").selectOption("INR");
@@ -273,7 +287,7 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
       page.getByRole("region", { name: "Your wishlist is empty" }),
     ).toBeVisible();
     await capture("success");
-    expect(axeStates).toHaveLength(9);
+    expect(axeStates).toHaveLength(10);
     writeFileSync(
       join(CANDIDATE_DIR, `axe-${viewport}.json`),
       `${JSON.stringify({ viewport, states: axeStates }, null, 2)}\n`,
