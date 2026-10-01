@@ -247,7 +247,12 @@ test("a committed delete with a lost response stays uncertain and failed owner r
       .getByRole("button", { name: "Delete item" })
       .click()
       .catch((error: unknown) => {
-        if (!(error instanceof Error) || error.name !== "AbortError")
+        if (
+          typeof error !== "object" ||
+          error === null ||
+          !("name" in error) ||
+          error.name !== "AbortError"
+        )
           throw error;
       });
     await wishlistControl.wait(caseId, "postgrest-delete-response-loss");
