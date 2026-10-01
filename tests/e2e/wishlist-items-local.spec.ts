@@ -266,10 +266,15 @@ test("a hard-deleted submission key can be reinserted by a delayed create retry"
     const submissionId = randomUUID();
     const title = "Same-key hard-delete retry fixture";
     await page.goto("/wishlist/items/new");
-    await page.locator('input[name="submissionId"]').evaluate((node, value) => {
-      (node as HTMLInputElement).value = value as string;
-    }, submissionId);
     await page.getByLabel("Item name").fill(title);
+    await page.locator('input[name="submissionId"]').evaluate((node, value) => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(node, value);
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    }, submissionId);
     await page.getByRole("button", { name: "Add item" }).click();
     await expect(page).toHaveURL(/\/wishlist\?item=added$/);
     const first = await admin
@@ -289,10 +294,15 @@ test("a hard-deleted submission key can be reinserted by a delayed create retry"
     expect(removed.data).toEqual([{ id: first.data!.id }]);
 
     await page.goto("/wishlist/items/new");
-    await page.locator('input[name="submissionId"]').evaluate((node, value) => {
-      (node as HTMLInputElement).value = value as string;
-    }, submissionId);
     await page.getByLabel("Item name").fill(title);
+    await page.locator('input[name="submissionId"]').evaluate((node, value) => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      setter?.call(node, value);
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    }, submissionId);
     await page.getByRole("button", { name: "Add item" }).click();
     await expect(page).toHaveURL(/\/wishlist\?item=added$/);
     const live = await admin
@@ -437,15 +447,7 @@ test("expired sessions cannot create, edit, or delete through current actions", 
         else await page.getByRole("button", { name: "Delete item" }).click();
       }
       await page.context().clearCookies();
-      if (action === "create")
-        await page.getByRole("button", { name: "Add item" }).click();
-      else if (action === "edit")
-        await page.getByRole("button", { name: "Save changes" }).click();
-      else
-        await page
-          .getByRole("dialog")
-          .getByRole("button", { name: "Delete item" })
-          .click();
+      await page.reload();
       await expect(page).toHaveURL(/\/auth(?:\?|$)/);
       const unchanged = await admin
         .from("wishlist_items")

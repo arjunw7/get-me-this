@@ -138,8 +138,8 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     expect(overflow.error).toBeNull();
     await page.getByRole("button", { name: "Add item" }).click();
     await expect(
-      page.getByText(/We couldn’t save that item just now/i),
-    ).toContainText("try again");
+      page.getByText(/This item changed while you were editing/i),
+    ).toContainText("Reload the item before trying again");
     await capture("save-failure");
     await admin
       .from("wishlist_items")
