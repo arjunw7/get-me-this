@@ -1,7 +1,31 @@
 {
   "version": 1,
-  "approvedBy": "independent AI visual reviewer /root/arj27_final_visual_review, under the owner's delegated baseline-approval authority; exact four-image ARJ-27 set approved in report SHA-256 841e33597bf26d0fda9441bfeb0c46ea6812006453a6826778ee00135bd1d6e2",
-  "approvedDate": "2026-10-01",
+  "defaultFileProvenance": {
+    "approvedBy": "independent AI visual reviewer /root/arj27_final_visual_review, under the owner's delegated baseline-approval authority; original ARJ-27 baseline approval report SHA-256 841e33597bf26d0fda9441bfeb0c46ea6812006453a6826778ee00135bd1d6e2",
+    "approvedDate": "2026-10-01"
+  },
+  "fileProvenanceOverrides": {
+    "wishlist-empty-desktop.png": {
+      "approvedBy": "independent AI visual reviewer /root/arj28_final_visual_review",
+      "approvedDate": "2026-10-01",
+      "approvalManifestSha256": "25c87ae6dfa5cec565dd460b904f1bea71d91143d5e138d5b6903dbc4d26440a"
+    },
+    "wishlist-empty-mobile.png": {
+      "approvedBy": "independent AI visual reviewer /root/arj28_final_visual_review",
+      "approvedDate": "2026-10-01",
+      "approvalManifestSha256": "25c87ae6dfa5cec565dd460b904f1bea71d91143d5e138d5b6903dbc4d26440a"
+    },
+    "wishlist-filled-desktop.png": {
+      "approvedBy": "independent AI visual reviewer /root/arj28_final_visual_review",
+      "approvedDate": "2026-10-01",
+      "approvalManifestSha256": "25c87ae6dfa5cec565dd460b904f1bea71d91143d5e138d5b6903dbc4d26440a"
+    },
+    "wishlist-filled-mobile.png": {
+      "approvedBy": "independent AI visual reviewer /root/arj28_final_visual_review",
+      "approvedDate": "2026-10-01",
+      "approvalManifestSha256": "25c87ae6dfa5cec565dd460b904f1bea71d91143d5e138d5b6903dbc4d26440a"
+    }
+  },
   "files": {
     "auth-create-group-desktop.png": "d637310c508a175afcca158868e8df253325b1a4d2a609221bb4f933a90dd096",
     "auth-create-group-mobile.png": "e4e777cdc15d237b6c3918f43268f32b3ffd03c1ce275abb39e2ea72c055448a",
