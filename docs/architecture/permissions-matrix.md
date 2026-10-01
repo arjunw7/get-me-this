@@ -19,6 +19,23 @@
 | Create/update group settings | No | No | No | No | Organizer only |
 | Run/redraw secret draw | No | No | No | No | Organizer, confirmed and audited |
 | Invite/remove members | No | No | No | No | Organizer |
+| Read/write `wishlist-item-snapshots` Storage objects (005f) | No | Own `{owner_id}/` prefix only | No | No | No |
+
+## Storage (005f)
+
+The private `wishlist-item-snapshots` bucket (migration
+`20261002000000_wishlist_item_snapshot_bucket.sql`) stores the normalized
+WebP snapshot of an item's selected image under
+`{owner_id}/{client_submission_id}.webp`. Access is owner-only: the four
+`storage.objects` policies (`wishlist_item_snapshots_select_own`,
+`_insert_own`, `_update_own`, `_delete_own`) are granted to `authenticated`
+and scoped to the first path folder equaling `auth.uid()::text`. There is
+no anon policy and no service-role policy; the application path uploads
+through the authenticated server client and reads only through short-expiry
+server-generated signed URLs — raw paths and signed URLs never reach logs,
+analytics, or the client. A foreign user cannot read or mutate another
+user's objects by direct authenticated storage API (pgTAP:
+`supabase/tests/wishlist_snapshot_bucket.sql`).
 
 ## Required negative tests
 

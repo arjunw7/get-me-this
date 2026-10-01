@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { AnalyticsIdentity } from "@/src/auth/analytics-identity";
 import { requireCompleteProfile } from "@/src/profile/session";
-import { getOwnWishlist } from "@/src/wishlist/data";
+import { resolveOwnWishlistView } from "@/src/wishlist/item-views";
 import {
   refreshWishlistOrderAction,
   reorderWishlistItemAction,
@@ -39,7 +39,7 @@ export default async function WishlistPage({
     marker === "added" || marker === "updated" || marker === "deleted"
       ? marker
       : null;
-  const wishlist = await getOwnWishlist(userId);
+  const wishlist = await resolveOwnWishlistView(userId);
   // requireCompleteProfile guarantees a non-blank display name.
   const displayName = profile.displayName as string;
 

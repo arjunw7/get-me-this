@@ -4,11 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import type { OwnWishlist } from "./data";
 import {
+  type OwnWishlistView,
   type WishlistItemRow,
-  type WishlistItemSnapshot,
   toWishlistItemSnapshot,
+  toItemView,
 } from "./display";
 import { WishlistView } from "./wishlist-view";
 
@@ -46,15 +46,16 @@ function fixtureRow(overrides: Partial<WishlistItemRow> = {}): WishlistItemRow {
   };
 }
 
-function snapshot(row: WishlistItemRow): WishlistItemSnapshot {
-  // The view consumes mapped snapshots; the mapper is pinned in
-  // display.test.ts. The cast mirrors data.ts's trusted-database shape.
-  return toWishlistItemSnapshot(row);
+// The view consumes client-safe item views (005f): the server resolves
+// image sources and strips raw snapshot paths before anything crosses into
+// a client component.
+function snapshot(row: WishlistItemRow) {
+  return toItemView(toWishlistItemSnapshot(row), null);
 }
 
-const EMPTY_WISHLIST: OwnWishlist = { wishlistId: "w-1", items: [] };
+const EMPTY_WISHLIST: OwnWishlistView = { wishlistId: "w-1", items: [] };
 
-function viewProps(wishlist: OwnWishlist | null) {
+function viewProps(wishlist: OwnWishlistView | null) {
   return {
     displayName: "Ada",
     tasteLine: "currently in my tiny-luxuries era",
@@ -114,7 +115,7 @@ describe("WishlistView state selection", () => {
   });
 
   it("renders the populated view from saved item snapshots in read order", () => {
-    const wishlist: OwnWishlist = {
+    const wishlist: OwnWishlistView = {
       wishlistId: "w-1",
       items: [
         snapshot(fixtureRow()),
@@ -157,7 +158,7 @@ describe("WishlistView state selection", () => {
   });
 
   it("renders only closed success-marker copy", () => {
-    const wishlist: OwnWishlist = { wishlistId: "w-1", items: [] };
+    const wishlist: OwnWishlistView = { wishlistId: "w-1", items: [] };
     const { rerender } = render(
       <WishlistView {...viewProps(wishlist)} notice="added" />,
     );

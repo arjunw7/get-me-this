@@ -38,6 +38,9 @@ test("manual create, exact decimal readback, owner edit, and confirmed hard dele
     expect(before.error).toBeNull();
 
     await page.goto("/wishlist/items/new");
+    await page
+      .getByRole("button", { name: "No link? Add it manually" })
+      .click();
     await page.getByLabel("Item name").fill("Manual e2e fixture lamp");
     await page.getByLabel("Price").fill("24.99");
     await page.getByLabel("Currency").selectOption("INR");
@@ -266,6 +269,9 @@ test("a hard-deleted submission key can be reinserted by a delayed create retry"
     const submissionId = randomUUID();
     const title = "Same-key hard-delete retry fixture";
     await page.goto("/wishlist/items/new");
+    await page
+      .getByRole("button", { name: "No link? Add it manually" })
+      .click();
     await page.getByLabel("Item name").fill(title);
     await page.locator('input[name="submissionId"]').evaluate((node, value) => {
       const setter = Object.getOwnPropertyDescriptor(
@@ -294,6 +300,9 @@ test("a hard-deleted submission key can be reinserted by a delayed create retry"
     expect(removed.data).toEqual([{ id: first.data!.id }]);
 
     await page.goto("/wishlist/items/new");
+    await page
+      .getByRole("button", { name: "No link? Add it manually" })
+      .click();
     await page.getByLabel("Item name").fill(title);
     await page.locator('input[name="submissionId"]').evaluate((node, value) => {
       const setter = Object.getOwnPropertyDescriptor(
@@ -357,6 +366,9 @@ test("incomplete profiles cannot create, edit, or delete through current actions
     };
 
     await page.goto("/wishlist/items/new");
+    await page
+      .getByRole("button", { name: "No link? Add it manually" })
+      .click();
     await page.getByLabel("Item name").fill("Blocked incomplete create");
     await setComplete(false);
     await page.getByRole("button", { name: "Add item" }).click();
@@ -439,6 +451,9 @@ test("expired sessions cannot create, edit, or delete through current actions", 
 
       if (action === "create") {
         await page.goto("/wishlist/items/new");
+        await page
+          .getByRole("button", { name: "No link? Add it manually" })
+          .click();
         await page.getByLabel("Item name").fill("Blocked expired create");
       } else {
         await page.goto(`/wishlist/items/${itemId}/edit`);

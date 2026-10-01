@@ -366,17 +366,21 @@ test("a fresh owner with zero items sees the V18 empty composition and its CTA n
     await expect(page.getByText("0 things")).toBeVisible();
     await assertProfileGeometry(page, true);
 
-    // The CTA opens the functional manual-entry form — never a 404.
+    // The CTA opens the functional 005f add-item flow — never a 404.
     await cta.click();
     await expect(page).toHaveURL(/\/wishlist\/items\/new$/);
     await expect(
-      page.getByRole("heading", { name: "Add an item" }),
+      page.getByRole("heading", {
+        name: "Drop the link. We’ll do the nosy part.",
+      }),
     ).toBeVisible();
-    await expect(page.getByLabel("Item name")).toBeVisible();
+    await expect(page.getByLabel("Product link")).toBeVisible();
     await expect(page.getByText("Page not found")).toHaveCount(0);
 
     // And a visible way back.
-    await page.getByRole("link", { name: "Cancel" }).click();
+    await page
+      .getByRole("link", { name: "Close and return to your wishlist" })
+      .click();
     await expect(page).toHaveURL(/\/wishlist$/);
     await expect(
       page.getByRole("heading", { name: "Very minimalist of you." }),
@@ -867,7 +871,9 @@ test("every interactive element is keyboard-operable with visible focus, and bot
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/wishlist\/items\/new$/);
     await expect(
-      page.getByRole("heading", { name: "Add an item" }),
+      page.getByRole("heading", {
+        name: "Drop the link. We’ll do the nosy part.",
+      }),
     ).toBeVisible();
     await tabTo(
       page,
@@ -881,8 +887,8 @@ test("every interactive element is keyboard-operable with visible focus, and bot
     );
     await tabTo(
       page,
-      page.getByRole("link", { name: "Cancel" }),
-      "manual entry cancel link",
+      page.getByRole("link", { name: "Close and return to your wishlist" }),
+      "add-flow close link",
     );
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/wishlist$/);

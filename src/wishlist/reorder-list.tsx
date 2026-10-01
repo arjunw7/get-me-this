@@ -5,7 +5,7 @@ import { useRef, useState, type PointerEvent } from "react";
 
 import type { ReorderActionResult } from "./reorder-actions";
 import type { WishlistMoveInput } from "./reorder-write";
-import type { WishlistItemSnapshot } from "./display";
+import type { WishlistItemView } from "./display";
 import { DeleteDialog } from "./delete-dialog";
 import type { DeleteActionState } from "./item-actions";
 import { CardImage } from "./card-image";
@@ -22,10 +22,10 @@ type DeleteAction = (
 type Phase = "idle" | "saving" | "recovery" | "refreshing";
 
 function movedItems(
-  items: readonly WishlistItemSnapshot[],
+  items: readonly WishlistItemView[],
   from: number,
   to: number,
-): WishlistItemSnapshot[] {
+): WishlistItemView[] {
   const next = [...items];
   const [moved] = next.splice(from, 1);
   if (!moved) return next;
@@ -56,7 +56,7 @@ export function WishlistItemsPanel({
   refreshAction,
   deleteAction,
 }: {
-  items: readonly WishlistItemSnapshot[];
+  items: readonly WishlistItemView[];
   reorderAction: ReorderAction;
   refreshAction: RefreshAction;
   deleteAction: DeleteAction;
@@ -69,7 +69,7 @@ export function WishlistItemsPanel({
   const [exitPending, setExitPending] = useState(false);
   const exitRequested = useRef(false);
   const draggedId = useRef<string | null>(null);
-  const dragOrigin = useRef<readonly WishlistItemSnapshot[]>(items);
+  const dragOrigin = useRef<readonly WishlistItemView[]>(items);
 
   async function commitMove(movedItemId: string, to: number) {
     const before = confirmedItems;
@@ -343,8 +343,8 @@ export function WishlistItemsPanel({
                   aria-hidden="true"
                   className="h-14 w-14 shrink-0 overflow-hidden rounded-surface border-2 border-outline-strong bg-surface-sunken"
                 >
-                  {item.imageUrl ? (
-                    <CardImage src={item.imageUrl} title={item.title} />
+                  {item.imageSrc ? (
+                    <CardImage src={item.imageSrc} title={item.title} />
                   ) : null}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -396,7 +396,7 @@ function MoveButton({
   onClick,
 }: {
   direction: "up" | "down";
-  item: WishlistItemSnapshot;
+  item: WishlistItemView;
   disabled: boolean;
   onClick: () => void;
 }) {

@@ -351,3 +351,37 @@ export function toWishlistItemSnapshot(
 }
 
 export type WishlistItemSnapshot = ReturnType<typeof toWishlistItemSnapshot>;
+
+/**
+ * The client-safe item view (005f): the raw private Storage object path is
+ * stripped before anything crosses into a client component, and the
+ * snapshot-first image source is precomputed server-side — the
+ * short-expiry signed snapshot URL when one could be created, else the
+ * remote `image_url`, else null (the branded placeholder), exactly per
+ * 005a resolution 7's pinned fallback order.
+ */
+export type WishlistItemView = Omit<
+  WishlistItemSnapshot,
+  "imageSnapshotPath" | "imageUrl"
+> & { readonly imageSrc: string | null };
+
+/**
+ * Maps a server-side display snapshot into the client-safe view. The raw
+ * path never leaves the server: it is dropped here and replaced by the
+ * resolved image source.
+ */
+export function toItemView(
+  snapshot: WishlistItemSnapshot,
+  signedUrl: string | null,
+): WishlistItemView {
+  const { imageSnapshotPath, imageUrl, ...rest } = snapshot;
+  void imageSnapshotPath;
+  void imageUrl;
+  return { ...rest, imageSrc: signedUrl ?? snapshot.imageUrl };
+}
+
+/** The owner's wishlist rendered as client-safe views. */
+export type OwnWishlistView = {
+  readonly wishlistId: string;
+  readonly items: readonly WishlistItemView[];
+};

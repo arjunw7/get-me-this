@@ -106,6 +106,11 @@ test("same owner/key contenders serialize through atomic append and yield one li
     const second = await page.context().newPage();
     await page.goto("/wishlist/items/new");
     await second.goto("/wishlist/items/new");
+    for (const surface of [page, second]) {
+      await surface
+        .getByRole("button", { name: "No link? Add it manually" })
+        .click();
+    }
     await attributeAction(page, caseId, "first");
     await attributeAction(second, caseId, "second");
     for (const surface of [page, second]) {
@@ -485,6 +490,11 @@ test("distinct submission keys serialize and append to distinct ordered position
     const second = await page.context().newPage();
     await first.goto("/wishlist/items/new");
     await second.goto("/wishlist/items/new");
+    for (const surface of [first, second]) {
+      await surface
+        .getByRole("button", { name: "No link? Add it manually" })
+        .click();
+    }
     await attributeAction(first, caseId, "first");
     await attributeAction(second, caseId, "second");
     await first.getByLabel("Item name").fill("Distinct-key first");

@@ -2,7 +2,11 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { ConvertedMoneyTuple, WishlistItemSnapshot } from "./display";
+import type {
+  ConvertedMoneyTuple,
+  WishlistItemSnapshot,
+  WishlistItemView,
+} from "./display";
 import { WishlistCard, WishlistCardGrid } from "./wishlist-card";
 
 /**
@@ -11,19 +15,18 @@ import { WishlistCard, WishlistCardGrid } from "./wishlist-card";
  * (including the runtime image-failure fallback), the linked/unlinked
  * retailer presentation, and the dormant-conversion display treatments —
  * original-only default, approximate line, stale tuple, and the fail-safe
- * degradations, with "approximately" in the accessible text.
+ * degradations, with "approximately" in the accessible text. Since 005f the
+ * card consumes the server-resolved client-safe view (`imageSrc`); the
+ * snapshot-first fallback order itself is proven in item-views.test.ts.
  */
 
-function item(
-  overrides: Partial<WishlistItemSnapshot> = {},
-): WishlistItemSnapshot {
+function item(overrides: Partial<WishlistItemView> = {}): WishlistItemView {
   return {
     id: "00000000-0000-4000-8000-000000000002",
     title: "Ceramic pour-over coffee set",
     sourceUrl: "https://example.invalid/products/pour-over-set",
     retailer: "Fixture Roasters",
-    imageUrl: null,
-    imageSnapshotPath: null,
+    imageSrc: null,
     note: "The matte one, not the glossy one.",
     desireLevel: "really_want",
     sortPosition: 1,
@@ -158,12 +161,12 @@ describe("WishlistCard", () => {
     expect(screen.queryByRole("img")).toBeNull();
   });
 
-  it("prefers the image URL over the snapshot path in this slice", () => {
+  it("renders the server-resolved signed snapshot URL when one exists (005f snapshot-first)", () => {
     render(
       <WishlistCard
         item={item({
-          imageUrl: "https://example.invalid/images/pour-over.jpg",
-          imageSnapshotPath: "wishlist-items/snapshot.jpg",
+          imageSrc:
+            "https://example.invalid/storage/wishlist-item-snapshots/signed",
         })}
         index={0}
       />,
@@ -174,27 +177,32 @@ describe("WishlistCard", () => {
     });
     expect(image).toHaveAttribute(
       "src",
-      "https://example.invalid/images/pour-over.jpg",
+      "https://example.invalid/storage/wishlist-item-snapshots/signed",
     );
     expect(screen.queryByTestId("wishlist-image-placeholder")).toBeNull();
   });
 
-  it("renders the placeholder for a snapshot-path-only item (no Storage resolution until 005e/005f)", () => {
+  it("falls back to the remote image URL when no signed snapshot URL exists", () => {
     render(
       <WishlistCard
-        item={item({ imageSnapshotPath: "wishlist-items/snapshot.jpg" })}
+        item={item({
+          imageSrc: "https://example.invalid/images/pour-over.jpg",
+        })}
         index={0}
       />,
     );
 
-    expect(screen.getByTestId("wishlist-image-placeholder")).toBeVisible();
-    expect(screen.queryByRole("img")).toBeNull();
+    expect(
+      screen
+        .getByRole("img", { name: "Ceramic pour-over coffee set" })
+        .getAttribute("src"),
+    ).toBe("https://example.invalid/images/pour-over.jpg");
   });
 
   it("degrades a runtime image failure to the branded placeholder", () => {
     render(
       <WishlistCard
-        item={item({ imageUrl: "http://127.0.0.1:59999/broken.jpg" })}
+        item={item({ imageSrc: "http://127.0.0.1:59999/broken.jpg" })}
         index={0}
       />,
     );
