@@ -1,5 +1,7 @@
 {
   "version": 1,
+  "approvedBy": "mixed per-file approval provenance; see defaultFileProvenance and fileProvenanceOverrides",
+  "approvedDate": "2026-10-01",
   "defaultFileProvenance": {
     "approvedBy": "independent AI visual reviewer /root/arj27_final_visual_review, under the owner's delegated baseline-approval authority; original ARJ-27 baseline approval report SHA-256 841e33597bf26d0fda9441bfeb0c46ea6812006453a6826778ee00135bd1d6e2",
     "approvedDate": "2026-10-01"
