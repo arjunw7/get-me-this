@@ -132,8 +132,12 @@ backed by the private read model:
 1. Approved gifting-mode label: **Draw names privately**, **Gift everyone**,
    or **Share wishlists only**.
 2. Group name as the single page heading.
-3. Occasion date formatted from the stored local date/time and recorded IANA
-   time zone without shifting the calendar day through the viewer's zone.
+3. The stored, validated occasion label followed by the occasion date, for
+   example **Diwali · Sat, 7 Nov 2026**. The label is rendered exactly from the
+   bounded group value; the date is formatted from the stored local date/time
+   and recorded IANA time zone without shifting the calendar day through the
+   viewer's zone. **Something else** remains the approved label for the
+   non-specific occasion in this slice; no free-form occasion is invented.
 4. Optional location when non-null. Optional description follows as plain
    supporting text when present; neither is invented when absent.
 5. Honest countdown based on calendar days in the group's time zone: **Today**
@@ -257,10 +261,16 @@ returns table (
   current membership to be `joined`, and requires the group to be in the
   currently supported active lifecycle state. Null auth and every other
   membership state return zero rows.
-- It captures one `checked_at := clock_timestamp()` and computes joined count,
-  visible pending eligibility, and the result from one statement-level
-  snapshot. It never assembles a room through separate browser calls to group
-  detail, roster, admin members, and invitations.
+- Its body is one data-reading SQL statement, not a PL/pgSQL sequence or a
+  series of application queries. Authorization, active-group filtering,
+  `checked_at := clock_timestamp()`, joined count, visible pending eligibility,
+  profile fallbacks, and returned rows are all CTEs or expressions in that one
+  statement and therefore use one PostgreSQL statement snapshot. Because the
+  required wall-clock call is volatile, the function must not be falsely
+  labelled `STABLE`; atomicity comes from the single SQL statement, not an
+  incorrect volatility declaration. It never authorizes in one statement and
+  reads group data in a later statement, or assembles a room through separate
+  browser calls to group detail, roster, admin members, and invitations.
 - `member_state` is exactly `joined` or `invited`. `member_is_organizer` is true
   only where `member_user_id = organizer_id`; the database invariant makes
   that row joined. The runtime return and declared return shape contain no
@@ -315,9 +325,14 @@ returns table (
   text. Decorative sparkle, initials, and mode iconography are hidden from
   assistive technology where adjacent text already names them.
 - The horizontal roster supports touch, trackpad, mouse-wheel/shift, and
-  keyboard scrolling without trapping focus. Because roster rows are not
-  actions, they are not made fake buttons or tab stops. Visible focus remains
-  on the real Home/Open-group links.
+  keyboard scrolling without trapping focus. Its overflow container is one
+  focusable region with `tabindex="0"`, `role="region"`, and an accessible
+  name from the **Who's in** heading; native arrow-key scrolling works while
+  that region has focus and a clearly visible focus ring. A short
+  screen-reader description explains that the region scrolls horizontally.
+  Because roster rows are not actions, individual rows are not made fake
+  buttons or tab stops. Visible focus is provided for the region and the real
+  Home/Open-group links.
 - Text remains readable at 200% zoom and reflows at 320 CSS pixels. Touch
   targets are at least 44 by 44 CSS pixels. Status is never color-only.
   Motion is decorative and omitted or disabled under reduced motion.
@@ -336,7 +351,11 @@ returns table (
 - Compare the production shell, Home link, header hierarchy, mode pill, group
   title, date/location line, countdown, budget, **Who's in** heading, joined
   avatars, pending dashed treatment, labels, spacing, and responsive intent at
-  exactly 390 by 844 and 1440 by 1000.
+  exactly 390 by 844 and 1440 by 1000. The explicit stored occasion label is a
+  truthful production addition because the outcome requires occasion
+  comprehension but the V18 header omits that field; record and approve it as
+  a design difference rather than dropping the data or hiding it in an
+  accessible-only string.
 - The V18 source's user-visible nouns `Circle` and `Shelfie` are not copied.
   Production uses **group** and **wishlist** everywhere.
 - The full V18 page is not an apple-to-apple expected image because it contains
@@ -385,11 +404,13 @@ with exact evidence.
    `service_role` application calls cannot execute or use the projection to
    enumerate groups, members, profiles, invitations, or counts. Direct table
    grants remain unchanged; every unapproved overload is absent or revoked.
-6. **Honest header semantics.** Mode, name, occasion date, optional location
-   and description, group-zone countdown, exact original budget/currency, and
-   per-person label render from authoritative values. Null optionals are
-   omitted; today/future/past and singular/plural states are correct; the
-   calendar date never shifts through the viewer's time zone.
+6. **Honest header semantics.** Mode, name, stored occasion label, occasion
+   date, optional location and description, group-zone countdown, exact
+   original budget/currency, and per-person label render from authoritative
+   values. Every approved occasion label, including **Something else**, is
+   covered. Null optionals are omitted; today/future/past and singular/plural
+   states are correct; the calendar date never shifts through the viewer's
+   time zone.
 7. **No invitation or organizer-control expansion.** The room cannot issue,
    recover, copy, rotate, revoke, resend, nudge, or lock an invitation and
    cannot update/remove/transfer a member. A generic link is never presented
@@ -433,14 +454,19 @@ with exact evidence.
 
 ### Unit and component tests
 
-- Date/countdown behavior at group-zone day boundaries, today, future, past,
+- Every approved stored occasion label and its separator/date presentation;
+  date/countdown behavior at group-zone day boundaries, today, future, past,
   singular/plural, and DST transitions; exact currency/minor-unit formatting;
   mode labels; optional location/description omission; deterministic initials
   and accent choice; display-name fallbacks; and projection-shape validation.
 - Components cover caller/organizer/ordinary/pending labels, zero and multiple
   pending rows, long names, duplicate initials, one-member state, roster
-  summary grammar, provider failure, loading, not-found, focus movement,
-  keyboard scrolling, zoom/reflow, and reduced motion.
+  summary grammar, provider failure, loading, not-found, focus movement, the
+  focusable region's accessible name/instructions/focus ring and native arrow
+  scrolling, zoom/reflow, and reduced motion. Layout fixtures use every
+  header/display-name field at its database maximum and at least 20 mixed
+  joined/pending rows to force overflow; this test size is not a product
+  membership cap.
 - Server data tests prove session-derived identity, completed-profile gate,
   one projection call, no service-role import, no direct profile/member/
   invitation/wishlist query, safe zero-row/error mapping, `no-store`, and no
@@ -468,11 +494,18 @@ with exact evidence.
   current generations, multiple live tokens for one membership, decline,
   acceptance, leave, and removal. Each produces the exact row/count result and
   no write, audit event, or invitation-use change.
-- Snapshot tests make membership/invitation changes commit immediately before
-  and after a read and prove each result is one complete committed state, never
-  duplicated or internally contradictory. This read-only slice does not add a
-  new write race harness; the existing 006a-006c transactional race suites
-  remain green and are the authority for accept/revoke/remove interleavings.
+- A bounded two-session room-snapshot harness uses independent database
+  sessions, explicit barriers, and finite lock/statement/client timeouts. It
+  holds remove, accept, and targeted-invitation revoke transactions uncommitted
+  while the other session reads, then releases each change on both sides of a
+  fresh read. Every result must be wholly the pre-commit or post-commit state:
+  authorization cannot survive a committed removal into a later data read,
+  acceptance cannot produce duplicate joined/invited rows or mismatched
+  counts, and revocation cannot leave a pending row paired with post-revoke
+  facts. The harness inspects the function definition to prove the body is one
+  data-reading SQL statement and fails on timeout or contradiction. It adds no
+  new write endpoint or write-race contract; existing 006a-006c race suites
+  remain the authority for the mutations themselves.
 
 ### Browser, visual, and staging tests
 
