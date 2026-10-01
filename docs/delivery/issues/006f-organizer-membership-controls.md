@@ -7,7 +7,9 @@ Deliver the organizer's membership controls inside the private group room at
 roster, including people who are currently invited and people who declined,
 left, or were removed; remove a joined member after explicit confirmation;
 revoke a live targeted invitation; re-invite a specific declined, left, or
-removed person with a one-time targeted invitation; and transfer the organizer
+removed person, or an invited person whose targeted invitation is no longer
+live (revoked or expired), with a one-time targeted invitation; and transfer
+the organizer
 role to a joined member in one atomic transaction. Every mutating control uses
 a durable compare-and-swap version so two organizer sessions can never both
 win, and every authority-changing action appends one privacy-safe audit event.
@@ -34,17 +36,18 @@ none.
 
 ### Allowed transitions, trigger, and authority
 
-| From                             | To                                                     | Trigger                                                                      | Who can trigger it          | Function                                          |
-| -------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------- |
-| (no row)                         | `invited`                                              | Organizer targets a known user with a new invitation                         | Joined organizer            | `issue_group_invitation` targeted overload        |
-| (no row)                         | `joined`                                               | First acceptance of a shareable or targeted invitation by the invited person | The invited person only     | 006c continuation acceptance                      |
-| `invited`                        | `joined`                                               | The invited person accepts through their own continuation                    | The invited person only     | 006c continuation acceptance                      |
-| `invited`                        | `declined`                                             | The invited person declines                                                  | The invited person only     | `decline_group_invitation`                        |
-| `invited`                        | `invited` (live token revoked)                         | Organizer revokes a live targeted invitation                                 | Joined organizer            | `revoke_group_invitation` targeted by-ID overload |
-| `joined`                         | `left`                                                 | The member leaves                                                            | The member only             | `leave_group`                                     |
-| `joined`                         | `removed`                                              | Organizer removes the member                                                 | Joined organizer, confirmed | `remove_group_member`                             |
-| `declined`, `left`, or `removed` | `invited`                                              | Organizer re-invites that specific person with a new targeted invitation     | Joined organizer            | `issue_group_invitation` targeted overload        |
-| organizer's `joined` row         | another member's `joined` row (role moves, not status) | Organizer transfer                                                           | Joined organizer, confirmed | `transfer_group_organizer`                        |
+| From                             | To                                                     | Trigger                                                                                                   | Who can trigger it          | Function                                          |
+| -------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------- |
+| (no row)                         | `invited`                                              | Organizer targets a known user with a new invitation                                                      | Joined organizer            | `issue_group_invitation` targeted overload        |
+| (no row)                         | `joined`                                               | First acceptance of a shareable or targeted invitation by the invited person                              | The invited person only     | 006c continuation acceptance                      |
+| `invited`                        | `joined`                                               | The invited person accepts through their own continuation                                                 | The invited person only     | 006c continuation acceptance                      |
+| `invited`                        | `declined`                                             | The invited person declines                                                                               | The invited person only     | `decline_group_invitation`                        |
+| `invited`                        | `invited` (live token revoked)                         | Organizer revokes a live targeted invitation                                                              | Joined organizer            | `revoke_group_invitation` targeted by-ID overload |
+| `invited`                        | `invited` (status and generation unchanged; new token) | Organizer re-invites an `invited` person whose targeted invitation is no longer live (revoked or expired) | Joined organizer            | `issue_group_invitation` targeted overload        |
+| `joined`                         | `left`                                                 | The member leaves                                                                                         | The member only             | `leave_group`                                     |
+| `joined`                         | `removed`                                              | Organizer removes the member                                                                              | Joined organizer, confirmed | `remove_group_member`                             |
+| `declined`, `left`, or `removed` | `invited`                                              | Organizer re-invites that specific person with a new targeted invitation                                  | Joined organizer            | `issue_group_invitation` targeted overload        |
+| organizer's `joined` row         | another member's `joined` row (role moves, not status) | Organizer transfer                                                                                        | Joined organizer, confirmed | `transfer_group_organizer`                        |
 
 Binding transition rules inherited from 006a and never weakened here:
 
@@ -172,6 +175,15 @@ Binding transition rules inherited from 006a and never weakened here:
   difference is resolved by review before implementation proceeds, and any
   amendment to an approved 006a/006b/006c/006d contract requires fresh
   independent database/security review.
+- The recheck gate explicitly covers, before any forward migration is
+  written: (a) verifying the merged 006d head's `group_room_snapshot` shape
+  and its pending-row eligibility predicate pins, and the `group_activated`
+  analytics event semantics that criterion 11 requires to remain unchanged;
+  and (b) confirming that the merged `audit_events` migration provides a
+  stable identity column suitable for the audit projection's deterministic
+  tie-break, or, if it does not, specifying and reviewing an alternative
+  deterministic tie-break (for example `created_at desc, event_type,
+subject_user_id`) in the pull request before implementation proceeds.
 
 ## User-visible scope
 
@@ -196,6 +208,17 @@ Binding transition rules inherited from 006a and never weakened here:
      dates. It is the only place membership history is shown.
   3. **Actions** - the per-member controls defined by the state table
      below.
+- **Recent member activity empty state.** When the audit projection returns
+  no rows — a new group, or any group with no member-control events yet —
+  the section renders a designed empty state, never a browser default, a
+  spinner, or a bare blank region. It keeps the section heading and the
+  same list container and shows, as plain static text: **Nothing here yet**
+  followed by **No member activity yet. The moment you remove, transfer, or
+  re-invite someone, it shows up here.** The state shows no dates, no
+  member names, no event types, and no sample or placeholder events, and it
+  offers no action buttons. It is an ordinary informational state, not an
+  error and not a loading state, and it receives the same accessibility
+  treatment as the populated list (screen-reader heading, static text).
 - The surface is a Server Component render of reviewed projections with
   Server Actions for mutations. Client state, hidden fields, member IDs, and
   organizer flags are inputs, never authority. Every response, including
@@ -204,16 +227,17 @@ Binding transition rules inherited from 006a and never weakened here:
 
 ### Per-member actions
 
-| Visible state                                | Action                | Result                                                                                                                  |
-| -------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `joined` (not the organizer, not the caller) | **Remove from group** | Confirmed removal; the person immediately loses room access                                                             |
-| `joined` (not the organizer, not the caller) | **Make organizer**    | Confirmed transfer; atomic single-organizer handover                                                                    |
-| `invited`                                    | **Revoke invite**     | Confirmed revocation of the person's live targeted invitation; the 006d pending row disappears; the row stays `invited` |
-| `declined`, `left`, or `removed`             | **Invite again**      | Confirmed targeted reinvitation; returns the one-time link exactly once                                                 |
+| Visible state                                               | Action                | Result                                                                                                                         |
+| ----------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `joined` (not the organizer, not the caller)                | **Remove from group** | Confirmed removal; the person immediately loses room access                                                                    |
+| `joined` (not the organizer, not the caller)                | **Make organizer**    | Confirmed transfer; atomic single-organizer handover                                                                           |
+| `invited` (a live targeted invitation exists)               | **Revoke invite**     | Confirmed revocation of the person's live targeted invitation; the 006d pending row disappears; the row stays `invited`        |
+| `invited` (no live targeted invitation; revoked or expired) | **Invite again**      | Confirmed targeted reinvitation; returns the one-time link exactly once; the row stays `invited` with its generation unchanged |
+| `declined`, `left`, or `removed`                            | **Invite again**      | Confirmed targeted reinvitation; returns the one-time link exactly once                                                        |
 
-- The caller's own row offers **Make organizer** transfers to others only;
-  the organizer's own row offers no remove action and no leave action. A
-  member self-leave control is not part of this slice.
+- **Make organizer** appears only on other joined members' rows. The
+  caller's own row offers no membership actions at all: no remove action and
+  no leave action. A member self-leave control is not part of this slice.
 - A `removed` row's **Invite again** is the sticky-removal reinstatement
   path. The roster must not describe a removed person as banned permanently,
   because the organizer can explicitly re-invite them.
@@ -260,8 +284,10 @@ Binding transition rules inherited from 006a and never weakened here:
   never rotates the version, and never exposes the competing write's
   details.
 - Stale-version handling is identical for remove, transfer, revoke of a
-  targeted invitation, and reinvitation. A stale response is not an error
-  boundary; it is a designed, accessible recovery state.
+  targeted invitation (including a no-op revoke of an already-revoked
+  invitation, whose CAS is still evaluated), and reinvitation. A stale
+  response is not an error boundary; it is a designed, accessible recovery
+  state.
 - Exactly-one-winner semantics are database facts proven by the two-session
   harness below, not UI behavior. Two sessions of the same organizer, or two
   organizers across a transfer boundary acting on stale state, produce one
@@ -352,22 +378,31 @@ returns table (
 ```
 
 - Reinvitation is allowed for a target whose current membership is
-  `declined`, `left`, or `removed`; it is refused for `joined` and for
-  self. It creates the `invited` row when none exists, increments
-  `membership_generation` before binding the token to that generation, and
-  follows 006b's targeted semantics: 30-day after-lock expiry, fixed one-use
-  limit, digest-only persistence, single safe audit event for the explicit
-  reinvitation. If the target already has an `invited` row, reinvitation is
-  refused; the organizer revokes the live invitation first. This keeps at
-  most one deliberate live path per person at a time and bounds invitation
-  spam without a new constraint; broad rate limiting remains Phase 8 work.
+  `declined`, `left`, or `removed`, and also for a target whose current
+  membership is `invited` with **no live targeted invitation** (the previous
+  one was revoked or has expired). It is refused for `joined`, for self, and
+  for an `invited` row that still has a live targeted invitation. It creates
+  the `invited` row when none exists, and in that case increments
+  `membership_generation` before binding the token to that generation. When
+  the target already has an `invited` row with no live invitation, the
+  membership row and its `membership_generation` are unchanged — no live
+  token exists to invalidate — and the new token binds to the current
+  generation. In every case the function follows 006b's targeted semantics:
+  30-day after-lock expiry, fixed one-use limit, digest-only persistence,
+  single safe audit event for the explicit reinvitation. This keeps at most
+  one deliberate live path per person at a time and bounds invitation spam
+  without a new constraint; broad rate limiting remains Phase 8 work.
 - Revocation targets a live targeted invitation for a member whose current
   membership is `invited`. Revoking an already revoked, expired, or
   nonexistent invitation returns `revoked = false` with no write and no
-  audit event, mirroring 006b's generic revoke idempotence. A successful
-  revocation increments `member_admin_version` and appends one event. The
-  membership row remains `invited`; only a new targeted invitation can move
-  it.
+  audit event, mirroring 006b's generic revoke idempotence. The
+  `member_admin_version` compare-and-swap is still evaluated even when the
+  write is a no-op, so a stale expected version deterministically produces
+  the `PT409` result before any idempotent response. A successful revocation
+  increments `member_admin_version` and appends one event. The membership
+  row remains `invited`; the organizer can then issue a new targeted
+  invitation to that row through the **Invite again** action, which is the
+  only path that moves it.
 - Generic issue/revoke overloads never touch `member_admin_version` and
   never contend on it except for the common group-first lock.
 
@@ -496,8 +531,9 @@ returns table (
 - Capture production full-page mobile and desktop images for: the organizer
   disclosure with a mixed joined/invited roster; the confirmation dialogs
   for remove and transfer; the reinvite token-present state; the
-  stale-version recovery state; and the joined non-organizer room (unchanged
-  from 006d, re-captured as regression evidence). Each new state requires
+  stale-version recovery state; the empty recent-member-activity state; and
+  the joined non-organizer room (unchanged from 006d, re-captured as
+  regression evidence). Each new state requires
   independent product/design approval before baseline adoption. Reviewers
   inspect the actual images at recorded hashes, not filenames, OCR, or a
   pixel score.
@@ -522,9 +558,12 @@ with exact evidence.
    behaves as pinned, increments `membership_generation` where required, and
    every disallowed transition (self-removal, organizer self-leave,
    removal of a former row through the removal action, transfer to a
-   non-joined or self target, reinvitation of a joined or invited target,
-   generic-link reinstatement of removed people) is refused with a
-   non-enumerating failure and no write.
+   non-joined or self target, reinvitation of a joined target,
+   reinvitation of an `invited` target that still has a live targeted
+   invitation, generic-link reinstatement of removed people) is refused with
+   a non-enumerating failure and no write. Reinvitation of an `invited`
+   target whose invitation is no longer live succeeds without changing the
+   row's status or `membership_generation`.
 4. **Confirmed removal.** Removal requires the explicit dialog, commits
    exactly one version increment, one generation increment, and one removal
    audit event, immediately and permanently (until a new targeted
@@ -532,19 +571,27 @@ with exact evidence.
    lost-response reconciliation without a duplicate effect.
 5. **Targeted reinvitation and revocation.** **Invite again** issues one
    targeted token shown exactly once with 006b's token-handling rules and
-   30-day one-use expiry, binds it to the incremented generation, and appends
+   30-day one-use expiry, binds it to the target's `membership_generation`
+   (incremented when the row is created or restored, unchanged for an
+   `invited` row with no live invitation), and appends
    one event; the reinvited person joins only through the 006c path.
    **Revoke invite** revokes only the live targeted invitation, is idempotent
-   for already-revoked/expired invitations, leaves the row `invited`, and
-   never touches the generic link or its version.
+   for already-revoked/expired invitations (with the expected-version check
+   still evaluated, so a stale version yields the designed recovery state
+   even for a no-op revoke), leaves the row `invited`, and never touches the
+   generic link or its version. An `invited` row whose invitation is revoked
+   or expired can be recovered by a new targeted **Invite again**, which
+   succeeds with the row's status and generation unchanged.
 6. **Atomic transfer.** Transfer commits the new `organizer_id`, version
    increment, and one audit event in one transaction; the outgoing organizer
    remains joined, loses all organizer capabilities immediately, and the new
    organizer gains them on next navigation. No zero-organizer or
    two-organizer state is observable at any point, including under rollback.
-7. **Stale-version concurrency.** Every conflicting pair (remove/remove,
-   remove/transfer, transfer/transfer, reinvite/remove, revoke/remove,
-   reinvite/reinvite on the same target) yields exactly one committed winner
+7. **Stale-version concurrency.** Every conflicting pair exercised by the
+   two-session harness — remove/remove, remove/transfer, transfer/transfer,
+   reinvite/remove, revoke/remove, reinvite/reinvite, revoke/revoke,
+   transfer/revoke, and revocation-committed-first versus reinvite, each on
+   the same target where applicable — yields exactly one committed winner
    and one stale loser with the designed recovery state, no automatic retry,
    no partial write, and no duplicate audit. The durable
    `groups.member_admin_version` never moves by more than one committed
@@ -578,7 +625,8 @@ with exact evidence.
     content and mappings are absent from analytics, logs, replay, errors,
     and diagnostic artifacts, and the disclosure is blocked from autocapture
     and session replay.
-12. **Accessible resilient states.** Organizer, stale-version, pending,
+12. **Accessible resilient states.** Organizer, empty-activity,
+    stale-version, pending,
     confirmation-dialog, reinvite token-present, copy-failure, safe-error,
     and not-found states pass keyboard and axe checks with correct dialog
     and list semantics, full accessible names, 44-pixel targets, 200% zoom,
@@ -633,7 +681,15 @@ with exact evidence.
   proves: remove versus remove on one target (one winner, one audit);
   transfer versus remove on the same target in both orders; transfer versus
   transfer from two stale sessions of one organizer (one winner);
-  reinvite versus remove on the same target in both orders; removal
+  reinvite versus remove on the same target in both orders; revocation
+  committed first versus a reinvitation of the same `invited` target (the
+  reinvitation proceeds only once the revocation is committed and exactly
+  one session wins the version contention); revocation versus revocation on
+  the same invitation (one `revoked = true` winner, one idempotent or stale
+  loser with no second audit event); transfer versus revocation on the same
+  group in both orders; a no-op revoke of an
+  already-revoked invitation under a stale expected version (deterministic
+  `PT409` despite the no-op); removal
   committed first versus a waiting 006c acceptance (acceptance fails);
   transfer committed first versus the outgoing organizer's stale mutation
   (denied); and rollback of the loser leaving no partial version, membership,
