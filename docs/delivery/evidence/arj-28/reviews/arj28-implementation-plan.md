@@ -12,7 +12,7 @@
 
 **Implementation base:** `ada6db0ff1ee498514f46c013d570a46823e1cb4` (`test(wishlist): stabilize lazy image fallback`), which includes the merged 005b / ARJ-27 protected wishlist behavior and exact decimal-text read/format interfaces.
 
-**Planning review:** Formal independent planning review is pending. Do not treat the earlier preparation artifacts as approval.
+**Planning review:** Formal independent planning review is pending; no independent planning decision is recorded yet.
 
 ## Global Constraints
 
