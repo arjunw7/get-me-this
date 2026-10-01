@@ -3,6 +3,11 @@ import type { Metadata } from "next";
 import { AnalyticsIdentity } from "@/src/auth/analytics-identity";
 import { requireCompleteProfile } from "@/src/profile/session";
 import { getOwnWishlist } from "@/src/wishlist/data";
+import {
+  refreshWishlistOrderAction,
+  reorderWishlistItemAction,
+} from "@/src/wishlist/reorder-actions";
+import { deleteItemFromReorderAction } from "@/src/wishlist/item-actions";
 import { WishlistShellHeader } from "@/src/wishlist/wishlist-shell-header";
 import { WishlistView } from "@/src/wishlist/wishlist-view";
 
@@ -47,6 +52,9 @@ export default async function WishlistPage({
         tasteLine={profile.tasteLine}
         wishlist={wishlist}
         notice={notice}
+        reorderAction={reorderWishlistItemAction}
+        refreshAction={refreshWishlistOrderAction}
+        deleteAction={deleteItemFromReorderAction}
       />
     </div>
   );

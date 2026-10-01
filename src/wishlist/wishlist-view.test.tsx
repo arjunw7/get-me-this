@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
 
 import type { OwnWishlist } from "./data";
 import {
@@ -9,6 +11,10 @@ import {
   toWishlistItemSnapshot,
 } from "./display";
 import { WishlistView } from "./wishlist-view";
+
+const reorderAction = async () => ({ status: "recovery" as const });
+const refreshAction = async () => ({ status: "recovery" as const });
+const deleteAction = async () => ({ status: "unavailable" as const });
 
 /**
  * The wishlist presentation's state selection (005b criterion 13),
@@ -49,6 +55,9 @@ function viewProps(wishlist: OwnWishlist | null) {
     displayName: "Ada",
     tasteLine: "currently in my tiny-luxuries era",
     wishlist,
+    reorderAction,
+    refreshAction,
+    deleteAction,
   };
 }
 
@@ -137,6 +146,10 @@ describe("WishlistView state selection", () => {
       "Ceramic pour-over coffee set",
       "The Overstory paperback",
     ]);
+    expect(screen.getByRole("button", { name: "Reorder" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
   it("renders only closed success-marker copy", () => {

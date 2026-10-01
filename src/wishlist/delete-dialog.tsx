@@ -10,6 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import { deleteItemAction, reconcileDeleteAction } from "./item-actions";
+import type { DeleteActionState, ReconcileActionState } from "./item-actions";
 
 const IDLE_DELETE = { status: "idle" as const };
 const IDLE_RECONCILE = { status: "idle" as const };
@@ -17,16 +18,29 @@ const IDLE_RECONCILE = { status: "idle" as const };
 export function DeleteDialog({
   itemId,
   title,
+  deleteActionOverride,
+  compact = false,
+  onResolved,
 }: {
   itemId: string;
   title: string;
+  deleteActionOverride?: (
+    itemId: string,
+    previous: DeleteActionState,
+    data: FormData,
+  ) => Promise<DeleteActionState>;
+  compact?: boolean;
+  onResolved?: () => void | Promise<void>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
+  const notifiedDeleteStatus = useRef<DeleteActionState["status"]>("idle");
+  const notifiedReconcileStatus =
+    useRef<ReconcileActionState["status"]>("idle");
   const [deleteState, deleteAction, deleting] = useActionState(
-    deleteItemAction.bind(null, itemId),
+    (deleteActionOverride ?? deleteItemAction).bind(null, itemId),
     IDLE_DELETE,
   );
   const [reconcileState, reconcileAction, checking] = useActionState(
@@ -35,8 +49,34 @@ export function DeleteDialog({
   );
 
   useEffect(() => {
-    if (deleteState.status === "deleted") router.push("/wishlist?item=deleted");
-  }, [deleteState.status, router]);
+    if (
+      deleteState.status === "idle" ||
+      deleteState.status === "definite-rejection" ||
+      notifiedDeleteStatus.current === deleteState.status
+    )
+      return;
+    notifiedDeleteStatus.current = deleteState.status;
+    if (deleteState.status === "deleted") {
+      if (onResolved) {
+        void onResolved();
+        return;
+      }
+      router.push("/wishlist?item=deleted");
+      return;
+    }
+    if (onResolved) void onResolved();
+  }, [deleteState.status, onResolved, router]);
+
+  useEffect(() => {
+    if (
+      !onResolved ||
+      reconcileState.status === "idle" ||
+      notifiedReconcileStatus.current === reconcileState.status
+    )
+      return;
+    notifiedReconcileStatus.current = reconcileState.status;
+    void onResolved();
+  }, [onResolved, reconcileState.status]);
 
   useEffect(() => {
     if (!open) return;
@@ -80,9 +120,31 @@ export function DeleteDialog({
         ref={opener}
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-6 mb-28 inline-flex min-h-touch-min scroll-mb-28 items-center font-bold text-feedback-error underline underline-offset-4 sm:mb-0 sm:scroll-mb-0"
+        aria-label={compact ? `Remove ${title}` : undefined}
+        className={
+          compact
+            ? "flex min-h-touch-min min-w-touch-min items-center justify-center rounded-surface-sm text-feedback-error focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-action-primary disabled:opacity-40"
+            : "mt-6 mb-28 inline-flex min-h-touch-min scroll-mb-28 items-center font-bold text-feedback-error underline underline-offset-4 sm:mb-0 sm:scroll-mb-0"
+        }
       >
-        Delete item
+        {compact ? (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 7h16" />
+            <path d="M9 7V4h6v3" />
+            <path d="m7 7 1 13h8l1-13" />
+          </svg>
+        ) : (
+          "Delete item"
+        )}
       </button>
       {open ? (
         <div

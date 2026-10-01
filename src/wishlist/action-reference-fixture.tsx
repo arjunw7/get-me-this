@@ -7,6 +7,7 @@ import {
   deleteItemAction,
   editItemAction,
 } from "./item-actions";
+import { reorderWishlistItemAction } from "./reorder-actions";
 
 const syntheticId = "00000000-0000-4000-8000-000000000028";
 
@@ -22,6 +23,15 @@ export function WishlistActionReferenceFixture() {
     deleteItemAction.bind(null, syntheticId),
     { status: "idle" as const },
   );
+  const [order, reorderForm, reorderPending] = useActionState(
+    async () =>
+      reorderWishlistItemAction({
+        expectedIds: [syntheticId],
+        movedItemId: syntheticId,
+        targetIndex: 0,
+      }),
+    { status: "recovery" as const },
+  );
   return (
     <main
       data-no-provider-config="true"
@@ -29,7 +39,7 @@ export function WishlistActionReferenceFixture() {
     >
       <h1>Action reference fixture</h1>
       <p>
-        {create.status} {edit.status} {remove.status}
+        {create.status} {edit.status} {remove.status} {order.status}
       </p>
       <form action={createForm}>
         <input name="title" value="" readOnly />
@@ -46,6 +56,11 @@ export function WishlistActionReferenceFixture() {
       <form action={deleteForm}>
         <button name="submit" value="delete" disabled={deletePending}>
           Delete action
+        </button>
+      </form>
+      <form action={reorderForm}>
+        <button name="submit" value="reorder" disabled={reorderPending}>
+          Reorder action
         </button>
       </form>
     </main>

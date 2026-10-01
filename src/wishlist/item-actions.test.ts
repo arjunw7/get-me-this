@@ -24,6 +24,7 @@ vi.mock("./item-write", () => ({
 
 import {
   createItemAction,
+  deleteItemFromReorderAction,
   deleteItemAction,
   editItemAction,
   reconcileDeleteAction,
@@ -220,6 +221,17 @@ describe("wishlist item actions", () => {
       await reconcileDeleteAction(itemId, { status: "idle" }, formData()),
     ).toEqual({ status: "present" });
     expect(mocks.reconcile).toHaveBeenCalledWith(userId, itemId);
+  });
+
+  it("returns a confirmed reorder-row deletion without redirecting the client out of reorder mode", async () => {
+    mocks.remove.mockResolvedValueOnce({ kind: "deleted" });
+
+    await expect(
+      deleteItemFromReorderAction(itemId, { status: "idle" }, formData()),
+    ).resolves.toEqual({ status: "deleted" });
+    expect(mocks.remove).toHaveBeenCalledWith(userId, itemId);
+    expect(mocks.revalidate).toHaveBeenCalledWith("/wishlist");
+    expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
   it("redirects only after the owner-scoped delete proves one row was removed", async () => {

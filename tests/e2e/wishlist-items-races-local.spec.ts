@@ -86,7 +86,7 @@ async function attributeEditNavigation(
   });
 }
 
-test("same owner/key contenders yield one live row and conflict-then-missing is unavailable", async ({
+test("same owner/key contenders serialize through atomic append and yield one live row", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -95,8 +95,6 @@ test("same owner/key contenders yield one live row and conflict-then-missing is 
   const caseId = randomUUID();
   const submissionId = randomUUID();
   await wishlistControl.register(caseId);
-  await wishlistControl.arm(caseId, "after-live-key-before-insert", 2);
-  await wishlistControl.arm(caseId, "after-unique-conflict-before-lookup", 1);
   try {
     const userId = await createSignedInFixture(
       page,
@@ -119,64 +117,19 @@ test("same owner/key contenders yield one live row and conflict-then-missing is 
         }, submissionId);
     }
 
-    const firstClick = page.getByRole("button", { name: "Add item" }).click();
-    const secondClick = second
-      .getByRole("button", { name: "Add item" })
-      .click();
-    await wishlistControl.wait(caseId, "after-live-key-before-insert");
-    const arrivals = await wishlistControl.events(caseId);
-    expect(
-      arrivals.arrivals.filter(
-        (event) => event.stage === "after-live-key-before-insert",
-      ),
-    ).toHaveLength(2);
-
-    await wishlistControl.releaseOne(
-      caseId,
-      "after-live-key-before-insert",
-      "first",
-    );
-    await firstClick;
+    await Promise.all([
+      page.getByRole("button", { name: "Add item" }).click(),
+      second.getByRole("button", { name: "Add item" }).click(),
+    ]);
     await expect(page).toHaveURL(/\/wishlist\?item=added$/);
-    const winner = await admin
-      .from("wishlist_items")
-      .select("id")
-      .eq("owner_id", userId)
-      .eq("client_submission_id", submissionId)
-      .single();
-    expect(winner.error).toBeNull();
-
-    await wishlistControl.release(caseId, "after-live-key-before-insert");
-    await wishlistControl.wait(caseId, "after-unique-conflict-before-lookup");
-    const rowsBeforeDelete = await admin
+    await expect(second).toHaveURL(/\/wishlist\?item=added$/);
+    const rows = await admin
       .from("wishlist_items")
       .select("id")
       .eq("owner_id", userId)
       .eq("client_submission_id", submissionId);
-    expect(rowsBeforeDelete.data).toHaveLength(1);
-    const removed = await admin
-      .from("wishlist_items")
-      .delete()
-      .eq("owner_id", userId)
-      .eq("client_submission_id", submissionId);
-    expect(removed.error).toBeNull();
-    await wishlistControl.release(
-      caseId,
-      "after-unique-conflict-before-lookup",
-    );
-    await secondClick;
-    await expect(
-      second.getByText(/We couldn’t save that item just now/i),
-    ).toBeVisible();
-    await expect(
-      second.getByText(/We couldn’t save that item just now/i),
-    ).toContainText(/unavailable|try again/i);
-    const survivors = await admin
-      .from("wishlist_items")
-      .select("id")
-      .eq("owner_id", userId)
-      .eq("client_submission_id", submissionId);
-    expect(survivors.data).toEqual([]);
+    expect(rows.error).toBeNull();
+    expect(rows.data).toHaveLength(1);
     expect((await wishlistControl.events(caseId)).failed).toBe(false);
     await second.close();
   } finally {
@@ -512,7 +465,7 @@ test("two simultaneous owner delete actions remove one row and report at most on
   });
 });
 
-test("distinct submission keys released after one shared maximum may tie and remain stably ordered", async ({
+test("distinct submission keys serialize and append to distinct ordered positions", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -520,7 +473,6 @@ test("distinct submission keys released after one shared maximum may tie and rem
   const scope = new FixtureScope();
   const caseId = randomUUID();
   await wishlistControl.register(caseId);
-  await wishlistControl.arm(caseId, "after-max-before-insert", 2);
   try {
     const userId = await createSignedInFixture(
       page,
@@ -537,18 +489,10 @@ test("distinct submission keys released after one shared maximum may tie and rem
     await attributeAction(second, caseId, "second");
     await first.getByLabel("Item name").fill("Distinct-key first");
     await second.getByLabel("Item name").fill("Distinct-key second");
-    const firstClick = first.getByRole("button", { name: "Add item" }).click();
-    const secondClick = second
-      .getByRole("button", { name: "Add item" })
-      .click();
-    await wishlistControl.wait(caseId, "after-max-before-insert");
-    expect(
-      (await wishlistControl.events(caseId)).arrivals.filter(
-        (arrival) => arrival.stage === "after-max-before-insert",
-      ),
-    ).toHaveLength(2);
-    await wishlistControl.release(caseId, "after-max-before-insert");
-    await Promise.all([firstClick, secondClick]);
+    await Promise.all([
+      first.getByRole("button", { name: "Add item" }).click(),
+      second.getByRole("button", { name: "Add item" }).click(),
+    ]);
     await expect(first).toHaveURL(/\/wishlist\?item=added$/);
     await expect(second).toHaveURL(/\/wishlist\?item=added$/);
     const rows = await admin
@@ -560,7 +504,9 @@ test("distinct submission keys released after one shared maximum may tie and rem
       .order("id", { ascending: true });
     expect(rows.error).toBeNull();
     expect(rows.data).toHaveLength(2);
-    expect(rows.data?.[0].sort_position).toBe(rows.data?.[1].sort_position);
+    expect(rows.data?.[0].sort_position).toBeLessThan(
+      rows.data?.[1].sort_position ?? Number.NEGATIVE_INFINITY,
+    );
     await expect(
       first.getByRole("heading", {
         name: "Distinct-key first",

@@ -22,9 +22,6 @@ const EDIT_ITEM_COLUMNS = [
   "conversion_rate_at",
   "updated_at",
 ].join(",");
-const REPLAY_COLUMNS =
-  "id,title,source_url,retailer,note,desire_level,original_amount_minor::text,original_currency";
-const MAX_SORT_POSITION = 2147483647;
 
 export type EditItem = {
   id: string;
@@ -76,42 +73,6 @@ async function clientOrNull() {
   return createSupabaseServerClient();
 }
 
-async function ownerWishlist(
-  client: NonNullable<Awaited<ReturnType<typeof clientOrNull>>>,
-  ownerId: string,
-) {
-  const { data, error } = await client
-    .from("wishlists")
-    .select("id")
-    .eq("owner_id", ownerId)
-    .maybeSingle();
-  return error ? null : (data as { id: string } | null);
-}
-
-async function findSubmission(
-  client: NonNullable<Awaited<ReturnType<typeof clientOrNull>>>,
-  ownerId: string,
-  submissionId: string,
-) {
-  const { data, error } = await client
-    .from("wishlist_items")
-    .select(REPLAY_COLUMNS)
-    .eq("owner_id", ownerId)
-    .eq("client_submission_id", submissionId)
-    .maybeSingle();
-  if (error) throw new Error("wishlist submission could not be loaded");
-  return data as (ValidItem & { id: string }) | null;
-}
-
-function replayOutcome(
-  row: ValidItem & { id: string },
-  submitted: ValidItem,
-): SaveOutcome {
-  return classifyReplay(row, submitted) === "match"
-    ? { kind: "saved", itemId: row.id, replayed: true }
-    : { kind: "submission-conflict", savedItemId: row.id };
-}
-
 export async function saveReviewedItem(
   ownerId: string,
   operation: { kind: "create"; submissionId: string },
@@ -133,78 +94,37 @@ export async function saveReviewedItem(
   if (operation.kind === "edit")
     return saveEdit(client, ownerId, operation.itemId, value as ValidatedEdit);
 
-  let existing: (ValidItem & { id: string }) | null;
-  try {
-    existing = await findSubmission(client, ownerId, operation.submissionId);
-  } catch {
-    return { kind: "unavailable" };
-  }
-  if (existing) return replayOutcome(existing, value as ValidItem);
   await wishlistTestBarrier("after-live-key-before-insert");
-  const parent = await ownerWishlist(client, ownerId);
-  if (!parent) return { kind: "unavailable" };
-
-  const { data: maxRow, error: maxError } = await client
-    .from("wishlist_items")
-    .select("sort_position")
-    .eq("owner_id", ownerId)
-    .eq("wishlist_id", parent.id)
-    .order("sort_position", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (maxError) return { kind: "unavailable" };
-  const currentMax = maxRow
-    ? (maxRow as { sort_position: number }).sort_position
-    : 0;
-  if (!Number.isInteger(currentMax) || currentMax < 0)
-    return { kind: "unavailable" };
-  if (currentMax >= MAX_SORT_POSITION) return { kind: "retry" };
-  await wishlistTestBarrier("after-max-before-insert");
-
-  const insertPayload = {
-    wishlist_id: parent.id,
-    owner_id: ownerId,
-    title: (value as ValidItem).title,
-    source_url: (value as ValidItem).source_url,
-    retailer: (value as ValidItem).retailer,
-    note: (value as ValidItem).note,
-    desire_level: (value as ValidItem).desire_level,
-    original_amount_minor: (value as ValidItem).original_amount_minor,
-    original_currency: (value as ValidItem).original_currency,
-    image_url: null,
-    image_snapshot_path: null,
-    extraction_status: "manual",
-    sort_position: currentMax + 1,
-    client_submission_id: operation.submissionId,
-  };
-  const { data: inserted, error } = await client
-    .from("wishlist_items")
-    .insert(insertPayload)
-    .select("id")
-    .single();
-  if (!error && inserted)
-    return {
-      kind: "saved",
-      itemId: (inserted as { id: string }).id,
-      replayed: false,
-    };
-  if ((error as { code?: string } | null)?.code !== "23505")
-    return { kind: "unavailable" };
-  await wishlistTestBarrier("after-unique-conflict-before-lookup");
-  let afterConflict: (ValidItem & { id: string }) | null;
-  try {
-    afterConflict = await findSubmission(
-      client,
-      ownerId,
-      operation.submissionId,
-    );
-  } catch {
-    return { kind: "unavailable" };
-  }
-  return afterConflict
-    ? replayOutcome(afterConflict, value as ValidItem)
-    : { kind: "unavailable" };
+  const item = value as ValidItem;
+  const { data, error } = await client.rpc("append_wishlist_item", {
+    submission_id: operation.submissionId,
+    item_title: item.title,
+    source_url: item.source_url,
+    retailer: item.retailer,
+    note: item.note,
+    desire_level: item.desire_level,
+    original_amount_minor: item.original_amount_minor,
+    original_currency: item.original_currency,
+  });
+  if (error) return { kind: "retry" };
+  const rows = data as Array<{
+    result: unknown;
+    item_id: unknown;
+    replayed: unknown;
+  }> | null;
+  if (!rows || rows.length !== 1) return { kind: "retry" };
+  const row = rows[0];
+  if (
+    (row.result === "saved" || row.result === "replayed") &&
+    typeof row.item_id === "string" &&
+    typeof row.replayed === "boolean"
+  )
+    return { kind: "saved", itemId: row.item_id, replayed: row.replayed };
+  if (row.result === "submission-conflict" && typeof row.item_id === "string")
+    return { kind: "submission-conflict", savedItemId: row.item_id };
+  return row.result === "unavailable"
+    ? { kind: "unavailable" }
+    : { kind: "retry" };
 }
 
 async function saveEdit(

@@ -130,6 +130,24 @@ jobs:
           path: arj28-candidate-evidence/
           if-no-files-found: error
           retention-days: 3
+      - name: Collect ARJ-29 reorder candidates
+        if: success()
+        run: |
+          mkdir arj29-candidate-evidence
+          cp test-results/arj29-candidates/arj29-wishlist-before-mobile.png arj29-candidate-evidence/
+          cp test-results/arj29-candidates/arj29-wishlist-before-desktop.png arj29-candidate-evidence/
+          cp test-results/arj29-candidates/arj29-wishlist-reorder-mobile.png arj29-candidate-evidence/
+          cp test-results/arj29-candidates/arj29-wishlist-reorder-desktop.png arj29-candidate-evidence/
+          sha256sum arj29-candidate-evidence/*.png > arj29-candidate-evidence/SHA256SUMS
+          git rev-parse HEAD > arj29-candidate-evidence/IMPLEMENTATION_HEAD
+      - name: Upload ARJ-29 reorder candidates
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: arj29-reorder-candidates
+          path: arj29-candidate-evidence/
+          if-no-files-found: error
+          retention-days: 3
       # The collector admits only the four wishlist names with actual/diff
       # PNG suffixes from wishlist visual result folders. Error contexts,
       # auth captures, traces, and reports never enter the artifact directory.
