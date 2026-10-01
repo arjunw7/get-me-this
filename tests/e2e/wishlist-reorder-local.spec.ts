@@ -412,9 +412,14 @@ test("Done waits for saving, stays open after a lost response, and axe passes", 
     await page
       .getByRole("button", { name: "Move Ceramic matcha set down" })
       .click();
-    await expect(page.getByRole("alert")).toContainText(
-      "We couldn’t confirm the saved order.",
-    );
+    // The recovery box is not the only role="alert" on the page: the
+    // Next.js route announcer is another, so the alert is addressed by its
+    // recovery copy.
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "We couldn’t confirm the saved order." }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Done" }).click();
     await expect(
       page.getByRole("button", { name: "Retry refresh" }),
