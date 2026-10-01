@@ -41,19 +41,89 @@ reservations, and gifting views consume. It does not implement those actions.
 - The projection derives the viewer from `auth.uid()` and accepts only the
   group and target-member identifiers. It authorizes both the viewer and
   target as currently joined in the same group inside the statement.
-- The result shape is closed to the fields needed for browsing:
-  `item_id`, `title`, `source_url`, `retailer`, `selected_image_path`,
-  `original_price_minor`, `original_currency`, `note`, `desire_level`, and
-  `sort_position`. It returns the target member's display name separately or
-  in a small typed header projection. It never returns email, avatar storage
-  internals, candidate images, extraction diagnostics, provenance, owner edit
-  metadata, invitation data, audit data, assignments, reservations, purchase
-  state, or other members' data.
-- Return only active saved wishlist items in the owner's persisted order. The
-  projection is read-only and cannot mutate profiles, memberships, or items.
-- A missing display name uses the established generic member label. A missing
-  or unusable image uses the approved branded placeholder. Original price and
-  currency are shown when present. No conversion is introduced here.
+- **Exact projection.** One function, one signature, no overloads:
+
+  ```sql
+  public.member_wishlist_snapshot(p_group_id uuid, p_member_id uuid)
+  returns table (
+    member_display_name text,
+    item_id uuid,
+    title text,
+    source_url text,
+    retailer text,
+    image_url text,
+    note text,
+    desire_level public.wishlist_item_desire_level,
+    original_amount_minor bigint,
+    original_currency char(3)
+  )
+  ```
+
+  Column nullability: `member_display_name` and `title` and `desire_level`
+  are never null; `source_url`, `retailer`, `image_url`, `note`,
+  `original_amount_minor`, and `original_currency` are nullable, with
+  `original_amount_minor` and `original_currency` null together (the 005a
+  money-pair constraint). The runtime result contains no additional field.
+
+- **Authorized empty representation.** On successful authorization of a
+  target whose visible item set is empty, the projection returns exactly one
+  sentinel row: `item_id` is null and every other item column is null, while
+  `member_display_name` is populated. Every denial returns zero rows. Empty
+  and denied are therefore distinguishable only through authorization, never
+  by shape ambiguity.
+- **One-statement snapshot.** The function body is one data-reading SQL
+  statement, not a PL/pgSQL sequence or a series of application queries.
+  Authorization, the active-group predicate, item visibility, ordering, and
+  returned rows are all CTEs or expressions of that single statement and
+  share one PostgreSQL statement snapshot. Because no volatile wall-clock
+  call is required here, the function may be declared `STABLE`; atomicity
+  comes from the single statement regardless. It never authorizes in one
+  statement and reads items in a later statement, and the page never
+  assembles the wishlist through separate browser calls.
+- **Active-item predicate.** A wishlist item is visible exactly when both
+  are true in the same statement: (1) the row exists in
+  `public.wishlist_items` joined through the composite
+  `(wishlist_id, owner_id)` foreign key to the target member's single
+  `public.wishlists` row — there is no soft-delete column, so row existence
+  is the active state; and (2) `extraction_status` is `manual` or
+  `extracted`. Items in any other extraction state are not returned; a
+  future displayable state requires a reviewed revision of this brief.
+- **Deterministic ordering.** The projection orders rows by
+  `sort_position asc, id asc` (the 005d total order) inside the statement.
+  `sort_position` is not a returned column; the client never reorders.
+- **Read-versus-membership-change race proof.** All authorization and data
+  come from one statement snapshot. If a leave or removal transaction
+  commits before the reader's statement snapshot is taken, the reader sees
+  zero rows and the route renders the generic not-found result. If it
+  commits after the snapshot, the reader sees the complete pre-commit
+  authorized snapshot: header plus every visible item, never a partial
+  roster-free or half-empty result. No read can straddle a membership
+  change.
+- The projection is read-only and cannot mutate profiles, memberships, or
+  items.
+- A missing display name is replaced inside the projection by the
+  established generic **Member** label (the 006a/006d fallback), so the
+  application never performs a direct profile lookup. A missing or unusable
+  image uses the approved branded placeholder. Original price and currency
+  are shown when present. No conversion is introduced here.
+- **Image contract.** The projection returns `image_url` — the item's
+  optional remote `https?://` image URL — and never returns
+  `image_snapshot_path` or any raw Storage object path to the application
+  payload, HTML, or RSC flight data. An item with only a snapshot path (or
+  no image at all) renders the branded placeholder, exactly as 005b does;
+  this slice adds no Storage bucket, signed-URL resolution, or image proxy.
+  If a later slice introduces protected image reads, it amends this brief.
+- **Same active-group predicate as 006d.** Authorization uses the identical
+  active-group membership predicate that 006d's
+  `public.group_room_snapshot(uuid)` applies inside its single statement
+  (006d, "Exact private read model"): the caller's `group_members` row for
+  `p_group_id` is currently `joined`, the target member's `group_members`
+  row for the same group is currently `joined`, and the group's lifecycle
+  status is the currently supported active state per the 006a contract. The
+  caller check reuses the `private.is_joined_group_member(group_id)` helper
+  semantics from 006a; the target check is the same joined-membership
+  predicate evaluated for `p_member_id` in the same statement. No different
+  or broader membership predicate is introduced.
 - Migration work, if the projection requires it, ships as one forward-only
   migration with matching pgTAP privilege, result-shape, positive, negative,
   and enumeration tests. Existing 005a owner CRUD and 005d ordering behavior
@@ -67,8 +137,30 @@ reservations, and gifting views consume. It does not implement those actions.
   persisted order. Cards show only the fields in the authorized projection.
 - Empty state says the member has not added anything yet. It does not invite
   the viewer to edit another person's wishlist.
-- Own-wishlist state reuses or links to the existing owner experience and
-  never shows friend-only controls on the owner's items.
+- **Owner behavior is a server-side redirect, exactly one decision.** When
+  the authorized target member is the viewer themselves, the route performs
+  a server-side redirect to the existing owner wishlist at `/wishlist` and
+  renders no member-wishlist region at all. The owner never sees
+  friend-only framing on their own items, and this slice adds no new
+  owner-facing screen. (The projection still supports the own case for
+  tests and future consumers; the route does not render it.)
+- **Pinned V18 reference region.** The populated member-wishlist view
+  reproduces the **gifting-browse member-wishlist region** of the approved
+  prototype: the "Kabir's wishlist" item-grid region of
+  `docs/design-reference/magic-patterns-v18/source/pages/GiftingView.tsx`,
+  with frozen baselines
+  `docs/design-reference/baselines/v18/gifting-browse--mobile-390x844.png`
+  and `docs/design-reference/baselines/v18/gifting-browse--desktop-1440x1000.png`.
+  Explicitly omitted from this scope even though the V18 region shows them:
+  the gifting banner and budget-fit summary ("N of M fit"), the per-item
+  reserve action and reservation state, gift tracking, the budget-comparison
+  filtering, and any gifting navigation. This slice reproduces only the
+  member header and item-card hierarchy backed by the authorized projection.
+- **Dedicated empty state is a new visual candidate.** V18 has no dedicated
+  member-wishlist-empty screen; the empty state required here is therefore a
+  new visual candidate that requires its own independent product/design
+  review and approval before any baseline is committed. It is not silently
+  part of the pinned V18 region.
 - Each valid source URL opens the original retailer in a new browsing context
   with `noopener` and `noreferrer`. Invalid or missing URLs show no broken
   action.
@@ -110,7 +202,8 @@ retailer dependencies, reservation state, or assignment state.
    member's wishlist through the shared group and sees the authorized header,
    ordered items, empty state, and image fallback.
 2. **Owner behavior.** Opening the viewer's own member-wishlist destination
-   preserves the owner experience and does not expose friend-only actions.
+   performs the server-side redirect to `/wishlist`, preserves the owner
+   experience, and does not expose friend-only actions.
 3. **Uniform denial.** Signed-out, incomplete-profile, outsider, pending,
    declined, left, removed, cross-group, stale-target, forged-viewer, and
    unknown-resource requests reveal no group, profile, item, or count data and
@@ -140,8 +233,9 @@ retailer dependencies, reservation state, or assignment state.
 ## Required proof
 
 - pgTAP proves the projection's exact signature and columns, EXECUTE grants,
-  joined viewer/target success, owner success, every denial class, cross-group
-  denial, stale membership denial, and absence of gifting-private fields.
+  joined viewer/target success, owner success, the authorized empty sentinel
+  row, every denial class, cross-group denial, stale membership denial, the
+  deterministic order, and absence of gifting-private fields.
 - Unit or integration tests prove result mapping, safe URLs, missing optional
   fields, generic member fallback, image fallback, and stable ordering.
 - Playwright proves navigation from the 006d roster, direct-route checks,
@@ -149,6 +243,9 @@ retailer dependencies, reservation state, or assignment state.
   external links, uniform denial, and no private data in rendered output.
 - Axe runs on populated, empty, own, and not-found states at both approved
   viewports.
+- Analytics tests use the development sink to assert the exact event name,
+  the four allowed properties and their enum values, the bucket boundaries,
+  and zero emission for every denial class.
 - Visual candidates cover populated and empty friend-wishlist states at both
   viewports. An independent reviewer compares the actual images against the
   pinned reference before any baseline update.
@@ -173,10 +270,33 @@ the dependencies above are complete.
 
 ## Analytics, security, and privacy
 
-- Add one privacy-safe `member_wishlist_viewed` event only after successful
-  authorization. Properties are limited to group mode, empty/non-empty state,
-  item-count bucket, and own/friend view. Do not send group IDs, user IDs,
-  member names, titles, URLs, notes, prices, currencies, or item IDs.
+- Add one privacy-safe server-emitted event, `member_wishlist_viewed`, only
+  after successful authorization, exactly once per authorized page render
+  (a refresh is a new event). Its property schema is closed:
+
+  | Property            | Type        | Allowed values (exact enum)                                                            |
+  | ------------------- | ----------- | -------------------------------------------------------------------------------------- |
+  | `view_scope`        | string enum | `own`, `friend`                                                                        |
+  | `wishlist_state`    | string enum | `populated`, `empty`                                                                   |
+  | `item_count_bucket` | string enum | `zero` (0 items), `one_to_five` (1-5), `six_to_ten` (6-10), `eleven_plus` (11 or more) |
+  | `gifting_mode`      | string enum | `secret_draw`, `gift_everyone`, `wishlist_only`                                        |
+
+  No other property, identifier, or count is sent. Do not send group IDs
+  (beyond the tracking plan's internal-UUID rule, which this event does not
+  use), user IDs, member names, titles, URLs, notes, prices, currencies, or
+  item IDs.
+
+- **Tracking-plan change required.** The implementation PR must add
+  `member_wishlist_viewed` to the event catalog in
+  `docs/analytics/tracking-plan.md` as a server-source event with exactly
+  the four required properties above, reviewed against that plan's
+  prohibited-data list, in the same change.
+- **Zero-emission denial proof.** For every denial class — signed-out,
+  incomplete profile, outsider, pending, declined, left, removed, cross-group,
+  stale target, unknown group — the test analytics sink records no
+  `member_wishlist_viewed` event and no other new event. The empty sentinel
+  row is the only state that may emit with `wishlist_state = empty` and
+  `item_count_bucket = zero`.
 - Denied requests emit no product analytics event. Security logging uses a
   request identifier and coarse denial category only, never private content.
 - Server authorization is authoritative. Client routing, organizer status,
