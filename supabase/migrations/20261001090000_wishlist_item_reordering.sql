@@ -122,20 +122,26 @@ begin
     where items.id = upper_item_id;
   end if;
 
-  if lower_item_id is not null and upper_item_id is not null then
-    candidate_key := lower_key / 2::float8 + upper_key / 2::float8;
-    candidate_valid := candidate_key > lower_key and candidate_key < upper_key;
-  elsif upper_item_id is not null then
-    candidate_key := upper_key - greatest(abs(upper_key), 1::float8);
-    candidate_valid := candidate_key < upper_key;
-  elsif lower_item_id is not null then
-    candidate_key := lower_key + greatest(abs(lower_key), 1::float8);
-    candidate_valid := candidate_key > lower_key;
-  end if;
+  begin
+    if lower_item_id is not null and upper_item_id is not null then
+      candidate_key := lower_key / 2::float8 + upper_key / 2::float8;
+      candidate_valid := candidate_key > lower_key and candidate_key < upper_key;
+    elsif upper_item_id is not null then
+      candidate_key := upper_key - greatest(abs(upper_key), 1::float8);
+      candidate_valid := candidate_key < upper_key;
+    elsif lower_item_id is not null then
+      candidate_key := lower_key + greatest(abs(lower_key), 1::float8);
+      candidate_valid := candidate_key > lower_key;
+    end if;
+  exception when numeric_value_out_of_range then
+    candidate_key := null;
+    candidate_valid := false;
+  end;
 
-  candidate_valid := candidate_valid
-    and candidate_key < 'Infinity'::float8
-    and candidate_key > '-Infinity'::float8;
+  if candidate_valid then
+    candidate_valid := candidate_key < 'Infinity'::float8
+      and candidate_key > '-Infinity'::float8;
+  end if;
 
   if candidate_valid then
     update public.wishlist_items as items
@@ -235,8 +241,12 @@ begin
   if existing_count = 0 then
     append_key := 1::float8;
   else
-    append_key := max_key + greatest(abs(max_key), 1::float8);
-    if not (
+    begin
+      append_key := max_key + greatest(abs(max_key), 1::float8);
+    exception when numeric_value_out_of_range then
+      append_key := null;
+    end;
+    if append_key is null or not (
       append_key > max_key
       and append_key < 'Infinity'::float8
       and append_key > '-Infinity'::float8
