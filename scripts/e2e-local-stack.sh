@@ -115,13 +115,15 @@ pnpm exec supabase db query --local \
 # E2E_LOCAL_SUPABASE skip guards in tests/e2e and tests/visual. 005b adds
 # the wishlist specs: the plain signed-out protection spec (environment-
 # agnostic assertions) and the stack-gated e2e, axe, and visual specs
-# whose fixtures need the running local stack.
+# whose fixtures need the running local stack. 005g adds the dormant
+# price-presentation spec (tests/e2e/wishlist-price-local.spec.ts).
 pnpm exec playwright test \
   tests/e2e/auth-otp.spec.ts \
   tests/e2e/wishlist.spec.ts \
   tests/e2e/wishlist-local.spec.ts \
   tests/e2e/wishlist-items-local.spec.ts \
   tests/e2e/wishlist-items-races-local.spec.ts \
+  tests/e2e/wishlist-price-local.spec.ts \
   tests/e2e/wishlist-reorder-local.spec.ts \
   tests/visual/wishlist-empty.visual.spec.ts \
   tests/visual/wishlist-filled.visual.spec.ts \
