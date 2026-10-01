@@ -1,0 +1,76 @@
+{
+  "reviewer": {
+    "identity": "/root/arj28_final_visual_review",
+    "kind": "independent AI reviewer",
+    "humanOwnerClaimed": false
+  },
+  "reviewedImplementationHead": "c6056324836a9c06b85034f52648911e2a4a50af",
+  "ciMergeHead": "69831868b846cf864c193090d9bd9e8195aed7b8",
+  "sourceManifestSha256": "25c87ae6dfa5cec565dd460b904f1bea71d91143d5e138d5b6903dbc4d26440a",
+  "inspection": {
+    "resolution": "original",
+    "viewports": {
+      "mobile": "390x844",
+      "desktop": "1440x1000"
+    },
+    "states": [
+      "manual-prefilled",
+      "manual-clean",
+      "validation",
+      "submission-conflict",
+      "save-failure",
+      "edit",
+      "delete-confirm",
+      "delete-uncertain",
+      "success"
+    ],
+    "candidateCount": 18,
+    "axeViolations": 0
+  },
+  "decision": {
+    "candidatesApprovedAtReviewedHead": true,
+    "baselineReplacements": "Only the four empty/filled actuals listed below.",
+    "referenceAndDiffPngsApproved": false,
+    "submissionConflictCandidateRequiresRecaptureAfterUiCorrection": true
+  },
+  "axeReports": [
+    {
+      "filename": "axe-mobile.json",
+      "sha256": "af5113df28743ca84a021f5709a89a32b96dd94a5ca410d5498ab02491fbb3be",
+      "states": 9,
+      "violations": 0
+    },
+    {
+      "filename": "axe-desktop.json",
+      "sha256": "75c4316e3e5d0d493a97e7cf4be18a4b9eeaed782ea2682cec22a42f3e697f96",
+      "states": 9,
+      "violations": 0
+    }
+  ],
+  "candidates": [
+    { "state": "delete-confirm", "viewport": "desktop", "sha256": "eae4bb1ac005e0483ee07341f6e4da2db34b6ba622fbd28e0db449f1500ef9dd" },
+    { "state": "delete-confirm", "viewport": "mobile", "sha256": "19fa8e419b71eec811c231c57f6d235d269be38c49a39b53536dc32fbf0e4364" },
+    { "state": "delete-uncertain", "viewport": "desktop", "sha256": "14e7a04ba67885db1888e92b90fc895f937e2349e9ad4ca30502b15809a6b643" },
+    { "state": "delete-uncertain", "viewport": "mobile", "sha256": "43531ecc17962c4021a35a3a953904de311adb528fd6b259ec22b8d7f18649f0" },
+    { "state": "edit", "viewport": "desktop", "sha256": "50020200cc1c5406e536a68d507adebacc5c9bacdd6b889cf0503d27c3ce3205" },
+    { "state": "edit", "viewport": "mobile", "sha256": "40c222239575105710d12224427ee3000d45016ee12dfd35282ed4f0550ff39d" },
+    { "state": "manual-clean", "viewport": "desktop", "sha256": "07a1555e0bf6921d2dbeee03051b98ecb5a4d79787a920a99a08fac63edd8b18" },
+    { "state": "manual-clean", "viewport": "mobile", "sha256": "54afe8af402324495867404d017e5ff6b4ad00905b8ef6fdbfed0518d982a638" },
+    { "state": "manual-prefilled", "viewport": "desktop", "sha256": "42dcdaed0ac7423e7167644ad4731439ab60607dc2125b40010da4a2b3dc658d" },
+    { "state": "manual-prefilled", "viewport": "mobile", "sha256": "2ed1a4e0ed808b3a773107734ac59315dbb93908aba807c763cd1a11dcb5b86f" },
+    { "state": "save-failure", "viewport": "desktop", "sha256": "f4bfc7e26dfa445ce38ec78f950fe460a401aa818f665f528b77b329a497815c" },
+    { "state": "save-failure", "viewport": "mobile", "sha256": "2a86dac1e06cb3bff128b941b1e2045d47dc8374880daf42bf722d1736f9b5e1" },
+    { "state": "submission-conflict", "viewport": "desktop", "sha256": "6a63362f2096a2baf50b667434b985781dd9a8b859013e4c7c7a7c8befae93f6" },
+    { "state": "submission-conflict", "viewport": "mobile", "sha256": "b23c1ec5f41861f82154a257ff36b4ee383ccf9d557321fe8d2b75f4ff6467dc" },
+    { "state": "success", "viewport": "desktop", "sha256": "8d6fb6fe0707ce5479beafee77011792a21f5b80b4aebf00b5ea6ff152dc5e4c" },
+    { "state": "success", "viewport": "mobile", "sha256": "d09777040a5d3eaea23cc5dcce4281bb796299ff2821eb13f36262537cbdb661" },
+    { "state": "validation", "viewport": "desktop", "sha256": "39230b4e5c476d091cdc338621ec23cf8368282db69e5ad663568276e8ebd558" },
+    { "state": "validation", "viewport": "mobile", "sha256": "7c89fb8335ea074383fed050655437cca6a8d57d8c86bf0358d866c6b8262060" }
+  ],
+  "approvedWishlistActuals": [
+    { "state": "empty", "viewport": "mobile", "sha256": "d6be52365b2de8001f53eb91e6545ea82ed8564e2f8eef513d5e413ea5e79ba0" },
+    { "state": "empty", "viewport": "desktop", "sha256": "92eb523e95288ad878af6713ab88f1cac6fe97357645c7535a9d294367536b2e" },
+    { "state": "filled", "viewport": "mobile", "sha256": "ef1ad35f37172faf9b74246537d2187564d769cedb3d58c9df22badba72fd043" },
+    { "state": "filled", "viewport": "desktop", "sha256": "ee61134abad81c2d2010c26b6a82149731e92dd3d00981dbbf531200b64c18c4" }
+  ]
+}

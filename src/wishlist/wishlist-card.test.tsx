@@ -33,6 +33,21 @@ function item(
 }
 
 describe("WishlistCard", () => {
+  it("keeps an unsupported stored currency opaque with an unavailable-price explanation", () => {
+    render(
+      <WishlistCard
+        item={item({
+          originalAmountMinor: "9007199254740993",
+          originalCurrency: "ZZZ",
+        })}
+        index={0}
+      />,
+    );
+    expect(
+      screen.getByText("9007199254740993 ZZZ — price display unavailable"),
+    ).toBeVisible();
+  });
+
   it("renders the title, linked retailer, pinned money format, note, and desire chip", () => {
     render(<WishlistCard item={item()} index={0} />);
 
@@ -53,6 +68,12 @@ describe("WishlistCard", () => {
       screen.getByText("The matte one, not the glossy one."),
     ).toBeVisible();
     expect(screen.getByText("Really want")).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Edit Ceramic pour-over coffee set" }),
+    ).toHaveAttribute(
+      "href",
+      "/wishlist/items/00000000-0000-4000-8000-000000000002/edit",
+    );
   });
 
   it("renders an unlinked retailer (no source URL) as plain text", () => {

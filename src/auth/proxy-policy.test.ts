@@ -51,6 +51,12 @@ describe("protected routes (004e)", () => {
   it("protects the wishlist routes (005b)", () => {
     expect(isProtectedRoutePath("/wishlist")).toBe(true);
     expect(isProtectedRoutePath("/wishlist/items/new")).toBe(true);
+    expect(
+      isProtectedRoutePath(
+        "/wishlist/items/00000000-0000-4000-8000-000000000001/edit",
+      ),
+    ).toBe(true);
+    expect(isProtectedRoutePath("/wishlist/items/not-a-uuid/edit")).toBe(true);
   });
 
   it("keeps the landing page, auth routes, and everything else public", () => {

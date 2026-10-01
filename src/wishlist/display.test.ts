@@ -34,8 +34,7 @@ describe("formatMoneyMinor", () => {
     expect(formatMoneyMinor("4500", "VND")).toBe("4500 VND");
     // Three-decimal currencies.
     expect(formatMoneyMinor("1250", "KWD")).toBe("1.250 KWD");
-    // Unknown codes fall back to the two-decimal default, never a locale.
-    expect(formatMoneyMinor("100", "XYZ")).toBe("1.00 XYZ");
+    expect(() => formatMoneyMinor("100", "XYZ")).toThrow();
   });
 
   it("uses current non-default precision for supported currencies", () => {
@@ -46,7 +45,7 @@ describe("formatMoneyMinor", () => {
     expect(formatMoneyMinor("1234", "KWD")).toBe("1.234 KWD");
     expect(formatMoneyMinor("1234", "JPY")).toBe("1234 JPY");
     expect(formatMoneyMinor("1234", "INR")).toBe("12.34 INR");
-    expect(formatMoneyMinor("1234", "XYZ")).toBe("12.34 XYZ");
+    expect(() => formatMoneyMinor("1234", "XYZ")).toThrow();
   });
 
   it("uppercases the currency code", () => {

@@ -178,7 +178,7 @@ async function tabTo(
   target: Locator,
   label: string,
 ): Promise<void> {
-  for (let step = 0; step < 12; step += 1) {
+  for (let step = 0; step < 32; step += 1) {
     await page.keyboard.press("Tab");
     if (await target.evaluate((node) => node === document.activeElement)) {
       const outline = await target.evaluate(
@@ -366,19 +366,17 @@ test("a fresh owner with zero items sees the V18 empty composition and its CTA n
     await expect(page.getByText("0 things")).toBeVisible();
     await assertProfileGeometry(page, true);
 
-    // The CTA navigates to the designed interim add state — never a 404.
+    // The CTA opens the functional manual-entry form — never a 404.
     await cta.click();
     await expect(page).toHaveURL(/\/wishlist\/items\/new$/);
     await expect(
       page.getByRole("heading", { name: "Add an item" }),
     ).toBeVisible();
-    await expect(
-      page.getByText(/adding items will live|arriving with the next update/i),
-    ).toBeVisible();
+    await expect(page.getByLabel("Item name")).toBeVisible();
     await expect(page.getByText("Page not found")).toHaveCount(0);
 
     // And a visible way back.
-    await page.getByRole("link", { name: "Back to your wishlist" }).click();
+    await page.getByRole("link", { name: "Cancel" }).click();
     await expect(page).toHaveURL(/\/wishlist$/);
     await expect(
       page.getByRole("heading", { name: "Very minimalist of you." }),
@@ -883,8 +881,8 @@ test("every interactive element is keyboard-operable with visible focus, and bot
     );
     await tabTo(
       page,
-      page.getByRole("link", { name: "Back to your wishlist" }),
-      "interim back link",
+      page.getByRole("link", { name: "Cancel" }),
+      "manual entry cancel link",
     );
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/wishlist$/);

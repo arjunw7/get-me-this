@@ -1,3 +1,5 @@
+import { currencyMinorDigits } from "./currency-metadata";
+
 /**
  * Pure display contracts for the wishlist read path (005b). Everything here
  * is deterministic and testable without a DOM or a database: the pinned
@@ -38,42 +40,6 @@ export const DESIRE_LEVELS: Readonly<Record<StoredDesireLevel, string>> = {
   just_an_idea: "Just an idea",
 };
 
-/**
- * Non-default minor-unit digits from SIX ISO 4217 List One, published
- * 2026-09-17 and retrieved 2026-09-30:
- * https://www.six-group.com/dam/download/financial-information/data-center/iso-currrency/lists/list-one.xml
- * Entries marked N.A. have no published precision and use the documented
- * two-decimal fallback. No locale is consulted.
- */
-const CURRENCY_MINOR_DIGITS: Readonly<Record<string, number>> = {
-  BHD: 3,
-  BIF: 0,
-  CLF: 4,
-  CLP: 0,
-  DJF: 0,
-  GNF: 0,
-  IQD: 3,
-  ISK: 0,
-  JOD: 3,
-  JPY: 0,
-  KMF: 0,
-  KRW: 0,
-  KWD: 3,
-  LYD: 3,
-  OMR: 3,
-  PYG: 0,
-  RWF: 0,
-  TND: 3,
-  UGX: 0,
-  UYI: 0,
-  UYW: 4,
-  VND: 0,
-  VUV: 0,
-  XAF: 0,
-  XOF: 0,
-  XPF: 0,
-};
-const DEFAULT_MINOR_DIGITS = 2;
 const MAX_BIGINT_AMOUNT = "9223372036854775807";
 
 function assertExactMinorAmount(value: unknown): asserts value is string {
@@ -101,8 +67,9 @@ export function formatMoneyMinor(
   currency: string,
 ): string {
   assertExactMinorAmount(amountMinor);
-  const digits =
-    CURRENCY_MINOR_DIGITS[currency.toUpperCase()] ?? DEFAULT_MINOR_DIGITS;
+  const digits = currencyMinorDigits(currency);
+  if (digits === null)
+    throw new Error("currency has no supported numeric minor-unit precision");
   const padded = amountMinor.padStart(digits + 1, "0");
   const major =
     digits === 0
@@ -110,6 +77,8 @@ export function formatMoneyMinor(
       : `${padded.slice(0, -digits)}.${padded.slice(-digits)}`;
   return `${major} ${currency.toUpperCase()}`;
 }
+
+export { currencyMinorDigits };
 
 /** The pinned item-count phrasing: "N things", or "1 thing". */
 export function formatItemCount(count: number): string {
