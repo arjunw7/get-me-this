@@ -259,7 +259,11 @@ create table public.group_creation_receipts (
   request_key uuid not null,
   contract_version integer not null,
   payload_digest bytea not null,
-  group_id uuid not null references public."groups" (id) on delete restrict,
+  -- Nullable only inside the creating transaction: the receipt row is
+  -- inserted first (to win the (actor_id, request_key) race) and bound to
+  -- the new group by an update in the same transaction, so every committed
+  -- receipt carries its group.
+  group_id uuid references public."groups" (id) on delete restrict,
   created_at timestamptz not null default clock_timestamp(),
 
   primary key (actor_id, request_key),
@@ -439,21 +443,26 @@ begin
     || 'mode=' || v_mode || chr(10);
   v_digest := extensions.digest(convert_to(v_serial, 'UTF8'), 'sha256');
 
-  -- Concurrent same-key requests serialize inside the database transaction:
-  -- the per-(actor, request key) advisory lock is the first lock taken, and
-  -- creation only ever inserts new rows, so it cannot deadlock with the
-  -- group-first lock order of the other functions.
-  perform pg_advisory_xact_lock(
-    hashtextextended(caller_id::text, 0),
-    hashtextextended(p_request_key::text, 0)
-  );
+  -- Concurrent same-key requests serialize on the receipt table's unique
+  -- (actor_id, request_key) primary key: the first transaction's insert
+  -- blocks every later same-key insert until it commits or rolls back.
+  -- The receipt is inserted BEFORE the group so the same-key winner is
+  -- decided here; creation only ever inserts new rows, so it cannot
+  -- deadlock with the group-first lock order of the other functions.
+  insert into public.group_creation_receipts (
+    actor_id, request_key, contract_version, payload_digest, group_id
+  )
+  values (caller_id, p_request_key, 1, v_digest, null)
+  on conflict (actor_id, request_key) do nothing;
 
-  select * into existing
-  from public.group_creation_receipts
-  where actor_id = caller_id
-    and request_key = p_request_key;
+  if not found then
+    -- We lost the same-key race. The committed winner's receipt decides:
+    -- same canonical payload replays, a changed payload conflicts.
+    select * into existing
+    from public.group_creation_receipts
+    where actor_id = caller_id
+      and request_key = p_request_key;
 
-  if found then
     if existing.contract_version = 1
       and existing.payload_digest = v_digest
     then
@@ -482,10 +491,10 @@ begin
     new_group_id, caller_id, 'joined', true, clock_timestamp(), 1
   );
 
-  insert into public.group_creation_receipts (
-    actor_id, request_key, contract_version, payload_digest, group_id
-  )
-  values (caller_id, p_request_key, 1, v_digest, new_group_id);
+  update public.group_creation_receipts
+  set group_id = new_group_id
+  where actor_id = caller_id
+    and request_key = p_request_key;
 
   perform private.append_group_event(
     caller_id, new_group_id, 'group_created', null, null, '{}'::jsonb

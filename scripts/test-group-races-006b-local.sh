@@ -202,7 +202,8 @@ send 3 "begin;"
 send 3 "$(create_call "$KEY1" 'Race Same Key')"
 await 4 "created"
 
-# Session B blocks on the per-(actor, request key) advisory lock until A ends.
+# Session B blocks on the receipt table's unique (actor_id, request_key)
+# index until A ends.
 send 5 "$(create_call "$KEY1" 'Race Same Key')"
 sleep 1
 send 3 "commit;"
