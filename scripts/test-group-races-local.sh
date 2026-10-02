@@ -666,12 +666,12 @@ check 3 "s11-audits" "1 = (select count(*) from public.audit_events where group_
 # Order 2: the removal commits while the issuance waits; the issuance then
 # proceeds (the organizer is unchanged by a removal).
 G14="$(new_group)"
-T14="$(issue_token "$G14" "$UID_E")"
-join_token "$G14" "$T14" "$UID_E"
+T14="$(issue_token "$G14" "$UID_C")"
+join_token "$G14" "$T14" "$UID_C"
 
 send 3 "begin;"
 as_user 3 "$UID_A"
-send 3 "select result from public.remove_group_member('${G14}'::uuid, '${UID_E}'::uuid);"
+send 3 "select result from public.remove_group_member('${G14}'::uuid, '${UID_C}'::uuid);"
 await 4 "removed"
 
 as_user 5 "$UID_A"
@@ -680,7 +680,7 @@ sleep 1
 send 3 "commit;"
 await 6 "1"
 
-check 3 "s11b-removed" "exists (select 1 from public.group_members where group_id = '${G14}' and user_id = '${UID_E}' and status = 'removed')"
+check 3 "s11b-removed" "exists (select 1 from public.group_members where group_id = '${G14}' and user_id = '${UID_C}' and status = 'removed')"
 check 3 "s11b-generic-row" "1 = (select count(*) from public.group_invitations where group_id = '${G14}' and target_user_id is null and shareable_version = 1 and status = 'active')"
 check 3 "s11b-version" "1 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G14}')"
 check 3 "s11b-audits" "1 = (select count(*) from public.audit_events where group_id = '${G14}' and event_type = 'invitation_issued') and 1 = (select count(*) from public.audit_events where group_id = '${G14}' and event_type = 'member_removed')"
