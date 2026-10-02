@@ -63,10 +63,20 @@ tests that do not require live delivery must pass regardless.
     name, sender-side names already approved for each template). No email
     address, token, token hash, secret URL, assignment identity, or wishlist
     content beyond what the named template legitimately renders is stored;
-  - `status` `public.email_outbox_status` (`pending`, `sent`,
-    `failed_permanent`), not null, default `pending`;
+  - `status` `public.email_outbox_status` (`pending`, `claimed`, `sent`,
+    `failed_permanent`), not null, default `pending`. The enum type lives in
+    the `public` schema — matching the repository convention that every
+    enum type is created in `public` (`group_mode`,
+    `group_invitation_status`, `group_audit_event_type`, and the rest of
+    the 005a/006a/007c enums) — while the table itself stays private; the
+    value strings carry no sensitive information, and 007c's
+    `group_reservation_status`/`group_reservation_release_reason` pair
+    already establishes this exact public-enum/private-table pattern;
   - `attempt_count integer` not null default 0, bounded by check to
     `<= 10`; `last_attempt_at timestamptz` null;
+  - `claim_expires_at timestamptz` null — the durable claim lease expiry
+    set by `claim_due_emails` and cleared by `record_email_result` (the
+    claim-time mechanism is specified with the claim function below);
   - `provider_message_id text` null, bounded — Resend's returned id, an
     identifier, never an address or subject body;
   - `last_error_category text` null, bounded enum of coarse categories
@@ -81,25 +91,42 @@ tests that do not require live delivery must pass regardless.
 - `private.enqueue_email(p_idempotency_key text, p_template_key text,
   p_recipient_user_id uuid, p_payload jsonb)` returns `text`: inserts the
   row or, on unique-conflict replay, returns the existing row's current
-  status without a second write (`already_pending` / `already_sent` /
-  `already_failed`); an unknown template key, oversized payload, or
+  status without a second write (`already_pending` / `already_claimed` /
+  `already_sent` / `already_failed`); an unknown template key, oversized payload, or
   disallowed payload key returns a generic `rejected`. Enqueue commits in
   the **caller's transaction**, so an email is enqueued if and only if the
   state change that justifies it commits (a rolled-back draw enqueues
   nothing; a committed draw always leaves an enqueue behind).
 - `private.claim_due_emails(p_limit integer)` returns the claimed rows:
-  atomically transitions due `pending` rows (next attempt after exponential
-  backoff from `attempt_count`) to a claimed state using
-  `FOR UPDATE SKIP LOCKED` so concurrent workers never double-claim; returns
-  id, template key, recipient user id, and payload.
+  atomically transitions due rows to `claimed` using
+  `FOR UPDATE SKIP LOCKED` so concurrent workers never double-claim, and
+  returns id, template key, recipient user id, and payload. A row is
+  **due** when it is `pending` and its backoff window has elapsed, or when
+  it is `claimed` with an expired `claim_expires_at` (a worker that crashed
+  between claim and result — the durable recovery path). The claim itself
+  is the durable write: `claim_due_emails` sets `status = 'claimed'`,
+  bumps `attempt_count` by one, sets `last_attempt_at = clock_timestamp()`
+  and `claim_expires_at = clock_timestamp() + a bounded lease` (exact lease
+  pinned in the implementation plan, comfortably above the worker's
+  bounded send runtime). Backoff is therefore driven by the claim-time
+  `attempt_count` and `last_attempt_at`, not by result commits; the
+  attempt bound (`attempt_count <= 10`) is enforced at claim time, so a
+  row at the bound transitions to `failed_permanent` instead of being
+  claimed.
 - `private.record_email_result(p_id uuid, p_outcome text,
-  p_provider_message_id text, p_error_category text)` marks the claim
-  `sent` (storing the bounded provider id) or returns it to `pending`
-  (incrementing `attempt_count`) or `failed_permanent` after the attempt
-  bound. A send worker crash between Resend accepting a send and the result
-  commit can, worst case, cause one duplicate delivery — the documented,
-  accepted at-most-once-per-attempt residual; it can never produce an
-  unbounded retry loop, because `attempt_count` is checked at claim time.
+  p_provider_message_id text, p_error_category text)` marks the claimed row
+  `sent` (storing the bounded provider id and clearing
+  `claim_expires_at`) or returns it to `pending` (clearing
+  `claim_expires_at`, so the existing claim-time backoff governs the next
+  attempt) or `failed_permanent`. Only a `claimed` row may be resolved;
+  resolving an unknown, already-resolved, or non-claimed id is an
+  idempotent no-op. A send worker crash between Resend accepting a send and
+  the result commit leaves the row `claimed` until its lease expires, after
+  which the row is re-claimable — the documented, accepted at-most-once-
+  per-attempt residual (one possible duplicate delivery per expired claim);
+  it can never produce an unbounded retry loop or a double-send while the
+  lease is live, because the claim transition itself is the serialized
+  write.
 - A bounded send worker runs as a server-side route/invocation on Railway
   (not a client path), authenticated by a server-only secret, with a finite
   batch size and runtime. No Resend key or service-role credential appears
@@ -107,10 +134,11 @@ tests that do not require live delivery must pass regardless.
 
 ### Template: invitation
 
-- **Idempotency key:** the 006b invitation issuance's deterministic
-  reference (the invitation row id plus a version/issuance ordinal, pinned
-  against the merged 006b schema in the implementation plan) so re-issuing
-  or re-sharing cannot enqueue unbounded duplicates.
+- **Idempotency key:** the invitation row id composed with 006b's
+  `groups.shareable_invitation_version` (the exact merged 006b column —
+  no "issuance ordinal" column exists and none may be invented) so that
+  re-issuing, rotating, or re-sharing enqueues under a new key instead of
+  replaying the old one, and cannot enqueue unbounded duplicates.
 - Content reproduces the 006c seven-field limited preview exactly — host
   display name, group name, occasion date, budget amount and currency,
   gifting mode, joined member count — plus one call-to-action button to
@@ -157,10 +185,13 @@ tests that do not require live delivery must pass regardless.
 
 ### Template: reminder
 
-- **Idempotency key:** `(group_id, template_key, reminder_offset)` where
-  `reminder_offset` is the bounded scheduled offset from the occasion date
-  (v1: one reminder, a fixed number of days before the occasion date,
-  decided in the implementation plan and recorded in the PR).
+- **Idempotency key:** `(group_id, template_key, reminder_offset,
+  occasion_date)` — the occasion date is a component of the key, so
+  rescheduling the occasion re-keys the reminder rather than replaying the
+  prior key. The bounded scheduled offset (v1: one reminder, a fixed
+  number of days before the occasion date, decided in the implementation
+  plan and recorded in the PR) stays in the key so a rescheduled date
+  cannot collide with an already-sent reminder for the old date.
 - Recipients: currently `joined` members of the active group only. Content:
   group name, occasion date, and a link to the group room. It contains **no**
   per-member progress, no reservation state, no checklist state, no
@@ -195,12 +226,15 @@ tests that do not require live delivery must pass regardless.
   dashboard/webhook feed as an owner-maintained integration; this slice
   requires only that the failure categories above are logged and that
   `failed_permanent` rows are enumerable by the maintainer.
-- **No new analytics event.** The existing `invite_sent` event remains
-  owned by 006b issuance (emitted when the organizer issues/shares, not
-  when the email worker sends); email delivery success/failure is
-  infrastructure state, not product analytics, and adding events for it
-  would risk prohibited data (addresses) and contradict the tracking
-  plan's small vocabulary. The tracking plan is untouched by this slice.
+- **No new analytics event.** The tracking plan's existing `invite_sent`
+  event is defined only in `docs/analytics/tracking-plan.md` — no merged
+  brief owns or wires its emission (006b's criterion 13 explicitly lists
+  token issuance, rotation, copy, and share among actions that emit
+  nothing). This slice does not claim, wire, or emit `invite_sent`: the
+  email worker's enqueue/send is infrastructure, not an invitation-sent
+  product moment, and wiring that event — if the owner ever wants it — is
+  a separate reviewed decision through the typed event catalog. The
+  tracking plan is untouched by this slice.
 - An automated log-hygiene test scans a rendered send attempt (worker unit
   test with a stubbed Resend client) for synthetic address, token, and
   secret-URL markers, mirroring the 006c scan pattern.
@@ -230,12 +264,14 @@ The implementation pull request copies these criteria and marks every item
 with exact evidence.
 
 1. **Outbox shape and isolation (pgTAP).** `private.email_outbox` matches
-   this brief: columns, bounds, status enum, unique idempotency key,
-   RESTRICT recipient FK, managed timestamps; REVOKE-then-exact-GRANT
-   inventory proven for every role and overload; no client role can
-   SELECT/INSERT/UPDATE/DELETE the table directly, including
-   `service_role` through the application API; no RLS policy substitutes
-   for the absent grant (both directions tested, per the 007c pattern).
+   this brief: columns, bounds, four-value status enum (`pending`,
+   `claimed`, `sent`, `failed_permanent`), unique idempotency key, claim
+   lease column, RESTRICT recipient FK, managed timestamps;
+   REVOKE-then-exact-GRANT inventory proven for every role and overload;
+   no client role can SELECT/INSERT/UPDATE/DELETE the table directly,
+   including `service_role` through the application API; no RLS policy
+   substitutes for the absent grant (both directions tested, per the 007c
+   pattern).
 2. **Enqueue atomicity and idempotency (pgTAP).** Enqueue commits only
    inside the caller's transaction (a forced rollback leaves no row);
    replaying an idempotency key performs no second write and returns the
@@ -244,12 +280,19 @@ with exact evidence.
    key per template and reject all others, including any key that would
    carry an email address, token, or assignment identity.
 3. **Claim and retry semantics (pgTAP + worker unit tests).** Concurrent
-   claims via `FOR UPDATE SKIP LOCKED` never double-claim the same row;
-   backoff respects `attempt_count`; the attempt bound transitions the row
-   to `failed_permanent`; a crash between send and result commit produces
-   at most one duplicate and never an unbounded retry (asserted by
-   bounding, not by mocking time to infinity); `record_email_result`
-   accepts only bounded categories and stores bounded identifiers.
+   claims via `FOR UPDATE SKIP LOCKED` never double-claim the same row —
+   the claim transition to `claimed` with its claim-time `attempt_count`
+   bump, `last_attempt_at`, and bounded `claim_expires_at` lease is
+   asserted as the durable serialization point; backoff respects the
+   claim-time `attempt_count` and `last_attempt_at`; a row at the attempt
+   bound transitions to `failed_permanent` at claim time instead of being
+   claimed; an expired `claimed` row (crashed worker) is re-claimable and
+   a lease-live `claimed` row is not; `record_email_result` resolves only
+   `claimed` rows, accepts only bounded categories, stores bounded
+   identifiers, and replays idempotently; a crash between send and result
+   commit produces at most one duplicate after lease expiry and never an
+   unbounded retry or a lease-live double-send (asserted by bounding, not
+   by mocking time to infinity).
 4. **Invitation template (unit + render tests).** Renders exactly the
    seven-field preview plus the canonical raw-token CTA; the token appears
    only in the rendered body and is absent from the outbox row, logs, test
@@ -269,9 +312,12 @@ with exact evidence.
 6. **Reminder privacy and keying (pgTAP + unit).** Reminders enqueue for
    joined members only, with no per-member gifting/reservation/assignment
    content in any payload or rendered output (asserted by payload
-   allowlist and render scan); rescheduling the occasion date re-keys the
-   reminder rather than duplicating or suppressing it; departed members
-   receive nothing.
+   allowlist and render scan); the key includes the occasion date, so
+   rescheduling the occasion date re-keys the reminder rather than
+   duplicating or suppressing it — a committed reschedule after the old
+   date's reminder was sent enqueues a fresh reminder for the new date,
+   and moving the date back and forth produces one reminder per
+   (offset, date) key; departed members receive nothing.
 7. **Delivery observability and log hygiene.** A worker run against a
    stubbed provider emits structured log lines containing only the allowed
    identifier fields; an automated scan over the full test-run log,
@@ -333,8 +379,10 @@ with exact evidence.
 ## Analytics, security, and privacy
 
 - No new analytics event and no tracking-plan change; delivery telemetry is
-  maintainer-facing by design. `invite_sent` remains a 006b issuance-time
-  event.
+  maintainer-facing by design. The tracking plan's `invite_sent` event has
+  no owner in any merged brief (006b's criterion 13 emits nothing on
+  issuance, rotation, copy, or share) and is not wired or claimed by this
+  slice either.
 - Security logging uses identifiers and coarse categories only. The outbox
   treats recipient addresses as transient send-time lookups, tokens as
   body-only material, and assignment data as governed by the 008c secrecy

@@ -106,12 +106,22 @@ follow-up** (with the finding reference) — never **Skipped**.
 
 ### Checklist D — Recovery (authority: Definition of Done and merged briefs' rollback notes)
 
-- **Rollback-note validation:** for every merged brief that shipped a
-  migration or destructive-capable change (005a, 006a, 006c, 007c, 008a,
-  008b, 008c, 009a), re-walk its rollback notes against the actual
-  committed migrations and confirm they are still executable as written
-  (including the permanent-enum-value caveats from 008c/009a and the
-  forward-fix-only paths); discrepancies are findings.
+- **Rollback-note validation:** for **every forward migration committed
+  under `supabase/migrations/` (the baseline included)**, re-walk its
+  brief's rollback notes against the actual committed file and the
+  migration ledger and confirm they are still executable as written. The
+  rule is exhaustive, not sampled: the checklist item is keyed to the
+  migration directory listing, so no migration-owning brief can be
+  silently skipped. At the current head this covers, at minimum: 004a
+  (profiles), 005a (wishlists/items) with the 005c–005g follow-on
+  migrations (submission id, reordering, snapshot bucket), 006a (groups,
+  membership, invitations, audit), 006b (shareable invitations —
+  `groups.shareable_invitation_version`, invitation row versioning,
+  `group_creation_receipts`), 006c (invitation continuations), 007c
+  (reservations), 008a/008b (mode surfaces), 008c (assignments), and
+  009a's outbox when merged — including the permanent-enum-value caveats
+  from 008c/009a and the forward-fix-only paths. Discrepancies are
+  findings.
 - **Failure-recovery drills (local/staging only, never production):**
   - a lost-response acceptance (006c) recovers to the honest joined state;
   - a failed email send (009a) transitions through bounded retries to

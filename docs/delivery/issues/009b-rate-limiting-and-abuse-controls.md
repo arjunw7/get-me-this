@@ -89,6 +89,17 @@ and pgTAP proof, per the working rules.
   screens, no visual-baseline change beyond the unavoidable presence of
   the invisible/managed widget, which is reviewed as a documented
   difference requiring product/design approval.
+- **Implementation-time coverage verification (required first step of the
+  CAPTCHA work):** confirm against the current Supabase documentation and
+  a staging probe that Supabase Auth captcha protection actually covers
+  the OTP send and verify endpoints. The feature has historically been
+  documented primarily for sign-up; if OTP send/verify are **not** covered
+  by the native integration, both Turnstile and the hCaptcha fallback need
+  different wiring (application-level token verification in the send/verify
+  server actions, in addition to or instead of the platform setting), and
+  the implementation plan must record which wiring ships and why. The
+  hCaptcha fallback shares the same Supabase integration point, so absent
+  coverage both options are affected equally and neither is a shortcut.
 - **Staged enablement:** the site key is public by nature; the secret lives
   only in server-side secure configuration (never in client bundles,
   fixtures, commits, logs, or screenshots). Enablement on staging is an
@@ -174,7 +185,11 @@ with exact evidence.
    a global-keyed implementation fails the test by construction.
 5. **CAPTCHA selection and staging enablement (conditional, owner-gated).**
    Turnstile (or the documented hCaptcha fallback) is integrated with
-   Supabase Auth captcha protection on OTP send/verify only; the secret is
+   Supabase Auth captcha protection on OTP send/verify only — with the
+   required implementation-time verification (above) recorded: either
+   evidence that the native integration covers those endpoints, or the
+   documented application-level wiring shipped instead and why. The secret
+   is
    provably absent from client bundles, fixtures, commits, logs, and
    screenshots (automated scan); the kill switch restores delivery without
    a deploy (staging test); approved screens carry no redesign and
