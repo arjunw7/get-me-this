@@ -752,6 +752,7 @@ begin
     );
 
     return query select v_new, true, clock_timestamp();
+    return;
   end if;
 
   return query select v_current, false, null::timestamptz;
