@@ -116,7 +116,9 @@ test("a member creates a private group; the invite link is shown exactly once; t
         scope,
       );
       await secondPage.goto(createdPath);
-      await expect(secondPage.getByText("404")).toBeVisible();
+      await expect(
+        secondPage.getByRole("heading", { name: "Page not found" }),
+      ).toBeVisible();
       await expect(
         secondPage.getByRole("heading", { name: `${groupName} is ready.` }),
       ).toHaveCount(0);
