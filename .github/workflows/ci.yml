@@ -193,6 +193,27 @@ jobs:
           path: wishlist-visual-evidence/
           if-no-files-found: ignore
           retention-days: 3
+      # ARJ-37: the groups visual specs' actual/expected/diff captures, for
+      # cross-OS review of the committed baselines (the wishlist collector
+      # above is fail-closed to the wishlist names only).
+      - name: Collect groups visual evidence
+        if: failure()
+        run: |
+          mkdir groups-visual-evidence
+          find test-results -type f \
+            -name "groups-*-actual.png" -exec cp {} groups-visual-evidence/ \;
+          find test-results -type f \
+            -name "groups-*-expected.png" -exec cp {} groups-visual-evidence/ \;
+          find test-results -type f \
+            -name "groups-*-diff.png" -exec cp {} groups-visual-evidence/ \;
+      - name: Upload groups visual evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: groups-visual-evidence
+          path: groups-visual-evidence/
+          if-no-files-found: ignore
+          retention-days: 3
 
   no-provider-actions:
     name: No-provider Server Action gates
