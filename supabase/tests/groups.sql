@@ -260,7 +260,7 @@ select is(
 -- Every FK introduced here restricts on delete; no CASCADE or SET NULL.
 select is(
   (
-    select string_agg(conname || ':' || confdeltype, ', ' order by conname)
+    select string_agg(conname::text || ':' || confdeltype::text, ', ' order by conname)
     from pg_constraint
     where conrelid = 'public."groups"'::regclass
       and contype = 'f'
@@ -271,7 +271,7 @@ select is(
 
 select is(
   (
-    select string_agg(conname || ':' || confdeltype, ', ' order by conname)
+    select string_agg(conname::text || ':' || confdeltype::text, ', ' order by conname)
     from pg_constraint
     where conrelid = 'public.group_members'::regclass
       and contype = 'f'
@@ -282,7 +282,7 @@ select is(
 
 select is(
   (
-    select string_agg(conname || ':' || confdeltype, ', ' order by conname)
+    select string_agg(conname::text || ':' || confdeltype::text, ', ' order by conname)
     from pg_constraint
     where conrelid = 'public.group_invitations'::regclass
       and contype = 'f'
@@ -293,7 +293,7 @@ select is(
 
 select is(
   (
-    select string_agg(conname || ':' || confdeltype, ', ' order by conname)
+    select string_agg(conname::text || ':' || confdeltype::text, ', ' order by conname)
     from pg_constraint
     where conrelid = 'public.group_invitation_uses'::regclass
       and contype = 'f'
@@ -304,7 +304,7 @@ select is(
 
 select is(
   (
-    select string_agg(conname || ':' || confdeltype, ', ' order by conname)
+    select string_agg(conname::text || ':' || confdeltype::text, ', ' order by conname)
     from pg_constraint
     where conrelid = 'public.audit_events'::regclass
       and contype = 'f'
