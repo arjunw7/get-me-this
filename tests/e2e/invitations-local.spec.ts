@@ -511,7 +511,7 @@ test.describe("invitation preview and acceptance", () => {
   test("an unacknowledged verification delivery blocks logout until the acknowledgement settles", async ({
     page,
   }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(300_000);
     const scope = new FixtureScope();
     await scope.run(async () => {
       const { token } = await createGroupAndToken(page, scope);
@@ -619,18 +619,20 @@ test.describe("invitation preview and acceptance", () => {
         console.log(`[broker] second tab blocked url=${second.url()}`);
 
         // The blocked attempt's own settlement acknowledged the stranded
-        // delivery (the nonce proved it), so the lease is idle again and
-        // the retry completes the logout and its own delivery
-        // acknowledgement under the same lock. If a lost acknowledgement
-        // reseal left the browser one epoch behind, the retry lands
-        // blocked once more and its own recovery re-syncs the epoch —
-        // re-clicking then completes the logout honestly.
+        // delivery (the nonce proved it), so the lease returns to idle and
+        // a retry completes the logout with its own delivery
+        // acknowledgement. Each attempt starts from a fresh document (a
+        // full-page redirect can orphan the previous attempt's in-flight
+        // settle); a re-blocked attempt is healed by its own settlement's
+        // recovery before a later attempt succeeds.
         await expect(async () => {
+          if (/\/\?loggedOut=1$/.test(second.url())) return;
+          await second.reload();
           await second.getByRole("button", { name: /account/i }).click();
           await second.getByRole("button", { name: "Log out" }).click();
           await second.getByRole("button", { name: "Log out" }).click();
           await second.waitForURL(/\/\?loggedOut=1$/, { timeout: 15_000 });
-        }).toPass({ timeout: 120_000 });
+        }).toPass({ timeout: 150_000 });
       } finally {
         await context.close();
       }

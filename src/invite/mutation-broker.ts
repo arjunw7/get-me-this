@@ -146,16 +146,21 @@ async function settleDelivery(): Promise<void> {
       signal: AbortSignal.timeout(10_000),
     });
     acknowledged = response.ok;
+    // Drain the body before releasing the lock: an unread response body
+    // returns a half-read keep-alive socket to the browser's pool, and the
+    // next same-origin fetch that draws that socket hangs forever.
+    await response.text().catch(() => "");
   } catch {
     acknowledged = false;
   }
   if (acknowledged) return;
   try {
-    await fetch("/auth/invite/mutation/recover", {
+    const recovery = await fetch("/auth/invite/mutation/recover", {
       method: "POST",
       credentials: "same-origin",
       signal: AbortSignal.timeout(10_000),
     });
+    await recovery.text().catch(() => "");
   } catch {
     // Recovery itself is unreachable: the server lease's bounded
     // acquisition expiry plus the blocked-state UI keep later mutations
