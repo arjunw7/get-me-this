@@ -220,6 +220,13 @@ test.describe("invitation preview and acceptance", () => {
         const writers = observeCookieWriters(recipient);
         const step = (label: string) =>
           console.log(`[journey] ${label} url=${recipient.url()}`);
+        recipient.on("crash", () => console.log("[journey] PAGE CRASHED"));
+        recipient.on("close", () => console.log("[journey] PAGE CLOSED"));
+        recipient.on("requestfailed", (request) =>
+          console.log(
+            `[journey] requestfailed ${request.method()} ${new URL(request.url()).pathname} ${request.failure()?.errorText ?? ""}`,
+          ),
+        );
 
         await recipient.goto(`/invite/${token}`, {
           waitUntil: "domcontentloaded",
@@ -562,6 +569,13 @@ test.describe("invitation preview and acceptance", () => {
         // A second tab's confirmed logout is blocked honestly: it lands on
         // the flagged /home state with the session preserved.
         const second = await context.newPage();
+        second.on("crash", () => console.log("[broker] SECOND PAGE CRASHED"));
+        second.on("close", () => console.log("[broker] SECOND PAGE CLOSED"));
+        second.on("requestfailed", (request) =>
+          console.log(
+            `[broker] requestfailed ${request.method()} ${new URL(request.url()).pathname} ${request.failure()?.errorText ?? ""}`,
+          ),
+        );
         await second.goto("/home");
         await second.getByRole("button", { name: /account/i }).click();
         await second.getByRole("button", { name: "Log out" }).click();

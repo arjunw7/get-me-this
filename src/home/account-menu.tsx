@@ -65,11 +65,11 @@ export function AccountMenu({
       }
       void runInvitationMutationResolved(() => signOutAction())
         .then((outcome) => {
-          // The landing-page redirect is applied only after the cleared-
-          // session delivery has settled inside the lock.
-          if (outcome.kind === "redirect") {
-            window.location.assign(outcome.target);
-          }
+          // The landing-page redirect is applied by the router's own
+          // RedirectBoundary after the cleared-session delivery settled
+          // inside the lock; a resolved (non-redirect) outcome leaves the
+          // screen as it was.
+          if (outcome.kind === "redirect") return;
         })
         .catch((error: unknown) => {
           // Without the origin-wide lock the mutation never ran — never a

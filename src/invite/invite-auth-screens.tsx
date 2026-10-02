@@ -12,7 +12,8 @@ import {
 import { OtpInput } from "@/src/auth/otp-input";
 import {
   brokeredServerAction,
-  runInvitationMutationResolved,
+  redirectTargetFromError,
+  runInvitationMutation,
 } from "./mutation-broker";
 
 import {
@@ -185,19 +186,20 @@ export function InviteVerifyScreen({
 
   // The confirmed restart is a session mutation: it runs under the same
   // origin-wide broker lock (its server action holds the coordinator
-  // lease). The action's redirect destination is navigated only after the
-  // delivery has settled — a restart failure redirects back with its
-  // honest failure flag, never a claimed success.
+  // lease). The action's redirect is applied by the router's own
+  // RedirectBoundary after the delivery settles inside the lock — a
+  // restart failure redirects back with its honest failure flag, never a
+  // claimed success.
   async function restart(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setRestarting(true);
     try {
-      const outcome = await runInvitationMutationResolved(() =>
+      await runInvitationMutation(() =>
         restartInvitationAuthAction(new FormData(event.currentTarget)),
       );
-      if (outcome.kind === "redirect") window.location.assign(outcome.target);
-      else setRestarting(false);
-    } catch {
+      setRestarting(false);
+    } catch (error) {
+      if (redirectTargetFromError(error) !== null) return;
       setRestarting(false);
     }
   }
@@ -369,12 +371,14 @@ export function InviteLinkScreen({ flowId }: { readonly flowId: string }) {
     event.preventDefault();
     setRestarting(true);
     try {
-      const outcome = await runInvitationMutationResolved(() =>
+      await runInvitationMutation(() =>
         restartInvitationAuthAction(new FormData(event.currentTarget)),
       );
-      if (outcome.kind === "redirect") window.location.assign(outcome.target);
-      else setRestarting(false);
-    } catch {
+      setRestarting(false);
+    } catch (error) {
+      // The router's RedirectBoundary applies the action's redirect after
+      // the delivery settled inside the lock.
+      if (redirectTargetFromError(error) !== null) return;
       setRestarting(false);
     }
   }

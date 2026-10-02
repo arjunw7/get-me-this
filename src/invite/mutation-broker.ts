@@ -109,22 +109,23 @@ export async function runInvitationMutationResolved<T>(
 /**
  * Wraps a server action for `useActionState` so its submission runs under
  * the origin-wide mutation Web Lock with a settled delivery. When the
- * action redirects, the destination is navigated explicitly after the
- * settle (see runInvitationMutationResolved) and the state stays as it
- * was — the navigation leaves the screen anyway.
+ * action redirects, the router's own RedirectBoundary performs the
+ * navigation (the server-action reducer rejects the action promise AND
+ * applies the redirect); the wrapper swallows that rejection after the
+ * settle and leaves the state as it was — the navigation leaves the
+ * screen anyway. Navigating manually here as well would race the router's
+ * navigation and abort the redirect's RSC stream mid-flight.
  */
 export function brokeredServerAction<S>(
   action: (previousState: S, formData: FormData) => Promise<S>,
 ): (previousState: S, formData: FormData) => Promise<S> {
   return async (previousState, formData) => {
-    const outcome = await runInvitationMutationResolved(() =>
-      action(previousState, formData),
-    );
-    if (outcome.kind === "redirect") {
-      if (typeof window !== "undefined") window.location.assign(outcome.target);
-      return previousState;
+    try {
+      return await runInvitationMutation(() => action(previousState, formData));
+    } catch (error) {
+      if (redirectTargetFromError(error) !== null) return previousState;
+      throw error;
     }
-    return outcome.value;
   };
 }
 
