@@ -202,7 +202,9 @@ export async function signInFixtureUser(
 
   // A profile-less user lands on onboarding; a user who already has a
   // complete profile (e.g. re-signing in after a stale session) goes
-  // straight to their destination, which defaults to /home.
+  // straight to their destination, which defaults to /home. The wait
+  // spans the brokered action's settle round-trip, which is slow under
+  // CI load; re-clicking is never an option — the link verifies ONCE.
   await page.waitForURL((url) => /\/(onboarding|home)$/.test(url.pathname));
   if (page.url().endsWith("/onboarding")) {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(

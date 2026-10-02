@@ -141,7 +141,14 @@ export async function settlePendingDelivery(): Promise<
   const recovered = await recoverAuthLease(coordinator.secret, delivered.nonce);
   store.delete(MUTATION_COOKIE_NAME);
   if (recovered.outcome === "unavailable") return "unavailable";
-  if (recovered.outcome !== "acknowledged") return "unproven";
+  // `abandoned`: the nonce did not prove the pending delivery, so the
+  // mutation's cookie effects are unknown — an honest blocked state; the
+  // stale nonce is gone and a fresh attempt can acquire the idle lease.
+  if (recovered.outcome === "abandoned") return "unproven";
+  // `acknowledged`: the nonce proved the delivery and the epoch advanced.
+  // `idle`: nothing is pending — the delivery was already acknowledged and
+  // only the nonce deletion (and possibly the acknowledgement's reseal)
+  // never applied. Both are settled; both return the epoch to reseal with.
   if (delivered.kind === "clear") {
     store.set(COORDINATOR_COOKIE_NAME, "", invitationCookieOptions(0));
   } else {

@@ -278,24 +278,16 @@ test.describe("invitation preview and acceptance", () => {
         await expect(
           recipient.getByRole("heading", { name: "You're signed in." }),
         ).toBeVisible();
+        // The reconciliation is idempotent, but the click's URL wait must
+        // span the brokered verification's settle round-trip, which is
+        // slow under CI load — and re-clicking is never an option for the
+        // one-shot verification steps before this point.
         await recipient
           .getByRole("button", { name: "Continue this invitation" })
           .click();
-        await recipient
-          .waitForURL(`/invite/continue/${flowId}`, { timeout: 20_000 })
-          .catch(async () => {
-            console.log(
-              `[journey] continue-click did not navigate; screen text: ${(
-                await recipient
-                  .locator("main")
-                  .innerText({ timeout: 5_000 })
-                  .catch(() => "<unreadable>")
-              )
-                .slice(0, 400)
-                .replace(/\n/g, " | ")}`,
-            );
-            throw new Error("reconcile continue did not navigate");
-          });
+        await recipient.waitForURL(`/invite/continue/${flowId}`, {
+          timeout: 30_000,
+        });
         step("second preview");
 
         // Back on the live preview; a SECOND explicit Join sends the brand-
