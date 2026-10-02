@@ -1189,16 +1189,17 @@ select is((select count(*)::int from public.group_detail(:'gid'::uuid)), 0, 'an 
 select is((select count(*)::int from public.group_roster(:'gid'::uuid)), 0, 'an outsider gets no roster');
 select is((select count(*)::int from public.group_admin_members(:'gid'::uuid)), 0, 'an outsider gets no admin membership view');
 
--- as anon (null auth): the functions fail generically and no table is readable.
+-- as anon (null auth): the write functions are not even executable, and no
+-- table is readable.
 reset role;
 set local role anon;
-select is(
-  (select result::text from public.accept_group_invitation(:'tok1')),
-  'unavailable', 'a null-auth caller cannot accept an invitation'
+select throws_ok(
+  format('select result from public.accept_group_invitation(%L)', :'tok1'),
+  '42501', NULL, 'a null-auth caller cannot execute accept_group_invitation'
 );
-select is(
-  (select result::text from public.leave_group(:'gid'::uuid)),
-  'unavailable', 'a null-auth caller cannot leave a group'
+select throws_ok(
+  format('select result from public.leave_group(%L)', :'gid'),
+  '42501', NULL, 'a null-auth caller cannot execute leave_group'
 );
 select throws_ok(
   'select count(*) from public."groups"',
