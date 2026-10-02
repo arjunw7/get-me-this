@@ -259,6 +259,11 @@ values (
   null, null, 1
 );
 
+-- The compare-and-swap issue path revokes the previous generic invitation
+-- before recording its successor (one active generic per group).
+update public.group_invitations set status = 'revoked'
+  where id = '00000000-0000-4000-8000-000000006c02';
+
 insert into public.group_invitations (
   id, group_id, creator_id, status, token_hash, expires_at, max_uses, use_count,
   target_user_id, target_membership_generation, shareable_version

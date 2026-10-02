@@ -1604,13 +1604,14 @@ execute function private.set_invitation_continuations_updated_at();
 
 revoke all on schema private from public;
 revoke all on schema private from anon;
-revoke all on schema private from authenticated;
 revoke all on schema private from service_role;
 
 -- The continuation boundary adds no table privilege to any client role and
 -- no RLS policy on the private tables: the definer functions are the only
--- surface. (006a grants authenticated USAGE on the private schema for the
--- two RLS helpers; that usage grants no access to the new tables.)
+-- surface. The 006a grant of USAGE on the private schema to authenticated
+-- intentionally REMAINS (the two RLS helpers stay callable); schema USAGE
+-- grants no access to these tables — no table here is ever granted to a
+-- client role, and the suites assert that inventory.
 
 -- The direct raw-token acceptance entry point is no longer executable by
 -- any application role: the continuation-bound acceptance function is the
