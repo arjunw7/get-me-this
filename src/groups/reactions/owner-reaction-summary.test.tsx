@@ -2,7 +2,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { OwnerReactionSummaryRow } from "./owner-reaction-summary";
-import type { OwnerReactionSummary } from "./reaction-write";
 
 describe("OwnerReactionSummaryRow", () => {
   it("shows `No reactions yet` at zero and no interactive control", () => {

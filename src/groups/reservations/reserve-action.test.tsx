@@ -100,7 +100,7 @@ describe("ReserveAction", () => {
     await userEvent.click(screen.getByRole("button", { name: "Reserve gift" }));
     await waitFor(() =>
       expect(
-        screen.getByText("That didn’t go through. Try again."),
+        screen.getByText("That didn't go through. Try again."),
       ).toBeInTheDocument(),
     );
   });
