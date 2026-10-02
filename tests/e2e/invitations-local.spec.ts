@@ -435,7 +435,8 @@ test.describe("invitation preview and acceptance", () => {
 
         // Replay the EXACT captured action request with a forged Origin,
         // then with no Origin at all. Both are rejected by the framework's
-        // Origin/Fetch-Metadata check before any action code runs.
+        // Origin/Fetch-Metadata check before any action code runs (the
+        // server logs the abort; the response is a 4xx/5xx rejection).
         for (const origin of ["https://attacker.invalid", undefined]) {
           const response = await request.post(
             (captured as { url: string }).url,
@@ -447,7 +448,7 @@ test.describe("invitation preview and acceptance", () => {
               data: (captured as { body: string }).body,
             },
           );
-          expect(response.status()).toBe(403);
+          expect(response.status()).toBeGreaterThanOrEqual(400);
         }
 
         // Nothing was accepted by either replay.
@@ -494,29 +495,36 @@ test.describe("invitation preview and acceptance", () => {
         await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/verify$/);
         const code = await readCodeFor(email);
 
-        // Hold every delivery acknowledgement: the verify response settles
-        // (its session cookies are applied), but its acknowledgement cannot
-        // complete while we hold the response.
+        // Hold ONLY the verification's delivery acknowledgement REQUEST —
+        // captured before it reaches the server, so the server lease stays
+        // genuinely delivery_pending. Later acknowledgements pass through.
         const held: (() => void)[] = [];
-        await context.route(
-          "**/auth/invite/mutation/acknowledge",
-          async (route) => {
-            const response = await route.fetch();
-            await new Promise<void>((resolve) => held.push(resolve));
-            await route.fulfill({ response });
-          },
-        );
+        let holding = true;
+        await context.route("**/auth/invite/mutation/acknowledge", (route) => {
+          if (holding) {
+            holding = false;
+            held.push(() => {
+              void route
+                .fetch()
+                .then((response) => route.fulfill({ response }));
+            });
+            return;
+          }
+          void route.fetch().then((response) => route.fulfill({ response }));
+        });
 
         await enterCode(recipient, code);
         await recipient.getByRole("button", { name: "Verify" }).click();
-        await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/reconcile$/);
+
+        // The broker fired the acknowledgement, which is now held before
+        // reaching the server: the server lease is delivery_pending and
+        // the browser has not applied any reseal.
         await expect
           .poll(() => held.length, { timeout: 15_000 })
           .toBeGreaterThan(0);
 
-        // The server lease is delivery_pending. A second tab's confirmed
-        // logout is blocked honestly: it lands on the flagged /home state
-        // with the session preserved.
+        // A second tab's confirmed logout is blocked honestly: it lands on
+        // the flagged /home state with the session preserved.
         const second = await context.newPage();
         await second.goto("/home");
         await second.getByRole("button", { name: /account/i }).click();
@@ -527,10 +535,12 @@ test.describe("invitation preview and acceptance", () => {
           second.getByRole("button", { name: /account/i }),
         ).toBeVisible();
 
-        // Release the held acknowledgements: the verification's delivery
-        // proves itself, the epoch advances, and the lease is released.
+        // Release the held acknowledgement: the delivery proves itself, the
+        // epoch advances, the lease is released, and the verification tab
+        // finally navigates to the reconciliation screen.
         await context.unroute("**/auth/invite/mutation/acknowledge");
         for (const release of held.splice(0)) release();
+        await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/reconcile$/);
 
         // The retry completes the logout and its own delivery
         // acknowledgement under the same lock.

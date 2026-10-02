@@ -10,7 +10,10 @@ import {
   authInputClassName,
 } from "@/src/auth/auth-layout";
 import { OtpInput } from "@/src/auth/otp-input";
-import { brokeredServerAction, runInvitationMutation } from "./mutation-broker";
+import {
+  brokeredServerAction,
+  runInvitationMutationResolved,
+} from "./mutation-broker";
 
 import {
   reconcileInvitationAction,
@@ -182,15 +185,18 @@ export function InviteVerifyScreen({
 
   // The confirmed restart is a session mutation: it runs under the same
   // origin-wide broker lock (its server action holds the coordinator
-  // lease). A restart failure redirects back to the email screen with the
-  // honest failure flag — never a claimed success.
+  // lease). The action's redirect destination is navigated only after the
+  // delivery has settled — a restart failure redirects back with its
+  // honest failure flag, never a claimed success.
   async function restart(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setRestarting(true);
     try {
-      await runInvitationMutation(() =>
+      const outcome = await runInvitationMutationResolved(() =>
         restartInvitationAuthAction(new FormData(event.currentTarget)),
       );
+      if (outcome.kind === "redirect") window.location.assign(outcome.target);
+      else setRestarting(false);
     } catch {
       setRestarting(false);
     }
@@ -363,9 +369,11 @@ export function InviteLinkScreen({ flowId }: { readonly flowId: string }) {
     event.preventDefault();
     setRestarting(true);
     try {
-      await runInvitationMutation(() =>
+      const outcome = await runInvitationMutationResolved(() =>
         restartInvitationAuthAction(new FormData(event.currentTarget)),
       );
+      if (outcome.kind === "redirect") window.location.assign(outcome.target);
+      else setRestarting(false);
     } catch {
       setRestarting(false);
     }

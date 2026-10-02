@@ -65,29 +65,67 @@ export async function runInvitationMutation<T>(
 }
 
 /**
+ * Extracts a redirect destination from a server action's client-side
+ * NEXT_REDIRECT rejection (`digest: "NEXT_REDIRECT;replace;/path;status"`;
+ * the unit-test shim uses a colon). Returns null for anything else.
+ */
+export function redirectTargetFromError(error: unknown): string | null {
+  if (typeof error !== "object" || error === null) return null;
+  const digest = (error as { digest?: unknown }).digest;
+  if (typeof digest !== "string" || !digest.startsWith("NEXT_REDIRECT")) {
+    return null;
+  }
+  for (const part of digest.split(/[;:]/)) {
+    const candidate = part.trim();
+    if (candidate.startsWith("/")) return candidate;
+  }
+  return null;
+}
+
+/** The outcome of a brokered server action that may redirect. */
+export type BrokeredOutcome<T> =
+  | { readonly kind: "result"; readonly value: T }
+  | { readonly kind: "redirect"; readonly target: string };
+
+/**
+ * Runs one server action under the broker. A redirect rejection is turned
+ * into an explicit `redirect` outcome AFTER the delivery has settled
+ * inside the lock — the caller navigates (a manually invoked server
+ * action's redirect does not navigate by itself), keeping the
+ * settle-before-navigation ordering the protocol requires.
+ */
+export async function runInvitationMutationResolved<T>(
+  mutation: () => Promise<T>,
+): Promise<BrokeredOutcome<T>> {
+  try {
+    return { kind: "result", value: await runInvitationMutation(mutation) };
+  } catch (error) {
+    const target = redirectTargetFromError(error);
+    if (target === null) throw error;
+    return { kind: "redirect", target };
+  }
+}
+
+/**
  * Wraps a server action for `useActionState` so its submission runs under
  * the origin-wide mutation Web Lock with a settled delivery. When the
- * action redirects, the framework applies the navigation; the manual call's
- * redirect rejection is swallowed after the settle (the state stays as it
- * was — the navigation leaves the screen anyway).
+ * action redirects, the destination is navigated explicitly after the
+ * settle (see runInvitationMutationResolved) and the state stays as it
+ * was — the navigation leaves the screen anyway.
  */
 export function brokeredServerAction<S>(
   action: (previousState: S, formData: FormData) => Promise<S>,
 ): (previousState: S, formData: FormData) => Promise<S> {
   return async (previousState, formData) => {
-    try {
-      return await runInvitationMutation(() => action(previousState, formData));
-    } catch (error) {
-      if (isNextRedirectError(error)) return previousState;
-      throw error;
+    const outcome = await runInvitationMutationResolved(() =>
+      action(previousState, formData),
+    );
+    if (outcome.kind === "redirect") {
+      if (typeof window !== "undefined") window.location.assign(outcome.target);
+      return previousState;
     }
+    return outcome.value;
   };
-}
-
-function isNextRedirectError(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) return false;
-  const digest = (error as { digest?: unknown }).digest;
-  return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT");
 }
 
 /**

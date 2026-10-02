@@ -8,7 +8,7 @@ import { resetAnalyticsOnLogout, SENSITIVE_BLOCK_CLASS } from "@/src/analytics";
 import { signOutAction } from "@/src/auth/actions";
 import {
   InvitationMutationUnsupportedError,
-  runInvitationMutation,
+  runInvitationMutationResolved,
 } from "@/src/invite/mutation-broker";
 
 /**
@@ -56,22 +56,28 @@ export function AccountMenu({
     // wording; to be confirmed by the owner in the PR.
     resetAnalyticsOnLogout();
     startTransition(() => {
-      const signOut = () =>
-        signOutAction().catch(() => {
+      if (!brokered) {
+        void signOutAction().catch(() => {
           // A redirect control-flow throw settles the navigation; the
           // action's own failure states cover everything else.
         });
-      if (!brokered) {
-        void signOut();
         return;
       }
-      void runInvitationMutation(signOut).catch((error: unknown) => {
-        // Without the origin-wide lock the mutation never ran — never a
-        // half-applied logout. The menu closes; the user can retry.
-        if (!(error instanceof InvitationMutationUnsupportedError)) {
-          throw error;
-        }
-      });
+      void runInvitationMutationResolved(() => signOutAction())
+        .then((outcome) => {
+          // The landing-page redirect is applied only after the cleared-
+          // session delivery has settled inside the lock.
+          if (outcome.kind === "redirect") {
+            window.location.assign(outcome.target);
+          }
+        })
+        .catch((error: unknown) => {
+          // Without the origin-wide lock the mutation never ran — never a
+          // half-applied logout. The menu closes; the user can retry.
+          if (!(error instanceof InvitationMutationUnsupportedError)) {
+            throw error;
+          }
+        });
     });
   }
 
