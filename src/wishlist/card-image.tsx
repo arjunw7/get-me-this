@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * The wishlist card's image field (005b): the only client interactivity on
@@ -13,6 +13,23 @@ import { useState } from "react";
  */
 export function CardImage({ src, title }: { src: string; title: string }) {
   const [failed, setFailed] = useState(false);
+  const imageRef = useRef<HTMLImageElement>(null);
+
+  // The server-rendered <img> has no error listener until hydration. If the
+  // image fails before React attaches onError (an unreachable host fails in
+  // milliseconds; hydration can take longer under load), the error event is
+  // missed and the fallback would never render. After mount, a complete
+  // image with no natural size has already failed — degrade to the
+  // placeholder exactly as if onError had fired.
+  useEffect(() => {
+    if (
+      imageRef.current &&
+      imageRef.current.complete &&
+      imageRef.current.naturalWidth === 0
+    ) {
+      setFailed(true);
+    }
+  }, []);
 
   if (failed) {
     return <PlaceholderArt title={title} />;
@@ -25,6 +42,7 @@ export function CardImage({ src, title }: { src: string; title: string }) {
     // about this app from wishlist image loads.
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={imageRef}
       src={src}
       alt={title}
       loading="lazy"
