@@ -31,25 +31,33 @@ amends this brief.
 1. **Reservations are universal, not a gifting-mode feature.** The product
    specification says a `wishlist_only` group's members "browse, react, copy,
    and reserve gifts privately" and that "reservations are group-scoped and
-   invisible to the wishlist owner in every mode". The permissions matrix
+   invisible to the wishlist owner in every mode". This binding is consistent
+   with the 007c reservations brief's acceptance criterion 2 — a currently
+   joined, participating member may reserve in all three modes — cited here
+   as the 007c contract this slice consumes unchanged. The permissions matrix
    marks reserving as "Mode-dependent" for a joined member; this brief
    resolves that dependency: in `wishlist_only` mode every currently joined,
    participating member is an eligible giver, so reserving is available to
    all of them, exactly as the Phase 6 reservation slice shipped it. Mode
    changes eligibility, never the existence or recipient-privacy of
    reservations. (Owner-review flag: confirm.)
-2. **The mode remains organizer-changeable after creation, with constraints
-   owned elsewhere.** `create_group_v1` takes the mode at creation and
-   `update_group_settings` (006a) already accepts a new mode; no merged brief
-   or product document forbids changing it. No new mode-change UI ships in
-   008a (the approved room has no change-mode control — 006d's honest
-   omissions), but the database behavior must be defined for a group switched
-   into `wishlist_only`: gifting surfaces disappear by derivation, no gifting
-   state is destroyed, and no mode transition involving existing draw state
-   is constrained here — that belongs to the Phase 7 secret-draw brief
-   (008c) once `current_draw_version` can become non-null. (Owner-review
-   flag: the product spec never states whether organizers may change modes
-   after creation.)
+2. **The mode remains organizer-changeable after creation, with the
+   draw-state constraint owned by 008c.** `create_group_v1` takes the mode
+   at creation and `update_group_settings` (006a) already accepts a new
+   mode; no merged brief or product document forbids changing it. No new
+   mode-change UI ships in 008a (the approved room has no change-mode
+   control — 006d's honest omissions), but the database behavior must be
+   defined for a group switched into `wishlist_only`: gifting surfaces
+   disappear by derivation, no gifting state is destroyed. Mode transitions
+   involving existing draw state are governed by the 008c secret-draw
+   contract, which 008c owns and this brief cites but does not enforce: a
+   mode change away from `secret_draw` leaves committed assignments stored
+   but client-unreachable; returning the mode to `secret_draw` does not
+   resurrect them; only a confirmed redraw (a new draw version) makes
+   assignments readable again; archived groups read zero rows; and mode
+   changes and archival never mutate or delete assignment rows (durable
+   history). (Owner-review flag: the product spec never states whether
+   organizers may change modes after creation.)
 3. **The wishlist_only room and browsing surfaces change nothing.** The room
    remains the 006d room with the approved **Share wishlists only** mode
    label, and browsing remains the 006e member-wishlist read path. 008a adds
@@ -137,6 +145,9 @@ next request without destroying the stored rows.
   a `wishlist_only` group with the same generic failure as an outsider, and
   no `wishlist_only` group ever gains `current_draw_version` through any
   mode transition constrained here.
+- Mode transitions involving existing draw state are governed by the 008c
+  contract named in Resolved decision 2: 008c owns that constraint; this
+  brief cites it and enforces none of it.
 
 ## Exact gifting-surface projection
 
@@ -258,10 +269,11 @@ with exact evidence.
    run against a `wishlist_only` fixture.
 6. **Universal reservations, mode-correct eligibility.** In the
    `wishlist_only` fixture, joined participating members can reserve
-   others' items through the Phase 6 surfaces exactly once atomically; the
-   recipient never sees reservation state or reserving identity for their
-   own item; a user cannot reserve their own item; non-participating or
-   former members cannot reserve.
+   others' items through the Phase 6 surfaces exactly once atomically,
+   matching 007c's acceptance criterion 2 (joined + participating, all
+   three modes); the recipient never sees reservation state or reserving
+   identity for their own item; a user cannot reserve their own item;
+   non-participating or former members cannot reserve.
 7. **Gifting surfaces fail closed.** Every checklist or assignment surface
    merged on the implementation head — 008b's functions once merged, and
    any route that exists — returns the generic denial/not-found for the

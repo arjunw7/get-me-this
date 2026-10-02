@@ -81,8 +81,14 @@ sources do not state it explicitly.
    product spec is silent on post-creation changes; no mode-change UI ships
    in this slice. Switching a group out of `gift_everyone` hides checklists
    by derivation and destroys nothing; switching back reveals prior stored
-   progress. Constraints involving draw state belong to the secret-draw
-   brief (008c). (Owner-review flag: confirm.)
+   progress. Mode transitions involving existing draw state are constrained
+   by the 008c secret-draw contract, which 008c owns and this brief cites
+   but does not enforce: a mode change away from `secret_draw` leaves
+   committed assignments stored but client-unreachable; returning the mode
+   to `secret_draw` does not resurrect them; only a confirmed redraw (a new
+   draw version) makes assignments readable again; archived groups read
+   zero rows; and mode changes and archival never mutate or delete
+   assignment rows (durable history). (Owner-review flag: confirm.)
 8. **Budget is presentation, never enforcement.** The configured budget
    applies per recipient as guidance text only; budgets never hide or block
    expensive items (trust rules).
@@ -163,6 +169,9 @@ denial class receives the same generic result with zero analytics emission.
   008d merges. This brief fixes the dispatch contract 008d must consume and
   may not be broadened by it silently. No draw state is read or written
   here; `current_draw_version` stays untouched.
+- Mode transitions involving existing draw state are governed by the 008c
+  contract named in Resolved decision 7: 008c owns that constraint; this
+  brief cites it and enforces none of it.
 
 ## Scope and schema
 
@@ -251,19 +260,21 @@ returns table (result text, version bigint)
 - One row per other current participant. Rows with no stored entry surface
   the derived state: `entry_status = 'todo'`, `entry_version` null,
   `entry_completed_at` null. Rows with a stored entry surface its exact
-  status, version, and `completed_at`. `recipient_is_organizer` is true
-  only where `recipient_user_id = groups.organizer_id`.
+  status, version, and `completed_at`. On every populated row,
+  `recipient_is_organizer` is true only where
+  `recipient_user_id = groups.organizer_id`.
 - A missing display name is replaced inside the projection by the
   established generic **Member** fallback (006a/006d/006e); the application
   never queries profiles directly.
 - **Authorized empty sentinel.** When authorization succeeds and the caller
-  is the only current participant, return exactly one sentinel row:
-  `recipient_user_id` null, `recipient_display_name` populated with the
-  caller's own fallback display name, `recipient_is_organizer` true,
-  `entry_status` null, `entry_version` null, `entry_completed_at` null, and
-  the count/budget fields populated. Every denial returns zero rows.
-  Authorized-empty and denied are distinguishable only through
-  authorization, never by shape ambiguity.
+  is the only current participant, return exactly one sentinel row, matching
+  the 006e sentinel pattern: `recipient_user_id` null and every other column
+  null except `recipient_display_name`, which is populated with the caller's
+  own fallback display name — so `recipient_is_organizer`, `entry_status`,
+  `entry_version`, `entry_completed_at`, `participating_member_count`,
+  `budget_amount_minor`, and `budget_currency` are all null. Every denial
+  returns zero rows. Authorized-empty and denied are distinguishable only
+  through authorization, never by shape ambiguity.
 - Ordering is deterministic and presentation-only: caller's sentinel first
   if present; then recipients by case-folded display label ascending, then
   `recipient_user_id` ascending.
@@ -351,9 +362,10 @@ with exact evidence.
 3. **Snapshot truth.** A participating giver sees one row per other current
    participant with derived `todo` state for absent entries and exact stored
    state otherwise; the sentinel row appears exactly when the caller is the
-   only participant; denials return zero rows; ordering is deterministic;
-   the generic **Member** fallback appears for missing names; budget fields
-   match the stored group budget exactly.
+   only participant, with every non-key column null; denials return zero
+   rows; ordering is deterministic; the generic **Member** fallback appears
+   for missing names; budget fields match the stored group budget exactly on
+   every populated row.
 4. **Status lifecycle with CAS atomicity.** First marking inserts one row at
    version 1; completing sets `completed_at` and increments the version;
    reopening clears `completed_at` and increments the version; a stale
@@ -390,9 +402,13 @@ with exact evidence.
    counted change; (b) concurrent complete/complete and complete/reopen
    with the same expected version serialize so exactly one wins and the
    loser gets `conflict` with the current version; (c) a completion held
-   open against an uncommitted recipient-leave transaction ends wholly
-   pre-commit or wholly post-commit — never a completed entry against an
-   absent recipient after the leave commits; (d) a status change held open
+   open against an uncommitted recipient-leave transaction serializes with
+   that leave per the fixed lock order — the completion commits wholly
+   pre-leave or wholly post-leave and never observes the leave partially
+   applied — and the post-commit snapshot never surfaces a completed row
+   for a non-current participant (the durable completed row legitimately
+   coexists with the later-committed leave per Resolved decision 6; it is
+   the participation predicate that hides it); (d) a status change held open
    against an uncommitted mode change serializes per the fixed lock order
    with no partial state; (e) the harness fails CI on any assertion failure
    or timeout and cleans up its fixtures. No new broad write endpoint is
@@ -437,9 +453,11 @@ with exact evidence.
   Railway deployment.
 - Migration ledger entry, complete table/function/grant/RLS inventory,
   forward-fix notes, and the deliberate `supabase/tests/smoke.sql`
-  amendment recording the public-table inventory change from nine to ten
-  reviewed application tables — recorded as a scoped amendment, never a
-  silent relaxation.
+  amendment for the public-table inventory delta caused by
+  `gift_checklist_entries` — the exact before/after counts are
+  merge-order-dependent (sibling planning branches such as 007a and 007c
+  also add tables), so recount from the merged head and record the delta
+  as a scoped amendment, never a silent relaxation.
 - The `gift_checklist_progressed` tracking-plan amendment and analytics
   sink proof for all positive, conflict, sentinel, and denial states.
 - Mobile and desktop before/after images for the populated, authorized-empty,
