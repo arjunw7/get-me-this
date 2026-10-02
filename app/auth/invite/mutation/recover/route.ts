@@ -86,6 +86,22 @@ export async function POST(): Promise<NextResponse> {
   }
 
   // Abandoned or already idle: the coordinator keeps its epoch, and a
-  // fresh-credential restart can proceed honestly.
+  // fresh-credential restart can proceed honestly. `idle` additionally
+  // re-syncs the browser's epoch: nothing is pending on the lease, so the
+  // caller's coordinator may safely reseal with the server's current
+  // epoch — healing a lost acknowledgement reseal instead of leaving the
+  // client permanently one epoch behind.
+  if (result.outcome === "idle" && result.sessionEpoch !== null) {
+    const resealed = await sealCoordinatorCookie(
+      coordinator.secret,
+      result.sessionEpoch,
+      Date.now(),
+      secret,
+    );
+    const store = await cookies();
+    store.set(COORDINATOR_COOKIE_NAME, resealed, {
+      ...invitationCookieOptions(86400),
+    });
+  }
   return json({ ok: true, status: result.outcome }, 200);
 }

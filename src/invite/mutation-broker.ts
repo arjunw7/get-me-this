@@ -133,7 +133,9 @@ export function brokeredServerAction<S>(
  * Settles the mutation's cookie delivery: acknowledge presents the sealed
  * one-use nonce; when the acknowledgement cannot prove the delivery (no
  * nonce cookie, expired envelope, user mismatch, or a lost response), the
- * recovery route resolves the server lease honestly instead.
+ * recovery route resolves the server lease honestly instead. Both fetches
+ * are bounded — a settlement that never returns would hold the origin
+ * lock forever and silently wedge every later mutation behind it.
  */
 async function settleDelivery(): Promise<void> {
   let acknowledged = false;
@@ -141,6 +143,7 @@ async function settleDelivery(): Promise<void> {
     const response = await fetch("/auth/invite/mutation/acknowledge", {
       method: "POST",
       credentials: "same-origin",
+      signal: AbortSignal.timeout(10_000),
     });
     acknowledged = response.ok;
   } catch {
@@ -151,6 +154,7 @@ async function settleDelivery(): Promise<void> {
     await fetch("/auth/invite/mutation/recover", {
       method: "POST",
       credentials: "same-origin",
+      signal: AbortSignal.timeout(10_000),
     });
   } catch {
     // Recovery itself is unreachable: the server lease's bounded

@@ -621,11 +621,16 @@ test.describe("invitation preview and acceptance", () => {
         // The blocked attempt's own settlement acknowledged the stranded
         // delivery (the nonce proved it), so the lease is idle again and
         // the retry completes the logout and its own delivery
-        // acknowledgement under the same lock.
-        await second.getByRole("button", { name: /account/i }).click();
-        await second.getByRole("button", { name: "Log out" }).click();
-        await second.getByRole("button", { name: "Log out" }).click();
-        await second.waitForURL(/\/\?loggedOut=1$/, { timeout: 20_000 });
+        // acknowledgement under the same lock. If a lost acknowledgement
+        // reseal left the browser one epoch behind, the retry lands
+        // blocked once more and its own recovery re-syncs the epoch —
+        // re-clicking then completes the logout honestly.
+        await expect(async () => {
+          await second.getByRole("button", { name: /account/i }).click();
+          await second.getByRole("button", { name: "Log out" }).click();
+          await second.getByRole("button", { name: "Log out" }).click();
+          await second.waitForURL(/\/\?loggedOut=1$/, { timeout: 15_000 });
+        }).toPass({ timeout: 120_000 });
       } finally {
         await context.close();
       }

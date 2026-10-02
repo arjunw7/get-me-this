@@ -29,6 +29,13 @@ export default defineConfig({
     },
   },
   fullyParallel: true,
+  // CI's stack job shares two cores among the Supabase stack, the
+  // production server, and every browser instance; parallel workers
+  // starve a renderer mid-journey (a wedged page answers nothing — no
+  // navigation, no DOM access — and fails as a timeout). One worker at a
+  // time keeps every journey's cookie jar, Web Lock, and RSC streams
+  // intact; local runs keep the parallel default for speed.
+  workers: process.env.CI ? 1 : undefined,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: "http://127.0.0.1:3100",
