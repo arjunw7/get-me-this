@@ -165,12 +165,13 @@ as_user() {
   send "$1" "set request.jwt.claims = '{\"sub\":\"${2}\",\"role\":\"authenticated\"}';"
 }
 
-# check FD NAME SQL-BOOLEAN: assert a boolean expression inside the session.
-# A FAIL marker or a dead session (ON_ERROR_STOP=1) is fatal immediately, with
-# the last output line for diagnosis.
+# check SESSION NAME SQL-BOOLEAN: assert a boolean expression inside the
+# session. The session number maps to its output fd (3->4, 5->6). A FAIL
+# marker or a dead session (ON_ERROR_STOP=1) is fatal immediately, with the
+# last output line for diagnosis.
 check() {
+  local fd=$(( $1 + 1 )) name="$2" line last=""
   send "$1" "select 'CHK-${2}=' || case when (${3}) then 'pass' else 'FAIL' end;"
-  local fd="$1" name="$2" line last=""
   while IFS= read -r -t 25 -u "$fd" line; do
     case "$line" in
       "CHK-${name}=pass") echo "  ok: ${name}"; return 0 ;;
