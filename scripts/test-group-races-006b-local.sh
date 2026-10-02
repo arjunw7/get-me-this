@@ -290,6 +290,7 @@ exception
 end \$\$;"
 sleep 1
 send 3 "commit;"
+send 5 "select marker from race_markers4;"
 await 6 "STALE"
 
 check 3 "s4-one-row" "1 = (select count(*) from public.group_invitations where group_id = '${G4}' and shareable_version is not null)"
@@ -320,6 +321,7 @@ exception
 end \$\$;"
 sleep 1
 send 3 "commit;"
+send 5 "select marker from race_markers5;"
 await 6 "STALE"
 
 check 3 "s5-version" "2 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G4}')"
