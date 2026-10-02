@@ -86,9 +86,10 @@ export function deleteFixtureGroupsSql(
   };
   // Never an unfiltered subselect: with no group ids the invitation clause
   // must match nothing, not every invitation row.
-  const groupInvitationUses = groupIds.length > 0
-    ? `invitation_id in (select id from public.group_invitations where group_id in (${list(groupIds)}))`
-    : null;
+  const groupInvitationUses =
+    groupIds.length > 0
+      ? `invitation_id in (select id from public.group_invitations where group_id in (${list(groupIds)}))`
+      : null;
   const sql = [
     `delete from public.audit_events${where(matches("group_id", groupIds), matches("actor_id", userIds))};`,
     `delete from public.group_invitation_uses${where(groupInvitationUses, matches("user_id", userIds))};`,
