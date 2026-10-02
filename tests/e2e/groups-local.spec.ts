@@ -428,8 +428,6 @@ test("a stale tab refreshes the projection and never retries issuance automatica
     // token is returned and no automatic retry happens.
     await page.getByRole("button", { name: "Create invite link" }).click();
 
-    await page.getByRole("button", { name: "Create invite link" }).click();
-
     await expect(page.getByTestId("active-link-lost")).toBeVisible();
     await expect(page.getByTestId("stale-version-note")).toBeVisible();
     await expect(page.getByTestId("invite-link-card")).toHaveCount(0);
