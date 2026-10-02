@@ -47,11 +47,22 @@ function unavailable(origin: string): NextResponse {
   return response;
 }
 
+/**
+ * The request's own origin. Never `request.nextUrl`: Next's reconstructed
+ * URL normalizes the host (e.g. 127.0.0.1 becomes localhost), and a
+ * cross-host redirect would strand the cookies this response just set on
+ * the browser's actual host. `request.url` carries the host the browser
+ * really used.
+ */
+function requestOrigin(request: NextRequest): string {
+  return new URL(request.url).origin;
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ opaqueToken: string }> },
 ) {
-  const { origin } = request.nextUrl;
+  const origin = requestOrigin(request);
 
   const secret = getInvitationCookieSecret();
   if (!secret) return unavailable(origin);

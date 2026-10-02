@@ -31,11 +31,21 @@ function recovery(origin: string, flowId: string): NextResponse {
   return response;
 }
 
+/**
+ * The request's own origin. Never `request.nextUrl`: Next's reconstructed
+ * URL normalizes the host (e.g. 127.0.0.1 becomes localhost), and a
+ * cross-host redirect would strand the cookies the browser just received
+ * on its actual host. `request.url` carries the host the browser used.
+ */
+function requestOrigin(request: NextRequest): string {
+  return new URL(request.url).origin;
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ flowId: string }> },
 ) {
-  const { origin } = request.nextUrl;
+  const origin = requestOrigin(request);
   const { flowId } = await context.params;
 
   // The recovery destination is always the clean link screen; without a
