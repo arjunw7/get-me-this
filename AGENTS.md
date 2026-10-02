@@ -83,8 +83,8 @@ Every implementation pull request must include:
 - Avoid combining schema redesign, visual redesign, and unrelated refactoring.
 - Generated pull requests are proposals. They require independent review before merge.
 - Do not merge directly to `main` without green CI on the exact pull-request head and explicit human approval.
-- Temporary exception: this private repository cannot currently configure a GitHub-required status check (branch protection and rulesets return 403), so GitHub cannot enforce the check at merge time; green CI is verified as a review input and the human approval is the merge gate. Replace this exception with the GitHub-required check as soon as it becomes available.
-- Docs-only pull requests (everything under `docs/**` or `*.md`) start no CI runs by design through `paths-ignore`, so their merge evidence is the paths filter itself plus review.
+- Required status checks are enforced through branch protection on `main`: `Install and verify`, `Database suites and races`, `Stack e2e and visual`, `Populated-state group upgrade`, and `No-provider Server Action gates` must pass (or register as Skipped through the CI triage job) before merge. Human approval remains the merge gate.
+- Docs-only pull requests (everything under `docs/**` or `*.md`) are triaged by the fast always-runs `triage` job in the CI workflow, which skips the five real jobs; the required checks register as Skipped, which GitHub counts as satisfied, so docs-only pull requests stay mergeable.
 
 ## Safety
 
