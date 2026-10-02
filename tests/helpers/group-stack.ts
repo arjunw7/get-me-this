@@ -66,7 +66,10 @@ export function withIdentity(userId: string, sql: string): string {
 
 /**
  * The created group references fixture users through restrictive foreign
- * keys, so teardown runs as superuser SQL in restrict-FK order.
+ * keys, so teardown runs as superuser SQL in restrict-FK order. Each list
+ * may be empty independently: an empty list drops its `in` clause instead
+ * of emitting the invalid `in ()` (the pending-state spec deletes by group
+ * id alone).
  */
 export function deleteFixtureGroupsSql(
   groupIds: string[],
@@ -75,13 +78,24 @@ export function deleteFixtureGroupsSql(
   if (groupIds.length === 0 && userIds.length === 0) return;
   const list = (values: string[]) =>
     values.map((v) => `'${v}'::uuid`).join(",");
+  const matches = (column: string, values: string[]) =>
+    values.length > 0 ? `${column} in (${list(values)})` : null;
+  const where = (...clauses: Array<string | null>): string => {
+    const parts = clauses.filter((clause) => clause !== null);
+    return parts.length > 0 ? ` where ${parts.join(" or ")}` : "";
+  };
+  // Never an unfiltered subselect: with no group ids the invitation clause
+  // must match nothing, not every invitation row.
+  const groupInvitationUses = groupIds.length > 0
+    ? `invitation_id in (select id from public.group_invitations where group_id in (${list(groupIds)}))`
+    : null;
   const sql = [
-    `delete from public.audit_events where group_id in (${list(groupIds)}) or actor_id in (${list(userIds)});`,
-    `delete from public.group_invitation_uses where invitation_id in (select id from public.group_invitations where group_id in (${list(groupIds)})) or user_id in (${list(userIds)});`,
-    `delete from public.group_invitations where group_id in (${list(groupIds)});`,
-    `delete from public.group_creation_receipts where group_id in (${list(groupIds)}) or actor_id in (${list(userIds)});`,
-    `delete from public.group_members where group_id in (${list(groupIds)}) or user_id in (${list(userIds)});`,
-    `delete from public."groups" where id in (${list(groupIds)}) or organizer_id in (${list(userIds)});`,
+    `delete from public.audit_events${where(matches("group_id", groupIds), matches("actor_id", userIds))};`,
+    `delete from public.group_invitation_uses${where(groupInvitationUses, matches("user_id", userIds))};`,
+    `delete from public.group_invitations${where(matches("group_id", groupIds))};`,
+    `delete from public.group_creation_receipts${where(matches("group_id", groupIds), matches("actor_id", userIds))};`,
+    `delete from public.group_members${where(matches("group_id", groupIds), matches("user_id", userIds))};`,
+    `delete from public."groups"${where(matches("id", groupIds), matches("organizer_id", userIds))};`,
   ].join("\n");
   execFileSync(
     "docker",
