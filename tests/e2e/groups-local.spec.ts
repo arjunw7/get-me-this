@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { expect, type Page, test } from "@playwright/test";
 
 import {
@@ -24,6 +28,52 @@ test.skip(
 function futureIsoDate(): string {
   const date = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * The group tables are revoked from service_role by design (006a), so the
+ * fixture group teardown cannot go through the admin client. Run it as
+ * superuser SQL inside the local stack's database container, located
+ * exactly the way the race harnesses locate it (label + exact name).
+ */
+function deleteFixtureGroupsSql(groupIds: string[], userIds: string[]): void {
+  if (groupIds.length === 0 && userIds.length === 0) return;
+  const config = readFileSync(
+    path.join(process.cwd(), "supabase", "config.toml"),
+    "utf8",
+  );
+  const projectId = config.match(/^\s*project_id\s*=\s*"([^"]+)"/m)?.[1] ?? "";
+  if (!projectId) {
+    throw new Error("could not read project_id from supabase/config.toml");
+  }
+  const container = `supabase_db_${projectId}`;
+  const list = (values: string[]) =>
+    values.map((v) => `'${v}'::uuid`).join(",");
+  const sql = [
+    `delete from public.audit_events where group_id in (${list(groupIds)}) or actor_id in (${list(userIds)});`,
+    `delete from public.group_invitation_uses where invitation_id in (select id from public.group_invitations where group_id in (${list(groupIds)})) or user_id in (${list(userIds)});`,
+    `delete from public.group_invitations where group_id in (${list(groupIds)});`,
+    `delete from public.group_creation_receipts where group_id in (${list(groupIds)}) or actor_id in (${list(userIds)});`,
+    `delete from public.group_members where group_id in (${list(groupIds)}) or user_id in (${list(userIds)});`,
+    `delete from public."groups" where id in (${list(groupIds)}) or organizer_id in (${list(userIds)});`,
+  ].join("\n");
+  execFileSync(
+    "docker",
+    [
+      "exec",
+      "-i",
+      container,
+      "psql",
+      "--no-psqlrc",
+      "--user",
+      "postgres",
+      "--dbname",
+      "postgres",
+      "--set",
+      "ON_ERROR_STOP=1",
+    ],
+    { input: sql, stdio: ["pipe", "ignore", "pipe"] },
+  );
 }
 
 async function fillAndSubmitCreateForm(
@@ -81,44 +131,15 @@ test("a member creates a private group; the invite link is shown exactly once; t
     await fillAndSubmitCreateForm(page, groupName);
 
     // The created group references the fixture users through restrictive
-    // foreign keys; delete it (children first) before the registered user
-    // teardown runs.
-    scope.register("fixture groups", async () => {
-      const groupIds =
-        (
-          await admin
-            .from("groups")
-            .select("id")
-            .eq("organizer_id", organizerId)
-        ).data?.map((row) => row.id) ?? [];
-      for (const gid of groupIds) {
-        await admin.from("audit_events").delete().eq("group_id", gid);
-        const invitationIds =
-          (
-            await admin
-              .from("group_invitations")
-              .select("id")
-              .eq("group_id", gid)
-          ).data?.map((row) => row.id) ?? [];
-        if (invitationIds.length > 0) {
-          await admin
-            .from("group_invitation_uses")
-            .delete()
-            .in("invitation_id", invitationIds);
-        }
-        await admin.from("group_invitations").delete().eq("group_id", gid);
-        await admin
-          .from("group_creation_receipts")
-          .delete()
-          .eq("group_id", gid);
-        await admin.from("group_members").delete().eq("group_id", gid);
-        await admin.from("groups").delete().eq("id", gid);
-      }
-    });
-
+    // foreign keys, and the group tables have no service-role grant by
+    // design; the teardown runs superuser SQL inside the local container.
     // The created URL carries the group id created by this organizer.
     const createdPath = new URL(page.url()).pathname;
     expect(createdPath).toMatch(/^\/groups\/[0-9a-f-]{36}\/created$/);
+    const fixtureGroupId = createdPath.split("/")[2];
+    scope.register("fixture groups", async () => {
+      deleteFixtureGroupsSql([fixtureGroupId], [organizerId]);
+    });
 
     // First issuance: the token link is displayed exactly once.
     await page.getByRole("button", { name: "Create invite link" }).click();
