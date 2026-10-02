@@ -384,7 +384,7 @@ expect_eq "$(scalar "select count(*)::text from information_schema.table_constra
   "the nonnegative group-version check exists"
 expect_eq "$(scalar "select count(*)::text from pg_indexes where indexname = 'group_invitations_one_active_generic';")" "1" \
   "the one-active-generic partial unique index exists"
-expect_eq "$(scalar "select count(*)::text from public.group_invitations where shareable_version is not null and status = 'active' group by group_id having count(*) > 1;")" "0" \
+expect_eq "$(scalar "select count(*)::text from (select group_id from public.group_invitations where shareable_version is not null and status = 'active' group by group_id having count(*) > 1) violating_groups;")" "0" \
   "at most one stored-active generic row per group"
 
 # --- proof 2: the rollback (forced-failure) gate ------------------------------------
