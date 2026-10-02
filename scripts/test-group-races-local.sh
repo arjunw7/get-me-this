@@ -248,6 +248,13 @@ revoke_generic() {
   printf '%s' "$result"
 }
 
+# issue_generic GROUP: SQL selecting ONLY the durable version from the generic
+# compare-and-swap issuance at the group's current version. The token column
+# is never selected, so token material never reaches session output.
+issue_generic() {
+  printf "select invitation_version from public.issue_group_invitation('%s'::uuid, (select shareable_invitation_version from %s where id = '%s'::uuid));\n" "$1" "$GROUPS_SQL" "$1"
+}
+
 # join_token GROUP TOKEN UID: one-shot autocommit acceptance for setup.
 join_token() {
   local result
@@ -573,5 +580,109 @@ check 3 "s9-organizer" "'${UID_B}' = (select organizer_id from ${GROUPS_SQL} whe
 check 3 "s9-user-exists" "exists (select 1 from auth.users where id = '${UID_B}')"
 check 3 "s9-no-dangling" "0 = (select count(*) from ${GROUPS_SQL} g left join auth.users u on u.id = g.organizer_id where g.id in ('${G1}','${G2}','${G3}','${G4}','${G5}','${G6}','${G7}','${G8}','${G9}','${G10}') and u.id is null)"
 check 3 "s9-audit-intact" "0 = (select count(*) from public.audit_events e left join auth.users u on u.id = e.actor_id where e.group_id in ('${G1}','${G2}','${G3}','${G4}','${G5}','${G6}','${G7}','${G8}','${G9}','${G10}') and u.id is null)"
+
+# --- scenario 10: generic issue versus organizer transfer ----------------------------
+#
+# Brief 006b required interleaving: issuance and the organizer transfer share
+# the group-first lock order. While an issuance is in flight a transfer waits;
+# once the transfer commits, a waiting issuance re-checks authority under the
+# lock and is denied for the former organizer.
+
+echo "scenario 10: generic issue versus organizer transfer (both commit orders)"
+
+# Order 1: the issuance commits while the transfer waits on the group lock.
+G11="$(new_group)"
+T11="$(issue_token "$G11" "$UID_B")"
+join_token "$G11" "$T11" "$UID_B"
+
+send 3 "begin;"
+as_user 3 "$UID_A"
+send 3 "$(issue_generic "$G11")"
+await 4 "1"
+
+as_user 5 "$UID_A"
+send 5 "select result from public.transfer_group_organizer('${G11}'::uuid, '${UID_B}'::uuid);"
+sleep 1
+send 3 "commit;"
+await 6 "transferred"
+
+check 3 "s10-organizer" "'${UID_B}' = (select organizer_id from ${GROUPS_SQL} where id = '${G11}')"
+check 3 "s10-issued" "1 = (select count(*) from public.audit_events where group_id = '${G11}' and event_type = 'invitation_issued')"
+check 3 "s10-version" "1 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G11}')"
+
+# Order 2: the transfer commits while the old organizer's issuance waits on
+# the group lock; authority is re-checked under the lock and denied.
+G12="$(new_group)"
+T12="$(issue_token "$G12" "$UID_C")"
+join_token "$G12" "$T12" "$UID_C"
+
+send 3 "begin;"
+as_user 3 "$UID_A"
+send 3 "select result from public.transfer_group_organizer('${G12}'::uuid, '${UID_C}'::uuid);"
+await 4 "transferred"
+
+as_user 5 "$UID_A"
+send 5 "create temp table race_markers10(marker text);"
+send 5 "do \$\$ declare r record; begin
+  select * into r from public.issue_group_invitation('${G12}'::uuid, (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G12}'::uuid));
+  insert into race_markers10 values (case when r.invitation_version is null then 'ISSUE-DENIED' else 'ISSUE-OK' end);
+end \$\$;"
+sleep 1
+send 3 "commit;"
+send 5 "select marker from race_markers10;"
+await 6 "ISSUE-DENIED" 20
+
+check 3 "s10b-organizer" "'${UID_C}' = (select organizer_id from ${GROUPS_SQL} where id = '${G12}')"
+check 3 "s10b-no-issue" "0 = (select count(*) from public.audit_events where group_id = '${G12}' and event_type = 'invitation_issued')"
+check 3 "s10b-no-row" "0 = (select count(*) from public.group_invitations where group_id = '${G12}' and target_user_id is null)"
+check 3 "s10b-version" "0 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G12}')"
+
+# --- scenario 11: generic issue versus organizer removal -----------------------------
+
+echo "scenario 11: generic issue versus organizer removal (both commit orders)"
+
+# Order 1: the issuance commits while the removal waits on the group lock;
+# both then commit (a removal never changes the organizer or the version).
+G13="$(new_group)"
+T13="$(issue_token "$G13" "$UID_B")"
+join_token "$G13" "$T13" "$UID_B"
+
+send 3 "begin;"
+as_user 3 "$UID_A"
+send 3 "$(issue_generic "$G13")"
+await 4 "1"
+
+as_user 5 "$UID_A"
+send 5 "select result from public.remove_group_member('${G13}'::uuid, '${UID_B}'::uuid);"
+sleep 1
+send 3 "commit;"
+await 6 "removed"
+
+check 3 "s11-removed" "exists (select 1 from public.group_members where group_id = '${G13}' and user_id = '${UID_B}' and status = 'removed')"
+check 3 "s11-generic-row" "1 = (select count(*) from public.group_invitations where group_id = '${G13}' and target_user_id is null and shareable_version = 1 and status = 'active')"
+check 3 "s11-version" "1 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G13}')"
+check 3 "s11-audits" "1 = (select count(*) from public.audit_events where group_id = '${G13}' and event_type = 'invitation_issued') and 1 = (select count(*) from public.audit_events where group_id = '${G13}' and event_type = 'member_removed')"
+
+# Order 2: the removal commits while the issuance waits; the issuance then
+# proceeds (the organizer is unchanged by a removal).
+G14="$(new_group)"
+T14="$(issue_token "$G14" "$UID_E")"
+join_token "$G14" "$T14" "$UID_E"
+
+send 3 "begin;"
+as_user 3 "$UID_A"
+send 3 "select result from public.remove_group_member('${G14}'::uuid, '${UID_E}'::uuid);"
+await 4 "removed"
+
+as_user 5 "$UID_A"
+send 5 "$(issue_generic "$G14")"
+sleep 1
+send 3 "commit;"
+await 6 "1"
+
+check 3 "s11b-removed" "exists (select 1 from public.group_members where group_id = '${G14}' and user_id = '${UID_E}' and status = 'removed')"
+check 3 "s11b-generic-row" "1 = (select count(*) from public.group_invitations where group_id = '${G14}' and target_user_id is null and shareable_version = 1 and status = 'active')"
+check 3 "s11b-version" "1 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G14}')"
+check 3 "s11b-audits" "1 = (select count(*) from public.audit_events where group_id = '${G14}' and event_type = 'invitation_issued') and 1 = (select count(*) from public.audit_events where group_id = '${G14}' and event_type = 'member_removed')"
 
 echo "group-races: all scenarios passed"
