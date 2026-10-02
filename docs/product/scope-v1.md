@@ -82,3 +82,5 @@
 
 Any addition to P0 requires removing comparable scope or explicitly extending the launch plan.
 
+
+<!-- CI triage live test: this line exercises the docs-only skip path. -->
