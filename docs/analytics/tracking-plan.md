@@ -38,8 +38,17 @@ Secondary quality signals are extraction reliability and gifting-mode completion
 | `gifting_mode_selected` | server | `gifting_mode`, `changed_from_existing` |
 | `name_draw_completed` | server | `participant_count_bucket`, `is_redraw` |
 | `group_activated` | server | `gifting_mode`, `member_count_bucket`, `time_to_activation_bucket` |
+| `gift_checklist_progressed` | server | `action`, `checklist_total_bucket` |
 
 Allowed enum values are defined in the typed analytics catalog during Phase 1. Do not add arbitrary strings from user content.
+
+`gift_checklist_progressed` (added by 008b): server-emitted only, after a
+successful authorization, exactly once per committed checklist status change.
+Properties: `action` (`completed` | `reopened`) and `checklist_total_bucket`
+(`one_to_five` | `six_to_ten` | `eleven_plus`). Every denial class, the
+authorized-empty sentinel, and a conflict result emit nothing. Recipient
+identities, giver-recipient mappings, entry counts below the bucket
+granularity, group names, and item data are prohibited.
 
 ## Identity
 

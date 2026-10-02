@@ -427,7 +427,7 @@ describe("client analytics lane", () => {
   });
 
   describe("business events stay server-authoritative", () => {
-    it("exposes no capture API for the ten catalog events", async () => {
+    it("exposes no capture API for the eleven catalog events", async () => {
       const client = await importClient();
       const surface = client as unknown as Record<string, unknown>;
       const catalogEvents = [
@@ -441,6 +441,7 @@ describe("client analytics lane", () => {
         "gifting_mode_selected",
         "name_draw_completed",
         "group_activated",
+        "gift_checklist_progressed",
       ];
       for (const event of catalogEvents) {
         expect(typeof surface[event], event).not.toBe("function");

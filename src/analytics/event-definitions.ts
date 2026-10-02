@@ -323,6 +323,16 @@ export const EVENT_DEFINITIONS = {
       is_redraw: booleanProperty,
     },
   },
+  gift_checklist_progressed: {
+    properties: {
+      action: stringEnum(["completed", "reopened"]),
+      checklist_total_bucket: stringEnum([
+        "one_to_five",
+        "six_to_ten",
+        "eleven_plus",
+      ]),
+    },
+  },
   group_activated: {
     properties: {
       gifting_mode: stringEnum([
