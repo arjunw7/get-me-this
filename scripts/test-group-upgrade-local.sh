@@ -255,7 +255,8 @@ insert into public.group_invitations (
 -- G3: two stored-active generic rows created at the SAME instant (the id
 -- tie-break decides) and one older expired-active row. The pinned ranking
 -- keeps the highest id as the winner; the other two are revoked with one
--- system audit row each. Group version = 2 + 1 normalization epoch = 3.
+-- system audit row each. Legacy versions 1..3 are assigned; the group
+-- version = max 3 + 1 normalization epoch = 4.
 insert into public.group_invitations (
   id, group_id, creator_id, status, token_hash, expires_at, max_uses, use_count,
   target_user_id, target_membership_generation, created_at, updated_at
@@ -334,7 +335,7 @@ expect_eq "$(scalar "select shareable_invitation_version::text from public.\"gro
 expect_eq "$(scalar "select shareable_invitation_version::text from public.\"groups\" where id = '${G2}';")" "2" \
   "generic-history group initialized to the max assigned version"
 
-expect_eq "$(scalar "select shareable_invitation_version::text from public.\"groups\" where id = '${G3}';")" "3" \
+expect_eq "$(scalar "select shareable_invitation_version::text from public.\"groups\" where id = '${G3}';")" "4" \
   "multiple-active group gets max version plus one normalization epoch"
 
 expect_eq "$(scalar "select shareable_invitation_version::text from public.\"groups\" where id = '${G4}';")" "1" \
