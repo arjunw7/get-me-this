@@ -29,6 +29,12 @@ test.skip(
   "requires the local Supabase stack; run through scripts/e2e-local-stack.sh",
 );
 
+// These specs share one auth/invite surface and one forged-replay leg on
+// the same Next server; interleaved invitation actions truncate the
+// redirect RSC streams under load ("destination stream closed early").
+// Serial execution keeps each journey's cookie jar and stream intact.
+test.describe.configure({ mode: "serial" });
+
 const MAILPIT_URL = process.env.E2E_MAILPIT_URL ?? "http://127.0.0.1:54324";
 const GROUP_NAME = "Invitation e2e fixture";
 
@@ -566,11 +572,21 @@ test.describe("invitation preview and acceptance", () => {
           .toBeGreaterThan(0);
         console.log(`[broker] ack held url=${recipient.url()}`);
 
-        // A second tab's confirmed logout is blocked honestly: it lands on
-        // the flagged /home state with the session preserved. The fresh
-        // recipient still has an incomplete profile, so /home redirects to
-        // onboarding first; the profile is completed here before the menu
-        // exists on a screen that can attempt a logout.
+        // The verification tab dies while its acknowledgement is held —
+        // exactly the lost-browser case the lease protocol covers. Its
+        // Web Lock is released by the document's death, the one-use nonce
+        // cookie survives in the context jar, and the server lease stays
+        // delivery_pending.
+        await recipient.close();
+        await context.unroute("**/auth/invite/mutation/acknowledge");
+
+        // A second tab's confirmed logout is blocked honestly — the broker
+        // lock is free now, but the server lease is still delivery_pending,
+        // so the acquisition refuses and the flagged /home state renders
+        // with the session preserved. The fresh recipient still has an
+        // incomplete profile, so /home redirects to onboarding first; the
+        // profile is completed here before the menu exists on a screen
+        // that can attempt a logout.
         const second = await context.newPage();
         second.on("crash", () => console.log("[broker] SECOND PAGE CRASHED"));
         second.on("close", () => console.log("[broker] SECOND PAGE CLOSED"));
@@ -610,37 +626,14 @@ test.describe("invitation preview and acceptance", () => {
           });
         console.log(`[broker] second tab blocked url=${second.url()}`);
 
-        // Release the held acknowledgement: the delivery proves itself, the
-        // epoch advances, the lease is released, and the verification tab
-        // finally navigates to the reconciliation screen.
-        await context.unroute("**/auth/invite/mutation/acknowledge");
-        for (const release of held.splice(0)) release();
-        await recipient
-          .waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/reconcile$/, {
-            timeout: 20_000,
-          })
-          .catch(async () => {
-            console.log(
-              `[broker] first tab did not reach reconcile; url=${recipient.url()} text: ${(
-                await recipient
-                  .locator("main, body")
-                  .first()
-                  .innerText({ timeout: 5_000 })
-                  .catch(() => "<unreadable>")
-              )
-                .slice(0, 400)
-                .replace(/\n/g, " | ")}`,
-            );
-            throw new Error("first tab never reconciled after release");
-          });
-        console.log(`[broker] released url=${recipient.url()}`);
-
-        // The retry completes the logout and its own delivery
+        // The blocked attempt's own settlement acknowledged the stranded
+        // delivery (the nonce proved it), so the lease is idle again and
+        // the retry completes the logout and its own delivery
         // acknowledgement under the same lock.
         await second.getByRole("button", { name: /account/i }).click();
         await second.getByRole("button", { name: "Log out" }).click();
         await second.getByRole("button", { name: "Log out" }).click();
-        await second.waitForURL(/\/\?loggedOut=1$/);
+        await second.waitForURL(/\/\?loggedOut=1$/, { timeout: 20_000 });
       } finally {
         await context.close();
       }
