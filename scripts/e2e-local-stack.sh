@@ -66,6 +66,22 @@ if [ -z "${AUTH_LINK_COOKIE_SECRET:-}" ]; then
   export AUTH_LINK_COOKIE_SECRET
 fi
 
+# The 006c invitation continuation sealing secret: the same pattern — a
+# per-run canonical opaque token (43 base64url chars) generated when not
+# already provided. Without it the entire invitation surface is disabled
+# (every landing maps to the generic unavailable state). Never printed,
+# logged, or committed.
+if [ -z "${INVITATION_CONTINUATION_COOKIE_SECRET:-}" ]; then
+  INVITATION_CONTINUATION_COOKIE_SECRET="$(node -e '
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let out = "";
+    const bytes = require("node:crypto").randomBytes(42);
+    for (const byte of bytes) out += alphabet[byte % 64];
+    process.stdout.write(out + "A");
+  ')"
+  export INVITATION_CONTINUATION_COOKIE_SECRET
+fi
+
 pnpm build
 
 # Test-only outbound transport controller. It has no Supabase credentials and

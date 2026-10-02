@@ -50,7 +50,7 @@ export function runStackSql(sql: string): string {
       "--set",
       "ON_ERROR_STOP=1",
     ],
-    { input: sql, stdio: ["pipe", "pipe", "ignore"] },
+    { input: sql, stdio: ["pipe", "pipe", "ignore"], timeout: 20_000 },
   ).toString();
 }
 
@@ -113,7 +113,7 @@ export function deleteFixtureGroupsSql(
       "--set",
       "ON_ERROR_STOP=1",
     ],
-    { input: sql, stdio: ["pipe", "ignore", "pipe"] },
+    { input: sql, stdio: ["pipe", "ignore", "pipe"], timeout: 20_000 },
   );
 }
 
@@ -271,6 +271,6 @@ export function deleteInvitationContinuationRowsSql(
       "--set",
       "ON_ERROR_STOP=1",
     ],
-    { input: sql, stdio: ["pipe", "pipe", "pipe"] },
+    { input: sql, stdio: ["pipe", "pipe", "pipe"], timeout: 20_000 },
   );
 }

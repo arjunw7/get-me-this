@@ -33,6 +33,11 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:3100",
     deviceScaleFactor: 1,
+    // Failure diagnostics (the CI database job uploads test-results/ when
+    // the e2e step fails): a trace makes a hang or a timeout diagnosable
+    // without a local repro. Retained only on failure to keep green runs
+    // cheap.
+    trace: "retain-on-failure",
   },
   webServer: {
     command: "pnpm exec next start --port 3100",

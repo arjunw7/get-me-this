@@ -35,7 +35,9 @@ const GROUP_NAME = "Invitation e2e fixture";
 /** Polls the local Mailpit inbox for the six-digit invitation code. */
 async function readCodeFor(email: string): Promise<string> {
   for (let attempt = 0; attempt < 40; attempt += 1) {
-    const listing = await fetch(`${MAILPIT_URL}/api/v1/messages?limit=50`);
+    const listing = await fetch(`${MAILPIT_URL}/api/v1/messages?limit=50`, {
+      signal: AbortSignal.timeout(5_000),
+    });
     const data = (await listing.json()) as {
       messages?: { ID: string; To?: { Address?: string }[] }[];
     };
@@ -157,7 +159,7 @@ test.describe("invitation preview and acceptance", () => {
   test("a signed-out recipient joins through OTP with a second explicit Join", async ({
     page,
   }) => {
-    test.setTimeout(300_000);
+    test.setTimeout(120_000);
     const scope = new FixtureScope();
     await scope.run(async () => {
       const { token, groupId, extraUserIds } = await createGroupAndToken(
@@ -263,7 +265,7 @@ test.describe("invitation preview and acceptance", () => {
   test("a signed-in recipient joins directly from the preview", async ({
     page,
   }) => {
-    test.setTimeout(300_000);
+    test.setTimeout(120_000);
     const admin = stackAdminClient();
     const scope = new FixtureScope();
     await scope.run(async () => {

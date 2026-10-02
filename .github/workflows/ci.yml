@@ -62,7 +62,7 @@ jobs:
   database:
     name: Database and stack e2e
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       # Same three SHA-pinned actions as the verify job; per-step timeouts cap
       # hangs, the steps share this job's budget, and the workflow-level
@@ -142,12 +142,24 @@ jobs:
         timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
       # scripts/e2e-local-stack.sh wires the local-stack environment silently,
-      # builds the production bundle against it, and runs only the
-      # E2E_LOCAL_SUPABASE-gated specs (explicit list in the script). The step
-      # bound is the build (<= 10) plus e2e (<= 15) guide budgets combined.
+      # builds the production bundle against that environment, and runs only
+      # the E2E_LOCAL_SUPABASE-gated specs (explicit list in the script). The
+      # step bound is the build (<= 10) plus e2e (<= 15) guide budgets
+      # combined, with headroom for failure diagnostics to finish printing.
       - name: Build and run the stack-gated e2e suites
-        timeout-minutes: 25
+        timeout-minutes: 35
         run: bash scripts/e2e-local-stack.sh
+      # Failure diagnostics: the Playwright traces/screenshots for failed
+      # specs (test-results/) are uploaded before anything else can fail, so
+      # a timeout or a hang is always diagnosable from the run's artifacts.
+      - name: Upload failed-spec diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-failed-diagnostics
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Collect ARJ-28/ARJ-31 candidates and axe evidence
         if: always()
         id: collect_arj28
