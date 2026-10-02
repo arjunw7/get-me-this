@@ -4,13 +4,16 @@ import { cookies } from "next/headers";
 
 import {
   COORDINATOR_COOKIE_NAME,
+  MUTATION_COOKIE_NAME,
   flowCookieName,
   isFlowCookieName,
   parseCoordinatorCookie,
   parseFlowCookie,
+  parseMutationCookie,
   getInvitationCookieSecret,
   type CoordinatorCookie,
   type FlowCookie,
+  type MutationCookie,
 } from "./continuation-cookie";
 import { isFlowId } from "./token";
 
@@ -80,4 +83,28 @@ export async function readAllFlowCookies(): Promise<FlowCookieEntry[]> {
     if (parsed) entries.push({ flowId, cookie: parsed });
   }
   return entries;
+}
+
+/**
+ * The broker mutation's sealed one-use delivery nonce, when this browser
+ * carries an unacknowledged mutation delivery. Its presence is the honest
+ * signal that the server lease is still in `delivery_pending`: continuation
+ * reconciliation may run only after the acknowledgement (or recovery)
+ * clears this cookie.
+ */
+export async function readMutationDelivery(): Promise<MutationCookie | null> {
+  const secret = getInvitationCookieSecret();
+  if (!secret) return null;
+  const store = await cookies();
+  return parseMutationCookie(
+    store.get(MUTATION_COOKIE_NAME)?.value,
+    Date.now(),
+    secret,
+  );
+}
+
+/** Clears the delivery-nonce cookie after acknowledgement or recovery. */
+export async function clearMutationDelivery(): Promise<void> {
+  const store = await cookies();
+  store.set(MUTATION_COOKIE_NAME, "", { maxAge: 0, path: "/" });
 }

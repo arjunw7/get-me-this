@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
     }
     const sealedCoordinator = await sealCoordinatorCookie(
       coordinatorSecret,
+      0,
       Date.now(),
       secret,
     );

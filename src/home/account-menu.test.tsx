@@ -8,7 +8,7 @@ vi.mock("@/src/analytics", () => ({
   SENSITIVE_BLOCK_CLASS: "ph-no-capture",
 }));
 
-const signOutAction = vi.fn();
+const signOutAction = vi.fn(async () => {});
 vi.mock("@/src/auth/actions", () => ({
   signOutAction: () => signOutAction(),
 }));
@@ -83,6 +83,71 @@ describe("AccountMenu", () => {
     expect(resetMock.mock.invocationCallOrder[0]).toBeLessThan(
       signOutMock.mock.invocationCallOrder[0],
     );
+  });
+
+  it("runs a brokered logout under the origin-wide lock and settles the delivery", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const acquire = vi.fn(
+      async (
+        _name: string,
+        callback: (lock: unknown) => Promise<void>,
+      ): Promise<unknown> => {
+        await callback({});
+        return {};
+      },
+    );
+    Object.defineProperty(navigator, "locks", {
+      value: { request: acquire },
+      configurable: true,
+    });
+
+    try {
+      render(
+        <AccountMenu email="you@example.com" displayName="Ada" brokered />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: /account/i }));
+      await userEvent.click(screen.getByRole("button", { name: "Log out" }));
+      await userEvent.click(screen.getByRole("button", { name: "Log out" }));
+
+      await waitFor(() => expect(signOutAction).toHaveBeenCalledTimes(1));
+      expect(acquire).toHaveBeenCalledWith(
+        "get-me-this:invite-mutation",
+        expect.any(Function),
+      );
+      // The delivery is acknowledged before the lock is released.
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          "/auth/invite/mutation/acknowledge",
+          expect.objectContaining({ method: "POST" }),
+        ),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+      Object.defineProperty(navigator, "locks", {
+        value: undefined,
+        configurable: true,
+      });
+    }
+  });
+
+  it("makes no sign-out call when the broker lock is unsupported", async () => {
+    Object.defineProperty(navigator, "locks", {
+      value: undefined,
+      configurable: true,
+    });
+    render(<AccountMenu email="you@example.com" displayName="Ada" brokered />);
+
+    await userEvent.click(screen.getByRole("button", { name: /account/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Log out" }));
+    await userEvent.click(screen.getByRole("button", { name: "Log out" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
+    );
+
+    // Without the lock the mutation never ran — never a half-applied
+    // logout; the person can retry.
+    expect(signOutAction).not.toHaveBeenCalled();
   });
 
   it("pins the approved logged-out landing copy", () => {

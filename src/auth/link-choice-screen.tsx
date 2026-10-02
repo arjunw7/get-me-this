@@ -9,6 +9,7 @@ import { verifyMagicLinkAction } from "./actions";
 import type { LinkVerifyState } from "./action-state";
 import { authCardClassName, AuthLayout } from "./auth-layout";
 import {
+  brokerBlockedCopy,
   linkBackToCodeLabel,
   linkChoiceHeading,
   linkChoiceText,
@@ -50,7 +51,9 @@ export function LinkChoiceScreen() {
               role="alert"
               className="mt-3 text-sm font-semibold text-feedback-error"
             >
-              {linkRejectedCopy}
+              {state.failure === "blocked"
+                ? brokerBlockedCopy
+                : linkRejectedCopy}
             </p>
           ) : null}
           <form action={formAction} className="mt-7 w-full">

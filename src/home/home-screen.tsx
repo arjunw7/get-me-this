@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Wordmark } from "@/src/landing/wordmark";
 import { AnalyticsIdentity } from "@/src/auth/analytics-identity";
+import { readCoordinatorCookie } from "@/src/invite/flow-session";
 import { AccountMenu } from "./account-menu";
 import type { SessionProfile } from "@/src/profile/session";
 
@@ -18,7 +19,7 @@ import type { SessionProfile } from "@/src/profile/session";
  * is the approved honest stand-in and gets owner side-by-side review.
  * There is no navigation to routes that don't exist yet.
  */
-export function HomeScreen({
+export async function HomeScreen({
   userId,
   email,
   profile,
@@ -28,6 +29,9 @@ export function HomeScreen({
   profile: SessionProfile;
 }) {
   const displayName = profile.displayName as string;
+  // Brief 006c criterion 12: a live invitation coordinator makes this
+  // browser's logout brokered (origin-wide Web Lock + server lease).
+  const coordinator = await readCoordinatorCookie();
   return (
     <div className="min-h-screen w-full bg-surface-page text-content-primary">
       <AnalyticsIdentity userId={userId} />
@@ -35,7 +39,11 @@ export function HomeScreen({
         <Link href="/home" aria-label="Get Me This home">
           <Wordmark className="text-2xl sm:text-3xl" />
         </Link>
-        <AccountMenu email={email} displayName={displayName} />
+        <AccountMenu
+          email={email}
+          displayName={displayName}
+          brokered={coordinator !== null}
+        />
       </header>
 
       <main className="mx-auto grid w-full max-w-6xl gap-8 px-5 pt-6 pb-16 sm:px-8 lg:grid-cols-[1fr_18rem] lg:pt-14">

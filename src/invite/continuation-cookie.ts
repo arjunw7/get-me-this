@@ -32,12 +32,22 @@ export const COORDINATOR_COOKIE_NAME = "__Host-gmt-invite-coordinator";
 export const LEASE_COOKIE_NAME = "__Host-gmt-invite-lease";
 export const PENDING_COOKIE_PREFIX = "__Host-gmt-invite-start-";
 export const FLOW_COOKIE_PREFIX = "__Host-gmt-invite-";
+/**
+ * The one-use auth-mutation delivery nonce (brief 006c criteria 5 and 12):
+ * set only by a lease-holding broker mutation whose response delivers the
+ * mutation's cookie effects, consumed by the separate acknowledgement
+ * route, and cleared by acknowledgement or recovery. Its presence on a
+ * later request proves that delivery has not been acknowledged yet.
+ */
+export const MUTATION_COOKIE_NAME = "__Host-gmt-invite-mutation";
 
 export const FLOW_COOKIE_MAX_AGE_SECONDS = 3600;
 /** Outlives the longest possible unreleased envelope; never rotated. */
 export const COORDINATOR_COOKIE_MAX_AGE_SECONDS = 86400;
 export const PENDING_COOKIE_MAX_AGE_SECONDS = 60;
 export const LEASE_COOKIE_MAX_AGE_SECONDS = 60;
+/** Bounds the unacknowledged-delivery window; recovery resolves the rest. */
+export const MUTATION_COOKIE_MAX_AGE_SECONDS = 120;
 
 export function flowCookieName(flowId: string): string {
   return `${FLOW_COOKIE_PREFIX}${flowId}`;
@@ -277,12 +287,23 @@ export async function parseFlowCookie(
 
 export type CoordinatorCookie = {
   readonly secret: string;
+  /**
+   * The session epoch presented when this cookie was sealed. The broker
+   * lease routes compare-and-swap against it; acknowledgement reseals the
+   * cookie with the advanced epoch. Cookies sealed before the broker
+   * existed parse as epoch 0, which matches a fresh coordinator row.
+   */
+  readonly epoch: number;
 };
 
-type CoordinatorPayload = EnvelopePayload & { secret?: unknown };
+type CoordinatorPayload = EnvelopePayload & {
+  secret?: unknown;
+  epoch?: unknown;
+};
 
 export async function sealCoordinatorCookie(
   coordinatorSecret: string,
+  epoch: number,
   nowMs: number,
   secret: string,
 ): Promise<string> {
@@ -290,6 +311,7 @@ export async function sealCoordinatorCookie(
     JSON.stringify({
       v: ENVELOPE_VERSION,
       secret: coordinatorSecret,
+      epoch,
       iat: Math.floor(nowMs / 1000),
       exp: Math.floor(nowMs / 1000) + COORDINATOR_COOKIE_MAX_AGE_SECONDS,
     }),
@@ -323,7 +345,16 @@ export async function parseCoordinatorCookie(
   ) {
     return null;
   }
-  return { secret: payload.secret };
+  const epoch =
+    payload.epoch === undefined
+      ? 0
+      : typeof payload.epoch === "number" &&
+          Number.isInteger(payload.epoch) &&
+          payload.epoch >= 0
+        ? payload.epoch
+        : null;
+  if (epoch === null) return null;
+  return { secret: payload.secret, epoch };
 }
 
 export type PendingCookie = {
@@ -445,4 +476,85 @@ export function invitationCookieOptions(maxAge: number): {
   maxAge: number;
 } {
   return { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge };
+}
+
+// --- auth-mutation delivery nonce -------------------------------------------
+
+/**
+ * What the mutation's cookie delivery contains: a new provider session
+ * (`deliver`, verified against the expected provider user on
+ * acknowledgement) or a cleared session (`clear`, acknowledged only when
+ * the provider session is really gone).
+ */
+export type MutationDeliveryKind = "deliver" | "clear";
+
+export type MutationCookie = {
+  readonly nonce: string;
+  readonly kind: MutationDeliveryKind;
+  /** The expected provider user id for a `deliver` delivery; null for `clear`. */
+  readonly userId: string | null;
+};
+
+type MutationPayload = EnvelopePayload & {
+  nonce?: unknown;
+  kind?: unknown;
+  userId?: unknown;
+};
+
+export async function sealMutationCookie(
+  mutation: MutationCookie,
+  nowMs: number,
+  secret: string,
+): Promise<string> {
+  return sealEnvelope(
+    JSON.stringify({
+      v: ENVELOPE_VERSION,
+      nonce: mutation.nonce,
+      kind: mutation.kind,
+      userId: mutation.userId,
+      iat: Math.floor(nowMs / 1000),
+      exp: Math.floor(nowMs / 1000) + MUTATION_COOKIE_MAX_AGE_SECONDS,
+    }),
+    MUTATION_COOKIE_NAME,
+    secret,
+  );
+}
+
+export async function parseMutationCookie(
+  value: string | undefined,
+  nowMs: number,
+  secret: string,
+): Promise<MutationCookie | null> {
+  const parsed = await parseEnvelope(
+    value,
+    MUTATION_COOKIE_NAME,
+    secret,
+    nowMs,
+    MUTATION_COOKIE_MAX_AGE_SECONDS,
+  );
+  if (parsed === null) return null;
+  let payload: MutationPayload;
+  try {
+    payload = JSON.parse(parsed.payload) as MutationPayload;
+  } catch {
+    return null;
+  }
+  if (
+    typeof payload.nonce !== "string" ||
+    !isCanonicalOpaqueToken(payload.nonce)
+  ) {
+    return null;
+  }
+  if (payload.kind !== "deliver" && payload.kind !== "clear") return null;
+  if (payload.userId !== null && typeof payload.userId !== "string") {
+    return null;
+  }
+  if (payload.kind === "deliver" && typeof payload.userId !== "string") {
+    return null;
+  }
+  return {
+    nonce: payload.nonce,
+    kind: payload.kind,
+    userId: payload.kind === "deliver" ? payload.userId : null,
+  };
 }

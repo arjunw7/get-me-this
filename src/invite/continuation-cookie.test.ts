@@ -4,16 +4,20 @@ import {
   COORDINATOR_COOKIE_NAME,
   FLOW_COOKIE_MAX_AGE_SECONDS,
   LEASE_COOKIE_NAME,
+  MUTATION_COOKIE_MAX_AGE_SECONDS,
+  MUTATION_COOKIE_NAME,
   flowCookieName,
   isFlowCookieName,
   parseCoordinatorCookie,
   parseFlowCookie,
   parseLeaseCookie,
+  parseMutationCookie,
   parsePendingCookie,
   pendingCookieName,
   sealCoordinatorCookie,
   sealFlowCookie,
   sealLeaseCookie,
+  sealMutationCookie,
   sealPendingCookie,
 } from "./continuation-cookie";
 
@@ -37,6 +41,9 @@ describe("cookie naming", () => {
     expect(pendingCookieName("abc")).toBe("__Host-gmt-invite-start-abc");
     expect(COORDINATOR_COOKIE_NAME).toBe("__Host-gmt-invite-coordinator");
     expect(LEASE_COOKIE_NAME).toBe("__Host-gmt-invite-lease");
+    expect(MUTATION_COOKIE_NAME).toBe("__Host-gmt-invite-mutation");
+    // A flow-name check must not adopt the mutation nonce cookie.
+    expect(isFlowCookieName(MUTATION_COOKIE_NAME)).toBe(false);
   });
 
   it("classifies dynamic flow cookies without catching the fixed cookies", () => {
@@ -128,10 +135,54 @@ describe("the flow cookie envelope", () => {
 });
 
 describe("the coordinator, pending, and lease envelopes", () => {
-  it("round trips the coordinator secret only (no flow or email data)", async () => {
-    const sealed = await sealCoordinatorCookie(SECRET, NOW, SECRET);
+  it("round trips the coordinator secret and session epoch", async () => {
+    const sealed = await sealCoordinatorCookie(SECRET, 3, NOW, SECRET);
     const parsed = await parseCoordinatorCookie(sealed, NOW, SECRET);
     expect(parsed?.secret).toBe(SECRET);
+    expect(parsed?.epoch).toBe(3);
+  });
+
+  it("rejects a re-signed or wrong-key coordinator envelope", async () => {
+    const sealed = await sealCoordinatorCookie(SECRET, 3, NOW, SECRET);
+    expect(await parseCoordinatorCookie(sealed, NOW, OTHER_SECRET)).toBeNull();
+    expect(await parseCoordinatorCookie(`${sealed}x`, NOW, SECRET)).toBeNull();
+  });
+
+  it("round trips the mutation delivery nonce bound to its kind and user", async () => {
+    const deliver = await sealMutationCookie(
+      { nonce: BROWSER_SECRET, kind: "deliver", userId: OTHER_FLOW_ID },
+      NOW,
+      SECRET,
+    );
+    const parsed = await parseMutationCookie(deliver, NOW, SECRET);
+    expect(parsed?.nonce).toBe(BROWSER_SECRET);
+    expect(parsed?.kind).toBe("deliver");
+    expect(parsed?.userId).toBe(OTHER_FLOW_ID);
+
+    const clear = await sealMutationCookie(
+      { nonce: BROWSER_SECRET, kind: "clear", userId: null },
+      NOW,
+      SECRET,
+    );
+    const cleared = await parseMutationCookie(clear, NOW, SECRET);
+    expect(cleared?.kind).toBe("clear");
+    expect(cleared?.userId).toBeNull();
+
+    // A deliver envelope without an expected user is malformed.
+    const bad = await sealMutationCookie(
+      { nonce: BROWSER_SECRET, kind: "deliver", userId: null },
+      NOW,
+      SECRET,
+    );
+    expect(await parseMutationCookie(bad, NOW, SECRET)).toBeNull();
+    expect(await parseMutationCookie(deliver, NOW, OTHER_SECRET)).toBeNull();
+    expect(
+      await parseMutationCookie(
+        deliver,
+        NOW + (MUTATION_COOKIE_MAX_AGE_SECONDS + 60) * 1000,
+        SECRET,
+      ),
+    ).toBeNull();
   });
 
   it("round trips the pending start and binds it to the start id", async () => {

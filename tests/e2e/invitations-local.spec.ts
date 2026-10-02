@@ -65,6 +65,44 @@ async function enterCode(page: Page, code: string): Promise<void> {
   await page.keyboard.type(code, { delay: 40 });
 }
 
+/**
+ * The runtime writer inventory (review note e): every Set-Cookie the
+ * journey's responses may carry, by name. The named inventory is — the
+ * @supabase/ssr provider session scheme (`sb-…`, including its chunked
+ * suffixes), the 004c/004d generic auth carry cookies, and the 006c
+ * invitation envelope family (`__Host-gmt-invite-*`). Anything else is an
+ * undeclared writer and fails the proof.
+ */
+const WRITER_INVENTORY: readonly { name: string; pattern: RegExp }[] = [
+  { name: "provider session cookies", pattern: /^sb-/ },
+  { name: "004c auth carry", pattern: /^gmt-auth-carry$/ },
+  { name: "004d link carry", pattern: /^gmt-auth-link$/ },
+  { name: "006c invitation envelopes", pattern: /^__Host-gmt-invite-/ },
+];
+
+/** Asserts every observed Set-Cookie writer is in the named inventory. */
+function observeCookieWriters(page: Page): string[] {
+  const writers: string[] = [];
+  page.on("response", (response) => {
+    void response.headersArray().then((headers) => {
+      for (const header of headers) {
+        if (header.name.toLowerCase() !== "set-cookie") continue;
+        const cookieName = header.value.split("=", 1)[0]?.trim() ?? "";
+        writers.push(cookieName);
+      }
+    });
+  });
+  return writers;
+}
+
+function assertWritersInInventory(writers: string[]): void {
+  const undeclared = writers.filter(
+    (cookieName) =>
+      !WRITER_INVENTORY.some((entry) => entry.pattern.test(cookieName)),
+  );
+  expect(undeclared).toEqual([]);
+}
+
 /** The group row's joined-member count (joined only). */
 function joinedCount(groupId: string, userId: string): string {
   return runStackSql(
@@ -167,16 +205,19 @@ test.describe("invitation preview and acceptance", () => {
         scope,
       );
 
-      // A fresh, signed-out browser opens the raw link.
+      // A fresh, signed-out browser opens the raw link. The context uses
+      // this test project's viewport, so both the mobile and the desktop
+      // project run the whole journey at their own size (review note c).
       const context = await page
         .context()
         .browser()
-        ?.newContext({
-          viewport: { width: 390, height: 844 },
-        });
+        ?.newContext({ viewport: page.viewportSize() ?? undefined });
       if (!context) throw new Error("no browser context");
       try {
         const recipient = await context.newPage();
+        // Review note e: enumerate every Set-Cookie writer observed across
+        // the whole journey and prove each is in the named inventory.
+        const writers = observeCookieWriters(recipient);
 
         await recipient.goto(`/invite/${token}`, {
           waitUntil: "domcontentloaded",
@@ -271,6 +312,10 @@ test.describe("invitation preview and acceptance", () => {
         ).toBeVisible();
         expect(joinedCount(groupId, recipientId)).toBe("1");
         expect(invitationUseCount(groupId)).toBe("1");
+
+        // Review note e: the whole journey's Set-Cookie writers are the
+        // named inventory — nothing else wrote a cookie.
+        assertWritersInInventory(writers);
       } finally {
         await context.close();
       }
@@ -286,13 +331,13 @@ test.describe("invitation preview and acceptance", () => {
     await scope.run(async () => {
       const { token, groupId } = await createGroupAndToken(page, scope);
 
-      // A second, signed-in user opens the same link in a fresh browser.
+      // A second, signed-in user opens the same link in a fresh browser,
+      // at this test project's viewport (review note c: the desktop
+      // project runs the direct join at desktop size).
       const context = await page
         .context()
         .browser()
-        ?.newContext({
-          viewport: { width: 390, height: 844 },
-        });
+        ?.newContext({ viewport: page.viewportSize() ?? undefined });
       if (!context) throw new Error("no browser context");
       try {
         const joiner = await context.newPage();
@@ -326,6 +371,173 @@ test.describe("invitation preview and acceptance", () => {
           `select count(*)::text from private.invitation_continuations where verified_user_id = '${joinerId}'::uuid and accepted_at is not null;`,
         ).trim();
         expect(accepted).toBe("1");
+      } finally {
+        await context.close();
+      }
+    });
+  });
+
+  // Review note d: the Join action's same-origin enforcement (Next's
+  // Server Action Origin and Fetch Metadata checks) is proven against a
+  // real captured action id — a replay with a foreign or missing Origin
+  // must be rejected and must create nothing.
+  test("a captured Join action replay with a foreign or missing Origin is rejected", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const admin = stackAdminClient();
+    const scope = new FixtureScope();
+    await scope.run(async () => {
+      const { token, groupId } = await createGroupAndToken(page, scope);
+      const context = await page
+        .context()
+        .browser()
+        ?.newContext({ viewport: page.viewportSize() ?? undefined });
+      if (!context) throw new Error("no browser context");
+      try {
+        const joiner = await context.newPage();
+        const joinerId = await createSignedInFixture(
+          joiner,
+          admin,
+          "invitations-e2e-csrf",
+          { displayName: "Replay Ro", tasteLine: "reads headers" },
+          scope,
+        );
+
+        // Capture the real Join action POST (URL, action id, body).
+        let captured: {
+          url: string;
+          headers: Record<string, string>;
+          body: string;
+        } | null = null;
+        joiner.on("request", (req) => {
+          if (req.method() === "POST" && req.headers()["next-action"]) {
+            captured = {
+              url: req.url(),
+              headers: req.headers(),
+              body: req.postData() ?? "",
+            };
+          }
+        });
+
+        await joiner.goto(`/invite/${token}`);
+        await joiner.waitForURL(/\/invite\/continue\/[0-9a-f-]{36}$/);
+        await joiner.getByRole("button", { name: "Join the group" }).click();
+        await joiner.waitForURL(/\/invite\/continue\/[0-9a-f-]{36}$/);
+        await expect(
+          joiner.getByRole("heading", { name: "You're in." }),
+        ).toBeVisible();
+        await expect
+          .poll(() => joinedCount(groupId, joinerId), { timeout: 10_000 })
+          .toBe("1");
+        if (!captured) throw new Error("no Join action POST captured");
+
+        // Replay the EXACT captured action request with a forged Origin,
+        // then with no Origin at all. Both are rejected by the framework's
+        // Origin/Fetch-Metadata check before any action code runs.
+        for (const origin of ["https://attacker.invalid", undefined]) {
+          const response = await request.post(
+            (captured as { url: string }).url,
+            {
+              headers: {
+                ...(captured as { headers: Record<string, string> }).headers,
+                ...(origin ? { origin } : {}),
+              },
+              data: (captured as { body: string }).body,
+            },
+          );
+          expect(response.status()).toBe(403);
+        }
+
+        // Nothing was accepted by either replay.
+        expect(joinedCount(groupId, joinerId)).toBe("1");
+        const accepted = runStackSql(
+          `select count(*)::text from private.invitation_continuations where verified_user_id = '${joinerId}'::uuid and accepted_at is not null;`,
+        ).trim();
+        expect(accepted).toBe("1");
+      } finally {
+        await context.close();
+      }
+    });
+  });
+
+  // Brief 006c criterion 12 (review blocker): the broker's delivery
+  // acknowledgement is not optional. While a verification's
+  // delivery_pending lease is unacknowledged, a competing tab's confirmed
+  // logout is blocked honestly with the session preserved — in either
+  // response order — and completes only after the acknowledgement (or
+  // recovery) releases the lease.
+  test("an unacknowledged verification delivery blocks logout until the acknowledgement settles", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const scope = new FixtureScope();
+    await scope.run(async () => {
+      const { token } = await createGroupAndToken(page, scope);
+      const context = await page
+        .context()
+        .browser()
+        ?.newContext({ viewport: page.viewportSize() ?? undefined });
+      if (!context) throw new Error("no browser context");
+      try {
+        const recipient = await context.newPage();
+        await recipient.goto(`/invite/${token}`);
+        await recipient.waitForURL(/\/invite\/continue\/[0-9a-f-]{36}$/);
+        await recipient.getByRole("button", { name: "Join the group" }).click();
+        await recipient.waitForURL("/auth/invite/**");
+        const email = `invitations-e2e-broker-${Date.now()}@example.invalid`;
+        await recipient.getByLabel("Email").fill(email);
+        await recipient
+          .getByRole("button", { name: "Continue with email" })
+          .click();
+        await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/verify$/);
+        const code = await readCodeFor(email);
+
+        // Hold every delivery acknowledgement: the verify response settles
+        // (its session cookies are applied), but its acknowledgement cannot
+        // complete while we hold the response.
+        const held: (() => void)[] = [];
+        await context.route(
+          "**/auth/invite/mutation/acknowledge",
+          async (route) => {
+            const response = await route.fetch();
+            await new Promise<void>((resolve) => held.push(resolve));
+            await route.fulfill({ response });
+          },
+        );
+
+        await enterCode(recipient, code);
+        await recipient.getByRole("button", { name: "Verify" }).click();
+        await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/reconcile$/);
+        await expect
+          .poll(() => held.length, { timeout: 15_000 })
+          .toBeGreaterThan(0);
+
+        // The server lease is delivery_pending. A second tab's confirmed
+        // logout is blocked honestly: it lands on the flagged /home state
+        // with the session preserved.
+        const second = await context.newPage();
+        await second.goto("/home");
+        await second.getByRole("button", { name: /account/i }).click();
+        await second.getByRole("button", { name: "Log out" }).click();
+        await second.getByRole("button", { name: "Log out" }).click();
+        await second.waitForURL(/\/home\?logoutBlocked=1$/);
+        await expect(
+          second.getByRole("button", { name: /account/i }),
+        ).toBeVisible();
+
+        // Release the held acknowledgements: the verification's delivery
+        // proves itself, the epoch advances, and the lease is released.
+        await context.unroute("**/auth/invite/mutation/acknowledge");
+        for (const release of held.splice(0)) release();
+
+        // The retry completes the logout and its own delivery
+        // acknowledgement under the same lock.
+        await second.getByRole("button", { name: /account/i }).click();
+        await second.getByRole("button", { name: "Log out" }).click();
+        await second.getByRole("button", { name: "Log out" }).click();
+        await second.waitForURL(/\/\?loggedOut=1$/);
       } finally {
         await context.close();
       }

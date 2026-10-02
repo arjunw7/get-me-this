@@ -10,6 +10,7 @@ import {
   authInputClassName,
 } from "@/src/auth/auth-layout";
 import { OtpInput } from "@/src/auth/otp-input";
+import { brokeredServerAction, runInvitationMutation } from "./mutation-broker";
 
 import {
   reconcileInvitationAction,
@@ -56,7 +57,14 @@ function copyFor(state: InviteEmailState): string | null {
   }
 }
 
-export function InviteEmailScreen({ flowId }: { readonly flowId: string }) {
+export function InviteEmailScreen({
+  flowId,
+  blocked = false,
+}: {
+  readonly flowId: string;
+  /** A broker-blocked restart returned the person here; nothing changed. */
+  readonly blocked?: boolean;
+}) {
   const [state, formAction, pending] = useActionState(
     requestInvitationEmailAction,
     {
@@ -85,6 +93,15 @@ export function InviteEmailScreen({ flowId }: { readonly flowId: string }) {
         <h1 className="text-center font-display text-4xl leading-[1] font-extrabold tracking-tight sm:text-display-xl">
           {EMAIL_COPY.heading}
         </h1>
+        {blocked ? (
+          <p
+            role="alert"
+            className="mt-4 rounded-surface bg-accent-highlight-soft px-4 py-3 text-center text-sm font-bold"
+          >
+            Another sign-in or sign-out is finishing up in a different tab. The
+            restart didn&apos;t run — nothing changed. Try again in a moment.
+          </p>
+        ) : null}
         <form
           action={formAction}
           onSubmit={submit}
@@ -153,7 +170,7 @@ export function InviteVerifyScreen({
   readonly maskedEmail: string | null;
 }) {
   const [state, formAction, pending] = useActionState(
-    verifyInvitationCodeAction,
+    brokeredServerAction(verifyInvitationCodeAction),
     {
       status: "idle",
     } as InviteVerifyState,
@@ -161,6 +178,23 @@ export function InviteVerifyScreen({
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
   const headingId = useId();
   const errorId = useId();
+  const [restarting, setRestarting] = useState(false);
+
+  // The confirmed restart is a session mutation: it runs under the same
+  // origin-wide broker lock (its server action holds the coordinator
+  // lease). A restart failure redirects back to the email screen with the
+  // honest failure flag — never a claimed success.
+  async function restart(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setRestarting(true);
+    try {
+      await runInvitationMutation(() =>
+        restartInvitationAuthAction(new FormData(event.currentTarget)),
+      );
+    } catch {
+      setRestarting(false);
+    }
+  }
 
   const error =
     state.status === "invalid-code"
@@ -175,7 +209,9 @@ export function InviteVerifyScreen({
               ? "Too many attempts. Wait a moment and try again."
               : state.status === "unavailable"
                 ? "This invite isn't available. Ask the organizer for a new link."
-                : null;
+                : state.status === "blocked"
+                  ? "Another sign-in or sign-out is finishing up in a different tab. Try again in a moment."
+                  : null;
 
   return (
     <AuthLayout>
@@ -216,17 +252,19 @@ export function InviteVerifyScreen({
             </p>
           ) : null}
           {state.status === "mismatch" ? (
-            <button
-              type="submit"
-              formAction={restartInvitationAuthAction}
-              disabled={pending}
-              className={cx(
-                buttonClassName({ variant: "secondary", size: "lg" }),
-                "w-full",
-              )}
-            >
-              Log out and restart sign-in
-            </button>
+            <form onSubmit={restart}>
+              <input type="hidden" name="flowId" value={flowId} />
+              <button
+                type="submit"
+                disabled={pending || restarting}
+                className={cx(
+                  buttonClassName({ variant: "secondary", size: "lg" }),
+                  "w-full",
+                )}
+              >
+                {restarting ? "Signing out…" : "Log out and restart sign-in"}
+              </button>
+            </form>
           ) : (
             <button
               type="submit"
@@ -263,6 +301,10 @@ export function InviteReconcileScreen({ flowId }: { readonly flowId: string }) {
   );
 
   const restart = state.status === "restart" || state.status === "unavailable";
+  // An unacknowledged broker delivery (criterion 12): the server lease is
+  // still in delivery_pending — the person retries in a moment; this is
+  // not a terminal failure and nothing claims one.
+  const unacknowledged = state.status === "unacknowledged";
 
   return (
     <AuthLayout>
@@ -281,6 +323,14 @@ export function InviteReconcileScreen({ flowId }: { readonly flowId: string }) {
           >
             This invitation could not be continued from this session. Reopen the
             original invitation link.
+          </p>
+        ) : null}
+        {unacknowledged ? (
+          <p
+            role="alert"
+            className="mt-4 rounded-surface bg-accent-highlight-soft px-4 py-3 text-center text-sm font-bold"
+          >
+            Finishing the sign-in from your other tab. Try again in a moment.
           </p>
         ) : null}
         <form action={formAction} className="mt-7 flex flex-col gap-4">
@@ -302,11 +352,24 @@ export function InviteReconcileScreen({ flowId }: { readonly flowId: string }) {
 
 export function InviteLinkScreen({ flowId }: { readonly flowId: string }) {
   const [state, formAction, pending] = useActionState(
-    verifyInvitationLinkAction,
+    brokeredServerAction(verifyInvitationLinkAction),
     {
       status: "idle",
     } as InviteLinkState,
   );
+  const [restarting, setRestarting] = useState(false);
+
+  async function restart(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setRestarting(true);
+    try {
+      await runInvitationMutation(() =>
+        restartInvitationAuthAction(new FormData(event.currentTarget)),
+      );
+    } catch {
+      setRestarting(false);
+    }
+  }
 
   const error =
     state.status === "mismatch"
@@ -315,7 +378,9 @@ export function InviteLinkScreen({ flowId }: { readonly flowId: string }) {
         ? "This sign-in link doesn't belong to this browser or invitation. Return to the browser where the invitation was opened and use the code, or reopen the original invitation link."
         : state.status === "provider"
           ? "That link didn't work. Request a fresh code or link and try again."
-          : null;
+          : state.status === "blocked"
+            ? "Another sign-in or sign-out is finishing up in a different tab. Try again in a moment."
+            : null;
 
   return (
     <AuthLayout>
@@ -336,17 +401,17 @@ export function InviteLinkScreen({ flowId }: { readonly flowId: string }) {
           </p>
         ) : null}
         {state.status === "mismatch" ? (
-          <form action={restartInvitationAuthAction} className="mt-4">
+          <form onSubmit={restart} className="mt-4">
             <input type="hidden" name="flowId" value={flowId} />
             <button
               type="submit"
-              disabled={pending}
+              disabled={pending || restarting}
               className={cx(
                 buttonClassName({ variant: "secondary", size: "lg" }),
                 "w-full",
               )}
             >
-              Log out and restart sign-in
+              {restarting ? "Signing out…" : "Log out and restart sign-in"}
             </button>
           </form>
         ) : (

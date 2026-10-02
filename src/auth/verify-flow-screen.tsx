@@ -20,6 +20,7 @@ import {
 } from "./actions";
 import type { ResendCodeState, VerifyCodeState } from "./action-state";
 import {
+  brokerBlockedCopy,
   changeEmailLabel,
   overLimitCopy,
   rejectedCodeCopy,
@@ -147,13 +148,15 @@ export function VerifyFlowScreen({
     verifyFailure === "over-limit" || resendFailure === "over-limit";
   const alertCopy = overLimit
     ? undefined
-    : localError === "short-code" || verifyFailure === "invalid-code"
-      ? shortCodeCopy
-      : verifyFailure === "rejected-code"
-        ? rejectedCodeCopy
-        : verifyFailure === "unavailable" || resendFailure === "unavailable"
-          ? unavailableCopy
-          : undefined;
+    : verifyFailure === "blocked"
+      ? brokerBlockedCopy
+      : localError === "short-code" || verifyFailure === "invalid-code"
+        ? shortCodeCopy
+        : verifyFailure === "rejected-code"
+          ? rejectedCodeCopy
+          : verifyFailure === "unavailable" || resendFailure === "unavailable"
+            ? unavailableCopy
+            : undefined;
 
   return (
     <AuthLayout

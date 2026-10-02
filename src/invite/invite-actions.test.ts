@@ -24,6 +24,10 @@ const mocks = vi.hoisted(() => ({
   verifyFlow: vi.fn(),
   discardFlow: vi.fn(),
   invalidateFlowsForLogout: vi.fn(),
+  acquireAuthLease: vi.fn(),
+  markDeliveryPending: vi.fn(),
+  recoverAuthLease: vi.fn(),
+  acknowledgeDelivery: vi.fn(),
   capture: vi.fn(),
   getSessionUser: vi.fn(),
   getOwnProfile: vi.fn(),
@@ -73,6 +77,10 @@ vi.mock("./invite-write", () => ({
   invalidateFlowsForLogout: mocks.invalidateFlowsForLogout,
   previewFlow: mocks.previewFlow,
   verifyFlow: mocks.verifyFlow,
+  acquireAuthLease: mocks.acquireAuthLease,
+  markDeliveryPending: mocks.markDeliveryPending,
+  recoverAuthLease: mocks.recoverAuthLease,
+  acknowledgeDelivery: mocks.acknowledgeDelivery,
 }));
 
 vi.mock("@/src/analytics/server", () => ({
@@ -126,8 +134,23 @@ async function redirectOf(run: () => Promise<unknown>): Promise<string> {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.readFlowCookie.mockResolvedValue(FLOW);
-  mocks.readCoordinatorCookie.mockResolvedValue({ secret: BROWSER_SECRET });
+  mocks.readCoordinatorCookie.mockResolvedValue({
+    secret: BROWSER_SECRET,
+    epoch: 0,
+  });
   mocks.readAllFlowCookies.mockResolvedValue([]);
+  mocks.acquireAuthLease.mockResolvedValue({
+    outcome: "acquired",
+    sessionEpoch: 0,
+  });
+  mocks.markDeliveryPending.mockResolvedValue({
+    outcome: "pending",
+    sessionEpoch: 0,
+  });
+  mocks.recoverAuthLease.mockResolvedValue({
+    outcome: "abandoned",
+    sessionEpoch: 0,
+  });
   mocks.getSessionUser.mockResolvedValue({ id: USER_ID, email: EMAIL });
   mocks.getOwnProfile.mockResolvedValue({
     displayName: "Ada",
@@ -362,7 +385,7 @@ describe("signOutWithInvitationCleanupAction", () => {
     expect(mocks.cookieSet).not.toHaveBeenCalled();
   });
 
-  it("signs out and clears every invitation cookie after a proven invalidation", async () => {
+  it("signs out, holds the delivery, and clears the flow cookies", async () => {
     mocks.invalidateFlowsForLogout.mockResolvedValue("invalidated");
     mocks.readAllFlowCookies.mockResolvedValue([
       { flowId: FLOW_ID, cookie: FLOW },
@@ -376,27 +399,64 @@ describe("signOutWithInvitationCleanupAction", () => {
       signOutWithInvitationCleanupAction(),
     );
     expect(redirect).toBe("/?loggedOut=1");
+    expect(mocks.acquireAuthLease).toHaveBeenCalledWith(
+      BROWSER_SECRET,
+      0,
+      "logout",
+    );
     expect(mocks.invalidateFlowsForLogout).toHaveBeenCalledWith(
       [FLOW_ID],
       [BROWSER_SECRET],
       BROWSER_SECRET,
     );
     expect(mocks.signOut).toHaveBeenCalledTimes(1);
+    // The cleared-session delivery is held in delivery_pending behind the
+    // one-use nonce cookie; the coordinator cookie survives until the
+    // acknowledgement or recovery clears it.
+    expect(mocks.markDeliveryPending).toHaveBeenCalledTimes(1);
     expect(mocks.cookieSet).toHaveBeenCalledWith(
       `__Host-gmt-invite-${FLOW_ID}`,
       "",
       expect.objectContaining({ maxAge: 0 }),
     );
     expect(mocks.cookieSet).toHaveBeenCalledWith(
+      "__Host-gmt-invite-mutation",
+      expect.any(String),
+      expect.objectContaining({ maxAge: 120 }),
+    );
+    expect(mocks.cookieSet).not.toHaveBeenCalledWith(
       "__Host-gmt-invite-coordinator",
       "",
-      expect.objectContaining({ maxAge: 0 }),
+      expect.anything(),
     );
     expect(mocks.cookieSet).not.toHaveBeenCalledWith(
       "unrelated-cookie",
       "",
       expect.anything(),
     );
+  });
+
+  it("redirects to the honest blocked state when the lease is held elsewhere", async () => {
+    mocks.acquireAuthLease.mockResolvedValue({
+      outcome: "blocked",
+      sessionEpoch: null,
+    });
+    const redirect = await redirectOf(() =>
+      signOutWithInvitationCleanupAction(),
+    );
+    expect(redirect).toBe("/home?logoutBlocked=1");
+    expect(mocks.signOut).not.toHaveBeenCalled();
+    expect(mocks.invalidateFlowsForLogout).not.toHaveBeenCalled();
+  });
+
+  it("releases the lease and reports the failure when sign-out errors", async () => {
+    mocks.signOut.mockResolvedValue({ error: new Error("provider down") });
+    const redirect = await redirectOf(() =>
+      signOutWithInvitationCleanupAction(),
+    );
+    expect(redirect).toBe("/home?logoutFailed=1");
+    expect(mocks.recoverAuthLease).toHaveBeenCalledWith(BROWSER_SECRET, null);
+    expect(mocks.markDeliveryPending).not.toHaveBeenCalled();
   });
 
   it("signs out directly when this browser has no coordinator", async () => {
@@ -406,5 +466,6 @@ describe("signOutWithInvitationCleanupAction", () => {
     );
     expect(redirect).toBe("/?loggedOut=1");
     expect(mocks.signOut).toHaveBeenCalledTimes(1);
+    expect(mocks.acquireAuthLease).not.toHaveBeenCalled();
   });
 });

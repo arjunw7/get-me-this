@@ -6,6 +6,10 @@ import { useId, useState, useTransition } from "react";
 import { buttonClassName, cx } from "@/src/ui/styles";
 import { resetAnalyticsOnLogout, SENSITIVE_BLOCK_CLASS } from "@/src/analytics";
 import { signOutAction } from "@/src/auth/actions";
+import {
+  InvitationMutationUnsupportedError,
+  runInvitationMutation,
+} from "@/src/invite/mutation-broker";
 
 /**
  * The honest minimal account menu (004e/005b): the signed-in email, the
@@ -18,15 +22,25 @@ import { signOutAction } from "@/src/auth/actions";
  * BEFORE the server action clears the local-scoped session — the
  * authenticated PostHog identity cannot survive the logout — and lands on
  * the approved logged-out copy on the landing page.
+ *
+ * While a browser-bound invitation coordinator exists (brief 006c
+ * criterion 12) the confirmed logout runs under the invitation
+ * auth-mutation broker: the origin-wide Web Lock is held until the
+ * mutation's cookie delivery is acknowledged or recovered, so a
+ * concurrent tab's invitation verification can never interleave its
+ * session delivery with this logout.
  */
 
 export function AccountMenu({
   email,
   displayName,
+  brokered = false,
 }: {
   email: string | null;
   /** The display name, for the menu trigger's accessible label. */
   displayName: string;
+  /** Whether a live invitation coordinator makes logout brokered. */
+  brokered?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -41,7 +55,24 @@ export function AccountMenu({
     // deliberate deviation from the literal "session then identity"
     // wording; to be confirmed by the owner in the PR.
     resetAnalyticsOnLogout();
-    startTransition(() => void signOutAction());
+    startTransition(() => {
+      const signOut = () =>
+        signOutAction().catch(() => {
+          // A redirect control-flow throw settles the navigation; the
+          // action's own failure states cover everything else.
+        });
+      if (!brokered) {
+        void signOut();
+        return;
+      }
+      void runInvitationMutation(signOut).catch((error: unknown) => {
+        // Without the origin-wide lock the mutation never ran — never a
+        // half-applied logout. The menu closes; the user can retry.
+        if (!(error instanceof InvitationMutationUnsupportedError)) {
+          throw error;
+        }
+      });
+    });
   }
 
   return (
