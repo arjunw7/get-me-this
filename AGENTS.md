@@ -84,6 +84,7 @@ Every implementation pull request must include:
 - Generated pull requests are proposals. They require independent review before merge.
 - Do not merge directly to `main` without green CI on the exact pull-request head and explicit human approval.
 - Temporary exception: this private repository cannot currently configure a GitHub-required status check (branch protection and rulesets return 403), so GitHub cannot enforce the check at merge time; green CI is verified as a review input and the human approval is the merge gate. Replace this exception with the GitHub-required check as soon as it becomes available.
+- Docs-only pull requests (everything under `docs/**` or `*.md`) start no CI runs by design through `paths-ignore`, so their merge evidence is the paths filter itself plus review.
 
 ## Safety
 
