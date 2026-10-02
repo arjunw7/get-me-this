@@ -859,7 +859,7 @@ begin
     )
   );
 
-  return query select token_text, checked_at + interval '30 days', bound_generation;
+  return query select token_text, checked_at + interval '30 days', bound_generation::bigint;
 exception
   when foreign_key_violation then
     -- The target user lost a deletion race; fail generically and atomically.

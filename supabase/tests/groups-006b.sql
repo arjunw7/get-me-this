@@ -214,7 +214,10 @@ from public.issue_group_invitation(:'gid'::uuid, 0::bigint) \gset
 select is(:'v1'::text, '1', 'issuing from version 0 creates version 1');
 select is(char_length(:'tok1'), 43, 'the token is the canonical 43-character base64url encoding');
 
--- The authoritative expiry: the stored value, still in the future.
+-- The authoritative expiry: the stored value, still in the future (owner
+-- view; group_invitations has no client grant).
+reset role;
+
 select is(
   (
     select (i.expires_at = :'exp1'::timestamptz)::text || ':' ||
@@ -238,6 +241,10 @@ select is(
 );
 
 -- The state projection reports active.
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_a';
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
+
 select is(
   (
     select invitation_version::text || ':' || state
@@ -322,9 +329,17 @@ select is(
 
 -- 6. Targeted isolation ---------------------------------------------------------------
 
+-- The mutation calls run as the authenticated organizer; every direct-table
+-- check is an owner view (no client grant on group_invitations).
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_a';
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
+
 -- A targeted issue must not move the durable group version.
 select token as tok_t1, target_membership_generation::text as gen_t1
 from public.issue_group_invitation(:'gid'::uuid, :'uid_b'::uuid) \gset
+
+reset role;
 
 select is(:'gen_t1'::text, '1', 'the targeted issue bound generation 1');
 select is(
@@ -343,11 +358,18 @@ select is(
 select id::text as inv_generic_id from public.group_invitations
 where group_id = :'gid'::uuid and shareable_version = 3 \gset
 
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_a';
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
+
 select is(
   (select result::text from public.revoke_group_invitation(:'gid'::uuid, :'inv_generic_id'::uuid)),
   'unavailable',
   'the targeted revoke-by-ID overload refuses a generic row'
 );
+
+reset role;
+
 select is(
   (select status::text from public.group_invitations where id = :'inv_generic_id'::uuid),
   'active',
@@ -358,11 +380,18 @@ select is(
 select id::text as inv_targeted_id from public.group_invitations
 where token_hash = extensions.digest(convert_to(:'tok_t1', 'UTF8'), 'sha256') \gset
 
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_a';
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
+
 select is(
   (select result::text from public.revoke_group_invitation(:'gid'::uuid, :'inv_targeted_id'::uuid)),
   'revoked',
   'the targeted revoke-by-ID overload revokes the targeted row'
 );
+
+reset role;
+
 select is(
   (select shareable_invitation_version::text from public."groups" where id = :'gid'::uuid),
   '3',
@@ -370,11 +399,17 @@ select is(
 );
 
 -- A generic revoke never touches targeted rows.
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_a';
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
+
 select token as tok_t2, target_membership_generation::text as gen_t2
 from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid) \gset
 
 select invitation_version::text as v4, token as tok4
 from public.issue_group_invitation(:'gid'::uuid, 3::bigint) \gset
+
+reset role;
 
 select is(:'v4'::text, '4', 'the generic rotation created version 4');
 select is(
@@ -386,14 +421,21 @@ select is(
 
 -- 7. CAS rejection states --------------------------------------------------------------
 
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_a';
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
+
 select throws_ok(
   format('select * from public.revoke_group_invitation(%L::uuid, 99)', :'gid'),
   'PT409', NULL, 'a stale expected version on revoke is rejected with PT409'
 );
 select throws_ok(
-  format('select * from public.issue_group_invitation(%L::uuid, null)', :'gid'),
+  format('select * from public.issue_group_invitation(%L::uuid, null::bigint)', :'gid'),
   '22023', NULL, 'a null expected version on issue is rejected with 22023'
 );
+
+reset role;
+
 select is(
   (select shareable_invitation_version::text from public."groups" where id = :'gid'::uuid),
   '4',
