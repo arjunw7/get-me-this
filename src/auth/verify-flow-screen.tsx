@@ -37,6 +37,7 @@ import {
 } from "./flow-copy";
 import { authCardClassName, AuthLayout } from "./auth-layout";
 import { OtpInput } from "./otp-input";
+import { runInvitationMutationResolved } from "@/src/invite/mutation-broker";
 
 /**
  * The real verify screen of the email-code flow (004c), reached from the
@@ -119,7 +120,16 @@ export function VerifyFlowScreen({
     return (
       <SignedInFrame
         email={email}
-        onSignOut={() => startTransition(() => void signOutAction())}
+        // With a coordinator cookie the sign-out is a session mutation:
+        // it runs under the broker lock and its redirect is applied by
+        // the router after the cleared-session delivery settles.
+        onSignOut={() =>
+          startTransition(() => {
+            void runInvitationMutationResolved(() => signOutAction()).catch(
+              () => {},
+            );
+          })
+        }
         pending={pending}
       />
     );

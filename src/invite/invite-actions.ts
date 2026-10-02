@@ -26,7 +26,6 @@ import {
   readFlowCookie,
   readAllFlowCookies,
   readCoordinatorCookie,
-  readMutationDelivery,
 } from "./flow-session";
 import { invitationEmailRedirectTo } from "./email-redirect";
 import { normalizeEmail } from "./token";
@@ -43,6 +42,7 @@ import {
   acquireMutationLease,
   deliverMutationPending,
   releaseMutationLease,
+  settlePendingDelivery,
 } from "./lease-session";
 import { clearInviteLinkCarry, parseInviteLinkCarry } from "./link-carry";
 import { clearAuthCarry } from "@/src/auth/carry-cookie";
@@ -357,10 +357,15 @@ export async function reconcileInvitationAction(
 
   // The delivery gate (criterion 12): an unacknowledged broker delivery
   // means the server lease is still in delivery_pending. Reconciliation
-  // runs only after the acknowledgement (or recovery) has settled that
-  // delivery — never on top of it.
-  const undelivered = await readMutationDelivery();
-  if (undelivered) return { status: "unacknowledged" };
+  // runs only after that delivery has settled — never on top of it. The
+  // gate is self-healing: presenting the one-use nonce to the lease
+  // acknowledges a provable delivery (the epoch advances once, the
+  // coordinator reseals or clears) and reconciliation continues; an
+  // unprovable one stays an honest blocked state.
+  const settled = await settlePendingDelivery();
+  if (settled === "unproven" || settled === "unavailable") {
+    return { status: "unacknowledged" };
+  }
 
   const user = await getSessionUser();
   if (!user) return { status: "restart" };

@@ -3,8 +3,10 @@ import "server-only";
 import { cookies } from "next/headers";
 
 import {
+  COORDINATOR_COOKIE_NAME,
   MUTATION_COOKIE_NAME,
   invitationCookieOptions,
+  sealCoordinatorCookie,
   sealMutationCookie,
   getInvitationCookieSecret,
 } from "./continuation-cookie";
@@ -112,4 +114,49 @@ export async function deliverMutationPending(
   const store = await cookies();
   store.set(MUTATION_COOKIE_NAME, sealed, invitationCookieOptions(120));
   return true;
+}
+
+/**
+ * Settles a lingering unacknowledged delivery at the next brokered touch
+ * (brief 006c criterion 12's recovery path): present the one-use nonce to
+ * the lease and let the database decide. A provable delivery is
+ * acknowledged — the epoch advances exactly once, the coordinator reseals
+ * (or clears, for sign-out) — and the caller continues; an unprovable one
+ * stays honest. Returns `unavailable` when another mutation still holds
+ * the lease, keeping the nonce for a later attempt.
+ */
+export async function settlePendingDelivery(): Promise<
+  "acknowledged" | "absent" | "unproven" | "unavailable"
+> {
+  const store = await cookies();
+  const delivered = await readMutationDelivery();
+  if (!delivered) return "absent";
+  const coordinator = await readCoordinatorCookie();
+  if (!coordinator) {
+    // The response carrying the mutation's cookie effects landed, but the
+    // coordinator it belonged to is gone: the nonce is spent either way.
+    store.delete(MUTATION_COOKIE_NAME);
+    return "absent";
+  }
+  const recovered = await recoverAuthLease(coordinator.secret, delivered.nonce);
+  store.delete(MUTATION_COOKIE_NAME);
+  if (recovered.outcome === "unavailable") return "unavailable";
+  if (recovered.outcome !== "acknowledged") return "unproven";
+  if (delivered.kind === "clear") {
+    store.set(COORDINATOR_COOKIE_NAME, "", invitationCookieOptions(0));
+  } else {
+    const secret = getInvitationCookieSecret();
+    if (!secret) return "unproven";
+    store.set(
+      COORDINATOR_COOKIE_NAME,
+      await sealCoordinatorCookie(
+        coordinator.secret,
+        recovered.sessionEpoch,
+        Date.now(),
+        secret,
+      ),
+      invitationCookieOptions(),
+    );
+  }
+  return "acknowledged";
 }

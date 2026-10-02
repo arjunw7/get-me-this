@@ -567,7 +567,10 @@ test.describe("invitation preview and acceptance", () => {
         console.log(`[broker] ack held url=${recipient.url()}`);
 
         // A second tab's confirmed logout is blocked honestly: it lands on
-        // the flagged /home state with the session preserved.
+        // the flagged /home state with the session preserved. The fresh
+        // recipient still has an incomplete profile, so /home redirects to
+        // onboarding first; the profile is completed here before the menu
+        // exists on a screen that can attempt a logout.
         const second = await context.newPage();
         second.on("crash", () => console.log("[broker] SECOND PAGE CRASHED"));
         second.on("close", () => console.log("[broker] SECOND PAGE CLOSED"));
@@ -576,6 +579,15 @@ test.describe("invitation preview and acceptance", () => {
             `[broker] requestfailed ${request.method()} ${new URL(request.url()).pathname} ${request.failure()?.errorText ?? ""}`,
           ),
         );
+        await second.goto("/home");
+        await second.waitForURL(/\/onboarding$/, { timeout: 20_000 });
+        await second
+          .getByLabel("What should friends call you?")
+          .fill("Broker Recipient");
+        await second.getByRole("button", { name: "Let’s go" }).click();
+        await second.waitForURL(/\/(home|invite\/continue\/)/, {
+          timeout: 20_000,
+        });
         await second.goto("/home");
         await second.getByRole("button", { name: /account/i }).click();
         await second.getByRole("button", { name: "Log out" }).click();
