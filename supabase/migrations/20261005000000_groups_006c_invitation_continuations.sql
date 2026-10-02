@@ -550,7 +550,7 @@ begin
   where coordinator_id = p_coordinator_row.id
     and envelope_released_at is null
     and accepted_at is null
-    and expires_at <= clock_timestamp();
+    and invitation_continuations.expires_at <= clock_timestamp();
 
   select count(*)::integer into v_unreleased
   from private.invitation_continuations
@@ -670,7 +670,7 @@ begin
   set consumed_at = clock_timestamp()
   where start_id = p_start_id
     and consumed_at is null
-    and expires_at > clock_timestamp()
+    and invitation_pending_starts.expires_at > clock_timestamp()
     and nonce_digest = private.invitation_digest(p_pending_nonce)
   returning * into pending_row;
 
@@ -1004,8 +1004,8 @@ begin
   -- continuation lock is taken only afterwards (below), so the shared
   -- continuation lock is downstream of the group/invitation locks exactly
   -- as the brief requires.
-  select result::text, group_id::uuid into core_result, core_group_id
-  from private.accept_invitation_core(caller_id, v_invitation_id);
+  select core.result::text, core.group_id::uuid into core_result, core_group_id
+  from private.accept_invitation_core(caller_id, v_invitation_id) core;
 
   if core_result = 'unavailable' then
     return query select 'unavailable'::text, null::uuid, null::boolean;
@@ -1386,7 +1386,7 @@ begin
       auth_mutation_expires_at = null,
       delivery_nonce_digest = null,
       expected_provider_user_id = null,
-      session_epoch = session_epoch + 1,
+      session_epoch = invitation_coordinators.session_epoch + 1,
       updated_at = clock_timestamp()
   where id = coordinator_row.id;
 
@@ -1440,7 +1440,7 @@ begin
         auth_mutation_expires_at = null,
         delivery_nonce_digest = null,
         expected_provider_user_id = null,
-        session_epoch = session_epoch + 1,
+        session_epoch = invitation_coordinators.session_epoch + 1,
         updated_at = clock_timestamp()
     where id = coordinator_row.id;
 
