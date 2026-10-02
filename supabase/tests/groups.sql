@@ -2060,11 +2060,11 @@ select is(
 );
 select is(
   (select use_count from public.group_invitations where id = :'inv3_id'::uuid),
-  0, 'the rollback restored the use count'
+  1, 'the rollback restored the use count to the earlier rejoin use alone'
 );
 select is(
   (select count(*)::int from public.audit_events where group_id = :'gid'::uuid and event_type = 'invitation_accepted' and invitation_id = :'inv3_id'::uuid),
-  0, 'the rollback removed the audit event'
+  1, 'the rollback removed the acceptance audit event, leaving the earlier rejoin'
 );
 
 select *

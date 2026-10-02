@@ -18,7 +18,7 @@
 
 begin;
 
-select plan(71);
+select plan(70);
 
 -- Synthetic test identities; rolled back at the end of the suite.
 select gen_random_uuid() as uid_a \gset
