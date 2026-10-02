@@ -65,9 +65,21 @@ notifications are 008d's slice; the handoff contract is fixed below.
   since 006a) becomes authoritative: it is the group's committed draw
   version, `null` before the first draw, incremented by exactly one per
   committed draw. Its existing check constraint (`null or >= 1`) already
-  matches. The draw function is the only writer of this column; the client
-  column SELECT granted in 006a excludes it, so it remains internal. No new
-  column on `groups` is required.
+  matches. Exactly two functions may write this column: `run_secret_draw`
+  (real versions) and the narrowly extended `update_group_settings` (the
+  tombstone bump on a mode change away from `secret_draw`, specified under
+  "Membership-change semantics" — it increments the version without
+  creating assignment rows, so a mode round-trip cannot resurrect
+  assignments). The client column SELECT granted in 006a excludes the
+  column, so it remains internal. No new column on `groups` is required.
+- One narrow, reviewed extension to `public.update_group_settings` is in
+  scope for exactly this purpose: inside its existing transaction and
+  group lock, when the committed mode differs from the previous mode and
+  moves **away from** `secret_draw` while `current_draw_version` is not
+  null, it increments `current_draw_version` by one. Nothing else about
+  the function changes; the extension is tested with positive, negative,
+  and round-trip cases (criterion 5), and every other 006a/006b function
+  remains untouched.
 - Superseded assignment rows are retained as internal durable history —
   memberships, invitations, and audit events are never deleted, and neither
   are assignments. Retention is safe because every client projection below
@@ -143,10 +155,14 @@ dynamic SQL. `REVOKE EXECUTE` from `PUBLIC`, `anon`, `authenticated`, and
   returns `table(result text, draw_version integer)`. Organizer-only. The
   expected-version parameter is the compare-and-swap guard (below). Success
   results: `drawn` with the new version. Failure results: `unavailable`
-  (not the organizer, unknown group, wrong mode, archived group, null
-  inputs), `stale` (the CAS check failed — the group's committed draw
-  version no longer matches what the caller confirmed against), and
-  `insufficient_participants` (`n < 2`).
+  (not the organizer, unknown group, wrong mode, archived group, or a
+  null `p_group_id` — a null `p_expected_draw_version` is the valid
+  first-draw input, not a failure), `stale` (the CAS check failed — the
+  group's committed draw version no longer matches what the caller
+  confirmed against), and
+  `insufficient_participants` (`n < 2`). The organizer-authority check
+  completes before the expected-version comparison, so a non-organizer
+  always receives `unavailable` and never reaches `stale`.
 - `public.my_assignment(p_group_id uuid)` returns
   `table(draw_version integer, recipient_id uuid, recipient_display_name
   text, is_valid boolean)`. For a caller who is a joined member of a
@@ -215,8 +231,12 @@ assignment involving a member whose row the draw did not observe.
   cannot re-randomize: the retry re-reads the group after the lock, sees a
   version that no longer matches the caller's expected value, and fails
   atomically as `stale` with no writes and no audit event. A losing
-  concurrent draw commits nothing at all. This mirrors 006b's
-  shareable-invitation CAS model (`stale` on version mismatch).
+  concurrent draw commits nothing at all. **Result-row contract
+  (authoritative):** a version mismatch is reported as the `stale` result
+  row — consistent with 006a's minimum-result, generic-failure pattern —
+  not as a raised typed error. 006b's shareable-invitation CAS is the
+  precedent for the check itself, not for the reporting style; the
+  implementer must not copy its `stale_invitation_version`/PT409 raise.
 - **Two concurrent draws.** Serialized by the group lock, the second draw
   proceeds only if its expected version still matches — after the first
   commits, it does not, so exactly one draw wins and the loser fails
@@ -260,6 +280,36 @@ property, not a write-time rewrite.
   untouched. The new organizer gains exactly the draw administration
   powers (run/redraw, draw state) and still no read access to anyone's
   assignment — including the previous organizer's.
+- **Mode change or archival after a draw.** `update_group_settings` (006a)
+  may change the mode away from `secret_draw` at any time, and a group may
+  be archived. **Decision (binding):** a mode change away from
+  `secret_draw` leaves every assignment row stored but **permanently
+  unreachable for that draw version** — returning the mode to
+  `secret_draw` does **not** resurrect prior assignments. The enforcement
+  mechanism is a tombstone version bump, reusing the existing monotonic
+  version counter rather than new schema: when `update_group_settings`
+  commits a mode change away from `secret_draw` while
+  `groups.current_draw_version` is not null, it increments
+  `current_draw_version` by one in the same transaction. The superseded
+  version's rows become unreachable exactly as in a redraw, and the new
+  current version has no assignment rows at all — so switching the mode
+  back to `secret_draw` still reads zero rows everywhere until a
+  confirmed redraw creates the next real version over the current roster.
+  The bump is unconditional and idempotent per settings change (one bump
+  per committed settings update that moves the mode away), never
+  decrements, and coexists with the CAS: a draw or redraw that committed
+  just before the mode change is tombstoned by it; a draw attempting to
+  commit after it re-checks the mode after the group lock and refuses.
+  The stored rows remain valid internal history throughout, and mode
+  changes never mutate, rewrite, or delete assignment rows — the
+  reachability switch is a read-predicate property of the version counter
+  only. Archived groups behave the same way at the read boundary:
+  `run_secret_draw` refuses archived groups (already specified), and both
+  `my_assignment` and `group_draw_state` return zero rows for an archived
+  group. This closes the only read path by which stale assignments could
+  resurface after a mode round-trip. The narrow `update_group_settings`
+  extension this requires is specified in the scope section and excepted
+  from the non-goals below.
 - **Join/leave racing the draw transaction.** Serialized by the group
   lock, per the concurrency section. The race harness (criterion 7) must
   demonstrate at least: join vs. draw (either the join is visible to the
@@ -357,12 +407,14 @@ overload of every touched function.
   departure notification, email, or push (008d and Phase 8).
 - No changes to the other modes: gift-everyone checklists (008b) and
   wishlist-only mode (008a) never read `group_assignments`.
-- No draw exclusions ("don't draw X"), previous-year history, exchange
-  reveal scheduling, or per-pair exceptions — explicitly out of scope for
-  v1 (`docs/product/scope-v1.md`).
+- No advanced draw exclusions ("don't draw X") or previous-year history —
+  both are P2 future considerations in `docs/product/scope-v1.md`. No
+  exchange reveal scheduling or per-pair exceptions either; no scope
+  document provides for those, so adding them would require a new product
+  decision first.
 - No changes to 006a/006b membership, invitation, or audit functions beyond
-  the two-value enum extension and the metadata-allowlist extension
-  specified above.
+  the two-value enum extension, the metadata-allowlist extension, and the
+  single `update_group_settings` tombstone extension specified above.
 - No analytics event, tracking-plan change, new dependency, Magic Patterns
   artifact, visual baseline, or UI of any kind. This slice has no
   user-visible surface; before/after screenshots and a Railway preview
@@ -384,8 +436,9 @@ The PR copies these criteria and marks each with evidence.
    `giver_id <> recipient_id` all exist and hold; a direct write that
    would duplicate a recipient, self-assign, reference a non-member, or
    attach to the wrong group is denied. The two new audit enum values
-   exist; the metadata allowlist accepts exactly the three new keys and
-   rejects everything else, including any assignment-bearing key.
+   exist; the metadata allowlist accepts the three new keys in addition
+   to the existing seven and rejects everything else, including any
+   assignment-bearing key.
 2. **Permutation validity across many runs (pgTAP).** The pure helper,
    driven by fixed byte vectors, produces valid derangements (bijection,
    zero fixed points) for deterministic seeded runs across participant
@@ -423,7 +476,17 @@ The PR copies these criteria and marks each with evidence.
    assignment; an organizer transfer changes no assignment; each status
    change flips `roster_in_sync` as specified; audit history for prior
    draws is unchanged by every membership change; and no case produces a
-   self-assignment, an orphan assignment, or a new exposure.
+   self-assignment, an orphan assignment, or a new exposure. **Mode and
+   archival cases:** changing the mode away from `secret_draw` after a
+   draw bumps `current_draw_version` exactly once, leaves all assignment
+   rows stored and byte-identical, and makes `my_assignment` and
+   `group_draw_state` read zero rows; switching the mode back to
+   `secret_draw` still reads zero rows (no resurrection); a confirmed
+   redraw after the round-trip creates the next real version and restores
+   reads only for that version; a settings update that does not move the
+   mode away from `secret_draw` never bumps the version; and an archived
+   group reads zero rows through both read functions while
+   `run_secret_draw` refuses it.
 6. **Rollback atomicity (pgTAP).** An induced failure after assignment
    insertion (forced exception in a transaction wrapper) leaves
    `current_draw_version`, assignment rows, and audit events exactly as
@@ -465,12 +528,20 @@ The PR copies these criteria and marks each with evidence.
 
 Required PR evidence: exact-head CI checks; the grants/RLS/function
 inventory; the two-session race transcript with bounded run time;
-forward-migration and rollback-by-forward-fix notes (the revert path
-drops the draw functions, `group_assignments`, and — only if no later
-migration depends on them — the two enum values, in dependency order;
-assignments are data-destroying to revert and the revert is a deliberate
-gate); synthetic-only fixture confirmation; and the no-Magic-Patterns
-confirmation. This database-only slice has no changed UI, so screenshots
+forward-migration and rollback-by-forward-fix notes; synthetic-only fixture
+confirmation; and the no-Magic-Patterns confirmation. **Rollback contract
+(binding):** the revert path drops the three draw functions and
+`group_assignments` only, in dependency order. The two enum values are
+**permanent once added**: PostgreSQL has no `ALTER TYPE ... DROP VALUE`, so
+they cannot be removed by a forward migration and remain in
+`group_audit_event_type` as harmless, unused values if the slice is
+reverted. Removing them would require a full type-recreation migration —
+recreating `group_audit_event_type` under a new name, migrating every
+existing audit row off the old type, and dropping the old type — which is a
+data-destroying gate touching 006a's audit history and is out of scope for
+this slice's revert plan. Reverting `group_assignments` itself deletes draw
+history irreversibly; a revert is a deliberate data-destroying gate, never a
+hotfix. This database-only slice has no changed UI, so screenshots
 and a Railway preview comparison are not applicable and must be stated
 as such.
 
@@ -525,8 +596,12 @@ as such.
 
 ## Analytics, security, and privacy
 
-No analytics event is introduced; the typed event catalog and tracking
-plan are untouched. Assignments are treated like bearer tokens: secret by
+No analytics event is introduced by this slice; the typed event catalog and
+tracking plan are otherwise untouched. The already-catalogued server-side
+event `name_draw_completed` (properties `participant_count_bucket`,
+`is_redraw` — `docs/analytics/tracking-plan.md`) is wired by the **008d**
+assignment-view slice, which owns the user-visible draw surface; 008c adds
+no emission of it. Assignments are treated like bearer tokens: secret by
 construction, never persisted in audit metadata, logs, analytics, error
 reports, client bundles, or test fixtures, and readable only through the
 narrow own-assignment projection. The organizer's administrative powers
