@@ -197,10 +197,13 @@ begin
     migration_checked_at
   from migration_006b_losers l;
 
-  -- 4d. Initialize each group's counter exactly: the maximum assigned row
-  -- version, plus one normalization epoch when step 4b revoked one or more
-  -- duplicate stored-active rows in that group. Groups with no generic
-  -- history stay at the 0 default.
+  -- 4d. Initialize EVERY pre-existing group's counter exactly: the maximum
+  -- assigned row version, plus one normalization epoch when step 4b revoked
+  -- one or more duplicate stored-active rows in that group. The outer join
+  -- is from groups (not from the history table), so a group with zero
+  -- generic history is also updated — to 0. (An inner join over the
+  -- history rows would leave zero-history groups NULL and the set-not-null
+  -- below would fail on any populated predecessor state.)
   create temp table migration_006b_hist on commit drop as
     select group_id, max(shareable_version) as max_version
     from public.group_invitations
@@ -215,9 +218,10 @@ begin
   set shareable_invitation_version =
         coalesce(h.max_version, 0)
         + case when lg.group_id is null then 0 else 1 end
-  from migration_006b_hist h
-  left join migration_006b_loser_groups lg on lg.group_id = h.group_id
-  where g.id = h.group_id;
+  from public."groups" all_groups
+  left join migration_006b_hist h on h.group_id = all_groups.id
+  left join migration_006b_loser_groups lg on lg.group_id = all_groups.id
+  where g.id = all_groups.id;
 end;
 $$;
 
