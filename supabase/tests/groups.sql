@@ -191,7 +191,9 @@ select enum_has_labels(
     'member_left',
     'invitation_declined',
     'member_removed',
-    'member_reinvited'
+    'member_reinvited',
+    'draw_created',
+    'draw_redrawn'
   ],
   'the audit event enum has exactly the pinned labels in order'
 );
