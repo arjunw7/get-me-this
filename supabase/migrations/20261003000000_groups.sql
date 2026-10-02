@@ -736,7 +736,7 @@ set search_path = ''
 as $$
 declare
   caller_id uuid := auth.uid();
-  token_hash bytea;
+  v_token_hash bytea;
   resolved_group_id uuid;
   inv public.group_invitations%rowtype;
   member_row public.group_members%rowtype;
@@ -755,13 +755,13 @@ begin
     return;
   end if;
 
-  token_hash := extensions.digest(convert_to(p_token, 'UTF8'), 'sha256');
+  v_token_hash := extensions.digest(convert_to(p_token, 'UTF8'), 'sha256');
 
   -- Resolve the invitation's group from its hash without taking a row lock.
   select i.group_id
     into resolved_group_id
   from public.group_invitations i
-  where i.token_hash = token_hash;
+  where i.token_hash = v_token_hash;
 
   if resolved_group_id is null then
     return query select 'unavailable'::text, null::uuid;
@@ -781,7 +781,7 @@ begin
   select *
     into inv
   from public.group_invitations i
-  where i.token_hash = token_hash
+  where i.token_hash = v_token_hash
     and i.group_id = resolved_group_id
   for update;
 
