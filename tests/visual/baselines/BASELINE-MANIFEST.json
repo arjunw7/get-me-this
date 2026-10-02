@@ -26,6 +26,94 @@
       "approvedBy": "repository owner (explicit approval of the ARJ-29 diff: V18 privacy line + Reorder toolbar restored by PR #39)",
       "approvedDate": "2026-10-01",
       "approvalManifestSha256": "25c87ae6dfa5cec565dd460b904f1bea71d91143d5e138d5b6903dbc4d26440a"
+    },
+    "groups-created-active-link-lost-desktop.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-active-link-lost-mobile.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-issued-expired-desktop.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-issued-expired-mobile.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-never-issued-desktop.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-never-issued-mobile.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-replacement-confirmation-desktop.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-replacement-confirmation-mobile.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-revoked-desktop.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-revoked-mobile.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-stale-desktop.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-stale-mobile.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-token-present-desktop.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-created-token-present-mobile.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-new-conflict-desktop.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-new-conflict-mobile.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-new-empty-desktop.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-new-empty-mobile.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-new-pending-desktop.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-new-pending-mobile.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-new-validation-desktop.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
+    },
+    "groups-new-validation-mobile.png": {
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedDate": "2026-10-02"
     }
   },
   "files": {
@@ -56,6 +144,28 @@
     "wishlist-empty-desktop.png": "92eb523e95288ad878af6713ab88f1cac6fe97357645c7535a9d294367536b2e",
     "wishlist-empty-mobile.png": "d6be52365b2de8001f53eb91e6545ea82ed8564e2f8eef513d5e413ea5e79ba0",
     "wishlist-filled-desktop.png": "2ea009c13897e8d797b6ebea58fc92971395b3eb7b6cead1dd760fe8b0297da9",
-    "wishlist-filled-mobile.png": "c9e0586b6859b417ed622d50d41e707fffe136388892a5b81a76f341afb5ad30"
+    "wishlist-filled-mobile.png": "c9e0586b6859b417ed622d50d41e707fffe136388892a5b81a76f341afb5ad30",
+    "groups-created-active-link-lost-desktop.png": "2cf78017ebf20892ae2d78656d771832a00969fce1319e6ff848c8adfb118bd4",
+    "groups-created-active-link-lost-mobile.png": "ff8ece37fcb37895816fd85d8fd80638e3a802ab6902aa3f9e9fe89220acd23a",
+    "groups-created-issued-expired-desktop.png": "7746a67ef51df9a1a5d0ed87da9f97572ad155170b930cf2c8e8257d4c59058c",
+    "groups-created-issued-expired-mobile.png": "5514c06063bdae893fac75a8298829d4bc948f2a812110b1247e4fc12ce1a76b",
+    "groups-created-never-issued-desktop.png": "221f7595f557b74633e4f8e473bef0993b5e68a644e16762089d7f4c101b04a4",
+    "groups-created-never-issued-mobile.png": "6b4f1649e0c3306fa6518e75d6541da65e5daec07e11a65ed38746dbfe038b02",
+    "groups-created-replacement-confirmation-desktop.png": "d839707bea3adee0730efe04a468777820f57ce7d675a8f089fb39847461d017",
+    "groups-created-replacement-confirmation-mobile.png": "3ecf6de662ef1dfd115497720fbffde7dc0938d131c38cb09ae60bf6f7fcd291",
+    "groups-created-revoked-desktop.png": "221f7595f557b74633e4f8e473bef0993b5e68a644e16762089d7f4c101b04a4",
+    "groups-created-revoked-mobile.png": "6b4f1649e0c3306fa6518e75d6541da65e5daec07e11a65ed38746dbfe038b02",
+    "groups-created-stale-desktop.png": "7ec30da9375260d4e8b050a29aa3ffa1278db224d386e736a3d73776ce5af1f1",
+    "groups-created-stale-mobile.png": "22f1f2719a0c71dde4c004587e5c9a7595f91182454a5837476bde1d53989a91",
+    "groups-created-token-present-desktop.png": "d0084cb80197116dfe03583b8aeb57bfde7847766edb9f2d0e2736da19a0f3d9",
+    "groups-created-token-present-mobile.png": "f87fca74d1f7c01d108d147dc48807b38299596b60479cea507ea7c9f45afb85",
+    "groups-new-conflict-desktop.png": "2a4357fe5b3c1e68e1fce72c842e648ebfe98fb10b302c526b6dcfc062032638",
+    "groups-new-conflict-mobile.png": "c287e4f870c51ff6672bd13d12b76e1c208cc16c24a0dba930fb3264c552a86d",
+    "groups-new-empty-desktop.png": "abd226ffd6b7bcdb7666cb68c0ca69f9894ed9680a4e6721d206cab1d30b8d60",
+    "groups-new-empty-mobile.png": "a93e9c847090af4bbc61b689cbfaf33502e63b115a9a0feaf46571194502ce05",
+    "groups-new-pending-desktop.png": "3028d26712d541011248445aaa0d5a1c7934d93cd4bfb54c17920ebc56b833bc",
+    "groups-new-pending-mobile.png": "3a1b460f7fcd67dd9866f66dd17f8962caa35135bd7210741040a0fccad82c9d",
+    "groups-new-validation-desktop.png": "aa9785652d3f19186f867e75f690dbb3c57c616addcd581e612bbfa02f520c2b",
+    "groups-new-validation-mobile.png": "c2e46c3107e339919543d45cf80bbccb2908b85a66f3bef1052291c97ad75442"
   }
 }

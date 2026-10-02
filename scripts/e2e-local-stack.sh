@@ -132,4 +132,6 @@ pnpm exec playwright test \
   tests/visual/wishlist-empty.visual.spec.ts \
   tests/visual/wishlist-filled.visual.spec.ts \
   tests/visual/wishlist-items.visual.spec.ts \
-  tests/visual/wishlist-extract.visual.spec.ts
+  tests/visual/wishlist-extract.visual.spec.ts \
+  tests/visual/groups-new.visual.spec.ts \
+  tests/visual/groups-created.visual.spec.ts
