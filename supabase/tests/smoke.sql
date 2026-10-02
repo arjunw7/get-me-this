@@ -51,16 +51,17 @@ select ok(
   'baseline migration 20260927000000 is recorded as applied'
 );
 
--- 4. Exactly the nine reviewed application tables exist in public:
+-- 4. Exactly the ten reviewed application tables exist in public:
 --    profiles (004a) plus wishlists and wishlist_items (005a) plus the five
---    006a group tables plus the 006b group_creation_receipts table. Any
---    other public table means an unreviewed schema change. (Deliberate,
---    reviewed amendment of the 002d assertion "no application tables exist"
---    and of the 004a/005a/006a counts; see those briefs and 006b.)
+--    006a group tables plus the 006b group_creation_receipts table plus the
+--    007a group_item_reactions table. Any other public table means an
+--    unreviewed schema change. (Deliberate, reviewed amendment of the 002d
+--    assertion "no application tables exist" and of the
+--    004a/005a/006a/006b counts; see those briefs and 007a.)
 select is(
   (select count(*)::int from pg_tables where schemaname = 'public'),
-  11,
-  'only the reviewed public tables (profiles, wishlists, wishlist_items, groups, group_members, group_invitations, group_invitation_uses, audit_events, group_creation_receipts, gift_checklist_entries, group_assignments) exist in the public schema'
+  12,
+  'only the reviewed public tables (profiles, wishlists, wishlist_items, groups, group_members, group_invitations, group_invitation_uses, audit_events, group_creation_receipts, gift_checklist_entries, group_assignments, group_item_reactions) exist in the public schema'
 );
 
 select has_table(
