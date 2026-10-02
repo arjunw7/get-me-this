@@ -79,9 +79,9 @@ export function CreatedScreen({
   const [pending, setPending] = useState(false);
 
   // The authoritative expiry is rendered from the projected/returned stored
-  // value, formatted in the organizer's own time zone. The text is computed
-  // at render time; the server and client locales can differ, so the
-  // containing elements carry suppressHydrationWarning (text-only drift).
+  // value, formatted with the pinned deterministic locale and zone. The text
+  // is computed at render time; the containing elements carry
+  // suppressHydrationWarning (text-only drift).
   const expiryText = useMemo(
     () => formatExpiry(invitation.expiresAt),
     [invitation.expiresAt],
@@ -369,14 +369,23 @@ export function inviteUrl(token: string): string {
   return `${window.location.origin}/invite/${token}`;
 }
 
-/** Human-readable stored expiry; null when absent or unparseable. */
+/**
+ * Human-readable stored expiry; null when absent or unparseable.
+ *
+ * The locale and time zone are pinned (en-IN, Asia/Kolkata) so the rendered
+ * expiry is byte-identical across server/client locales, browser devices,
+ * and visual-baseline captures — the brief's deterministic visual contract.
+ * The stored value itself stays the authoritative instant; only its
+ * presentation is pinned.
+ */
 export function formatExpiry(iso: string | null): string | null {
   if (!iso) return null;
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return null;
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-IN", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "Asia/Kolkata",
   }).format(parsed);
 }
 
