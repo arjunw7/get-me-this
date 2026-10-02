@@ -122,6 +122,16 @@ jobs:
       - name: Run 006b group races
         timeout-minutes: 5
         run: pnpm test:db:races:006b
+      # Brief 006b criterion 14: the 006b migration must also succeed against
+      # a POPULATED 006a predecessor state, not only a fresh stack. This
+      # bounded harness builds disposable local databases from the committed
+      # migrations through 006a, seeds both fixture kinds (generic history
+      # and zero generic history) plus multiple-active/expired/targeted
+      # cases, applies 006b once, asserts the backfilled versions and system
+      # audits, and proves a forced migration failure rolls everything back.
+      - name: Run the populated-state group upgrade
+        timeout-minutes: 5
+        run: pnpm test:db:group-upgrade
       - name: Install the Playwright Chromium browser
         timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
