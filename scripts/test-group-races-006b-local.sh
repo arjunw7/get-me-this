@@ -352,19 +352,22 @@ check 3 "s6-audits" "2 = (select count(*) from public.audit_events where group_i
 
 echo "scenario 7: generic issue versus targeted issue interleaving"
 
-# Seed the targeted user for the generic-versus-targeted interleavings.
+# Seed the targeted user for the generic-versus-targeted interleavings, and
+# create a FRESH group so the audit and version assertions below start at
+# known values (the 'Race CAS' group has accumulated both).
 {
   printf "insert into auth.users (id, aud, role, email, encrypted_password) values ('%s', 'authenticated', 'authenticated', 'group-race-006b-b@example.invalid', '') on conflict (id) do nothing;\n" "$UID_B"
-} | psql_one >/dev/null || die "targeted user seeding failed"
-
-G7="$(psql_one <<< "select id::text from ${GROUPS_SQL} where organizer_id = '${UID_A}' and name = 'Race CAS';" | tail -n 1)"
+  printf "set request.jwt.claim.sub = '%s';\n" "$UID_A"
+  printf "select group_id::text from public.create_group_v1(gen_random_uuid(), '{\"contract_version\":1,\"name\":\"Race Targeted\",\"occasion_type\":\"birthday\",\"occasion_date\":\"2026-12-18\",\"time_zone\":\"Asia/Kolkata\",\"location\":null,\"description\":null,\"budget_amount_minor\":\"100000\",\"budget_currency\":\"INR\",\"mode\":\"secret_draw\",\"organizer_participating\":true}'::jsonb);\n"
+} | psql_one >/dev/null || die "scenario 7 setup failed"
+G7="$(psql_one <<< "select id::text from ${GROUPS_SQL} where organizer_id = '${UID_A}' and name = 'Race Targeted';" | tail -n 1)"
 
 # Session A holds the group lock with an in-flight generic issue; session B's
 # targeted issue waits behind the common group-first lock, then commits
 # WITHOUT reading or changing the shareable version.
 send 3 "begin;"
-send 3 "$(issue_call "$G7" 3)"
-await 4 "4"
+send 3 "$(issue_call "$G7" 0)"
+await 4 "1"
 
 send 5 "create temp table race_markers7(marker text);"
 send 5 "do \$\$ begin
@@ -376,8 +379,8 @@ send 3 "commit;"
 send 5 "select marker from race_markers7;"
 await 6 "TARGETED-ISSUED"
 
-check 3 "s7-version" "4 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G7}')"
-check 3 "s7-generic-row" "1 = (select count(*) from public.group_invitations where group_id = '${G7}' and shareable_version = 4 and status = 'active')"
+check 3 "s7-version" "1 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G7}')"
+check 3 "s7-generic-row" "1 = (select count(*) from public.group_invitations where group_id = '${G7}' and shareable_version = 1 and status = 'active')"
 check 3 "s7-targeted-row" "1 = (select count(*) from public.group_invitations where group_id = '${G7}' and target_user_id = '${UID_B}' and shareable_version is null and status = 'active')"
 check 3 "s7-audits" "1 = (select count(*) from public.audit_events where group_id = '${G7}' and event_type = 'invitation_issued') and 1 = (select count(*) from public.audit_events where group_id = '${G7}' and event_type = 'member_reinvited')"
 
@@ -386,14 +389,14 @@ check 3 "s7-audits" "1 = (select count(*) from public.audit_events where group_i
 echo "scenario 8: generic revoke versus targeted revoke interleaving"
 
 T8="$(psql_one <<< "select id::text from public.group_invitations where group_id = '${G7}' and target_user_id = '${UID_B}' and shareable_version is null;" | tail -n 1)"
-GEN8="$(psql_one <<< "select id::text from public.group_invitations where group_id = '${G7}' and shareable_version = 4;" | tail -n 1)"
+GEN8="$(psql_one <<< "select id::text from public.group_invitations where group_id = '${G7}' and shareable_version = 1;" | tail -n 1)"
 
 # Session A holds the group lock with an in-flight generic CAS revoke; session
 # B's targeted revoke-by-ID waits behind the same lock, then commits on the
 # targeted row only.
 send 3 "begin;"
-send 3 "select invitation_version from public.revoke_group_invitation('${G7}'::uuid, 4::bigint);"
-await 4 "5"
+send 3 "select invitation_version from public.revoke_group_invitation('${G7}'::uuid, 1::bigint);"
+await 4 "2"
 
 send 5 "create temp table race_markers8(marker text);"
 send 5 "do \$\$ begin
@@ -405,20 +408,20 @@ send 3 "commit;"
 send 5 "select marker from race_markers8;"
 await 6 "TARGETED-REVOKED"
 
-check 3 "s8-generic-revoked" "1 = (select count(*) from public.group_invitations where id = '${GEN8}' and shareable_version = 4 and status = 'revoked')"
+check 3 "s8-generic-revoked" "1 = (select count(*) from public.group_invitations where id = '${GEN8}' and shareable_version = 1 and status = 'revoked')"
 check 3 "s8-targeted-revoked" "1 = (select count(*) from public.group_invitations where id = '${T8}' and target_user_id = '${UID_B}' and status = 'revoked')"
-check 3 "s8-version" "5 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G7}')"
+check 3 "s8-version" "2 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G7}')"
 check 3 "s8-audits" "1 = (select count(*) from public.audit_events where group_id = '${G7}' and event_type = 'invitation_revoked' and invitation_id = '${GEN8}') and 1 = (select count(*) from public.audit_events where group_id = '${G7}' and event_type = 'invitation_revoked' and invitation_id = '${T8}')"
 
 # Isolation probe: the targeted revoke-by-ID overload must refuse a stored-
 # active generic row (compare-and-swap cannot be bypassed by invitation id).
-send 5 "$(issue_call "$G7" 5)"
-await 6 "6"
-GEN8B="$(psql_one <<< "select id::text from public.group_invitations where group_id = '${G7}' and shareable_version = 6;" | tail -n 1)"
+send 5 "$(issue_call "$G7" 2)"
+await 6 "3"
+GEN8B="$(psql_one <<< "select id::text from public.group_invitations where group_id = '${G7}' and shareable_version = 3;" | tail -n 1)"
 send 5 "select result from public.revoke_group_invitation('${G7}'::uuid, '${GEN8B}'::uuid);"
 await 6 "unavailable"
-check 3 "s8-refusal-no-write" "1 = (select count(*) from public.group_invitations where id = '${GEN8B}' and status = 'active' and shareable_version = 6)"
-check 3 "s8-refusal-version" "6 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G7}')"
+check 3 "s8-refusal-no-write" "1 = (select count(*) from public.group_invitations where id = '${GEN8B}' and status = 'active' and shareable_version = 3)"
+check 3 "s8-refusal-version" "3 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G7}')"
 check 3 "s8-refusal-no-audit" "0 = (select count(*) from public.audit_events where group_id = '${G7}' and event_type = 'invitation_revoked' and invitation_id = '${GEN8B}')"
 
 echo "group-races-006b: all scenarios passed"
