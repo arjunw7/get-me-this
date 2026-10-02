@@ -1,9 +1,16 @@
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { expect, type Page, test } from "@playwright/test";
 
+import {
+  deleteFixtureGroupsSql,
+  runStackSql,
+  stackGenericInvitation,
+  stackGroupVersion,
+  stackIssueGeneric,
+  stackIssueTargeted,
+  stackOrganizerGroupCount,
+  stackSetGenericExpiry,
+  stackTargetedStatus,
+} from "../helpers/group-stack";
 import {
   createSignedInFixture,
   FixtureScope,
@@ -37,165 +44,6 @@ function futureIsoDate(): string {
  * browser-owned draft key deterministically (replay and conflict flows).
  */
 const FIXED_REQUEST_KEY = "d4b1c7a2-1111-4222-8333-444455556666";
-
-/** The local stack's database container, located exactly (label + name). */
-function stackDbContainer(): string {
-  const config = readFileSync(
-    path.join(process.cwd(), "supabase", "config.toml"),
-    "utf8",
-  );
-  const projectId = config.match(/^\s*project_id\s*=\s*"([^"]+)"/m)?.[1] ?? "";
-  if (!projectId) {
-    throw new Error("could not read project_id from supabase/config.toml");
-  }
-  return `supabase_db_${projectId}`;
-}
-
-/**
- * Runs superuser SQL inside the LOCAL stack's database container. The group
- * tables are revoked from service_role by design (006a), so fixture setup
- * probes and teardown cannot go through the admin client. Used only against
- * the local stack; never against staging or production.
- */
-function runStackSql(sql: string): string {
-  return execFileSync(
-    "docker",
-    [
-      "exec",
-      "-i",
-      stackDbContainer(),
-      "psql",
-      "--no-psqlrc",
-      "--quiet",
-      "--no-align",
-      "--tuples-only",
-      "--user",
-      "postgres",
-      "--dbname",
-      "postgres",
-      "--set",
-      "ON_ERROR_STOP=1",
-    ],
-    { input: sql, stdio: ["pipe", "ignore", "pipe"] },
-  ).toString();
-}
-
-/** Session identity for SQL-side RPC calls (the auth.uid() GUC surface). */
-function withIdentity(userId: string, sql: string): string {
-  return [
-    `set request.jwt.claim.sub = '${userId}';`,
-    "set request.jwt.claim.role = 'authenticated';",
-    `set request.jwt.claims = '{"sub":"${userId}","role":"authenticated"}';`,
-    sql,
-  ].join("\n");
-}
-
-function deleteFixtureGroupsSql(groupIds: string[], userIds: string[]): void {
-  if (groupIds.length === 0 && userIds.length === 0) return;
-  const list = (values: string[]) =>
-    values.map((v) => `'${v}'::uuid`).join(",");
-  const sql = [
-    `delete from public.audit_events where group_id in (${list(groupIds)}) or actor_id in (${list(userIds)});`,
-    `delete from public.group_invitation_uses where invitation_id in (select id from public.group_invitations where group_id in (${list(groupIds)})) or user_id in (${list(userIds)});`,
-    `delete from public.group_invitations where group_id in (${list(groupIds)});`,
-    `delete from public.group_creation_receipts where group_id in (${list(groupIds)}) or actor_id in (${list(userIds)});`,
-    `delete from public.group_members where group_id in (${list(groupIds)}) or user_id in (${list(userIds)});`,
-    `delete from public."groups" where id in (${list(groupIds)}) or organizer_id in (${list(userIds)});`,
-  ].join("\n");
-  execFileSync(
-    "docker",
-    [
-      "exec",
-      "-i",
-      stackDbContainer(),
-      "psql",
-      "--no-psqlrc",
-      "--user",
-      "postgres",
-      "--dbname",
-      "postgres",
-      "--set",
-      "ON_ERROR_STOP=1",
-    ],
-    { input: sql, stdio: ["pipe", "ignore", "pipe"] },
-  );
-}
-
-/** The group version is internal: this probe never selects token material. */
-function stackGroupVersion(groupId: string): string {
-  return runStackSql(
-    `select shareable_invitation_version::text from public."groups" where id = '${groupId}'::uuid;`,
-  ).trim();
-}
-
-function stackOrganizerGroupCount(organizerId: string): number {
-  return Number.parseInt(
-    runStackSql(
-      `select count(*)::text from public."groups" where organizer_id = '${organizerId}'::uuid;`,
-    ).trim(),
-    10,
-  );
-}
-
-/**
- * Another-tab issuer: a direct generic compare-and-swap issue through the
- * same RPC the UI action uses. Selects only the version — never the token.
- */
-function stackIssueGeneric(organizerId: string, groupId: string): string {
-  return runStackSql(
-    withIdentity(
-      organizerId,
-      `select invitation_version::text from public.issue_group_invitation('${groupId}'::uuid, (select shareable_invitation_version from public."groups" where id = '${groupId}'::uuid));`,
-    ),
-  ).trim();
-}
-
-/** The current generic invitation row's id and status (no token material). */
-function stackGenericInvitation(groupId: string): {
-  id: string;
-  status: string;
-} {
-  const row = runStackSql(
-    `select id::text || '/' || status::text from public.group_invitations where group_id = '${groupId}'::uuid and shareable_version is not null order by shareable_version desc limit 1;`,
-  ).trim();
-  const [id, status] = row.split("/");
-  return { id, status };
-}
-
-/** Overwrites a generic invitation's stored expiry to a fixed instant. */
-function stackSetGenericExpiry(groupId: string, isoInstant: string): void {
-  runStackSql(
-    `update public.group_invitations set expires_at = '${isoInstant}'::timestamptz where group_id = '${groupId}'::uuid and shareable_version is not null;`,
-  );
-}
-
-/** A targeted invitation issued through the reshaped 006b overload. The
- * returned row result (token material) is discarded inside the database; the
- * id is resolved from the non-sensitive columns afterwards. */
-function stackIssueTargeted(
-  organizerId: string,
-  groupId: string,
-  targetUserId: string,
-): string {
-  runStackSql(
-    withIdentity(
-      organizerId,
-      `do $$ begin
-  perform public.issue_group_invitation('${groupId}'::uuid, '${targetUserId}'::uuid);
-end $$;`,
-    ),
-  );
-  return runStackSql(
-    `select id::text from public.group_invitations where group_id = '${groupId}'::uuid and target_user_id = '${targetUserId}'::uuid and shareable_version is null order by created_at desc limit 1;`,
-  ).trim();
-}
-
-/** The targeted invitation row's status as seen by the organizer probe. */
-function stackTargetedStatus(groupId: string, targetUserId: string): string {
-  return runStackSql(
-    `select status::text from public.group_invitations where group_id = '${groupId}'::uuid and target_user_id = '${targetUserId}'::uuid and shareable_version is null order by created_at desc limit 1;`,
-  ).trim();
-}
 
 async function fillAndSubmitCreateForm(
   page: Page,
@@ -476,6 +324,7 @@ test("a changed payload after a submitted attempt surfaces the conflict BEFORE t
       page.getByRole("heading", { name: "What are we celebrating?" }),
     ).toBeVisible();
     await page.getByLabel("Group name").fill("Conflict changed draft");
+    await page.getByLabel("Date").fill(futureIsoDate());
     await page.getByRole("button", { name: "Create group" }).click();
 
     const conflict = page.getByTestId("idempotency-conflict");
@@ -527,6 +376,7 @@ test("only the explicit confirmation submits a changed payload as a new request"
       page.getByRole("heading", { name: "What are we celebrating?" }),
     ).toBeVisible();
     await page.getByLabel("Group name").fill("New request second draft");
+    await page.getByLabel("Date").fill(futureIsoDate());
     await page.getByRole("button", { name: "Create group" }).click();
     await expect(page.getByTestId("idempotency-conflict")).toBeVisible();
 
