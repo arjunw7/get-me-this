@@ -15,13 +15,15 @@ import { parseIntent, type AuthIntent } from "./fixtures";
 
 /**
  * Server-defined routes only, keyed by the closed 004c intent enum. The
- * wishlist and create-group experiences are 004e scope; until they exist,
- * every intent resolves to the authenticated home route.
+ * wishlist experience resolves to its 005b route; 006b builds the real
+ * `create-group` route. Unknown, absent, and malicious values fall through
+ * `parseIntent`'s closed enum into the `home` default — attacker-controlled
+ * input never reaches the result.
  */
 const INTENT_ROUTES: Readonly<Record<AuthIntent, string>> = {
   home: "/home",
   wishlist: "/home",
-  "create-group": "/home",
+  "create-group": "/groups/new",
 };
 
 /**

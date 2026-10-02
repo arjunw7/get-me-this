@@ -76,12 +76,14 @@ const PROTECTED_ROUTE_PATHS: readonly string[] = [
   "/wishlist",
   "/wishlist/items/new",
   "/wishlist/items/extract",
+  "/groups/new",
 ];
 
 export function isProtectedRoutePath(pathname: string): boolean {
   return (
     PROTECTED_ROUTE_PATHS.includes(pathname) ||
-    /^\/wishlist\/items\/[^/]+\/edit$/.test(pathname)
+    /^\/wishlist\/items\/[^/]+\/edit$/.test(pathname) ||
+    /^\/groups\/[^/]+\/created$/.test(pathname)
   );
 }
 

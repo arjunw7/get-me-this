@@ -103,6 +103,7 @@ cleanup() {
     printf "delete from public.audit_events where group_id = any(select id from cl_g);\n"
     printf "delete from public.group_invitation_uses where invitation_id in (select id from public.group_invitations where group_id = any(select id from cl_g));\n"
     printf "delete from public.group_invitations where group_id = any(select id from cl_g);\n"
+    printf "delete from public.group_creation_receipts where group_id = any(select id from cl_g) or actor_id = any(array['%s','%s','%s','%s','%s']::uuid[]);\n" "$UID_A" "$UID_B" "$UID_C" "$UID_E" "$UID_F"
     printf "delete from public.group_members where group_id = any(select id from cl_g) or user_id = any(array['%s','%s','%s','%s','%s']::uuid[]);\n" "$UID_A" "$UID_B" "$UID_C" "$UID_E" "$UID_F"
     printf "delete from %s where id = any(select id from cl_g);\n" "$GROUPS_SQL"
     printf "delete from auth.users where id = any(array['%s','%s','%s','%s','%s']::uuid[]);\n" "$UID_A" "$UID_B" "$UID_C" "$UID_E" "$UID_F"
@@ -187,13 +188,23 @@ check() {
   die "check ${name}: session closed (a statement errored)"
 }
 
-# issue_token GROUP MAX_USES [TARGET]: capture the returned token silently.
+# issue_token GROUP [TARGET]: capture the returned token silently. Without a
+# target the generic compare-and-swap overload issues at the group's current
+# durable version (expiry and use limit are database-fixed); with a target the
+# targeted overload binds that user's current membership generation.
 issue_token() {
   local token
-  token="$({
-    printf "set request.jwt.claim.sub = '%s';\n" "$UID_A"
-    printf "select token from public.issue_group_invitation('%s'::uuid, clock_timestamp() + interval '1 hour', %s, %s);\n" "$1" "$2" "${3:-null}"
-  } | psql_one | tail -n 1)"
+  if [ -n "${3:-}" ]; then
+    token="$({
+      printf "set request.jwt.claim.sub = '%s';\n" "$UID_A"
+      printf "select token from public.issue_group_invitation('%s'::uuid, '%s'::uuid);\n" "$1" "$3"
+    } | psql_one | tail -n 1)"
+  else
+    token="$({
+      printf "set request.jwt.claim.sub = '%s';\n" "$UID_A"
+      printf "select token from public.issue_group_invitation('%s'::uuid, (select shareable_invitation_version from %s where id = '%s'::uuid));\n" "$1" "$GROUPS_SQL" "$1"
+    } | psql_one | tail -n 1)"
+  fi
   if [ "${#token}" -ne 43 ]; then
     die "invitation issuance did not return a canonical 43-character token"
   fi
@@ -212,17 +223,29 @@ invitation_of() {
   printf '%s' "$id"
 }
 
-# new_group: create a synthetic group through the public API (autocommit).
+# new_group: create a synthetic group through the receipt-backed public API
+# (autocommit). Each call uses a fresh random request key.
 new_group() {
   local gid
   gid="$({
     printf "set request.jwt.claim.sub = '%s';\n" "$UID_A"
-    printf "select group_id::text from public.create_group('Race Fixture', 'Birthday', clock_timestamp() + interval '30 days', 'Asia/Kolkata', null, null, 100000, 'INR', 'secret_draw');\n"
+    printf "select group_id::text from public.create_group_v1(gen_random_uuid(), jsonb_build_object('contract_version',1,'name','Race Fixture','occasion_type','birthday','occasion_date',to_char((clock_timestamp() + interval '30 days')::date,'YYYY-MM-DD'),'time_zone','Asia/Kolkata','location',null,'description',null,'budget_amount_minor','100000','budget_currency','INR','mode','secret_draw','organizer_participating',true));\n"
   } | psql_one | tail -n 1)"
   if [ "${#gid}" -ne 36 ]; then
     die "group creation did not return a uuid"
   fi
   printf '%s' "$gid"
+}
+
+# revoke_generic GROUP EXPECTED_VERSION: one-shot autocommit generic CAS
+# revocation for setup/order probes; prints revoked/noop.
+revoke_generic() {
+  local result
+  result="$({
+    printf "set request.jwt.claim.sub = '%s';\n" "$UID_A"
+    printf "select case when revoked then 'revoked' else 'noop' end from public.revoke_group_invitation('%s'::uuid, %s::bigint);\n" "$1" "$2"
+  } | psql_one | tail -n 1)"
+  printf '%s' "$result"
 }
 
 # join_token GROUP TOKEN UID: one-shot autocommit acceptance for setup.
@@ -265,10 +288,10 @@ echo "group-races: seeding synthetic fixtures"
   printf "on conflict (id) do nothing;\n"
 } | psql_one >/dev/null || die "synthetic user seeding failed"
 
-# --- scenario 1: accept/accept at a one-use limit --------------------------------
+# --- scenario 1: accept/accept at the targeted one-use limit ----------------------
 
-echo "scenario 1: accept/accept at a one-use limit"
-G1="$(new_group)"; T1="$(issue_token "$G1" 1)"
+echo "scenario 1: accept/accept at the targeted one-use limit"
+G1="$(new_group)"; T1="$(issue_token "$G1" "$UID_B")"
 
 send 3 "begin;"
 as_user 3 "$UID_B"
@@ -289,7 +312,7 @@ check 3 "s1-audit" "1 = (select count(*) from public.audit_events where group_id
 # --- scenario 2: duplicate accept by the same user --------------------------------
 
 echo "scenario 2: duplicate accept by the same user"
-G2="$(new_group)"; T2="$(issue_token "$G2" 1)"
+G2="$(new_group)"; T2="$(issue_token "$G2" "$UID_B")"
 
 send 3 "begin;"
 as_user 3 "$UID_B"
@@ -309,13 +332,13 @@ check 3 "s2-audit" "1 = (select count(*) from public.audit_events where group_id
 
 echo "scenario 3: accept/revoke (revoke commits first, then accept commits first)"
 G3="$(new_group)"
-T3="$(issue_token "$G3" "null")"
-INV3="$(invitation_of "$G3" "$T3")"
+T3="$(issue_token "$G3")"
 
-# Order 1: the revoke commits while a fresh acceptance waits on the group lock.
+# Order 1: the generic compare-and-swap revoke at the group's current durable
+# version commits while a fresh acceptance waits on the group lock.
 send 3 "begin;"
 as_user 3 "$UID_A"
-send 3 "select result from public.revoke_group_invitation('${G3}'::uuid, '${INV3}'::uuid);"
+send 3 "select case when revoked then 'revoked' else 'noop' end from public.revoke_group_invitation('${G3}'::uuid, (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G3}'::uuid));"
 await 4 "revoked"
 
 as_user 5 "$UID_C"
@@ -328,7 +351,7 @@ check 3 "s3-no-member" "not exists (select 1 from public.group_members where gro
 check 3 "s3-audit" "1 = (select count(*) from public.audit_events where group_id = '${G3}' and event_type = 'invitation_revoked')"
 
 # Order 2: the acceptance commits while the revoke waits on the group lock.
-T3B="$(issue_token "$G3" "null")"
+T3B="$(issue_token "$G3")"
 INV3B="$(invitation_of "$G3" "$T3B")"
 
 send 3 "begin;"
@@ -337,7 +360,7 @@ send 3 "select result from public.accept_group_invitation('${T3B}');"
 await 4 "joined"
 
 as_user 5 "$UID_A"
-send 5 "select result from public.revoke_group_invitation('${G3}'::uuid, '${INV3B}'::uuid);"
+send 5 "select case when revoked then 'revoked' else 'noop' end from public.revoke_group_invitation('${G3}'::uuid, (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G3}'::uuid));"
 sleep 1
 send 3 "commit;"
 await 6 "revoked"
@@ -350,7 +373,7 @@ check 3 "s3-uses" "1 = (select use_count from public.group_invitations where id 
 
 echo "scenario 4: accept/remove (remove commits first, then accept commits first)"
 G4="$(new_group)"
-T4="$(issue_token "$G4" "null")"
+T4="$(issue_token "$G4")"
 join_token "$G4" "$T4" "$UID_B"
 
 # Order 1: the removal commits while the removed member's replay waits.
@@ -369,7 +392,7 @@ check 3 "s4-removed" "exists (select 1 from public.group_members where group_id 
 check 3 "s4-audit" "1 = (select count(*) from public.audit_events where group_id = '${G4}' and event_type = 'member_removed')"
 
 # Order 2: the acceptance commits while the removal waits on the group lock.
-T4B="$(issue_token "$G4" "null")"
+T4B="$(issue_token "$G4")"
 send 3 "begin;"
 as_user 3 "$UID_C"
 send 3 "select result from public.accept_group_invitation('${T4B}');"
@@ -391,7 +414,7 @@ check 3 "s4b-removed" "exists (select 1 from public.group_members where group_id
 
 echo "scenario 5: transfer/remove (transfer commits first, then remove-first order)"
 G5="$(new_group)"
-T5="$(issue_token "$G5" "null")"
+T5="$(issue_token "$G5")"
 join_token "$G5" "$T5" "$UID_B"
 
 # Order 1: the transfer commits; the old organizer's removal then fails.
@@ -412,7 +435,7 @@ check 3 "s5-audit" "1 = (select count(*) from public.audit_events where group_id
 
 # Order 2: the removal commits; the transfer to the removed member then fails.
 G6="$(new_group)"
-T6="$(issue_token "$G6" "null")"
+T6="$(issue_token "$G6")"
 join_token "$G6" "$T6" "$UID_C"
 
 send 3 "begin;"
@@ -432,7 +455,7 @@ check 3 "s6-organizer" "'${UID_A}' = (select organizer_id from ${GROUPS_SQL} whe
 
 echo "scenario 6: an accept held behind the group lock past expiry is rejected"
 G7="$(new_group)"
-T7="$(issue_token "$G7" "null")"
+T7="$(issue_token "$G7")"
 
 # Shorten the token's life to three seconds from now, then hold the group
 # lock for five seconds while the waiting acceptance sits behind it.
@@ -457,7 +480,7 @@ check 3 "s6-no-audit" "0 = (select count(*) from public.audit_events where group
 
 echo "scenario 7: one-use rollback interleave (A rolls back, B succeeds)"
 G8="$(new_group)"
-T8="$(issue_token "$G8" 1)"
+T8="$(issue_token "$G8")"
 
 send 3 "begin;"
 as_user 3 "$UID_B"
@@ -479,7 +502,7 @@ check 3 "s7-audit" "1 = (select count(*) from public.audit_events where group_id
 
 echo "scenario 8: auth-user deletion vs acceptance (restrictive FK, both orders)"
 G9="$(new_group)"
-T9="$(issue_token "$G9" "null")"
+T9="$(issue_token "$G9")"
 
 # Order 1: the deletion commits while the invitee's acceptance waits inside
 # its foreign-key check.
@@ -498,7 +521,7 @@ check 3 "s8-uses" "0 = (select use_count from public.group_invitations where tok
 check 3 "s8-no-audit" "0 = (select count(*) from public.audit_events where group_id = '${G9}' and event_type = 'invitation_accepted')"
 
 # Order 2: the acceptance commits first; the deletion is then denied.
-T9B="$(issue_token "$G9" "null")"
+T9B="$(issue_token "$G9")"
 as_user 5 "$UID_F"
 send 5 "begin;"
 send 5 "select result from public.accept_group_invitation('${T9B}');"
@@ -524,7 +547,7 @@ check 3 "s8b-audit" "1 = (select count(*) from public.audit_events where group_i
 
 echo "scenario 9: auth-user deletion vs organizer transfer (restrictive FK)"
 G10="$(new_group)"
-T10="$(issue_token "$G10" "null")"
+T10="$(issue_token "$G10")"
 join_token "$G10" "$T10" "$UID_B"
 
 # The transfer commits first (deletion-first is impossible here: the joined

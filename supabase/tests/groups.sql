@@ -20,7 +20,7 @@
 
 begin;
 
-select plan(365);
+select plan(400);
 
 -- Synthetic test identities; rolled back at the end of the suite.
 select gen_random_uuid() as uid_a \gset
@@ -119,7 +119,16 @@ select col_not_null('public', 'group_invitations', 'creator_id', 'group_invitati
 select col_not_null('public', 'group_invitations', 'token_hash', 'group_invitations.token_hash is not null');
 select col_not_null('public', 'group_invitations', 'expires_at', 'group_invitations.expires_at is not null');
 select col_not_null('public', 'group_invitations', 'use_count', 'group_invitations.use_count is not null');
-select col_not_null('public', 'audit_events', 'actor_id', 'audit_events.actor_id is not null');
+-- 006b: the audit actor is nullable under the exact system-revocation
+-- equivalence check; every application event still requires a nonnull actor.
+select ok(
+  not (
+    select attnotnull
+    from pg_attribute
+    where attrelid = 'public.audit_events'::regclass and attname = 'actor_id'
+  ),
+  'audit_events.actor_id is nullable (system-marked migration revocations only)'
+);
 select col_not_null('public', 'audit_events', 'group_id', 'audit_events.group_id is not null');
 select col_not_null('public', 'audit_events', 'event_type', 'audit_events.event_type is not null');
 select col_not_null('public', 'audit_events', 'metadata', 'audit_events.metadata is not null');
@@ -203,9 +212,10 @@ select is(
     'groups_location_bounded',
     'groups_name_bounded',
     'groups_occasion_bounded',
+    'groups_shareable_invitation_version_non_negative',
     'groups_time_zone_bounded'
   ]::text[],
-  'exactly the pinned CHECK constraints exist on groups'
+  'exactly the pinned CHECK constraints exist on groups (006b adds the shareable version check)'
 );
 
 select is(
@@ -228,11 +238,13 @@ select is(
   ),
   ARRAY[
     'group_invitations_max_uses_positive',
+    'group_invitations_shareable_target_pairing',
+    'group_invitations_shareable_version_positive',
     'group_invitations_target_pair',
     'group_invitations_token_hash_sha256',
     'group_invitations_use_count_non_negative'
   ]::text[],
-  'exactly the pinned CHECK constraints exist on group_invitations (positive limits, target pairing, sha-256 hash length)'
+  'exactly the pinned CHECK constraints exist on group_invitations (006b adds the shareable pairing and version checks)'
 );
 
 select is(
@@ -253,8 +265,8 @@ select is(
     where conrelid = 'public.audit_events'::regclass
       and contype = 'c'
   ),
-  ARRAY['audit_events_metadata_safe']::text[],
-  'exactly the pinned CHECK constraint exists on audit_events (bounded typed metadata)'
+  ARRAY['audit_events_actor_null_iff_system_revocation', 'audit_events_metadata_safe']::text[],
+  'exactly the pinned CHECK constraints exist on audit_events (bounded typed metadata, 006b actor equivalence)'
 );
 
 -- Every FK introduced here restricts on delete; no CASCADE or SET NULL.
@@ -517,11 +529,14 @@ select ok(not has_function_privilege('public', 'private.append_group_event(uuid,
 select ok(not has_function_privilege('authenticated', 'private.token_is_canonical(text)', 'EXECUTE'), 'authenticated cannot execute the token validator directly');
 select ok(not has_function_privilege('authenticated', 'private.group_fields_are_valid(text, text, text, text, text, bigint, text)', 'EXECUTE'), 'authenticated cannot execute the field validator directly');
 
--- Exact EXECUTE inventory for the public API.
-select ok(has_function_privilege('authenticated', 'public.create_group(text, text, timestamptz, text, text, text, bigint, text, text)', 'EXECUTE'), 'authenticated can execute create_group');
+-- Exact EXECUTE inventory for the public API (006b shapes).
+select ok(has_function_privilege('authenticated', 'public.create_group_v1(uuid, jsonb)', 'EXECUTE'), 'authenticated can execute create_group_v1');
 select ok(has_function_privilege('authenticated', 'public.update_group_settings(uuid, text, text, timestamptz, text, text, text, bigint, text, text)', 'EXECUTE'), 'authenticated can execute update_group_settings');
-select ok(has_function_privilege('authenticated', 'public.issue_group_invitation(uuid, timestamptz, integer, uuid)', 'EXECUTE'), 'authenticated can execute issue_group_invitation');
-select ok(has_function_privilege('authenticated', 'public.revoke_group_invitation(uuid, uuid)', 'EXECUTE'), 'authenticated can execute revoke_group_invitation');
+select ok(has_function_privilege('authenticated', 'public.issue_group_invitation(uuid, bigint)', 'EXECUTE'), 'authenticated can execute the generic issue overload');
+select ok(has_function_privilege('authenticated', 'public.issue_group_invitation(uuid, uuid)', 'EXECUTE'), 'authenticated can execute the targeted issue overload');
+select ok(has_function_privilege('authenticated', 'public.revoke_group_invitation(uuid, bigint)', 'EXECUTE'), 'authenticated can execute the generic revoke overload');
+select ok(has_function_privilege('authenticated', 'public.revoke_group_invitation(uuid, uuid)', 'EXECUTE'), 'authenticated can execute the targeted revoke overload');
+select ok(has_function_privilege('authenticated', 'public.group_shareable_invitation_state(uuid)', 'EXECUTE'), 'authenticated can execute the organizer invitation-state projection');
 select ok(has_function_privilege('authenticated', 'public.accept_group_invitation(text)', 'EXECUTE'), 'authenticated can execute accept_group_invitation');
 select ok(has_function_privilege('authenticated', 'public.remove_group_member(uuid, uuid)', 'EXECUTE'), 'authenticated can execute remove_group_member');
 select ok(has_function_privilege('authenticated', 'public.transfer_group_organizer(uuid, uuid)', 'EXECUTE'), 'authenticated can execute transfer_group_organizer');
@@ -531,10 +546,12 @@ select ok(has_function_privilege('authenticated', 'public.group_detail(uuid)', '
 select ok(has_function_privilege('authenticated', 'public.group_roster(uuid)', 'EXECUTE'), 'authenticated can execute group_roster');
 select ok(has_function_privilege('authenticated', 'public.group_admin_members(uuid)', 'EXECUTE'), 'authenticated can execute group_admin_members');
 
-select ok(not has_function_privilege('anon', 'public.create_group(text, text, timestamptz, text, text, text, bigint, text, text)', 'EXECUTE'), 'anon cannot execute create_group');
+select ok(not has_function_privilege('anon', 'public.create_group_v1(uuid, jsonb)', 'EXECUTE'), 'anon cannot execute create_group_v1');
+select ok(not has_function_privilege('anon', 'public.group_shareable_invitation_state(uuid)', 'EXECUTE'), 'anon cannot execute the organizer invitation-state projection');
 select ok(not has_function_privilege('anon', 'public.accept_group_invitation(text)', 'EXECUTE'), 'anon cannot execute accept_group_invitation');
 select ok(not has_function_privilege('anon', 'public.group_detail(uuid)', 'EXECUTE'), 'anon cannot execute group_detail');
-select ok(not has_function_privilege('service_role', 'public.create_group(text, text, timestamptz, text, text, text, bigint, text, text)', 'EXECUTE'), 'service_role has no application EXECUTE on create_group');
+select ok(not has_function_privilege('service_role', 'public.create_group_v1(uuid, jsonb)', 'EXECUTE'), 'service_role has no application EXECUTE on create_group_v1');
+select ok(not has_function_privilege('service_role', 'public.group_shareable_invitation_state(uuid)', 'EXECUTE'), 'service_role has no application EXECUTE on the invitation-state projection');
 select ok(not has_function_privilege('service_role', 'public.accept_group_invitation(text)', 'EXECUTE'), 'service_role has no application EXECUTE on accept_group_invitation');
 select ok(not has_function_privilege('public', 'public.accept_group_invitation(text)', 'EXECUTE'), 'PUBLIC has no default EXECUTE on accept_group_invitation');
 select ok(has_function_privilege('anon', 'public.preview_group_invitation(text)', 'EXECUTE'), 'anon can execute the invitation preview');
@@ -546,7 +563,12 @@ select ok(not has_function_privilege('service_role', 'public.preview_group_invit
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname = 'create_group'),
-  1, 'create_group has exactly one overload'
+  0, 'the 006a receipt-less create_group is fully removed'
+);
+select is(
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'create_group_v1'),
+  1, 'create_group_v1 has exactly one overload'
 );
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -556,12 +578,17 @@ select is(
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname = 'issue_group_invitation'),
-  1, 'issue_group_invitation has exactly one overload'
+  2, 'issue_group_invitation has exactly the generic and targeted overloads'
 );
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname = 'revoke_group_invitation'),
-  1, 'revoke_group_invitation has exactly one overload'
+  2, 'revoke_group_invitation has exactly the generic and targeted overloads'
+);
+select is(
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'group_shareable_invitation_state'),
+  1, 'group_shareable_invitation_state has exactly one overload'
 );
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -616,9 +643,12 @@ select is(
     select count(*)::int
     from pg_proc p
     where p.oid in (
-        'public.create_group(text, text, timestamptz, text, text, text, bigint, text, text)'::regprocedure,
+        'public.create_group_v1(uuid, jsonb)'::regprocedure,
         'public.update_group_settings(uuid, text, text, timestamptz, text, text, text, bigint, text, text)'::regprocedure,
-        'public.issue_group_invitation(uuid, timestamptz, integer, uuid)'::regprocedure,
+        'public.group_shareable_invitation_state(uuid)'::regprocedure,
+        'public.issue_group_invitation(uuid, bigint)'::regprocedure,
+        'public.issue_group_invitation(uuid, uuid)'::regprocedure,
+        'public.revoke_group_invitation(uuid, bigint)'::regprocedure,
         'public.revoke_group_invitation(uuid, uuid)'::regprocedure,
         'public.accept_group_invitation(text)'::regprocedure,
         'public.remove_group_member(uuid, uuid)'::regprocedure,
@@ -710,13 +740,28 @@ set local "request.jwt.claim.sub" = :'uid_a';
 set local "request.jwt.claim.role" = 'authenticated';
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
-select result::text as create_result, group_id::text as gid
-from public.create_group(
-  'Friday Gifts', 'Birthday', clock_timestamp() + interval '30 days', 'Asia/Kolkata',
-  null, null, 200000, 'INR', 'secret_draw'
+select gen_random_uuid() as req_key \gset
+
+select result::text as create_result, group_id::text as gid, created_now as create_now
+from public.create_group_v1(
+  :'req_key'::uuid,
+  jsonb_build_object(
+    'contract_version', 1,
+    'name', 'Friday Gifts',
+    'occasion_type', 'birthday',
+    'occasion_date', '2026-12-18',
+    'time_zone', 'Asia/Kolkata',
+    'location', null,
+    'description', null,
+    'budget_amount_minor', '200000',
+    'budget_currency', 'INR',
+    'mode', 'secret_draw',
+    'organizer_participating', true
+  )
 ) \gset
 
-select is(:'create_result'::text, 'created', 'create_group returns the created result');
+select is(:'create_result'::text, 'created', 'create_group_v1 returns the created result');
+select is(:'create_now'::text, 'true', 'the first committed creation reports created_now');
 select is((select count(*)::int from public."groups"), 1, 'exactly one group row exists');
 
 -- Owner view: internal rows.
@@ -752,63 +797,293 @@ select is(
   'the group_created event carries empty identifier-only metadata'
 );
 
+-- The occasion is the selected calendar date at local midnight in the
+-- validated zone: reading it back in that zone reproduces the exact date.
+select is(
+  (
+    select to_char(occasion_at at time zone 'Asia/Kolkata', 'YYYY-MM-DD HH24:MI:SS')
+    from public."groups" where id = :'gid'::uuid
+  ),
+  '2026-12-18 00:00:00',
+  'the occasion instant is local midnight of the selected calendar date, never UTC-shifted'
+);
+
+-- Same user, same key, same payload: the safe idempotent replay.
+select is(
+  (
+    select result::text || ':' || coalesce(group_id::text, 'none') || ':' || created_now::text
+    from public.create_group_v1(
+      :'req_key'::uuid,
+      jsonb_build_object(
+        'contract_version', 1,
+        'name', 'Friday Gifts',
+        'occasion_type', 'birthday',
+        'occasion_date', '2026-12-18',
+        'time_zone', 'Asia/Kolkata',
+        'location', null,
+        'description', null,
+        'budget_amount_minor', '200000',
+        'budget_currency', 'INR',
+        'mode', 'secret_draw',
+        'organizer_participating', true
+      )
+    )
+  ),
+  'replayed:' || :'gid' || ':false',
+  'the same key and payload replay the original group without recreating it'
+);
+select is((select count(*)::int from public."groups"), 1, 'the replay created no second group');
+
+-- Same user, same key, different payload: the typed conflict, changing nothing.
+select is(
+  (
+    select result::text from public.create_group_v1(
+      :'req_key'::uuid,
+      jsonb_build_object(
+        'contract_version', 1,
+        'name', 'A Different Group',
+        'occasion_type', 'birthday',
+        'occasion_date', '2026-12-18',
+        'time_zone', 'Asia/Kolkata',
+        'location', null,
+        'description', null,
+        'budget_amount_minor', '200000',
+        'budget_currency', 'INR',
+        'mode', 'secret_draw',
+        'organizer_participating', true
+      )
+    )
+  ),
+  'idempotency-conflict',
+  'the same key with a different payload is the typed idempotency conflict'
+);
+select is((select count(*)::int from public."groups"), 1, 'the conflict created nothing');
+
+-- The same UUID under a different authenticated user is an independent request.
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_b';
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_b'), true);
+select is(
+  (
+    select result::text from public.create_group_v1(
+      :'req_key'::uuid,
+      jsonb_build_object(
+        'contract_version', 1,
+        'name', 'Friday Gifts',
+        'occasion_type', 'birthday',
+        'occasion_date', '2026-12-18',
+        'time_zone', 'Asia/Kolkata',
+        'location', null,
+        'description', null,
+        'budget_amount_minor', '200000',
+        'budget_currency', 'INR',
+        'mode', 'secret_draw',
+        'organizer_participating', true
+      )
+    )
+  ),
+  'created',
+  'the same request key under another user is an independent creation'
+);
+select is((select count(*)::int from public."groups"), 2, 'the independent request created its own group');
+
+-- Remove the second fixture group so later RLS assertions stay pinned to the
+-- single main group (receipt first: its group reference restricts deletes).
+reset role;
+delete from public.group_creation_receipts where actor_id = :'uid_b'::uuid;
+delete from public.audit_events
+where group_id in (select id from public."groups" where organizer_id = :'uid_b'::uuid);
+delete from public.group_members
+where group_id in (select id from public."groups" where organizer_id = :'uid_b'::uuid);
+delete from public."groups" where organizer_id = :'uid_b'::uuid;
+select is((select count(*)::int from public."groups"), 1, 'only the main fixture group remains');
+
 -- Group creation with invalid input fails generically (as A again).
 set local role authenticated;
 set local "request.jwt.claim.sub" = :'uid_a';
-set local "request.jwt.claim.role" = 'authenticated';
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
 select is(
   (
-    select result::text from public.create_group(
-      '', 'Birthday', clock_timestamp() + interval '30 days', 'Asia/Kolkata',
-      null, null, 200000, 'INR', 'secret_draw'
+    select result::text from public.create_group_v1(
+      gen_random_uuid(),
+      jsonb_build_object(
+        'contract_version', 1,
+        'name', '   ',
+        'occasion_type', 'birthday',
+        'occasion_date', '2026-12-18',
+        'time_zone', 'Asia/Kolkata',
+        'budget_amount_minor', '200000',
+        'budget_currency', 'INR',
+        'mode', 'secret_draw',
+        'organizer_participating', true
+      )
     )
   ),
-  'unavailable',
+  'invalid',
   'a blank group name is rejected generically'
 );
 select is(
   (
-    select result::text from public.create_group(
-      'X', 'Birthday', clock_timestamp() + interval '30 days', 'Mars/Olympus_Mons',
-      null, null, 200000, 'INR', 'secret_draw'
+    select result::text from public.create_group_v1(
+      gen_random_uuid(),
+      jsonb_build_object(
+        'contract_version', 1,
+        'name', 'X',
+        'occasion_type', 'birthday',
+        'occasion_date', '2026-12-18',
+        'time_zone', 'Mars/Olympus_Mons',
+        'budget_amount_minor', '200000',
+        'budget_currency', 'INR',
+        'mode', 'secret_draw',
+        'organizer_participating', true
+      )
     )
   ),
-  'unavailable',
+  'invalid',
   'a non-IANA time zone is rejected generically'
 );
 select is(
   (
-    select result::text from public.create_group(
-      'X', 'Birthday', clock_timestamp() + interval '30 days', 'Asia/Kolkata',
-      null, null, -5, 'INR', 'secret_draw'
+    select result::text from public.create_group_v1(
+      gen_random_uuid(),
+      jsonb_build_object(
+        'contract_version', 1,
+        'name', 'X',
+        'occasion_type', 'birthday',
+        'occasion_date', '2026-02-30',
+        'time_zone', 'Asia/Kolkata',
+        'budget_amount_minor', '200000',
+        'budget_currency', 'INR',
+        'mode', 'secret_draw',
+        'organizer_participating', true
+      )
     )
   ),
-  'unavailable',
+  'invalid',
+  'a non-existent calendar date is rejected generically'
+);
+select is(
+  (
+    select result::text from public.create_group_v1(
+      gen_random_uuid(),
+      jsonb_build_object(
+        'contract_version', 1,
+        'name', 'X',
+        'occasion_type', 'birthday',
+        'occasion_date', '2026-12-18',
+        'time_zone', 'Asia/Kolkata',
+        'budget_amount_minor', '-5',
+        'budget_currency', 'INR',
+        'mode', 'secret_draw',
+        'organizer_participating', true
+      )
+    )
+  ),
+  'invalid',
   'a negative budget is rejected generically'
 );
 select is(
   (
-    select result::text from public.create_group(
-      'X', 'Birthday', clock_timestamp() + interval '30 days', 'Asia/Kolkata',
-      null, null, 200000, 'inr', 'secret_draw'
+    select result::text from public.create_group_v1(
+      gen_random_uuid(),
+      jsonb_build_object(
+        'contract_version', 1,
+        'name', 'X',
+        'occasion_type', 'birthday',
+        'occasion_date', '2026-12-18',
+        'time_zone', 'Asia/Kolkata',
+        'budget_amount_minor', '0',
+        'budget_currency', 'INR',
+        'mode', 'secret_draw',
+        'organizer_participating', true
+      )
     )
   ),
-  'unavailable',
+  'invalid',
+  'a zero budget is rejected (v1 requires a positive amount)'
+);
+select is(
+  (
+    select result::text from public.create_group_v1(
+      gen_random_uuid(),
+      jsonb_build_object(
+        'contract_version', 1,
+        'name', 'X',
+        'occasion_type', 'birthday',
+        'occasion_date', '2026-12-18',
+        'time_zone', 'Asia/Kolkata',
+        'budget_amount_minor', '200000',
+        'budget_currency', 'inr',
+        'mode', 'secret_draw',
+        'organizer_participating', true
+      )
+    )
+  ),
+  'invalid',
   'a lowercase currency is rejected generically'
 );
 select is(
   (
-    select result::text from public.create_group(
-      'X', 'Birthday', clock_timestamp() + interval '30 days', 'Asia/Kolkata',
-      null, null, 200000, 'INR', 'auction'
+    select result::text from public.create_group_v1(
+      gen_random_uuid(),
+      jsonb_build_object(
+        'contract_version', 1,
+        'name', 'X',
+        'occasion_type', 'birthday',
+        'occasion_date', '2026-12-18',
+        'time_zone', 'Asia/Kolkata',
+        'budget_amount_minor', '200000',
+        'budget_currency', 'INR',
+        'mode', 'auction',
+        'organizer_participating', true
+      )
     )
   ),
-  'unavailable',
+  'invalid',
   'a mode outside the approved set is rejected generically'
 );
+select is(
+  (
+    select result::text from public.create_group_v1(
+      gen_random_uuid(),
+      jsonb_build_object(
+        'contract_version', 1,
+        'name', 'X',
+        'occasion_type', 'birthday',
+        'occasion_date', '2026-12-18',
+        'time_zone', 'Asia/Kolkata',
+        'budget_amount_minor', '200000',
+        'budget_currency', 'INR',
+        'mode', 'secret_draw',
+        'organizer_participating', false
+      )
+    )
+  ),
+  'invalid',
+  'a payload without confirmed organizer participation is rejected'
+);
 select is((select count(*)::int from public."groups"), 1, 'no invalid group row was created');
+
+-- The receipt table has no client grant and no permissive policy.
+reset role;
+select throws_ok(
+  'select count(*) from public.group_creation_receipts',
+  '42501', NULL, 'receipts have no client grant (missing grant, not only RLS)'
+);
+select ok(
+  (select relrowsecurity from pg_class where oid = 'public.group_creation_receipts'::regclass),
+  'RLS is enabled on the receipt table'
+);
+select is(
+  (
+    select count(*)::int
+    from pg_policies
+    where schemaname = 'public' and tablename = 'group_creation_receipts'
+  ),
+  0,
+  'the receipt table has no permissive client policy'
+);
 
 -- 4. Direct writes cannot forge authority ----------------------------------------
 
@@ -852,74 +1127,88 @@ select throws_ok(
 
 -- 5. Invitations and the preview ---------------------------------------------------
 
--- as A (organizer): issue a shareable invitation.
-select result::text as issue1_result, invitation_id::text as inv1_id, token as tok1
-from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', 2, null) \gset
+-- as A (organizer): issue a shareable invitation through the generic
+-- compare-and-swap overload, starting from the initial version 0.
+select invitation_version::text as issue1_version, token as tok1, expires_at as tok1_expiry
+from public.issue_group_invitation(:'gid'::uuid, 0::bigint) \gset
 
-select is(:'issue1_result'::text, 'issued', 'the organizer can issue a shareable invitation');
+select is(:'issue1_version'::text, '1', 'the first issuance creates version 1');
 select is(char_length(:'tok1'), 43, 'the raw token is the canonical 43-character base64url encoding of 32 bytes');
+select is(
+  (select right(:'tok1', 1) similar to '[AEIMQUYcgkosw048]'),
+  'true',
+  'the raw token is canonically padded (the final character carries two zero bits)'
+);
 
 -- Owner view: only the digest is stored, and it is the digest of the token.
 reset role;
 
-select is(
-  (
-    select count(*)::int
-    from public.group_invitations
-    where token_hash = extensions.digest(convert_to(:'tok1', 'UTF8'), 'sha256')
-  ),
-  1,
-  'the stored digest is the SHA-256 of the returned token'
-);
+select id::text as inv1_id from public.group_invitations
+where token_hash = extensions.digest(convert_to(:'tok1', 'UTF8'), 'sha256') \gset
+select is(:'inv1_id' is not null, 'true', 'the issued token resolves to its stored digest row');
 select is(
   (select octet_length(token_hash) from public.group_invitations where id = :'inv1_id'::uuid),
   32,
   'the stored token hash is a 32-byte SHA-256 digest'
 );
+select is(
+  (
+    select shareable_version::text || ':' || status::text
+    from public.group_invitations where id = :'inv1_id'::uuid
+  ),
+  '1:active',
+  'the generic row carries shareable version 1 with stored status active'
+);
+select is(
+  (select shareable_invitation_version::text from public."groups" where id = :'gid'::uuid),
+  '1',
+  'the durable group version advanced to 1'
+);
+select is(
+  (select max_uses from public.group_invitations where id = :'inv1_id'::uuid),
+  null,
+  'a generic link has no use limit'
+);
 
--- as A: a second issuance produces an independent token for the same group.
+-- The organizer-only state projection reports active with the stored expiry.
 set local role authenticated;
 set local "request.jwt.claim.sub" = :'uid_a';
-set local "request.jwt.claim.role" = 'authenticated';
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
-
-select result::text as issue2_result, invitation_id::text as inv2_id, token as tok2
-from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', null, null) \gset
-
-select is(:'issue2_result'::text, 'issued', 'a second shareable invitation can be issued');
-
--- Invalid issuance inputs fail generically.
 select is(
-  (select result::text from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() - interval '1 hour', 2, null)),
-  'unavailable', 'an invitation with a past expiry is rejected'
-);
-select is(
-  (select result::text from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', 0, null)),
-  'unavailable', 'a zero use limit is rejected'
-);
-select is(
-  (select result::text from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', -3, null)),
-  'unavailable', 'a negative use limit is rejected'
+  (
+    select invitation_version::text || ':' || state || ':' || (expires_at = :'tok1_expiry'::timestamptz)
+    from public.group_shareable_invitation_state(:'gid'::uuid)
+  ),
+  '1:active:true',
+  'the projection reports active with the authoritative stored expiry'
 );
 
--- Owner view: exactly two invitation rows.
-reset role;
-
-select is(
-  (select count(*)::int from public.group_invitations where group_id = :'gid'::uuid),
-  2,
-  'two invitation rows exist for the group'
+-- Invalid expected versions are rejected with the pinned SQLSTATEs and no write.
+select throws_ok(
+  format('select * from public.issue_group_invitation(%L::uuid, null)', :'gid'),
+  '22023', NULL, 'a null expected version is rejected with 22023'
+);
+select throws_ok(
+  format('select * from public.issue_group_invitation(%L::uuid, -1)', :'gid'),
+  '22023', NULL, 'a negative expected version is rejected with 22023'
+);
+select throws_ok(
+  format('select * from public.issue_group_invitation(%L::uuid, 5)', :'gid'),
+  'PT409', NULL, 'a stale expected version is rejected with PT409 and no write'
 );
 
 -- as B (non-organizer): no authority over invitations or settings.
 set local role authenticated;
 set local "request.jwt.claim.sub" = :'uid_b';
-set local "request.jwt.claim.role" = 'authenticated';
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_b'), true);
 
 select is(
-  (select result::text from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', 2, null)),
-  'unavailable', 'a non-member cannot issue invitations'
+  (select count(*)::int from public.issue_group_invitation(:'gid'::uuid, 1::bigint)),
+  0, 'a non-member cannot issue invitations (no rows, no enumeration)'
+);
+select is(
+  (select count(*)::int from public.group_shareable_invitation_state(:'gid'::uuid)),
+  0, 'a non-member cannot read the organizer invitation state'
 );
 select is(
   (select result::text from public.update_group_settings(:'gid'::uuid, 'New', 'Occasion', clock_timestamp() + interval '30 days', 'Asia/Kolkata', null, null, null, null, 'wishlist_only')),
@@ -984,24 +1273,30 @@ select is(
 );
 
 -- Owner path: direct-insert fixtures for expired and revoked states (the
--- fixed tokens are synthetic placeholders, hashed like real ones).
+-- fixed tokens are synthetic placeholders, hashed like real ones). They are
+-- targeted rows: generic rows are governed by the compare-and-swap version,
+-- and the active generic slot belongs to the issued link.
 reset role;
 
 insert into public.group_invitations (
-  id, group_id, creator_id, status, token_hash, expires_at, max_uses, use_count
+  id, group_id, creator_id, status, token_hash, expires_at, max_uses, use_count,
+  target_user_id, target_membership_generation
 )
 values (
   '00000000-0000-4000-8000-000000006a01', :'gid'::uuid, :'uid_a'::uuid, 'active',
   extensions.digest(convert_to(:'expired_tok', 'UTF8'), 'sha256'),
-  clock_timestamp() - interval '1 hour', 5, 0
+  clock_timestamp() - interval '1 hour', 5, 0,
+  :'uid_d'::uuid, 1
 );
 insert into public.group_invitations (
-  id, group_id, creator_id, status, token_hash, expires_at, max_uses, use_count
+  id, group_id, creator_id, status, token_hash, expires_at, max_uses, use_count,
+  target_user_id, target_membership_generation
 )
 values (
   '00000000-0000-4000-8000-000000006a02', :'gid'::uuid, :'uid_a'::uuid, 'revoked',
   extensions.digest(convert_to(:'revoked_tok', 'UTF8'), 'sha256'),
-  clock_timestamp() + interval '1 hour', 5, 0
+  clock_timestamp() + interval '1 hour', 5, 0,
+  :'uid_d'::uuid, 1
 );
 
 select is(
@@ -1090,33 +1385,17 @@ select is(
   'the replay appended no audit event'
 );
 
--- as C: accept the unlimited token, then present the already-used tok1.
-set local role authenticated;
-set local "request.jwt.claim.sub" = :'uid_c';
-set local "request.jwt.claim.role" = 'authenticated';
-select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_c'), true);
-
-select result::text as accept_c_result
-from public.accept_group_invitation(:'tok2') \gset
-
-select is(:'accept_c_result'::text, 'joined', 'member C joins through the second shareable token');
-
-select result::text as already_result
-from public.accept_group_invitation(:'tok1') \gset
-
-select is(:'already_result'::text, 'already_joined', 'an already joined user with no use of this token gets already_joined');
-
--- Owner path: simulate exhaustion directly, then prove a fresh user cannot
--- join and the joined user's already_joined result disappears too.
+-- Owner path: simulate exhaustion directly (the generic link has no use
+-- limit by default, but the column semantics still hold), then prove a
+-- fresh user cannot join and nothing was written.
 reset role;
 
 insert into public.group_invitation_uses (invitation_id, user_id, membership_generation)
 values (:'inv1_id'::uuid, :'uid_d'::uuid, 1);
-update public.group_invitations set use_count = 2 where id = :'inv1_id'::uuid;
+update public.group_invitations set use_count = 2, max_uses = 2 where id = :'inv1_id'::uuid;
 
 set local role authenticated;
 set local "request.jwt.claim.sub" = :'uid_e';
-set local "request.jwt.claim.role" = 'authenticated';
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_e'), true);
 
 select is(
@@ -1132,7 +1411,85 @@ select is(
   'the exhausted acceptance left no membership row'
 );
 delete from public.group_invitation_uses where invitation_id = :'inv1_id'::uuid and user_id = :'uid_d'::uuid;
-update public.group_invitations set use_count = 1 where id = :'inv1_id'::uuid;
+update public.group_invitations set use_count = 1, max_uses = null where id = :'inv1_id'::uuid;
+
+-- as A (organizer): the explicit confirmed rotation revokes the active link
+-- and creates version 2 atomically.
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_a';
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
+
+select invitation_version::text as issue2_version, token as tok2, expires_at as tok2_expiry
+from public.issue_group_invitation(:'gid'::uuid, 1::bigint) \gset
+
+select is(:'issue2_version'::text, '2', 'the confirmed rotation creates version 2');
+select is(char_length(:'tok2'), 43, 'the rotated token is canonical base64url');
+
+-- Owner view: exactly one stored-active generic row, the old one revoked.
+reset role;
+
+select id::text as inv2_id from public.group_invitations
+where token_hash = extensions.digest(convert_to(:'tok2', 'UTF8'), 'sha256') \gset
+
+select is(
+  (
+    select status::text from public.group_invitations where id = :'inv1_id'::uuid
+  ),
+  'revoked',
+  'the rotation revoked the prior stored-active generic row'
+);
+select is(
+  (
+    select status::text || ':' || shareable_version::text
+    from public.group_invitations where id = :'inv2_id'::uuid
+  ),
+  'active:2',
+  'the rotated row is the stored-active generic row at version 2'
+);
+select is(
+  (select shareable_invitation_version::text from public."groups" where id = :'gid'::uuid),
+  '2',
+  'the durable group version advanced exactly once'
+);
+select is(
+  (select count(*)::int from public.group_invitations where group_id = :'gid'::uuid and status = 'active' and shareable_version is not null),
+  1,
+  'exactly one stored-active generic row exists'
+);
+select is(
+  (select count(*)::int from public.audit_events where group_id = :'gid'::uuid and event_type = 'invitation_issued'),
+  2,
+  'both issuances are audited'
+);
+select is(
+  (select count(*)::int from public.audit_events where group_id = :'gid'::uuid and event_type = 'invitation_revoked'),
+  1,
+  'the rotation revoke is audited'
+);
+
+-- as C: accept the rotated token.
+set local role authenticated;
+set local "request.jwt.claim.sub" = :'uid_c';
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_c'), true);
+
+select result::text as accept_c_result
+from public.accept_group_invitation(:'tok2') \gset
+
+select is(:'accept_c_result'::text, 'joined', 'member C joins through the rotated shareable token');
+
+-- as B: the revoked old link is refused; the active token they never used
+-- gets the honest already_joined result.
+select set_config('request.jwt.claim.sub', :'uid_b', true);
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_b'), true);
+
+select is(
+  (select result::text from public.accept_group_invitation(:'tok1')),
+  'unavailable', 'a revoked former link can no longer be replayed'
+);
+select is(
+  (select result::text from public.accept_group_invitation(:'tok2')),
+  'already_joined', 'an already joined user with no use of the active token gets already_joined'
+);
 
 -- 7. Projections and privacy -------------------------------------------------------
 
@@ -1297,10 +1654,13 @@ select is(
 select set_config('request.jwt.claim.sub', :'uid_a', true);
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
-select result::text as issue3_result, invitation_id::text as inv3_id, token as tok3
-from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', null, null) \gset
+select invitation_version::text as issue3_version, token as tok3
+from public.issue_group_invitation(:'gid'::uuid, 2::bigint) \gset
 
-select is(:'issue3_result'::text, 'issued', 'the organizer can issue a fresh generic link');
+select is(:'issue3_version'::text, '3', 'the organizer can issue a fresh generic link at version 3');
+
+select id::text as inv3_id from public.group_invitations
+where token_hash = extensions.digest(convert_to(:'tok3', 'UTF8'), 'sha256') \gset
 
 select set_config('request.jwt.claim.sub', :'uid_c', true);
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_c'), true);
@@ -1314,21 +1674,24 @@ select is(
 select set_config('request.jwt.claim.sub', :'uid_a', true);
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
-select result::text as issue4_result, invitation_id::text as inv4_id, token as tok4
-from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', null, :'uid_c'::uuid) \gset
+select token as tok4, target_membership_generation::text as issue4_generation
+from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid) \gset
 
-select is(:'issue4_result'::text, 'issued', 'the organizer can issue a targeted reinvitation');
+select is(:'issue4_generation'::text, '3', 'the organizer can issue a targeted reinvitation bound to generation 3');
 
 -- Owner view: the targeted pair and the untouched durable status.
 reset role;
 
+select id::text as inv4_id from public.group_invitations
+where token_hash = extensions.digest(convert_to(:'tok4', 'UTF8'), 'sha256') \gset
+
 select is(
   (
-    select coalesce(target_user_id::text, 'none') || ':' || coalesce(target_membership_generation::text, 'none')
+    select coalesce(target_user_id::text, 'none') || ':' || coalesce(target_membership_generation::text, 'none') || ':' || coalesce(shareable_version::text, 'none')
     from public.group_invitations where id = :'inv4_id'::uuid
   ),
-  :'uid_c'::text || ':3',
-  'the targeted reinvitation binds the target user and the exact incremented generation'
+  :'uid_c'::text || ':3:none',
+  'the targeted reinvitation binds the target user and the exact incremented generation, with no shareable version'
 );
 select is(
   (select status::text from public.group_members where group_id = :'gid'::uuid and user_id = :'uid_c'::uuid),
@@ -1350,10 +1713,10 @@ select is(
 select set_config('request.jwt.claim.sub', :'uid_a', true);
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
-select result::text as issue5_result, invitation_id::text as inv5_id, token as tok5
-from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', null, :'uid_c'::uuid) \gset
+select token as tok5, target_membership_generation::text as issue5_generation
+from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid) \gset
 
-select is(:'issue5_result'::text, 'issued', 'a second targeted invitation supersedes the first');
+select is(:'issue5_generation'::text, '4', 'a second targeted invitation supersedes the first and advances the generation again');
 
 -- as C: the stale token fails, the matching one works.
 select set_config('request.jwt.claim.sub', :'uid_c', true);
@@ -1444,10 +1807,10 @@ select is(
 select set_config('request.jwt.claim.sub', :'uid_a', true);
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
-select result::text as issue6_result, invitation_id::text as inv6_id, token as tok6
-from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', null, :'uid_d'::uuid) \gset
+select token as tok6, target_membership_generation::text as issue6_generation
+from public.issue_group_invitation(:'gid'::uuid, :'uid_d'::uuid) \gset
 
-select is(:'issue6_result'::text, 'issued', 'a targeted invitation for a known user with no row creates an invited row');
+select is(:'issue6_generation'::text, '1', 'a targeted invitation for a known user with no row creates an invited row at generation 1');
 
 -- Owner view: the invited row at generation 1.
 reset role;
@@ -1535,8 +1898,8 @@ set local "request.jwt.claim.role" = 'authenticated';
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
 select is(
-  (select result::text from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', null, null)),
-  'unavailable', 'the previous organizer cannot issue invitations'
+  (select count(*)::int from public.issue_group_invitation(:'gid'::uuid, 4::bigint)),
+  0, 'the previous organizer cannot issue invitations (no rows, no enumeration)'
 );
 select is(
   (select count(*)::int from public.group_admin_members(:'gid'::uuid)),

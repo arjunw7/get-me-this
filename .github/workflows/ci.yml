@@ -115,6 +115,13 @@ jobs:
       - name: Run group two-session races
         timeout-minutes: 5
         run: pnpm test:db:races
+      # Brief 006b criteria 4 and 8: the receipt-backed creation and the
+      # compare-and-swap shareable-link races (same-key create serialization,
+      # changed-payload conflict, rollback waiter success, same-version issue
+      # and issue/revoke contention) with two independent sessions.
+      - name: Run 006b group races
+        timeout-minutes: 5
+        run: pnpm test:db:races:006b
       - name: Install the Playwright Chromium browser
         timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
