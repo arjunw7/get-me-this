@@ -32,13 +32,19 @@ function recovery(origin: string, flowId: string): NextResponse {
 }
 
 /**
- * The request's own origin. Never `request.nextUrl`: Next's reconstructed
- * URL normalizes the host (e.g. 127.0.0.1 becomes localhost), and a
- * cross-host redirect would strand the cookies the browser just received
- * on its actual host. `request.url` carries the host the browser used.
+ * The request's own origin, from the Host header. Never `request.nextUrl`
+ * or `request.url`: Next's proxy chain normalizes the reconstructed host
+ * (127.0.0.1 became localhost), and a cross-host redirect would strand the
+ * cookies the browser just received on its actual host. The forwarded
+ * headers are honoured because a proxy already validated them.
  */
 function requestOrigin(request: NextRequest): string {
-  return new URL(request.url).origin;
+  const host =
+    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ??
+    request.headers.get("host");
+  const proto =
+    request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ?? "http";
+  return host !== null ? `${proto}://${host}` : new URL(request.url).origin;
 }
 
 export async function GET(
