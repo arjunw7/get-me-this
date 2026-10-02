@@ -18,21 +18,27 @@ test.skip(
   "requires the local Supabase stack; run through scripts/e2e-local-stack.sh",
 );
 
-const items: readonly ItemFixture[] = [
+/** The three seeded items, in fixture sort order. Item ids are per-run
+ *  random UUIDs: parallel CI projects each seed their own fixture
+ *  wishlist, and wishlist_items' primary key is globally unique, so
+ *  fixed ids collide across workers and retries. Read order is pinned
+ *  by distinct sort_position, never by the ids. Call once per test so
+ *  the seeded ids and the in-test assertions share one instance. */
+const reorderFixtures = (): ItemFixture[] => [
   {
-    id: "00000000-0000-4000-8000-000000000301",
+    id: randomUUID(),
     title: "Ceramic matcha set",
     desire_level: "really_want",
     sort_position: 1,
   },
   {
-    id: "00000000-0000-4000-8000-000000000302",
+    id: randomUUID(),
     title: "Tiny gold hoops",
     desire_level: "would_love",
     sort_position: 2,
   },
   {
-    id: "00000000-0000-4000-8000-000000000303",
+    id: randomUUID(),
     title: "Linen pyjama set",
     desire_level: "just_an_idea",
     sort_position: 3,
@@ -68,6 +74,7 @@ test("arrow and touch moves persist across Done, reload, and a second tab", asyn
       { displayName: "Ada", tasteLine: "small thoughtful things" },
       scope,
     );
+    const items = reorderFixtures();
     await seedWishlistItems(admin, ownerId, items);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/wishlist");
@@ -178,6 +185,7 @@ test("incomplete profiles cannot reorder through the current action", async ({
       { displayName: "Ada" },
       scope,
     );
+    const items = reorderFixtures();
     await seedWishlistItems(admin, ownerId, items);
     await page.goto("/wishlist");
     await page.getByRole("button", { name: "Reorder", exact: true }).click();
@@ -218,6 +226,7 @@ test("a stale second tab refetches the authoritative order before another move",
       { displayName: "Ada" },
       scope,
     );
+    const items = reorderFixtures();
     await seedWishlistItems(admin, ownerId, items);
     const staleTab = await page.context().newPage();
     await Promise.all([page.goto("/wishlist"), staleTab.goto("/wishlist")]);
@@ -274,6 +283,7 @@ test("create and delete commit orders reconcile without overwriting or resurrect
       { displayName: "Ada" },
       scope,
     );
+    const items = reorderFixtures();
     await seedWishlistItems(admin, ownerId, items);
     const wishlist = await admin
       .from("wishlists")
@@ -368,6 +378,7 @@ test("Done waits for saving, stays open after a lost response, and axe passes", 
       { displayName: "Ada" },
       scope,
     );
+    const items = reorderFixtures();
     await seedWishlistItems(admin, ownerId, items);
     await page.goto("/wishlist");
     await page.getByRole("button", { name: "Reorder", exact: true }).click();
