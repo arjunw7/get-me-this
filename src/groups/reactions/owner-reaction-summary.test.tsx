@@ -4,14 +4,6 @@ import { render, screen } from "@testing-library/react";
 import { OwnerReactionSummaryRow } from "./owner-reaction-summary";
 import type { OwnerReactionSummary } from "./reaction-write";
 
-type CountKey = keyof OwnerReactionSummary["counts"];
-
-const COUNT_KEYS: readonly CountKey[] = [
-  "veryYou",
-  "questionable",
-  "wantItToo",
-];
-
 describe("OwnerReactionSummaryRow", () => {
   it("shows `No reactions yet` at zero and no interactive control", () => {
     render(

@@ -32,7 +32,8 @@
     "db:status": "supabase status",
     "db:reset": "supabase db reset --local",
     "db:seed": "bash scripts/db-seed.sh",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "test:db:races:reservations": "bash scripts/test-reservation-races-local.sh"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

@@ -192,10 +192,12 @@ select enum_has_labels(
     'invitation_declined',
     'member_removed',
     'member_reinvited',
+    'item_reserved',
+    'reservation_released',
     'draw_created',
     'draw_redrawn'
   ],
-  'the audit event enum has exactly the pinned labels in order'
+  'the audit event enum has exactly the pinned labels in order (007c reservation and 008c draw values)'
 );
 
 select is(
