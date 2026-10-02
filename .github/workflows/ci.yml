@@ -29,26 +29,24 @@
 # docs/delivery/issues/005h-ci-database-test-gate.md, AI reviewer signoff plus
 # green checks authorizes merging Phase 4 pull requests; the earlier
 # "mandatory input to human review" wording is superseded for these slices.
-# Making the checks required needs branch protection, which this private
-# repository cannot currently configure (403).
+# All five job names are required status checks on main through branch
+# protection.
 #
 # Least privilege: read-only repository access, no persisted checkout
 # credentials, no secrets exposed to pull-request code, and a hard job
 # timeout. Superseded runs are canceled (the newest push to a pull request or
-# to main always runs). Docs-only changes (docs/**, **.md) start no runs by
-# design; workflow changes under .github/ always run CI.
+# to main always runs). Docs-only changes (docs/**, **.md) are triaged by the
+# fast always-runs "triage" job, which detects them from the diff and skips
+# the five real jobs; GitHub treats the required checks' Skipped results as
+# satisfied, so docs-only pull requests stay mergeable with identical
+# behavior to the retired workflow-level paths-ignore. Workflow changes
+# under .github/ always run CI.
 name: CI
 
 on:
   pull_request:
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
   push:
     branches: [main]
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
 
 permissions:
   contents: read
@@ -58,8 +56,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Fast always-runs triage: detects docs-only changes (everything under
+  # docs/** or *.md) from the diff of the pull-request merge ref against its
+  # base (push-to-main runs diff the previous commit against HEAD) and skips
+  # the five real jobs for docs-only changes. Required status checks report
+  # Skipped, which GitHub counts as satisfied, so docs-only pull requests
+  # remain mergeable without running CI.
+  triage:
+    name: Triage docs-only changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.diff.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: diff
+        name: Detect docs-only changes
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="$BASE_SHA"
+            CHANGED="$(git diff --name-only "$BASE"...HEAD 2>/dev/null || git diff --name-only "$BASE" HEAD)"
+          else
+            BEFORE="$BEFORE_SHA"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
+              || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+              CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null || true)"
+            else
+              CHANGED="$(git diff --name-only "$BEFORE" HEAD)"
+            fi
+          fi
+          echo "Changed paths:"
+          echo "$CHANGED"
+          if [ -n "$CHANGED" ] && [ -z "$(printf '%s\n' "$CHANGED" | grep -vE '(^docs/|\.md$)')" ]; then
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+
   verify:
     name: Install and verify
+    needs: triage
+    if: needs.triage.outputs.docs_only == 'false'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -90,6 +134,8 @@ jobs:
   # fixture, but the job treats it as secret anyway.
   database:
     name: Database suites and races
+    needs: triage
+    if: needs.triage.outputs.docs_only == 'false'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -151,6 +197,8 @@ jobs:
   # on a dedicated runner, in parallel with the database job above.
   stack-e2e:
     name: Stack e2e and visual
+    needs: triage
+    if: needs.triage.outputs.docs_only == 'false'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -291,6 +339,8 @@ jobs:
   # execs into the database container); no seed state and no Playwright.
   group-upgrade:
     name: Populated-state group upgrade
+    needs: triage
+    if: needs.triage.outputs.docs_only == 'false'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -316,6 +366,8 @@ jobs:
 
   no-provider-actions:
     name: No-provider Server Action gates
+    needs: triage
+    if: needs.triage.outputs.docs_only == 'false'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

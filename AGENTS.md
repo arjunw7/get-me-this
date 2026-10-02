@@ -48,6 +48,19 @@ The repository is in the documentation and foundation stage. Do not scaffold the
 
 If a command is not implemented yet, do not silently substitute another command. Implement it only when the active issue includes that foundation work.
 
+## Local development loop (REQUIRED before pushing)
+
+The machine has a working container runtime (OrbStack; Docker daemon confirmed). Every implementation worker MUST validate locally before the first push and between iterations. CI confirms; it is not a scratchpad. Target: ≤3 CI iterations per pull request.
+
+Validate from a CURRENT checkout or worktree of `main` — do not run from stale branches:
+
+1. `pnpm exec supabase start` — boots the full local stack incl. Mailpit (first boot ~4.5 min pulling images; warm restart 1–2 min). Status JSON: `pnpm exec supabase status -o json` (API_URL, MAILPIT_URL, PUBLISHABLE_KEY, SERVICE_KEY).
+2. `pnpm exec supabase test db --local` — pgTAP suites in ~5–10s per run (first run pulls pg_prove once). After migration edits: `pnpm db:reset --local` then re-run.
+3. Stack-gated e2e: `bash scripts/e2e-local-stack.sh` — builds and runs the gated Playwright suites (incl. visual against pinned baselines) in ~1 minute total. NEVER use plain `pnpm test:e2e` for stack-gated specs.
+4. Typecheck, lint, and build before pushing.
+
+Gotchas: ports 54321–54324 (stack) and 3100 (Playwright web server, `reuseExistingServer: false`) must be free; `imgproxy`/`pooler` services start stopped (benign); if a boot wedges, `pnpm db:stop` and retry; never leave the stack half-started. For race-harness changes, validate multi-session logic locally (two-session psql/Python simulation against the local stack) before pushing.
+
 ## Working rules
 
 - Work on one bounded issue and one branch at a time.
@@ -83,8 +96,8 @@ Every implementation pull request must include:
 - Avoid combining schema redesign, visual redesign, and unrelated refactoring.
 - Generated pull requests are proposals. They require independent review before merge.
 - Do not merge directly to `main` without green CI on the exact pull-request head and explicit human approval.
-- Temporary exception: this private repository cannot currently configure a GitHub-required status check (branch protection and rulesets return 403), so GitHub cannot enforce the check at merge time; green CI is verified as a review input and the human approval is the merge gate. Replace this exception with the GitHub-required check as soon as it becomes available.
-- Docs-only pull requests (everything under `docs/**` or `*.md`) start no CI runs by design through `paths-ignore`, so their merge evidence is the paths filter itself plus review.
+- Required status checks are enforced through branch protection on `main`: `Install and verify`, `Database suites and races`, `Stack e2e and visual`, `Populated-state group upgrade`, and `No-provider Server Action gates` must pass (or register as Skipped through the CI triage job) before merge. Human approval remains the merge gate.
+- Docs-only pull requests (everything under `docs/**` or `*.md`) are triaged by the fast always-runs `triage` job in the CI workflow, which skips the five real jobs; the required checks register as Skipped, which GitHub counts as satisfied, so docs-only pull requests stay mergeable.
 
 ## Safety
 
