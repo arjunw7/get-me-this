@@ -16,8 +16,10 @@ import {
  * route sends signed-out visitors to sign-in, a signed-in member creates a
  * private group through the V18 form and lands on the organizer-only
  * "created" screen, the shareable invite link is shown exactly once and is
- * never recoverable after the one display (reload loses it), and a second
- * member who is not the organizer gets a 404 on the created URL.
+ * never recoverable after the one display (reload loses it), a second
+ * member who is not the organizer gets a 404 on the created URL, and the
+ * brief's idempotency, stale-tab, expiry, and clipboard-failure behaviors
+ * hold through the real UI.
  */
 test.skip(
   !process.env.E2E_LOCAL_SUPABASE,
@@ -31,13 +33,13 @@ function futureIsoDate(): string {
 }
 
 /**
- * The group tables are revoked from service_role by design (006a), so the
- * fixture group teardown cannot go through the admin client. Run it as
- * superuser SQL inside the local stack's database container, located
- * exactly the way the race harnesses locate it (label + exact name).
+ * A fixed, valid UUIDv4 request key for tests that must control the
+ * browser-owned draft key deterministically (replay and conflict flows).
  */
-function deleteFixtureGroupsSql(groupIds: string[], userIds: string[]): void {
-  if (groupIds.length === 0 && userIds.length === 0) return;
+const FIXED_REQUEST_KEY = "d4b1c7a2-1111-4222-8333-444455556666";
+
+/** The local stack's database container, located exactly (label + name). */
+function stackDbContainer(): string {
   const config = readFileSync(
     path.join(process.cwd(), "supabase", "config.toml"),
     "utf8",
@@ -46,7 +48,50 @@ function deleteFixtureGroupsSql(groupIds: string[], userIds: string[]): void {
   if (!projectId) {
     throw new Error("could not read project_id from supabase/config.toml");
   }
-  const container = `supabase_db_${projectId}`;
+  return `supabase_db_${projectId}`;
+}
+
+/**
+ * Runs superuser SQL inside the LOCAL stack's database container. The group
+ * tables are revoked from service_role by design (006a), so fixture setup
+ * probes and teardown cannot go through the admin client. Used only against
+ * the local stack; never against staging or production.
+ */
+function runStackSql(sql: string): string {
+  return execFileSync(
+    "docker",
+    [
+      "exec",
+      "-i",
+      stackDbContainer(),
+      "psql",
+      "--no-psqlrc",
+      "--quiet",
+      "--no-align",
+      "--tuples-only",
+      "--user",
+      "postgres",
+      "--dbname",
+      "postgres",
+      "--set",
+      "ON_ERROR_STOP=1",
+    ],
+    { input: sql, stdio: ["pipe", "ignore", "pipe"] },
+  ).toString();
+}
+
+/** Session identity for SQL-side RPC calls (the auth.uid() GUC surface). */
+function withIdentity(userId: string, sql: string): string {
+  return [
+    `set request.jwt.claim.sub = '${userId}';`,
+    "set request.jwt.claim.role = 'authenticated';",
+    `set request.jwt.claims = '{"sub":"${userId}","role":"authenticated"}';`,
+    sql,
+  ].join("\n");
+}
+
+function deleteFixtureGroupsSql(groupIds: string[], userIds: string[]): void {
+  if (groupIds.length === 0 && userIds.length === 0) return;
   const list = (values: string[]) =>
     values.map((v) => `'${v}'::uuid`).join(",");
   const sql = [
@@ -62,7 +107,7 @@ function deleteFixtureGroupsSql(groupIds: string[], userIds: string[]): void {
     [
       "exec",
       "-i",
-      container,
+      stackDbContainer(),
       "psql",
       "--no-psqlrc",
       "--user",
@@ -74,6 +119,82 @@ function deleteFixtureGroupsSql(groupIds: string[], userIds: string[]): void {
     ],
     { input: sql, stdio: ["pipe", "ignore", "pipe"] },
   );
+}
+
+/** The group version is internal: this probe never selects token material. */
+function stackGroupVersion(groupId: string): string {
+  return runStackSql(
+    `select shareable_invitation_version::text from public."groups" where id = '${groupId}'::uuid;`,
+  ).trim();
+}
+
+function stackOrganizerGroupCount(organizerId: string): number {
+  return Number.parseInt(
+    runStackSql(
+      `select count(*)::text from public."groups" where organizer_id = '${organizerId}'::uuid;`,
+    ).trim(),
+    10,
+  );
+}
+
+/**
+ * Another-tab issuer: a direct generic compare-and-swap issue through the
+ * same RPC the UI action uses. Selects only the version — never the token.
+ */
+function stackIssueGeneric(organizerId: string, groupId: string): string {
+  return runStackSql(
+    withIdentity(
+      organizerId,
+      `select invitation_version::text from public.issue_group_invitation('${groupId}'::uuid, (select shareable_invitation_version from public."groups" where id = '${groupId}'::uuid));`,
+    ),
+  ).trim();
+}
+
+/** The current generic invitation row's id and status (no token material). */
+function stackGenericInvitation(groupId: string): {
+  id: string;
+  status: string;
+} {
+  const row = runStackSql(
+    `select id::text || '/' || status::text from public.group_invitations where group_id = '${groupId}'::uuid and shareable_version is not null order by shareable_version desc limit 1;`,
+  ).trim();
+  const [id, status] = row.split("/");
+  return { id, status };
+}
+
+/** Overwrites a generic invitation's stored expiry to a fixed instant. */
+function stackSetGenericExpiry(groupId: string, isoInstant: string): void {
+  runStackSql(
+    `update public.group_invitations set expires_at = '${isoInstant}'::timestamptz where group_id = '${groupId}'::uuid and shareable_version is not null;`,
+  );
+}
+
+/** A targeted invitation issued through the reshaped 006b overload. The
+ * returned row result (token material) is discarded inside the database; the
+ * id is resolved from the non-sensitive columns afterwards. */
+function stackIssueTargeted(
+  organizerId: string,
+  groupId: string,
+  targetUserId: string,
+): string {
+  runStackSql(
+    withIdentity(
+      organizerId,
+      `do $$ begin
+  perform public.issue_group_invitation('${groupId}'::uuid, '${targetUserId}'::uuid);
+end $$;`,
+    ),
+  );
+  return runStackSql(
+    `select id::text from public.group_invitations where group_id = '${groupId}'::uuid and target_user_id = '${targetUserId}'::uuid and shareable_version is null order by created_at desc limit 1;`,
+  ).trim();
+}
+
+/** The targeted invitation row's status as seen by the organizer probe. */
+function stackTargetedStatus(groupId: string, targetUserId: string): string {
+  return runStackSql(
+    `select status::text from public.group_invitations where group_id = '${groupId}'::uuid and target_user_id = '${targetUserId}'::uuid and shareable_version is null order by created_at desc limit 1;`,
+  ).trim();
 }
 
 async function fillAndSubmitCreateForm(
@@ -98,6 +219,34 @@ async function fillAndSubmitCreateForm(
   ).toBeVisible();
 }
 
+/**
+ * Creates a signed-in fixture organizer and one group through the real UI,
+ * returning the ids and registering the group teardown.
+ */
+async function createOrganizerAndGroup(
+  page: Page,
+  admin: ReturnType<typeof stackAdminClient>,
+  scope: FixtureScope,
+  prefix: string,
+  groupName: string,
+): Promise<{ organizerId: string; groupId: string }> {
+  const organizerId = await createSignedInFixture(
+    page,
+    admin,
+    prefix,
+    { displayName: "Organizer Ona", tasteLine: "planner of parties" },
+    scope,
+  );
+  await fillAndSubmitCreateForm(page, groupName);
+  const createdPath = new URL(page.url()).pathname;
+  expect(createdPath).toMatch(/^\/groups\/[0-9a-f-]{36}\/created$/);
+  const groupId = createdPath.split("/")[2];
+  scope.register("fixture groups", async () => {
+    deleteFixtureGroupsSql([groupId], [organizerId]);
+  });
+  return { organizerId, groupId };
+}
+
 test("the protected create-group route redirects signed-out visitors to sign-in", async ({
   page,
 }) => {
@@ -119,36 +268,29 @@ test("a member creates a private group; the invite link is shown exactly once; t
   const admin = stackAdminClient();
   const scope = new FixtureScope();
   await scope.run(async () => {
-    const organizerId = await createSignedInFixture(
+    const { organizerId, groupId } = await createOrganizerAndGroup(
       page,
       admin,
-      "arj37-organizer",
-      { displayName: "Organizer Ona", tasteLine: "planner of parties" },
       scope,
+      "arj37-organizer",
+      "Fixture birthday bash",
     );
-
     const groupName = "Fixture birthday bash";
-    await fillAndSubmitCreateForm(page, groupName);
 
-    // The created group references the fixture users through restrictive
-    // foreign keys, and the group tables have no service-role grant by
-    // design; the teardown runs superuser SQL inside the local container.
-    // The created URL carries the group id created by this organizer.
-    const createdPath = new URL(page.url()).pathname;
-    expect(createdPath).toMatch(/^\/groups\/[0-9a-f-]{36}\/created$/);
-    const fixtureGroupId = createdPath.split("/")[2];
-    scope.register("fixture groups", async () => {
-      deleteFixtureGroupsSql([fixtureGroupId], [organizerId]);
-    });
-
-    // First issuance: the token link is displayed exactly once.
+    // First issuance: the token link is displayed exactly once. Assertions
+    // below use only lengths and boolean shape checks: a failure message
+    // must never print link or token material into CI logs.
     await page.getByRole("button", { name: "Create invite link" }).click();
     const linkCard = page.getByTestId("invite-link-card");
     await expect(linkCard).toBeVisible();
     const link = await linkCard.locator(".select-all").first().textContent();
-    expect(link).toContain("/invite/");
-    const token = new URL(link as string).pathname.split("/").pop() as string;
-    expect(token.length).toBeGreaterThan(16);
+    const linkText = (link ?? "").trim();
+    const token = linkText.includes("/invite/")
+      ? (linkText.split("/invite/")[1] ?? "")
+      : "";
+    expect(linkText.length).toBeGreaterThan(43);
+    expect(token.length).toBe(43);
+    expect(/^[A-Za-z0-9_-]+$/.test(token)).toBe(true);
 
     // The one-time display is the only display: a reload shows the
     // active-link-lost state and never the token again.
@@ -172,7 +314,7 @@ test("a member creates a private group; the invite link is shown exactly once; t
         { displayName: "Friend Fae", tasteLine: "gifts, not guesses" },
         scope,
       );
-      await secondPage.goto(createdPath);
+      await secondPage.goto(`/groups/${groupId}/created`);
       await expect(
         secondPage.getByRole("heading", { name: "Page not found" }),
       ).toBeVisible();
@@ -189,7 +331,467 @@ test("a member creates a private group; the invite link is shown exactly once; t
   });
 });
 
-test("the create form rejects a changed payload after a conflict surface before resending", async ({
+test("double submission creates exactly one group", async ({ page }) => {
+  test.setTimeout(180_000);
+  page.setDefaultTimeout(15_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const organizerId = await createSignedInFixture(
+      page,
+      admin,
+      "arj37-double",
+      { displayName: "Double Dee", tasteLine: "clicks twice" },
+      scope,
+    );
+
+    await page.goto("/groups/new");
+    await expect(
+      page.getByRole("heading", { name: "What are we celebrating?" }),
+    ).toBeVisible();
+
+    const groupName = "Double submission bash";
+    await page.getByLabel("Group name").fill(groupName);
+    await page.getByLabel("Date").fill(futureIsoDate());
+
+    // Correctness never depends on the disabled control: dispatch two
+    // genuine submissions with the same draft key and payload.
+    const button = page.getByRole("button", { name: "Create group" });
+    await button.click();
+    await page
+      .evaluate(() => {
+        const form = document.querySelector("form");
+        form?.dispatchEvent(
+          new Event("submit", { bubbles: true, cancelable: true }),
+        );
+      })
+      .catch(() => {});
+
+    await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
+    const groupId = new URL(page.url()).pathname.split("/")[2];
+    scope.register("fixture groups", async () => {
+      deleteFixtureGroupsSql([groupId], [organizerId]);
+    });
+    await expect(
+      page.getByRole("heading", { name: `${groupName} is ready.` }),
+    ).toBeVisible();
+
+    // Exactly one group exists for the organizer.
+    expect(stackOrganizerGroupCount(organizerId)).toBe(1);
+  });
+});
+
+test("replaying the same draft through the UI returns the original group", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  page.setDefaultTimeout(15_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const organizerId = await createSignedInFixture(
+      page,
+      admin,
+      "arj37-replay",
+      { displayName: "Replay Rae", tasteLine: "same again, please" },
+      scope,
+    );
+
+    // Bind a known draft key to the first submission.
+    await page.goto("/groups/new");
+    await page.evaluate((key) => {
+      window.sessionStorage.setItem("gmt.groups.create.request-key", key);
+    }, FIXED_REQUEST_KEY);
+
+    const groupName = "Replay birthday bash";
+    await page.getByLabel("Group name").fill(groupName);
+    await page.getByLabel("Date").fill(futureIsoDate());
+    await page.getByRole("button", { name: "Create group" }).click();
+    await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
+    const firstGroupId = new URL(page.url()).pathname.split("/")[2];
+    scope.register("fixture groups", async () => {
+      deleteFixtureGroupsSql([firstGroupId], [organizerId]);
+    });
+
+    // The same draft (same retained request key and binding, same payload)
+    // replays the original group instead of creating a duplicate.
+    await fillAndSubmitCreateForm(page, groupName);
+    const replayGroupId = new URL(page.url()).pathname.split("/")[2];
+    expect(replayGroupId).toBe(firstGroupId);
+
+    // Exactly one group, one receipt, and one creation audit event.
+    expect(stackOrganizerGroupCount(organizerId)).toBe(1);
+    const counts = runStackSql(
+      `select (select count(*) from public.group_creation_receipts where request_key = '${FIXED_REQUEST_KEY}'::uuid)::text || '/' || (select count(*) from public.audit_events where group_id = '${firstGroupId}'::uuid and event_type = 'group_created')::text;`,
+    ).trim();
+    expect(counts).toBe("1/1");
+  });
+});
+
+test("a changed payload after a submitted attempt surfaces the conflict BEFORE the changed payload is sent", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  page.setDefaultTimeout(15_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const organizerId = await createSignedInFixture(
+      page,
+      admin,
+      "arj37-conflict",
+      { displayName: "Conflict Cy", tasteLine: "second thoughts" },
+      scope,
+    );
+
+    // First submission binds the draft key to the attempted digest.
+    await page.goto("/groups/new");
+    await page.evaluate((key) => {
+      window.sessionStorage.setItem("gmt.groups.create.request-key", key);
+    }, FIXED_REQUEST_KEY);
+    const groupName = "Conflict first draft";
+    await page.getByLabel("Group name").fill(groupName);
+    await page.getByLabel("Date").fill(futureIsoDate());
+    await page.getByRole("button", { name: "Create group" }).click();
+    await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
+    const groupId = new URL(page.url()).pathname.split("/")[2];
+    scope.register("fixture groups", async () => {
+      deleteFixtureGroupsSql([groupId], [organizerId]);
+    });
+
+    // Edit the submitted payload, then submit again. Count server-action
+    // requests: the conflict must surface with ZERO new requests.
+    let actionRequests = 0;
+    page.on("request", (request) => {
+      if (
+        request.method() === "POST" &&
+        request.headers()["next-action"] !== undefined
+      ) {
+        actionRequests += 1;
+      }
+    });
+
+    await page.goto("/groups/new");
+    await expect(
+      page.getByRole("heading", { name: "What are we celebrating?" }),
+    ).toBeVisible();
+    await page.getByLabel("Group name").fill("Conflict changed draft");
+    await page.getByRole("button", { name: "Create group" }).click();
+
+    const conflict = page.getByTestId("idempotency-conflict");
+    await expect(conflict).toBeVisible();
+    expect(actionRequests).toBe(0);
+
+    // Cancel retains the original key and attempted binding: the conflict
+    // clears and the earlier attempt is kept.
+    await conflict
+      .getByRole("button", { name: "Keep my earlier attempt" })
+      .click();
+    await expect(page.getByTestId("idempotency-conflict")).toHaveCount(0);
+    expect(stackOrganizerGroupCount(organizerId)).toBe(1);
+  });
+});
+
+test("only the explicit confirmation submits a changed payload as a new request", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  page.setDefaultTimeout(15_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const organizerId = await createSignedInFixture(
+      page,
+      admin,
+      "arj37-newreq",
+      { displayName: "New Request Nadia", tasteLine: "deliberate rerouter" },
+      scope,
+    );
+
+    await page.goto("/groups/new");
+    await page.evaluate((key) => {
+      window.sessionStorage.setItem("gmt.groups.create.request-key", key);
+    }, FIXED_REQUEST_KEY);
+    const groupName = "New request first draft";
+    await page.getByLabel("Group name").fill(groupName);
+    await page.getByLabel("Date").fill(futureIsoDate());
+    await page.getByRole("button", { name: "Create group" }).click();
+    await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
+    const firstGroupId = new URL(page.url()).pathname.split("/")[2];
+    scope.register("fixture groups", async () => {
+      deleteFixtureGroupsSql([firstGroupId], [organizerId]);
+    });
+
+    await page.goto("/groups/new");
+    await expect(
+      page.getByRole("heading", { name: "What are we celebrating?" }),
+    ).toBeVisible();
+    await page.getByLabel("Group name").fill("New request second draft");
+    await page.getByRole("button", { name: "Create group" }).click();
+    await expect(page.getByTestId("idempotency-conflict")).toBeVisible();
+
+    // Nothing was created by the conflict surface itself.
+    expect(stackOrganizerGroupCount(organizerId)).toBe(1);
+
+    // The explicit confirmation is the only path that rotates the key and
+    // submits the changed payload as a new request.
+    await page
+      .getByTestId("idempotency-conflict")
+      .getByRole("button", { name: "Submit changes as a new request" })
+      .click();
+    await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
+    const secondGroupId = new URL(page.url()).pathname.split("/")[2];
+    expect(secondGroupId).not.toBe(firstGroupId);
+    await expect(
+      page.getByRole("heading", { name: "New request second draft is ready." }),
+    ).toBeVisible();
+
+    // Two deliberate groups now exist, each with its own receipt.
+    expect(stackOrganizerGroupCount(organizerId)).toBe(2);
+  });
+});
+
+test("a stale tab refreshes the projection and never retries issuance automatically", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  page.setDefaultTimeout(15_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const { organizerId, groupId } = await createOrganizerAndGroup(
+      page,
+      admin,
+      scope,
+      "arj37-stale",
+      "Stale tab bash",
+    );
+
+    // Another tab issues first: this tab still projects version 0, so its
+    // expected version is stale.
+    expect(stackGroupVersion(groupId)).toBe("0");
+    const otherTabVersion = stackIssueGeneric(organizerId, groupId);
+    expect(otherTabVersion).toBe("1");
+
+    // No reload: this tab still holds the stale version 0 projection. Its
+    // issuance is stale and the refreshed state decides the display. No
+    // token is returned and no automatic retry happens.
+    await page.getByRole("button", { name: "Create invite link" }).click();
+
+    await page.getByRole("button", { name: "Create invite link" }).click();
+
+    await expect(page.getByTestId("active-link-lost")).toBeVisible();
+    await expect(page.getByTestId("stale-version-note")).toBeVisible();
+    await expect(page.getByTestId("invite-link-card")).toHaveCount(0);
+    // The stale round-trip changed nothing: still exactly one generic row
+    // at the other tab's version, and no extra issuance audit.
+    expect(stackGroupVersion(groupId)).toBe("1");
+    const audits = runStackSql(
+      `select count(*)::text from public.audit_events where group_id = '${groupId}'::uuid and event_type = 'invitation_issued';`,
+    ).trim();
+    expect(audits).toBe("1");
+  });
+});
+
+test("the created screen shows the authoritative stored expiry", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  page.setDefaultTimeout(15_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const { organizerId, groupId } = await createOrganizerAndGroup(
+      page,
+      admin,
+      scope,
+      "arj37-expiry",
+      "Expiry display bash",
+    );
+
+    // Another session issues the link; the stored expiry is then pinned to
+    // a fixed instant so the display is checkable deterministically.
+    expect(stackIssueGeneric(organizerId, groupId)).toBe("1");
+    stackSetGenericExpiry(groupId, "2050-01-01 00:00:00+00");
+
+    await page.reload();
+    const lostCard = page.getByTestId("active-link-lost");
+    await expect(lostCard).toBeVisible();
+    await expect(page.getByTestId("invite-link-card")).toHaveCount(0);
+
+    // The rendered expiry is the stored value formatted with the pinned
+    // deterministic locale and zone (en-IN, Asia/Kolkata) — 00:00 UTC is
+    // 05:30 India time. The same formatter computes the expectation here.
+    const expectedExpiry = new Intl.DateTimeFormat("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Kolkata",
+    }).format(new Date("2050-01-01T00:00:00Z"));
+    await expect(lostCard).toContainText(expectedExpiry);
+  });
+});
+
+test("an issued-expired link requires confirmation before its replacement", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  page.setDefaultTimeout(15_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const { organizerId, groupId } = await createOrganizerAndGroup(
+      page,
+      admin,
+      scope,
+      "arj37-expired",
+      "Expired replacement bash",
+    );
+
+    // The stored-active generic row is pinned to the past: the projection
+    // must honestly report issued_expired, not collapse into another state.
+    expect(stackIssueGeneric(organizerId, groupId)).toBe("1");
+    stackSetGenericExpiry(groupId, "2026-01-01 00:00:00+00");
+
+    await page.reload();
+    const expiredCard = page.getByTestId("issued-expired");
+    await expect(expiredCard).toBeVisible();
+    await expect(page.getByTestId("invite-link-card")).toHaveCount(0);
+
+    // The replacement is confirmation-gated even though the old token is
+    // already invalid.
+    await expiredCard
+      .getByRole("button", { name: "Create a new invite link" })
+      .click();
+    const confirmation = page.getByTestId("replacement-confirmation");
+    await expect(confirmation).toBeVisible();
+    await expect(confirmation).toContainText(
+      "the expired link will remain unusable",
+    );
+
+    // No issuance happened before the confirmation.
+    expect(stackGroupVersion(groupId)).toBe("1");
+
+    await confirmation
+      .getByRole("button", { name: "Yes, create a new link" })
+      .click();
+    const linkCard = page.getByTestId("invite-link-card");
+    await expect(linkCard).toBeVisible();
+    expect(stackGroupVersion(groupId)).toBe("2");
+    const generic = stackGenericInvitation(groupId);
+    expect(generic.status).toBe("active");
+  });
+});
+
+test("targeted invitations stay isolated from the generic shareable link", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  page.setDefaultTimeout(15_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const organizerId = await createSignedInFixture(
+      page,
+      admin,
+      "arj37-targeted",
+      { displayName: "Targeted Tia", tasteLine: "one link per person" },
+      scope,
+    );
+    await fillAndSubmitCreateForm(page, "Targeted isolation bash");
+    const groupId = new URL(page.url()).pathname.split("/")[2];
+    scope.register("fixture groups", async () => {
+      deleteFixtureGroupsSql([groupId], [organizerId]);
+    });
+
+    // A second fixture member receives a targeted invitation issued
+    // directly through the reshaped 006b overload.
+    const secondContext = await page.context().browser()!.newContext();
+    let targetUserId = "";
+    try {
+      const memberPage = await secondContext.newPage();
+      targetUserId = await createSignedInFixture(
+        memberPage,
+        admin,
+        "arj37-targeted-friend",
+        { displayName: "Friend Milo", tasteLine: "invited, not generic" },
+        scope,
+      );
+    } finally {
+      await secondContext.close();
+    }
+    stackIssueTargeted(organizerId, groupId, targetUserId);
+    expect(stackTargetedStatus(groupId, targetUserId)).toBe("active");
+
+    // The organizer's generic compare-and-swap still starts at version 0:
+    // targeted issuance never reads or advances the shared version.
+    await page.getByRole("button", { name: "Create invite link" }).click();
+    await expect(page.getByTestId("invite-link-card")).toBeVisible();
+    expect(stackGroupVersion(groupId)).toBe("1");
+
+    // The targeted row is untouched by the generic issuance: still active,
+    // still null-shareable-version, same bound generation.
+    expect(stackTargetedStatus(groupId, targetUserId)).toBe("active");
+    const targetedRow = runStackSql(
+      `select status::text || '/' || coalesce(shareable_version::text, 'null') || '/' || target_membership_generation::text from public.group_invitations where group_id = '${groupId}'::uuid and target_user_id = '${targetUserId}'::uuid and shareable_version is null;`,
+    ).trim();
+    expect(targetedRow).toBe("active/null/1");
+  });
+});
+
+test("a clipboard failure keeps the one-time link selectable and explains the fallback", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  page.setDefaultTimeout(15_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const { organizerId, groupId } = await createOrganizerAndGroup(
+      page,
+      admin,
+      scope,
+      "arj37-clipboard",
+      "Clipboard failure bash",
+    );
+
+    await page.getByRole("button", { name: "Create invite link" }).click();
+    const linkCard = page.getByTestId("invite-link-card");
+    await expect(linkCard).toBeVisible();
+    const link = await linkCard.locator(".select-all").first().textContent();
+    const linkText = (link ?? "").trim();
+
+    // Force the clipboard write to fail (denied permission), then copy.
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: () =>
+            Promise.reject(new DOMException("denied", "NotAllowedError")),
+        },
+        configurable: true,
+      });
+    });
+    await linkCard.getByRole("button", { name: "Copy invite link" }).click();
+
+    // The failure is announced, and the only displayed token survives.
+    // Equality is asserted as a bare boolean: a failure message must never
+    // print link or token material into CI logs.
+    const failure = linkCard.getByRole("alert");
+    await expect(failure).toBeVisible();
+    await expect(failure).toContainText("copy it manually");
+    const afterFailure = await linkCard
+      .locator(".select-all")
+      .first()
+      .textContent();
+    expect((afterFailure ?? "").trim() === linkText).toBe(true);
+    expect(linkText.length).toBeGreaterThan(43);
+
+    // Hygiene: the group teardown covers the fixture rows.
+    expect(organizerId).toBeTruthy();
+    expect(groupId).toBeTruthy();
+  });
+});
+
+test("the create form rejects an empty name client-side, retains input, and never sends", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -200,8 +802,8 @@ test("the create form rejects a changed payload after a conflict surface before 
     await createSignedInFixture(
       page,
       admin,
-      "arj37-conflict",
-      { displayName: "Conflict Cy", tasteLine: "double-clicker" },
+      "arj37-validation",
+      { displayName: "Validation Vic", tasteLine: "reads the labels" },
       scope,
     );
 
@@ -211,10 +813,23 @@ test("the create form rejects a changed payload after a conflict surface before 
     ).toBeVisible();
 
     // Client-side field errors keep every entered value and never send.
+    await page.getByLabel("Date").fill(futureIsoDate());
+    let actionRequests = 0;
+    page.on("request", (request) => {
+      if (
+        request.method() === "POST" &&
+        request.headers()["next-action"] !== undefined
+      ) {
+        actionRequests += 1;
+      }
+    });
     await page.getByRole("button", { name: "Create group" }).click();
     await expect(
       page.getByText("Give it a name so people recognise the invite."),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/groups\/new$/);
+    expect(actionRequests).toBe(0);
+    // The valid date the user entered is retained.
+    await expect(page.getByLabel("Date")).toHaveValue(futureIsoDate());
   });
 });
