@@ -238,11 +238,15 @@ describe("requestInvitationEmailAction", () => {
       joinedMemberCount: 2,
     });
     mocks.bindFlowEmail.mockResolvedValue("bound");
-    const state = await requestInvitationEmailAction(
-      { status: "idle" },
-      formData({ flowId: FLOW_ID, email: EMAIL }),
+    const redirect = await redirectOf(() =>
+      requestInvitationEmailAction(
+        { status: "idle" },
+        formData({ flowId: FLOW_ID, email: EMAIL }),
+      ),
     );
-    expect(state).toEqual({ status: "sent" });
+    // A successful send continues on the dedicated verify screen, with the
+    // requested email travelling only inside the resealed flow cookie.
+    expect(redirect).toBe(`/auth/invite/${FLOW_ID}/verify`);
     expect(mocks.bindFlowEmail).toHaveBeenCalledWith(
       FLOW_ID,
       BROWSER_SECRET,

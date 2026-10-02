@@ -62,7 +62,6 @@ export type InviteJoinState = {
 export type InviteEmailState = {
   readonly status:
     | "idle"
-    | "sent"
     | "restart"
     | "unavailable"
     | "invalid-email"
@@ -222,7 +221,10 @@ export async function requestInvitationEmailAction(
       ...invitationCookieOptions(3600),
     });
   }
-  return { status: "sent" };
+  // Successful send: the requested email travels only inside the resealed
+  // flow cookie, and the person continues on the dedicated verify screen —
+  // the same split the generic auth flow uses (send, then code entry).
+  redirect(`/auth/invite/${flowId}/verify`);
 }
 
 /**

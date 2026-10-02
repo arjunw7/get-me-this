@@ -85,14 +85,6 @@ export function InviteEmailScreen({ flowId }: { readonly flowId: string }) {
         <h1 className="text-center font-display text-4xl leading-[1] font-extrabold tracking-tight sm:text-display-xl">
           {EMAIL_COPY.heading}
         </h1>
-        {state.status === "sent" ? (
-          <p
-            role="status"
-            className="mt-4 rounded-surface bg-accent-highlight-soft px-4 py-3 text-center text-sm font-bold"
-          >
-            Code sent. It follows in a moment.
-          </p>
-        ) : null}
         <form
           action={formAction}
           onSubmit={submit}
