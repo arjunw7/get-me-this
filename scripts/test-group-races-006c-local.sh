@@ -335,17 +335,17 @@ TOKEN3="$(psql_as "$UID_A" "select token from public.issue_group_invitation('${G
 FLOW4="$(psql_one <<< "select flow_id::text from public.begin_group_invitation_flow('${TOKEN3}', '${SECRET_A}', '${COORD}');" | tail -n 1)"
 psql_as "$UID_B" "select result from public.bind_group_invitation_flow_email('${FLOW4}'::uuid, '${SECRET_A}', 'group-race-006c-b@example.invalid'); select result from public.verify_group_invitation_flow('${FLOW4}'::uuid, '${SECRET_A}');" >/dev/null
 
-# Logout-first: invalidation commits before the acceptance begins.
+# Logout-first: the invalidation commits before the acceptance begins, so
+# the acceptance always observes the invalidated continuation.
 send 3 "begin;"
 send 3 "select result from public.invalidate_group_invitation_flows_for_logout(array['${FLOW4}'::uuid], array['${SECRET_A}'], '${COORD}');"
 await 4 "invalidated"
+send 3 "commit;"
 
 # The accepting session carries uid_b's identity (the verified user).
 as_user 5 "$UID_B"
 send 5 "begin;"
 send 5 "select result from public.accept_group_invitation_flow('${FLOW4}'::uuid, '${SECRET_A}');"
-sleep 1
-send 3 "commit;"
 await 6 "unavailable"
 send 5 "rollback;"
 
