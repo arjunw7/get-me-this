@@ -353,6 +353,11 @@ $$;
 comment on function private.audit_metadata_is_safe(jsonb) is
   'CHECK helper: audit metadata is a bounded object of identifier/generation keys only.';
 
+-- Attach the bounded typed metadata constraint now that its helper exists.
+alter table public.audit_events
+  add constraint audit_events_metadata_safe
+  check (private.audit_metadata_is_safe(metadata));
+
 -- The only authorized audit writer. Never granted to any client role.
 create function private.append_group_event(
   p_actor_id uuid,
@@ -1388,6 +1393,8 @@ revoke execute on function private.is_group_organizer(uuid)
 revoke execute on function private.token_is_canonical(text)
   from public, anon, authenticated, service_role;
 revoke execute on function private.audit_metadata_is_safe(jsonb)
+  from public, anon, authenticated, service_role;
+revoke execute on function private.group_fields_are_valid(text, text, text, text, text, bigint, text)
   from public, anon, authenticated, service_role;
 revoke execute on function private.append_group_event(uuid, uuid, public.group_audit_event_type, uuid, uuid, jsonb)
   from public, anon, authenticated, service_role;

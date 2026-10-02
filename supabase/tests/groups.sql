@@ -411,7 +411,7 @@ select ok(not has_table_privilege('anon', 'public.group_invitation_uses', 'SELEC
 select ok(not has_table_privilege('anon', 'public.audit_events', 'SELECT'), 'anon has no SELECT on audit_events');
 
 -- The only direct client read: column-limited groups SELECT for authenticated.
-select ok(has_table_privilege('authenticated', 'public."groups"', 'SELECT'), 'authenticated has column-limited SELECT on groups');
+select ok(has_any_column_privilege('authenticated', 'public."groups"', 'SELECT'), 'authenticated has column-limited SELECT on groups');
 select ok(not has_table_privilege('authenticated', 'public."groups"', 'INSERT'), 'authenticated has no INSERT on groups');
 select ok(not has_table_privilege('authenticated', 'public."groups"', 'UPDATE'), 'authenticated has no UPDATE on groups');
 select ok(not has_table_privilege('authenticated', 'public."groups"', 'DELETE'), 'authenticated has no DELETE on groups');
@@ -633,7 +633,7 @@ select is(
         'private.is_group_organizer(uuid)'::regprocedure,
         'private.append_group_event(uuid, uuid, public.group_audit_event_type, uuid, uuid, jsonb)'::regprocedure
       )
-      and (p.prosecdef = false or coalesce(p.proconfig, '') not like '%search_path=%')
+      and (p.prosecdef = false or coalesce(array_to_string(p.proconfig, ','), '') not like '%search_path=%')
   ),
   0,
   'every security-definer function is definer with an explicit (empty) search_path'
