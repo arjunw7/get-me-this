@@ -133,16 +133,23 @@ exec 6<"$B_OUT"
 
 # await FD PATTERN [timeout]: read the session's output until a line contains
 # PATTERN. Consumed lines are discarded silently (session output carries only
-# function results and marker strings, never tokens).
+# function results and marker strings, never tokens). An output EOF means the
+# session died (ON_ERROR_STOP=1): report the last line it produced.
 await() {
   local fd="$1" pattern="$2" timeout="${3:-25}"
-  local line
+  local line last=""
   while IFS= read -r -t "$timeout" -u "$fd" line; do
     case "$line" in
       *"$pattern"*) return 0 ;;
     esac
+    case "$line" in
+      *[!\ ]*) last="$line" ;;
+    esac
   done
-  die "timeout waiting for '${pattern}' on session fd ${fd}"
+  if [ -n "$last" ]; then
+    die "no '${pattern}' on fd ${fd} (last output: ${last})"
+  fi
+  die "no '${pattern}' on fd ${fd} (session closed; a statement errored)"
 }
 
 # send FD SQL: write one SQL statement (with its semicolon) to the session.
@@ -159,10 +166,24 @@ as_user() {
 }
 
 # check FD NAME SQL-BOOLEAN: assert a boolean expression inside the session.
+# A FAIL marker or a dead session (ON_ERROR_STOP=1) is fatal immediately, with
+# the last output line for diagnosis.
 check() {
   send "$1" "select 'CHK-${2}=' || case when (${3}) then 'pass' else 'FAIL' end;"
-  await "$1" "CHK-${2}=pass" 25
-  echo "  ok: ${2}"
+  local fd="$1" name="$2" line last=""
+  while IFS= read -r -t 25 -u "$fd" line; do
+    case "$line" in
+      "CHK-${name}=pass") echo "  ok: ${name}"; return 0 ;;
+      "CHK-${name}=FAIL") die "check failed: ${name}" ;;
+    esac
+    case "$line" in
+      *[!\ ]*) last="$line" ;;
+    esac
+  done
+  if [ -n "$last" ]; then
+    die "check ${name} incomplete (last output: ${last})"
+  fi
+  die "check ${name}: session closed (a statement errored)"
 }
 
 # issue_token GROUP MAX_USES [TARGET]: capture the returned token silently.
