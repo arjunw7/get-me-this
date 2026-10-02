@@ -1,17 +1,29 @@
 # Continuous integration for every pull request and direct push to main.
 #
-# Two jobs share one contract (005h). "Install and verify" installs with a
-# frozen lockfile and runs the single committed verification command (format,
-# lint, typecheck, unit tests, build). "Database and stack e2e" starts the
-# local Supabase stack with the repository's CLI devDependency, deliberately
-# resets it from the committed migrations and seed, runs the pgTAP suites
-# (pnpm test:db), then builds the production bundle and runs the
-# E2E_LOCAL_SUPABASE-gated Playwright suites through the committed
-# scripts/e2e-local-stack.sh (environment wiring mirrors
-# scripts/e2e-auth-local.sh; the local stack's fixture keys are parsed
-# silently and never echoed into logs). A failing sub-command exits non-zero
-# and fails its check; a red job blocks the merge gate exactly like a red
-# verify job.
+# Four independent checks share one contract (005h). "Install and verify"
+# installs with a frozen lockfile and runs the single committed verification
+# command (format, lint, typecheck, unit tests, build). The three
+# database-gated jobs each boot their own local Supabase stack on their own
+# runner so they run in parallel:
+#
+#   * "Database suites and races" starts and resets the stack from the
+#     committed migrations and seed, runs the pgTAP suites (pnpm test:db),
+#     then both two-session race harnesses (006a and 006b) through the
+#     committed scripts/test-group-races-*.sh.
+#   * "Stack e2e and visual" starts and resets the stack, then builds the
+#     production bundle and runs the E2E_LOCAL_SUPABASE-gated Playwright
+#     suites through scripts/e2e-local-stack.sh (environment wiring mirrors
+#     scripts/e2e-auth-local.sh; the local stack's fixture keys are parsed
+#     silently and never echoed into logs), plus the review-evidence
+#     collection and uploads.
+#   * "Populated-state group upgrade" runs the 006b populated-state upgrade
+#     harness (scripts/test-group-upgrade-local.sh), which always replays
+#     the committed migrations from scratch inside disposable local
+#     databases — it tests migration upgrades and never uses a cached or
+#     pre-migrated snapshot.
+#
+# A failing sub-command exits non-zero and fails its check; a red job blocks
+# the merge gate exactly like a red verify job.
 #
 # Merge gate: per the owner authorization of 2026-09-30 recorded in
 # docs/delivery/issues/005h-ci-database-test-gate.md, AI reviewer signoff plus
@@ -66,14 +78,21 @@ jobs:
       - name: Verify
         run: pnpm verify
 
+  # The pgTAP suites and both two-session race harnesses run against one
+  # freshly migrated stack on a dedicated runner. No Playwright browser is
+  # installed here. `supabase start` applies the committed migrations and
+  # seed on a fresh runner; its output table includes the local fixture
+  # keys, so it is written to a file and never echoed; on failure only a
+  # key-filtered diagnostic excerpt is printed. The sanitized summary is
+  # read back from `supabase status -o json` (the same interface
+  # scripts/e2e-auth-local.sh parses) through a filter that drops
+  # key/secret material: the local publishable key is a development
+  # fixture, but the job treats it as secret anyway.
   database:
-    name: Database and stack e2e
+    name: Database suites and races
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
-      # Same three SHA-pinned actions as the verify job; per-step timeouts cap
-      # hangs, the steps share this job's budget, and the workflow-level
-      # concurrency group cancels superseded pull-request runs.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -85,14 +104,6 @@ jobs:
       - name: Install dependencies (frozen lockfile)
         timeout-minutes: 5
         run: pnpm install --frozen-lockfile
-      # `supabase start` applies the committed migrations and seed on a fresh
-      # runner. Its output table includes the local fixture keys, so it is
-      # written to a file and never echoed; on failure only a key-filtered
-      # diagnostic excerpt is printed. The sanitized summary is read back from
-      # `supabase status -o json` (the same interface scripts/e2e-auth-local.sh
-      # parses) through a filter that drops key/secret material: the local
-      # publishable key is a development fixture, but the job treats it as
-      # secret anyway.
       - name: Start the local Supabase stack (applies committed migrations and seed)
         timeout-minutes: 10
         run: |
@@ -135,20 +146,50 @@ jobs:
       - name: Run 006c continuation races
         timeout-minutes: 5
         run: pnpm test:db:races:006c
-      # Brief 006b criterion 14: the 006b migration must also succeed against
-      # a POPULATED 006a predecessor state, not only a fresh stack. This
-      # bounded harness builds disposable local databases from the committed
-      # migrations through 006a, seeds both fixture kinds (generic history
-      # and zero generic history) plus multiple-active/expired/targeted
-      # cases, applies 006b once, asserts the backfilled versions and system
-      # audits, and proves a forced migration failure rolls everything back.
-      - name: Run the populated-state group upgrade
+
+  # The stack-gated Playwright suites (e2e, axe, visual) boot their own stack
+  # on a dedicated runner, in parallel with the database job above.
+  stack-e2e:
+    name: Stack e2e and visual
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies (frozen lockfile)
         timeout-minutes: 5
-        run: pnpm test:db:group-upgrade
+        run: pnpm install --frozen-lockfile
+      # Same sanitized stack boot as the database job: migrations and seed
+      # from the committed files on a fresh runner.
+      - name: Start the local Supabase stack (applies committed migrations and seed)
+        timeout-minutes: 10
+        run: |
+          pnpm exec supabase start > /tmp/gmt-supabase-start.txt 2>&1 \
+            || { echo "supabase start failed; sanitized diagnostics:"; grep -viE 'key|secret|password|token|eyJ' /tmp/gmt-supabase-start.txt | tail -40 >&2 || true; exit 1; }
+          pnpm exec supabase status -o json > /tmp/gmt-supabase-status.json
+          node -e '
+            const s = require("/tmp/gmt-supabase-status.json");
+            for (const [k, v] of Object.entries(s)) {
+              if (!/key|secret|password|token/i.test(k)) {
+                process.stdout.write(`${k}: ${v}\n`);
+              }
+            }
+          '
+      # Deliberate duplicate proof (brief 005h): the schema must rebuild from
+      # the committed migrations and seed alone.
+      - name: Reset the local stack from committed migrations and seed
+        timeout-minutes: 5
+        run: pnpm exec supabase db reset --local
       # Cache the downloaded Chromium build (~/.cache/ms-playwright). The
       # browser version is pinned transitively by pnpm-lock.yaml, so the
       # lockfile hash keys the cache; --with-deps still installs the OS
-      # packages each run.
+      # packages each run. Needed in every job that runs Playwright.
       - name: Restore the Playwright Chromium cache
         uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
@@ -159,24 +200,12 @@ jobs:
         timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
       # scripts/e2e-local-stack.sh wires the local-stack environment silently,
-      # builds the production bundle against that environment, and runs only
-      # the E2E_LOCAL_SUPABASE-gated specs (explicit list in the script). The
-      # step bound is the build (<= 10) plus e2e (<= 15) guide budgets
-      # combined, with headroom for failure diagnostics to finish printing.
+      # builds the production bundle against it, and runs only the
+      # E2E_LOCAL_SUPABASE-gated specs (explicit list in the script). The step
+      # bound is the build (<= 10) plus e2e (<= 15) guide budgets combined.
       - name: Build and run the stack-gated e2e suites
-        timeout-minutes: 35
+        timeout-minutes: 25
         run: bash scripts/e2e-local-stack.sh
-      # Failure diagnostics: the Playwright traces/screenshots for failed
-      # specs (test-results/) are uploaded before anything else can fail, so
-      # a timeout or a hang is always diagnosable from the run's artifacts.
-      - name: Upload failed-spec diagnostics
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: e2e-failed-diagnostics
-          path: test-results/
-          if-no-files-found: ignore
-          retention-days: 3
       - name: Collect ARJ-28/ARJ-31 candidates and axe evidence
         if: always()
         id: collect_arj28
@@ -250,6 +279,41 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
 
+  # Brief 006b criterion 14: the 006b migration must also succeed against a
+  # POPULATED 006a predecessor state, not only a fresh stack. This bounded
+  # harness builds disposable local databases from the committed migrations
+  # through 006a, seeds both fixture kinds (generic history and zero generic
+  # history) plus multiple-active/expired/targeted cases, applies 006b once,
+  # asserts the backfilled versions and system audits, and proves a forced
+  # migration failure rolls everything back. It deliberately replays real
+  # migrations from scratch on every run — never a cached snapshot — because
+  # it tests migration upgrades. It only needs the stack's containers up (it
+  # execs into the database container); no seed state and no Playwright.
+  group-upgrade:
+    name: Populated-state group upgrade
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies (frozen lockfile)
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile
+      - name: Start the local Supabase stack (containers for the disposable databases)
+        timeout-minutes: 10
+        run: |
+          pnpm exec supabase start > /tmp/gmt-supabase-start.txt 2>&1 \
+            || { echo "supabase start failed; sanitized diagnostics:"; grep -viE 'key|secret|password|token|eyJ' /tmp/gmt-supabase-start.txt | tail -40 >&2 || true; exit 1; }
+      - name: Run the populated-state group upgrade
+        timeout-minutes: 5
+        run: pnpm test:db:group-upgrade
+
   no-provider-actions:
     name: No-provider Server Action gates
     runs-on: ubuntu-24.04
@@ -266,8 +330,8 @@ jobs:
       - name: Install dependencies (frozen lockfile)
         timeout-minutes: 5
         run: pnpm install --frozen-lockfile
-      # Same Playwright cache as the database job; keyed on the lockfile that
-      # pins the browser version.
+      # Same Playwright cache as the stack-e2e job; keyed on the lockfile
+      # that pins the browser version.
       - name: Restore the Playwright Chromium cache
         uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
