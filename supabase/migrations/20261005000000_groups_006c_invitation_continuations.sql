@@ -1693,8 +1693,7 @@ grant execute on function public.discard_group_invitation_flow(uuid, text, text)
   to anon, authenticated;
 
 -- Authenticated-only surface: verification/reconciliation, the state
--- projection, continuation-bound acceptance, logout invalidation, and the
--- auth-mutation lease operations.
+-- projection, continuation-bound acceptance, and logout invalidation.
 grant execute on function public.verify_group_invitation_flow(uuid, text)
   to authenticated;
 grant execute on function public.group_invitation_flow_state(uuid, text)
@@ -1703,14 +1702,22 @@ grant execute on function public.accept_group_invitation_flow(uuid, text)
   to authenticated;
 grant execute on function public.invalidate_group_invitation_flows_for_logout(uuid[], text[], text)
   to authenticated;
+
+-- The auth-mutation lease operations run under the browser broker on
+-- BOTH sides of the session boundary: the provider verification mutates
+-- the session while the person is still anonymous, and the logout and
+-- account-replacement run with (or after clearing) a session. Every call
+-- is gated on the coordinator secret from the sealed HttpOnly cookie —
+-- the same trust pattern as the anon-granted bootstrap operations — so
+-- both client roles hold EXECUTE.
 grant execute on function public.acquire_group_invitation_auth_lease(text, bigint, text)
-  to authenticated;
+  to anon, authenticated;
 grant execute on function public.mark_group_invitation_delivery_pending(text, bigint, text, uuid)
-  to authenticated;
+  to anon, authenticated;
 grant execute on function public.acknowledge_group_invitation_delivery(text, text, uuid)
-  to authenticated;
+  to anon, authenticated;
 grant execute on function public.recover_group_invitation_auth_lease(text, text)
-  to authenticated;
+  to anon, authenticated;
 
 -- No EXECUTE is granted on private.invitation_digest,
 -- private.invitation_email_binding, private.invitation_email_is_valid,

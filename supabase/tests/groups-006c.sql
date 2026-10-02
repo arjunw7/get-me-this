@@ -130,14 +130,18 @@ select ok(has_function_privilege('authenticated', 'public.accept_group_invitatio
   'authenticated can execute the continuation-bound acceptance');
 select ok(has_function_privilege('authenticated', 'public.invalidate_group_invitation_flows_for_logout(uuid[], text[], text)', 'EXECUTE'),
   'authenticated can execute the logout invalidation');
-select ok(has_function_privilege('authenticated', 'public.acquire_group_invitation_auth_lease(text, bigint, text)', 'EXECUTE'),
-  'authenticated can execute the auth-mutation lease acquisition');
-select ok(has_function_privilege('authenticated', 'public.acknowledge_group_invitation_delivery(text, text, uuid)', 'EXECUTE'),
-  'authenticated can execute the delivery acknowledgement');
-select ok(has_function_privilege('authenticated', 'public.recover_group_invitation_auth_lease(text, text)', 'EXECUTE'),
-  'authenticated can execute the lease recovery');
-select ok(has_function_privilege('authenticated', 'public.mark_group_invitation_delivery_pending(text, bigint, text, uuid)', 'EXECUTE'),
-  'authenticated can execute the delivery-pending transition');
+select ok(has_function_privilege('authenticated', 'public.acquire_group_invitation_auth_lease(text, bigint, text)', 'EXECUTE')
+    and has_function_privilege('anon', 'public.acquire_group_invitation_auth_lease(text, bigint, text)', 'EXECUTE'),
+  'both client roles can execute the auth-mutation lease acquisition (the verify mutation runs signed-out)');
+select ok(has_function_privilege('authenticated', 'public.acknowledge_group_invitation_delivery(text, text, uuid)', 'EXECUTE')
+    and has_function_privilege('anon', 'public.acknowledge_group_invitation_delivery(text, text, uuid)', 'EXECUTE'),
+  'both client roles can execute the delivery acknowledgement');
+select ok(has_function_privilege('authenticated', 'public.recover_group_invitation_auth_lease(text, text)', 'EXECUTE')
+    and has_function_privilege('anon', 'public.recover_group_invitation_auth_lease(text, text)', 'EXECUTE'),
+  'both client roles can execute the lease recovery');
+select ok(has_function_privilege('authenticated', 'public.mark_group_invitation_delivery_pending(text, bigint, text, uuid)', 'EXECUTE')
+    and has_function_privilege('anon', 'public.mark_group_invitation_delivery_pending(text, bigint, text, uuid)', 'EXECUTE'),
+  'both client roles can execute the delivery-pending transition');
 
 -- Every direct raw-token acceptance surface is revoked from every
 -- application role: the continuation-bound function is the only client

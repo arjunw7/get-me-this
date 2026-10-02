@@ -433,26 +433,35 @@ test.describe("invitation preview and acceptance", () => {
           .toBe("1");
         if (!captured) throw new Error("no Join action POST captured");
 
-        // Replay the EXACT captured action request with a forged Origin,
-        // then with no Origin at all. Both are rejected by the framework's
-        // Origin/Fetch-Metadata check before any action code runs (the
-        // server logs the abort; the response is a 4xx/5xx rejection).
-        for (const origin of ["https://attacker.invalid", undefined]) {
-          const response = await request.post(
-            (captured as { url: string }).url,
-            {
-              headers: {
-                ...(captured as { headers: Record<string, string> }).headers,
-                ...(origin ? { origin } : {}),
-              },
-              data: (captured as { body: string }).body,
-            },
-          );
-          expect(response.status()).toBeGreaterThanOrEqual(400);
-        }
+        // Replay the EXACT captured action request with a forged Origin:
+        // the framework's Origin/Fetch-Metadata check aborts the action
+        // (the 500 "Invalid Server Actions request" rejection) before any
+        // action code runs. A replay with no Origin header is deliberately
+        // allowed through by the framework (a handcrafted request carries
+        // no unwilling credentials), so for that leg the proof is the
+        // database: the replayed acceptance is idempotent and creates no
+        // second membership, use, or acceptance.
+        const foreign = await request.post((captured as { url: string }).url, {
+          headers: {
+            ...(captured as { headers: Record<string, string> }).headers,
+            origin: "https://attacker.invalid",
+          },
+          data: (captured as { body: string }).body,
+        });
+        expect(foreign.status()).toBeGreaterThanOrEqual(400);
+
+        await request.post((captured as { url: string }).url, {
+          headers: Object.fromEntries(
+            Object.entries(
+              (captured as { headers: Record<string, string> }).headers,
+            ).filter(([name]) => name.toLowerCase() !== "origin"),
+          ),
+          data: (captured as { body: string }).body,
+        });
 
         // Nothing was accepted by either replay.
         expect(joinedCount(groupId, joinerId)).toBe("1");
+        expect(invitationUseCount(groupId)).toBe("1");
         const accepted = runStackSql(
           `select count(*)::text from private.invitation_continuations where verified_user_id = '${joinerId}'::uuid and accepted_at is not null;`,
         ).trim();
