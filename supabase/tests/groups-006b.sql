@@ -280,7 +280,7 @@ select is(
 select invitation_version::text as rv1, revoked as rv1_flag, revoked_at as rv1_at
 from public.revoke_group_invitation(:'gid'::uuid, 1::bigint) \gset
 
-select is(:'rv1'::text || ':' || :'rv1_flag'::text, '2:true', 'revoking the expired link increments to version 2 and reports revoked');
+select is(:'rv1'::text || ':' || :'rv1_flag'::text, '2:t', 'revoking the expired link increments to version 2 and reports revoked');
 select is(:'rv1_at' is not null, 'true', 'the revoke returned an authoritative revoked_at');
 
 -- Owner view: state revoked, no expiry, exactly one revoke event.

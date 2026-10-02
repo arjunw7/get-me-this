@@ -1797,7 +1797,7 @@ select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticate
 
 select is((select count(*)::int from public.group_detail(:'gid'::uuid)), 0, 'a left member loses group detail access');
 select is(
-  (select result::text from public.accept_group_invitation(:'tok2')),
+  (select result::text from public.accept_group_invitation(:'tok3')),
   'joined', 'a left member can rejoin through a valid generic link (only removal is sticky)'
 );
 
@@ -1962,10 +1962,13 @@ select is(
 
 reset role;
 
+select id::text as inv5_id from public.group_invitations
+where token_hash = extensions.digest(convert_to(:'tok5', 'UTF8'), 'sha256') \gset
+
 select is(
   (select count(*)::int from public.audit_events where group_id = :'gid'::uuid),
-  16,
-  'the audit trail has the expected sixteen events before the deletion denials'
+  18,
+  'the audit trail has the expected eighteen events before the deletion denials'
 );
 
 -- Deleting any referenced auth user is denied.
@@ -1994,7 +1997,7 @@ select throws_ok(
 
 select is(
   (select count(*)::int from public.audit_events where group_id = :'gid'::uuid),
-  16,
+  18,
   'every audit row is unchanged after the denied deletions'
 );
 select is(
