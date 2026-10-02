@@ -856,9 +856,10 @@ begin
       return;
     end if;
 
-    if member_row.status = 'removed' then
-      -- Sticky removal: only the targeted reinvitation path above (matching
-      -- user and generation) can reinstate; a generic link never can.
+    if member_row.status = 'removed' and inv.target_user_id is null then
+      -- Sticky removal through generic links: only the targeted
+      -- reinvitation path (matching user and generation, already verified
+      -- above) can reinstate a removed member.
       return query select 'unavailable'::text, null::uuid;
       return;
     end if;
