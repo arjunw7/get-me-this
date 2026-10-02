@@ -48,6 +48,19 @@ The repository is in the documentation and foundation stage. Do not scaffold the
 
 If a command is not implemented yet, do not silently substitute another command. Implement it only when the active issue includes that foundation work.
 
+## Local development loop (REQUIRED before pushing)
+
+The machine has a working container runtime (OrbStack; Docker daemon confirmed). Every implementation worker MUST validate locally before the first push and between iterations. CI confirms; it is not a scratchpad. Target: ≤3 CI iterations per pull request.
+
+Validate from a CURRENT checkout or worktree of `main` — do not run from stale branches:
+
+1. `pnpm exec supabase start` — boots the full local stack incl. Mailpit (first boot ~4.5 min pulling images; warm restart 1–2 min). Status JSON: `pnpm exec supabase status -o json` (API_URL, MAILPIT_URL, PUBLISHABLE_KEY, SERVICE_KEY).
+2. `pnpm exec supabase test db --local` — pgTAP suites in ~5–10s per run (first run pulls pg_prove once). After migration edits: `pnpm db:reset --local` then re-run.
+3. Stack-gated e2e: `bash scripts/e2e-local-stack.sh` — builds and runs the gated Playwright suites (incl. visual against pinned baselines) in ~1 minute total. NEVER use plain `pnpm test:e2e` for stack-gated specs.
+4. Typecheck, lint, and build before pushing.
+
+Gotchas: ports 54321–54324 (stack) and 3100 (Playwright web server, `reuseExistingServer: false`) must be free; `imgproxy`/`pooler` services start stopped (benign); if a boot wedges, `pnpm db:stop` and retry; never leave the stack half-started. For race-harness changes, validate multi-session logic locally (two-session psql/Python simulation against the local stack) before pushing.
+
 ## Working rules
 
 - Work on one bounded issue and one branch at a time.
