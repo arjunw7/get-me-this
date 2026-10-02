@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { expect, type Page, test } from "@playwright/test";
 
 import {
@@ -40,10 +42,15 @@ function futureIsoDate(): string {
 }
 
 /**
- * A fixed, valid UUIDv4 request key for tests that must control the
+ * A valid UUIDv4 request key for tests that must control the
  * browser-owned draft key deterministically (replay and conflict flows).
+ * Each test generates its own key: the receipt table's request_key is not
+ * scoped to the fixture user, so a fixed key collides with receipts left
+ * by an earlier run in the shared stack ("2/1" counts). Within a single
+ * test the key stays constant, which is all the replay and conflict
+ * flows require.
  */
-const FIXED_REQUEST_KEY = "d4b1c7a2-1111-4222-8333-444455556666";
+const fixedRequestKey = (): string => randomUUID();
 
 async function fillAndSubmitCreateForm(
   page: Page,
@@ -244,12 +251,13 @@ test("replaying the same draft through the UI returns the original group", async
       { displayName: "Replay Rae", tasteLine: "same again, please" },
       scope,
     );
+    const requestKey = fixedRequestKey();
 
     // Bind a known draft key to the first submission.
     await page.goto("/groups/new");
     await page.evaluate((key) => {
       window.sessionStorage.setItem("gmt.groups.create.request-key", key);
-    }, FIXED_REQUEST_KEY);
+    }, requestKey);
 
     const groupName = "Replay birthday bash";
     await page.getByLabel("Group name").fill(groupName);
@@ -270,7 +278,7 @@ test("replaying the same draft through the UI returns the original group", async
     // Exactly one group, one receipt, and one creation audit event.
     expect(stackOrganizerGroupCount(organizerId)).toBe(1);
     const counts = runStackSql(
-      `select (select count(*) from public.group_creation_receipts where request_key = '${FIXED_REQUEST_KEY}'::uuid)::text || '/' || (select count(*) from public.audit_events where group_id = '${firstGroupId}'::uuid and event_type = 'group_created')::text;`,
+      `select (select count(*) from public.group_creation_receipts where request_key = '${requestKey}'::uuid)::text || '/' || (select count(*) from public.audit_events where group_id = '${firstGroupId}'::uuid and event_type = 'group_created')::text;`,
     ).trim();
     expect(counts).toBe("1/1");
   });
@@ -291,12 +299,13 @@ test("a changed payload after a submitted attempt surfaces the conflict BEFORE t
       { displayName: "Conflict Cy", tasteLine: "second thoughts" },
       scope,
     );
+    const requestKey = fixedRequestKey();
 
     // First submission binds the draft key to the attempted digest.
     await page.goto("/groups/new");
     await page.evaluate((key) => {
       window.sessionStorage.setItem("gmt.groups.create.request-key", key);
-    }, FIXED_REQUEST_KEY);
+    }, requestKey);
     const groupName = "Conflict first draft";
     await page.getByLabel("Group name").fill(groupName);
     await page.getByLabel("Date").fill(futureIsoDate());
@@ -356,11 +365,12 @@ test("only the explicit confirmation submits a changed payload as a new request"
       { displayName: "New Request Nadia", tasteLine: "deliberate rerouter" },
       scope,
     );
+    const requestKey = fixedRequestKey();
 
     await page.goto("/groups/new");
     await page.evaluate((key) => {
       window.sessionStorage.setItem("gmt.groups.create.request-key", key);
-    }, FIXED_REQUEST_KEY);
+    }, requestKey);
     const groupName = "New request first draft";
     await page.getByLabel("Group name").fill(groupName);
     await page.getByLabel("Date").fill(futureIsoDate());
