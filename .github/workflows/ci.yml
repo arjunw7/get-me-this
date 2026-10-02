@@ -122,6 +122,12 @@ jobs:
       - name: Run 006b group races
         timeout-minutes: 5
         run: pnpm test:db:races:006b
+      # Brief 006c criteria 10 and 12: the continuation-bound acceptance,
+      # binding, logout-invalidation, and eight-envelope-cap races (two
+      # independent sessions, finite timeouts, deterministic outcomes).
+      - name: Run 006c continuation races
+        timeout-minutes: 5
+        run: pnpm test:db:races:006c
       # Brief 006b criterion 14: the 006b migration must also succeed against
       # a POPULATED 006a predecessor state, not only a fresh stack. This
       # bounded harness builds disposable local databases from the committed

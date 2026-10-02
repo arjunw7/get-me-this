@@ -537,7 +537,11 @@ select ok(has_function_privilege('authenticated', 'public.issue_group_invitation
 select ok(has_function_privilege('authenticated', 'public.revoke_group_invitation(uuid, bigint)', 'EXECUTE'), 'authenticated can execute the generic revoke overload');
 select ok(has_function_privilege('authenticated', 'public.revoke_group_invitation(uuid, uuid)', 'EXECUTE'), 'authenticated can execute the targeted revoke overload');
 select ok(has_function_privilege('authenticated', 'public.group_shareable_invitation_state(uuid)', 'EXECUTE'), 'authenticated can execute the organizer invitation-state projection');
-select ok(has_function_privilege('authenticated', 'public.accept_group_invitation(text)', 'EXECUTE'), 'authenticated can execute accept_group_invitation');
+-- 006c supersede: the direct raw-token acceptance entry point is no longer
+-- executable by any application role — acceptance goes through the
+-- continuation-bound function (supabase/tests/groups-006c.sql proves the
+-- revocation and the new surface).
+select ok(not has_function_privilege('authenticated', 'public.accept_group_invitation(text)', 'EXECUTE'), 'authenticated cannot execute the superseded direct accept_group_invitation (006c)');
 select ok(has_function_privilege('authenticated', 'public.remove_group_member(uuid, uuid)', 'EXECUTE'), 'authenticated can execute remove_group_member');
 select ok(has_function_privilege('authenticated', 'public.transfer_group_organizer(uuid, uuid)', 'EXECUTE'), 'authenticated can execute transfer_group_organizer');
 select ok(has_function_privilege('authenticated', 'public.leave_group(uuid)', 'EXECUTE'), 'authenticated can execute leave_group');
@@ -1320,6 +1324,14 @@ select is(
 );
 
 -- 6. Acceptance and audit ----------------------------------------------------------
+
+-- 006c supersede: the client EXECUTE on the direct raw-token entry point
+-- was revoked by migration 20261005000000. The 006a acceptance SEMANTICS
+-- (now shared with the continuation-bound function through the reviewed
+-- private core) are still exercised below through a test-transaction-only
+-- grant that rolls back with the suite; the revoked client surface is
+-- pinned by the assertion above and by the dedicated 006c suite.
+grant execute on function public.accept_group_invitation(text) to authenticated;
 
 -- as B: accept the shareable token.
 set local role authenticated;

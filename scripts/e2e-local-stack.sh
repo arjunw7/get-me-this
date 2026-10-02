@@ -118,7 +118,8 @@ pnpm exec supabase db query --local \
 # whose fixtures need the running local stack. 005g adds the dormant
 # price-presentation spec (tests/e2e/wishlist-price-local.spec.ts).
 # 006b adds the private-group creation spec
-# (tests/e2e/groups-local.spec.ts).
+# (tests/e2e/groups-local.spec.ts). 006c adds the invitation
+# preview-and-acceptance spec (tests/e2e/invitations-local.spec.ts).
 pnpm exec playwright test \
   tests/e2e/auth-otp.spec.ts \
   tests/e2e/wishlist.spec.ts \
@@ -129,6 +130,7 @@ pnpm exec playwright test \
   tests/e2e/wishlist-reorder-local.spec.ts \
   tests/e2e/wishlist-extract-local.spec.ts \
   tests/e2e/groups-local.spec.ts \
+  tests/e2e/invitations-local.spec.ts \
   tests/visual/wishlist-empty.visual.spec.ts \
   tests/visual/wishlist-filled.visual.spec.ts \
   tests/visual/wishlist-items.visual.spec.ts \

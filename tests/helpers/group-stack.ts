@@ -203,3 +203,74 @@ end $$;`,
     `select id::text from public.group_invitations where group_id = '${groupId}'::uuid and target_user_id = '${targetUserId}'::uuid and shareable_version is null order by created_at desc limit 1;`,
   ).trim();
 }
+
+/**
+ * Issues the generic shareable link through the real compare-and-swap RPC
+ * and returns the raw token — used ONLY inside stack-gated specs, held in
+ * memory, never logged, never asserted into output, and never persisted in
+ * any artifact.
+ */
+export function stackIssueGenericToken(
+  organizerId: string,
+  groupId: string,
+): string {
+  return runStackSql(
+    withIdentity(
+      organizerId,
+      `select token from public.issue_group_invitation('${groupId}'::uuid, (select shareable_invitation_version from public."groups" where id = '${groupId}'::uuid));`,
+    ),
+  ).trim();
+}
+
+/**
+ * Removes the 006c continuation and pending-start rows for fixture groups
+ * and users. Runs as superuser SQL and MUST run before the group and
+ * auth-user teardown: the private rows hold restrict foreign keys to
+ * group_invitations and auth.users. Orphan coordinator rows (digest-only,
+ * no user or group reference) are intentionally left — they cannot block
+ * any teardown and carry no secret material.
+ */
+export function deleteInvitationContinuationRowsSql(
+  groupIds: string[],
+  userIds: string[],
+): void {
+  const list = (values: string[]) =>
+    values.map((v) => `'${v}'::uuid`).join(",");
+  const matches = (column: string, values: string[]) =>
+    values.length > 0 ? `${column} in (${list(values)})` : null;
+  const invitationMatch =
+    groupIds.length > 0
+      ? `invitation_id in (select id from public.group_invitations where group_id in (${list(groupIds)}))`
+      : null;
+  const continuationWhere = [
+    invitationMatch,
+    matches("verified_user_id", userIds),
+  ]
+    .filter((clause) => clause !== null)
+    .map((clause, index) =>
+      index === 0 ? ` where ${clause}` : ` or ${clause}`,
+    )
+    .join("");
+  const pendingWhere = invitationMatch ? ` where ${invitationMatch}` : "";
+  const sql = [
+    `delete from private.invitation_continuations${continuationWhere};`,
+    `delete from private.invitation_pending_starts${pendingWhere};`,
+  ].join("\n");
+  execFileSync(
+    "docker",
+    [
+      "exec",
+      "-i",
+      stackDbContainer(),
+      "psql",
+      "--no-psqlrc",
+      "--user",
+      "postgres",
+      "--dbname",
+      "postgres",
+      "--set",
+      "ON_ERROR_STOP=1",
+    ],
+    { input: sql, stdio: ["pipe", "pipe", "pipe"] },
+  );
+}

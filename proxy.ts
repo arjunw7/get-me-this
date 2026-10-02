@@ -82,10 +82,24 @@ export async function proxy(request: NextRequest) {
   // 2. Session maintenance first: a refresh rebuilds the response (the
   // updated request cookies must flow downstream), so cache policy is
   // applied to the final response object afterwards.
+  //
+  // Brief 006c: when the browser presents an invitation coordinator
+  // cookie, this proxy NEVER refreshes or writes session cookies — it
+  // validates nothing that could write, and the response carries no auth
+  // Set-Cookie. A direct navigation needing refresh inside an invitation
+  // journey returns the safe brokered-re-auth state instead (the
+  // invitation routes re-check the session server-side and render honest
+  // re-auth choices; no timer or navigation submits one automatically).
+  // Without a coordinator cookie, the existing generic refresh behavior is
+  // unchanged.
+  const coordinatorPresent = Boolean(
+    request.cookies.get("__Host-gmt-invite-coordinator")?.value,
+  );
+
   let response = NextResponse.next({ request });
 
   const config = getSupabasePublicConfig();
-  if (config) {
+  if (config && !coordinatorPresent) {
     const supabase = createServerClient(config.url, config.publishableKey, {
       cookies: {
         getAll() {
@@ -149,6 +163,21 @@ export async function proxy(request: NextRequest) {
     response.headers.set("Cache-Control", NO_STORE);
   }
   if (pathname === AUTH_CONFIRM_PATH || pathname === AUTH_LINK_PATH) {
+    response.headers.set("Cache-Control", NO_STORE);
+    response.headers.set("Referrer-Policy", NO_REFERRER);
+  }
+  // Brief 006c: every route in the invitation, invitation-auth, and
+  // invitation-onboarding families — including Server Action responses —
+  // is no-store and no-referrer. Dynamic flow ids are removed from client
+  // analytics page paths and referrers; a cached invitation response could
+  // leak one browser's continuation envelope to another.
+  if (
+    pathname.startsWith("/invite") ||
+    pathname.startsWith("/auth/invite") ||
+    pathname.startsWith("/auth/confirm/invite") ||
+    pathname.startsWith("/auth/link/invite") ||
+    pathname.startsWith("/onboarding/invite")
+  ) {
     response.headers.set("Cache-Control", NO_STORE);
     response.headers.set("Referrer-Policy", NO_REFERRER);
   }
