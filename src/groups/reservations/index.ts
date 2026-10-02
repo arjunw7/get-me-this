@@ -26,10 +26,7 @@ export {
   releaseGroupReservation,
   reserveGroupItem,
 } from "./reservation-write";
-export {
-  isReservationReleaseResult,
-  isReservationWriteResult,
-} from "./types";
+export { isReservationReleaseResult, isReservationWriteResult } from "./types";
 export type {
   ReservationReleaseResult,
   ReservationViewerState,

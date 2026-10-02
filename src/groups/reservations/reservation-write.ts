@@ -1,14 +1,8 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/src/supabase/server";
-import {
-  isReservationReleaseResult,
-  isReservationWriteResult,
-} from "./types";
-import type {
-  ReservationReleaseResult,
-  ReservationWriteResult,
-} from "./types";
+import { isReservationReleaseResult, isReservationWriteResult } from "./types";
+import type { ReservationReleaseResult, ReservationWriteResult } from "./types";
 
 /**
  * Server-side reservation data access (brief 007c). Every call goes through

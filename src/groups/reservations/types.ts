@@ -8,10 +8,7 @@
  */
 
 export type ReservationWriteResult =
-  | "reserved"
-  | "already_yours"
-  | "conflict"
-  | "unavailable";
+  "reserved" | "already_yours" | "conflict" | "unavailable";
 
 export type ReservationReleaseResult = "released" | "unavailable";
 

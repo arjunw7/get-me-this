@@ -101,17 +101,17 @@ describe("releaseGroupReservation", () => {
     const rpc = vi.fn().mockResolvedValue({ data: null, error: {} });
     vi.mocked(createSupabaseServerClient).mockResolvedValue({ rpc } as never);
 
-    await expect(releaseGroupReservation(groupId, reservationId)).resolves.toEqual(
-      { kind: "retry" },
-    );
+    await expect(
+      releaseGroupReservation(groupId, reservationId),
+    ).resolves.toEqual({ kind: "retry" });
   });
 
   it("maps a signed-out caller to the generic unavailable outcome", async () => {
     vi.mocked(createSupabaseServerClient).mockResolvedValue(null as never);
 
-    await expect(releaseGroupReservation(groupId, reservationId)).resolves.toEqual(
-      { kind: "unavailable" },
-    );
+    await expect(
+      releaseGroupReservation(groupId, reservationId),
+    ).resolves.toEqual({ kind: "unavailable" });
   });
 });
 
