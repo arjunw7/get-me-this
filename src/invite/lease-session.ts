@@ -10,7 +10,7 @@ import {
   sealMutationCookie,
   getInvitationCookieSecret,
 } from "./continuation-cookie";
-import { readCoordinatorCookie } from "./flow-session";
+import { readCoordinatorCookie, readMutationDelivery } from "./flow-session";
 import {
   acquireAuthLease,
   markDeliveryPending,
@@ -146,7 +146,7 @@ export async function settlePendingDelivery(): Promise<
     store.set(COORDINATOR_COOKIE_NAME, "", invitationCookieOptions(0));
   } else {
     const secret = getInvitationCookieSecret();
-    if (!secret) return "unproven";
+    if (!secret || recovered.sessionEpoch === null) return "unproven";
     store.set(
       COORDINATOR_COOKIE_NAME,
       await sealCoordinatorCookie(
@@ -155,7 +155,7 @@ export async function settlePendingDelivery(): Promise<
         Date.now(),
         secret,
       ),
-      invitationCookieOptions(),
+      invitationCookieOptions(86400),
     );
   }
   return "acknowledged";
