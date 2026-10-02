@@ -331,23 +331,31 @@ language sql
 immutable
 set search_path = ''
 as $$
-  select jsonb_typeof(p_metadata) = 'object'
-    and coalesce(
-      bool_and(
-        e.k = any (
-          array[
-            'invitation_id',
-            'membership_generation',
-            'target_user_id',
-            'previous_organizer_id',
-            'new_organizer_id'
-          ]
+  -- Case-split without a set-returning FROM: jsonb_each yields no rows for
+  -- non-objects, which would otherwise make the function return NULL and a
+  -- CHECK constraint treat the value as satisfied.
+  select case
+    when p_metadata is null then true
+    when jsonb_typeof(p_metadata) <> 'object' then false
+    else coalesce(
+      (
+        select bool_and(
+          e.k = any (
+            array[
+              'invitation_id',
+              'membership_generation',
+              'target_user_id',
+              'previous_organizer_id',
+              'new_organizer_id'
+            ]
+          )
+          and jsonb_typeof(e.v) = any (array['string', 'number'])
         )
-        and jsonb_typeof(e.v) = any (array['string', 'number'])
+        from jsonb_each(p_metadata) as e(k, v)
       ),
       true
     )
-  from jsonb_each(p_metadata) as e(k, v)
+  end
 $$;
 
 comment on function private.audit_metadata_is_safe(jsonb) is
