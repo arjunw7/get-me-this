@@ -236,7 +236,7 @@ alter table public.group_invitations
     check (shareable_version is null or shareable_version >= 1),
   add constraint group_invitations_shareable_target_pairing
     check (
-      (shareable_version is null)
+      (shareable_version is not null)
       = (target_user_id is null and target_membership_generation is null)
     );
 
@@ -342,7 +342,7 @@ begin
       ' ',
       'g'
     ),
-    '[\u0009\u000A\u000B\u000C\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]'
+    ' '
   );
   if v_name = '' or char_length(v_name) > 80 then
     return query select 'invalid'::text, null::uuid, null::boolean;
