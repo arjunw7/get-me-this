@@ -1191,7 +1191,7 @@ select is(
 
 -- Invalid expected versions are rejected with the pinned SQLSTATEs and no write.
 select throws_ok(
-  format('select * from public.issue_group_invitation(%L::uuid, null)', :'gid'),
+  format('select * from public.issue_group_invitation(%L::uuid, null::bigint)', :'gid'),
   '22023', NULL, 'a null expected version is rejected with 22023'
 );
 select throws_ok(
@@ -1490,7 +1490,7 @@ select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticate
 
 select is(
   (select result::text from public.accept_group_invitation(:'tok1')),
-  'unavailable', 'a revoked former link can no longer be replayed'
+  'replayed', 'the revoked former link cannot re-join; the prior use replays'
 );
 select is(
   (select result::text from public.accept_group_invitation(:'tok2')),
@@ -1665,9 +1665,13 @@ from public.issue_group_invitation(:'gid'::uuid, 2::bigint) \gset
 
 select is(:'issue3_version'::text, '3', 'the organizer can issue a fresh generic link at version 3');
 
+-- Owner view: the stored digest row for the fresh link.
+reset role;
+
 select id::text as inv3_id from public.group_invitations
 where token_hash = extensions.digest(convert_to(:'tok3', 'UTF8'), 'sha256') \gset
 
+set local role authenticated;
 select set_config('request.jwt.claim.sub', :'uid_c', true);
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_c'), true);
 
