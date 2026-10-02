@@ -71,10 +71,16 @@ resolves them and the resolutions are binding acceptance surface.
 ### 005a/005c/005d — wishlist schema, item creation, ordering
 
 - The copy inserts through the established `wishlist_items` shape. The
-  append position follows the 005c/005d convention exactly: calculated
-  inside the transaction, after acquiring the copier's `wishlists` row
-  lock, at maximum finite `sort_position` plus one, or 1 for an empty list,
-  with the total order remaining `(sort_position ASC, id ASC)`.
+  append position reuses the exact committed `append_wishlist_item` key
+  algorithm from the 005d migration
+  (`20261001090000_wishlist_item_reordering.sql`): an empty list appends
+  at `1`; otherwise the key is
+  `max_key + greatest(abs(max_key), 1::float8)`; and if that overflows the
+  finite bound, the procedure compacts — renumbering all the caller's
+  items by rank in `(sort_position ASC, id ASC)` order — and appends at
+  `existing_count + 1`. The copy performs this calculation inside its
+  transaction, after acquiring the copier's `wishlists` row lock, with
+  the total order remaining `(sort_position ASC, id ASC)`.
 - The new provenance column is added by a new forward migration; the
   applied 005a migration is never edited. Existing owner CRUD column grants
   are not extended to write it (below).
@@ -109,11 +115,23 @@ resolves them and the resolutions are binding acceptance surface.
 ### 007a — reactions (sibling Phase 6 brief)
 
 - 007a is an independent contract on the same 006e item card. Neither brief
-  depends on the other's schema or functions; whichever slice implements
-  second must not alter the first's committed behavior, tests, or approved
-  baselines except through its own reviewed change. Shared-file collisions
-  are limited to the 006e item-card component and its fixtures, and both
-  briefs require the existing committed baselines to remain green.
+  depends on the other's schema or functions, and both require the existing
+  committed baselines to remain green.
+- **Shared-file conflict set.** Implementing either brief touches the same
+  repository plumbing, so the collisions are NOT limited to UI files. Both
+  briefs require edits to: `package.json` (race-script entry),
+  `.github/workflows/ci.yml` (a `database`-job race step),
+  `supabase/tests/smoke.sql` (deliberate inventory amendment),
+  `scripts/e2e-local-stack.sh` and likely `tests/helpers/local-stack.ts`
+  (gated-spec registration), `docs/analytics/tracking-plan.md` (the new
+  catalogued event), plus the 006e item-card component and its fixtures.
+- **Sequencing rule.** The first Phase 6 slice to merge lands the shared
+  CI/smoke/script plumbing; later slices rebase onto that plumbing instead
+  of re-adding it. For orchestrator dispatch, 007b (copy) is recommended to
+  merge first if its plumbing proves smallest — but the binding rule is
+  simply: whichever slice merges last rebases and may not alter any earlier
+  slice's reviewed behavior, tests, or baselines except through its own
+  reviewed change.
 
 ## Data model
 
@@ -175,9 +193,11 @@ the migration pins the signature and rejects overloads.
   concurrent copies, so the check-then-insert cannot interleave for the
   same copier; the partial unique index is the backstop if any future path
   forgets the lock.
-- On the creating path it appends the new item at maximum finite
-  `sort_position` plus one (or 1 for an empty list) inside the same
-  transaction and returns the new id. The result is the minimum: an item
+- On the creating path it appends the new item inside the same transaction
+  using the exact `append_wishlist_item` key algorithm (empty list → `1`;
+  otherwise `max_key + greatest(abs(max_key), 1::float8)`; on
+  finite-bound overflow, compact by rank and use `existing_count + 1`)
+  and returns the new id. The result is the minimum: an item
   id — no source metadata echo, no owner data.
 - Every denial — signed-out (`auth.uid()` null), outsider, pending,
   declined, left, removed, cross-group, unknown group/item, invisible
@@ -216,7 +236,10 @@ implementation PR head.
   approved fields (title, source_url, retailer, image_url, original money
   pair) and exactly the approved defaults (null note, default desire level,
   `manual` extraction, no snapshot path, no converted tuple); the append
-  position follows 005c/005d under the wishlist lock; a repeat call for the
+  position follows the exact `append_wishlist_item` algorithm under the
+  wishlist lock — tested for the empty-list `1`, the
+  `max_key + greatest(abs(max_key), 1::float8)` step, and the
+  compaction-to-`existing_count + 1` fallback; a repeat call for the
   same source returns the existing id with no new row.
 - **pgTAP negatives (uniform denials).** Signed-out, outsider, pending,
   declined, left, removed, cross-group, unknown ids, invisible extraction
@@ -258,7 +281,9 @@ implementation PR head.
   shows a brief designed success confirmation. If a copy already exists,
   the action reports the already-copied state (for example `Already in
   your wishlist`) rather than creating a second copy or pretending to
-  succeed freshly. Copying your own item never offers the action (owner is
+  succeed freshly. The exact already-copied string is new user-visible
+  copy and is bound at the same design review as the `Copy to my
+  wishlist` label — both require explicit product/design sign-off. Copying your own item never offers the action (owner is
   redirected by 006e; the server denies it regardless).
 - States are designed and explicit: idle, in-progress, success,
   already-copied, and a generic failure with the prior state restored.

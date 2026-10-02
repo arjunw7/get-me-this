@@ -112,11 +112,23 @@ resolutions are binding acceptance surface, not suggestions.
 ### 007b — copy to own wishlist (sibling Phase 6 brief)
 
 - 007b is an independent contract on the same 006e item card. Neither brief
-  depends on the other's schema or functions; whichever slice implements
-  second must not alter the first's committed behavior, tests, or approved
-  baselines except through its own reviewed change. Shared-file collisions
-  are limited to the 006e item-card component and its fixtures, and both
-  briefs require the existing committed baselines to remain green.
+  depends on the other's schema or functions, and both require the existing
+  committed baselines to remain green.
+- **Shared-file conflict set.** Implementing either brief touches the same
+  repository plumbing, so the collisions are NOT limited to UI files. Both
+  briefs require edits to: `package.json` (race-script entry),
+  `.github/workflows/ci.yml` (a `database`-job race step),
+  `supabase/tests/smoke.sql` (deliberate inventory amendment),
+  `scripts/e2e-local-stack.sh` and likely `tests/helpers/local-stack.ts`
+  (gated-spec registration), `docs/analytics/tracking-plan.md` (the new
+  catalogued event), plus the 006e item-card component and its fixtures.
+- **Sequencing rule.** The first Phase 6 slice to merge lands the shared
+  CI/smoke/script plumbing; later slices rebase onto that plumbing instead
+  of re-adding it. For orchestrator dispatch, 007b (copy) is recommended to
+  merge first if its plumbing proves smallest — but the binding rule is
+  simply: whichever slice merges last rebases and may not alter any earlier
+  slice's reviewed behavior, tests, or baselines except through its own
+  reviewed change.
 
 ## Data model
 
@@ -239,6 +251,12 @@ migration pins signatures and rejects overloads.
     group. `viewer_reaction` is the caller's own row's reaction (null when
     the caller has none; always null when the caller is the target member,
     since owners cannot react to their own items).
+  - The friend-facing snapshot may be called with the caller as the target
+    member (the own-item case, where `viewer_reaction` is always null).
+    This is sanctioned by `docs/flows/groups-and-gifting.md` ("Reactions
+    remain visible to eligible group members, including the wishlist
+    owner") and adds no visibility beyond what any joined member already
+    has.
 
 - **Owner-facing read:**
 
@@ -343,6 +361,17 @@ exact implementation PR head.
   failure, and empty states are designed, keyboard accessible, and respect
   reduced motion. Touch targets are at least 44 by 44 CSS pixels. Only
   semantic design tokens are used.
+- **Two-read composition and accepted straddle.** The page composes two
+  separate `SECURITY DEFINER` calls: 006e's `member_wishlist_snapshot` and
+  this brief's `group_item_reaction_snapshot`. Each is internally
+  one-statement; the page zips them by `item_id` (never row position) and
+  explicitly excludes 006e's authorized-empty sentinel row (`item_id`
+  null) from the zip while still rendering the empty-state copy. A
+  reaction write that commits between the two reads renders at most zero
+  counts or a dropped reaction row until the next refetch; this straddle
+  is accepted and documented here, mirroring how 006e specifies its
+  read-versus-membership races — each call's own single-statement snapshot
+  still prevents any partial or unauthorized result.
 - **Visual candidates.** The reaction row and the owner summary row do not
   exist in the pinned V18 regions; both are new visual candidates requiring
   independent product/design review before any baseline is committed. The
@@ -391,9 +420,17 @@ exact implementation PR head.
    analytics event contains reactor identities, reaction timestamps, or any
    reservation/assignment/purchase/gifting-private data; recipient
    invisibility of gifting state is re-proven green by regression tests.
-7. **Snapshot consistency.** The reaction snapshot and the 006e wishlist
-   snapshot describe the same authorized item set under one statement
-   snapshot; no read straddles a membership change into a partial result.
+7. **Snapshot composition.** Each snapshot remains internally one-statement
+   (`group_item_reaction_snapshot` per this brief; 006e's
+   `member_wishlist_snapshot` unchanged). They are two separate
+   `SECURITY DEFINER` calls, never one statement snapshot: the page zips
+   the two result sets by `item_id`, explicitly excludes 006e's
+   authorized-empty sentinel row (`item_id` null) from the zip while the
+   empty-state copy still renders, and a reaction write committing between
+   the two reads renders at most zero counts or a dropped row until the
+   next refetch — an accepted straddle documented in the UI scope.
+   Membership-change straddles are resolved inside each call by its own
+   single-statement snapshot.
 8. **Accessible, token-driven UI.** All new states are keyboard accessible
    with visible focus, 44-pixel minimum touch targets, semantic tokens,
    reduced-motion respect, and zero automated accessibility violations at
