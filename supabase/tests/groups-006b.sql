@@ -190,7 +190,7 @@ select is(
 );
 select is((select count(*)::int from public."groups"), 2, 'the second key created its own group');
 select is(
-  (select name from public."groups" where name = 'Diwali Scenes'),
+  (select name from public."groups" where name = 'Diwali Scenes' order by created_at desc, id desc limit 1),
   'Diwali Scenes',
   'the name was NFC-normalized, trimmed, and whitespace-collapsed by the database'
 );

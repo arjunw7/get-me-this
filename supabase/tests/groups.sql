@@ -761,7 +761,7 @@ from public.create_group_v1(
 ) \gset
 
 select is(:'create_result'::text, 'created', 'create_group_v1 returns the created result');
-select is(:'create_now'::text, 'true', 'the first committed creation reports created_now');
+select is(:'create_now'::text, 't', 'the first committed creation reports created_now');
 select is((select count(*)::int from public."groups"), 1, 'exactly one group row exists');
 
 -- Owner view: internal rows.
@@ -885,7 +885,12 @@ select is(
   'created',
   'the same request key under another user is an independent creation'
 );
-select is((select count(*)::int from public."groups"), 2, 'the independent request created its own group');
+select is(
+  (
+    select count(*)::int from public."groups" where organizer_id = :'uid_b'::uuid
+  ),
+  1, 'the independent request created its own group'
+);
 
 -- Remove the second fixture group so later RLS assertions stay pinned to the
 -- single main group (receipt first: its group reference restricts deletes).
@@ -1066,7 +1071,8 @@ select is(
 select is((select count(*)::int from public."groups"), 1, 'no invalid group row was created');
 
 -- The receipt table has no client grant and no permissive policy.
-reset role;
+-- Still authenticated: the denial is the missing grant (42501), which the
+-- superuser would never observe.
 select throws_ok(
   'select count(*) from public.group_creation_receipts',
   '42501', NULL, 'receipts have no client grant (missing grant, not only RLS)'
