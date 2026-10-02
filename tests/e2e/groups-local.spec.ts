@@ -80,6 +80,42 @@ test("a member creates a private group; the invite link is shown exactly once; t
     const groupName = "Fixture birthday bash";
     await fillAndSubmitCreateForm(page, groupName);
 
+    // The created group references the fixture users through restrictive
+    // foreign keys; delete it (children first) before the registered user
+    // teardown runs.
+    scope.register("fixture groups", async () => {
+      const groupIds =
+        (
+          await admin
+            .from("groups")
+            .select("id")
+            .eq("organizer_id", organizerId)
+        ).data?.map((row) => row.id) ?? [];
+      for (const gid of groupIds) {
+        await admin.from("audit_events").delete().eq("group_id", gid);
+        const invitationIds =
+          (
+            await admin
+              .from("group_invitations")
+              .select("id")
+              .eq("group_id", gid)
+          ).data?.map((row) => row.id) ?? [];
+        if (invitationIds.length > 0) {
+          await admin
+            .from("group_invitation_uses")
+            .delete()
+            .in("invitation_id", invitationIds);
+        }
+        await admin.from("group_invitations").delete().eq("group_id", gid);
+        await admin
+          .from("group_creation_receipts")
+          .delete()
+          .eq("group_id", gid);
+        await admin.from("group_members").delete().eq("group_id", gid);
+        await admin.from("groups").delete().eq("id", gid);
+      }
+    });
+
     // The created URL carries the group id created by this organizer.
     const createdPath = new URL(page.url()).pathname;
     expect(createdPath).toMatch(/^\/groups\/[0-9a-f-]{36}\/created$/);
