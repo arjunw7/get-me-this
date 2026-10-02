@@ -639,83 +639,52 @@ select is(
   'every security-definer function is definer with an explicit (empty) search_path'
 );
 
--- Declared result shapes are closed; no extra fields. The out columns are
--- read from each function's composite return type (prorettype's rowtype).
+-- Declared result shapes are closed; no extra fields. The runtime shapes are
+-- probed into temp tables (each projection called with a null argument
+-- returns zero rows, so only the column list is captured).
+create temp table shape_group_detail as
+  select * from public.group_detail(null::uuid);
 select is(
   (
-    select string_agg(a.attname, ',' order by a.attnum)
-    from pg_attribute a
-    where a.attrelid = (
-      select t.typrelid
-      from pg_type t
-      where t.oid = (
-        select p.prorettype
-        from pg_proc p
-        where p.oid = 'public.group_detail(uuid)'::regprocedure
-      )
-    )
-      and a.attnum > 0
-      and not a.attisdropped
+    select string_agg(attname, ',' order by attnum)
+    from pg_attribute
+    where attrelid = 'shape_group_detail'::regclass and attnum > 0
   ),
   'id,organizer_id,name,occasion,occasion_at,time_zone,location,description,budget_amount_minor,budget_currency,mode,status,joined_member_count',
   'group_detail returns exactly the approved columns'
 );
 
+create temp table shape_group_roster as
+  select * from public.group_roster(null::uuid);
 select is(
   (
-    select string_agg(a.attname, ',' order by a.attnum)
-    from pg_attribute a
-    where a.attrelid = (
-      select t.typrelid
-      from pg_type t
-      where t.oid = (
-        select p.prorettype
-        from pg_proc p
-        where p.oid = 'public.group_roster(uuid)'::regprocedure
-      )
-    )
-      and a.attnum > 0
-      and not a.attisdropped
+    select string_agg(attname, ',' order by attnum)
+    from pg_attribute
+    where attrelid = 'shape_group_roster'::regclass and attnum > 0
   ),
   'user_id,display_name,participating,joined_at',
   'group_roster returns exactly the approved columns'
 );
 
+create temp table shape_group_admin_members as
+  select * from public.group_admin_members(null::uuid);
 select is(
   (
-    select string_agg(a.attname, ',' order by a.attnum)
-    from pg_attribute a
-    where a.attrelid = (
-      select t.typrelid
-      from pg_type t
-      where t.oid = (
-        select p.prorettype
-        from pg_proc p
-        where p.oid = 'public.group_admin_members(uuid)'::regprocedure
-      )
-    )
-      and a.attnum > 0
-      and not a.attisdropped
+    select string_agg(attname, ',' order by attnum)
+    from pg_attribute
+    where attrelid = 'shape_group_admin_members'::regclass and attnum > 0
   ),
   'user_id,display_name,status,participating,joined_at,left_at',
   'group_admin_members returns exactly the approved columns'
 );
 
+create temp table shape_preview as
+  select * from public.preview_group_invitation(null);
 select is(
   (
-    select string_agg(a.attname, ',' order by a.attnum)
-    from pg_attribute a
-    where a.attrelid = (
-      select t.typrelid
-      from pg_type t
-      where t.oid = (
-        select p.prorettype
-        from pg_proc p
-        where p.oid = 'public.preview_group_invitation(text)'::regprocedure
-      )
-    )
-      and a.attnum > 0
-      and not a.attisdropped
+    select string_agg(attname, ',' order by attnum)
+    from pg_attribute
+    where attrelid = 'shape_preview'::regclass and attnum > 0
   ),
   'host_display_name,group_name,occasion_at,budget_amount_minor,budget_currency,mode,joined_member_count',
   'preview_group_invitation returns exactly the seven approved fields'

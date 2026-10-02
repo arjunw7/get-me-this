@@ -632,8 +632,8 @@ begin
 
   raw_token := extensions.gen_random_bytes(32);
   -- Canonical unpadded base64url: 43 characters, shown to the issuer exactly
-  -- once and never persisted.
-  token_text := left(translate(extensions.encode(raw_token, 'base64'), '+/', '-_'), 43);
+  -- once and never persisted. encode is a pg_catalog function.
+  token_text := left(translate(encode(raw_token, 'base64'), '+/', '-_'), 43);
 
   insert into public.group_invitations (
     group_id, creator_id, status, token_hash, expires_at, max_uses, use_count,
