@@ -156,7 +156,7 @@ test.describe("invitation preview and acceptance", () => {
     }
   });
 
-  test("a signed-out recipient joins through OTP with a second explicit Join", async ({
+  test("a signed-out recipient joins through OTP, onboarding, and a final explicit Join", async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -221,7 +221,22 @@ test.describe("invitation preview and acceptance", () => {
           .getByRole("button", { name: "Continue this invitation" })
           .click();
 
-        // Back on the live preview; a SECOND explicit Join accepts.
+        // Back on the live preview; a SECOND explicit Join sends the brand-
+        // new recipient to the invitation onboarding (it never accepts):
+        // completing it returns to the live preview for the third Join.
+        await recipient.waitForURL(`/invite/continue/${flowId}`);
+        await expect(
+          recipient.getByRole("heading", {
+            name: `You're invited to ${GROUP_NAME}.`,
+          }),
+        ).toBeVisible();
+        await recipient.getByRole("button", { name: "Join the group" }).click();
+        await recipient.waitForURL(`/onboarding/invite/${flowId}`);
+        await recipient
+          .getByLabel("What should friends call you?")
+          .fill("Recipient Rhea");
+        await recipient.getByRole("button", { name: "Let’s go" }).click();
+
         await recipient.waitForURL(`/invite/continue/${flowId}`);
         await expect(
           recipient.getByRole("heading", {
