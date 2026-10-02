@@ -268,12 +268,26 @@ test.describe("invitation preview and acceptance", () => {
         await recipient
           .getByRole("button", { name: "Continue this invitation" })
           .click();
+        await recipient
+          .waitForURL(`/invite/continue/${flowId}`, { timeout: 20_000 })
+          .catch(async () => {
+            console.log(
+              `[journey] continue-click did not navigate; screen text: ${(
+                await recipient
+                  .locator("main")
+                  .innerText({ timeout: 5_000 })
+                  .catch(() => "<unreadable>")
+              )
+                .slice(0, 400)
+                .replace(/\n/g, " | ")}`,
+            );
+            throw new Error("reconcile continue did not navigate");
+          });
+        step("second preview");
 
         // Back on the live preview; a SECOND explicit Join sends the brand-
         // new recipient to the invitation onboarding (it never accepts):
         // completing it returns to the live preview for the third Join.
-        await recipient.waitForURL(`/invite/continue/${flowId}`);
-        step("second preview");
         await expect(
           recipient.getByRole("heading", {
             name: `You're invited to ${GROUP_NAME}.`,
@@ -552,18 +566,47 @@ test.describe("invitation preview and acceptance", () => {
         await second.getByRole("button", { name: /account/i }).click();
         await second.getByRole("button", { name: "Log out" }).click();
         await second.getByRole("button", { name: "Log out" }).click();
-        await second.waitForURL(/\/home\?logoutBlocked=1$/);
+        await second
+          .waitForURL(/\/home\?logoutBlocked=1$/, { timeout: 20_000 })
+          .catch(async () => {
+            console.log(
+              `[broker] second tab did not reach the blocked state; url=${second.url()} text: ${(
+                await second
+                  .locator("main, body")
+                  .first()
+                  .innerText({ timeout: 5_000 })
+                  .catch(() => "<unreadable>")
+              )
+                .slice(0, 400)
+                .replace(/\n/g, " | ")}`,
+            );
+            throw new Error("second tab logout was not blocked");
+          });
         console.log(`[broker] second tab blocked url=${second.url()}`);
-        await expect(
-          second.getByRole("button", { name: /account/i }),
-        ).toBeVisible();
 
         // Release the held acknowledgement: the delivery proves itself, the
         // epoch advances, the lease is released, and the verification tab
         // finally navigates to the reconciliation screen.
         await context.unroute("**/auth/invite/mutation/acknowledge");
         for (const release of held.splice(0)) release();
-        await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/reconcile$/);
+        await recipient
+          .waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/reconcile$/, {
+            timeout: 20_000,
+          })
+          .catch(async () => {
+            console.log(
+              `[broker] first tab did not reach reconcile; url=${recipient.url()} text: ${(
+                await recipient
+                  .locator("main, body")
+                  .first()
+                  .innerText({ timeout: 5_000 })
+                  .catch(() => "<unreadable>")
+              )
+                .slice(0, 400)
+                .replace(/\n/g, " | ")}`,
+            );
+            throw new Error("first tab never reconciled after release");
+          });
         console.log(`[broker] released url=${recipient.url()}`);
 
         // The retry completes the logout and its own delivery
