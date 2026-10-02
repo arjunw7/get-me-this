@@ -571,7 +571,7 @@ begin
     inv.id, p_coordinator_row.id, private.invitation_digest(p_browser_secret),
     v_email_binding, v_verified_user, v_began_authenticated, v_expiry
   )
-  returning id into new_flow_id;
+  returning invitation_continuations.flow_id into new_flow_id;
 
   perform private.invitation_cleanup_expired();
 
@@ -1612,6 +1612,24 @@ revoke all on schema private from service_role;
 -- intentionally REMAINS (the two RLS helpers stay callable); schema USAGE
 -- grants no access to these tables — no table here is ever granted to a
 -- client role, and the suites assert that inventory.
+-- New functions grant EXECUTE to PUBLIC implicitly; the private helpers are
+-- never client-executable, so it is revoked explicitly (the 006a pattern).
+revoke execute on function private.invitation_digest(text)
+  from public, anon, authenticated, service_role;
+revoke execute on function private.invitation_email_binding(text, text)
+  from public, anon, authenticated, service_role;
+revoke execute on function private.invitation_email_is_valid(text)
+  from public, anon, authenticated, service_role;
+revoke execute on function private.invitation_is_live(public.group_invitation_status, timestamptz, integer, integer, timestamptz)
+  from public, anon, authenticated, service_role;
+revoke execute on function private.accept_invitation_core(uuid, uuid)
+  from public, anon, authenticated, service_role;
+revoke execute on function private.invitation_cleanup_expired()
+  from public, anon, authenticated, service_role;
+revoke execute on function private.invitation_begin_validated(uuid, private.invitation_coordinators, text)
+  from public, anon, authenticated, service_role;
+revoke execute on function private.set_invitation_continuations_updated_at()
+  from public, anon, authenticated, service_role;
 
 -- The direct raw-token acceptance entry point is no longer executable by
 -- any application role: the continuation-bound acceptance function is the

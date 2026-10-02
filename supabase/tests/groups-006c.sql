@@ -197,12 +197,11 @@ select ok(
   (
     select bool_and(
       p.prosecdef
-      and coalesce(
-        (select 'search_path=' || config_value
-         from unnest(p.proconfig) as cfg(config_value)
-         where config_value like 'search_path=%'),
-        ''
-      ) = 'search_path='
+      -- The stored form of an empty search_path varies by generation
+      -- ('search_path=""', 'search_path=-', or bare 'search_path='); a
+      -- non-empty value never matches.
+      and coalesce(array_to_string(p.proconfig, ','), '')
+        ~ '(^|,)search_path=(""|-|,|$)'
     )
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
@@ -230,6 +229,16 @@ values
 update public.profiles
 set display_name = 'Fixture Organizer'
 where id = :'uid_a'::uuid;
+
+-- The acceptance path rechecks profile completeness inside the transaction,
+-- so the verified fixtures need complete profiles (the real signup trigger
+-- creates these rows when the fixture users are inserted).
+update public.profiles
+set display_name = 'Bound Bobby'
+where id = :'uid_b'::uuid;
+update public.profiles
+set display_name = 'Comparer Cara'
+where id = :'uid_c'::uuid;
 
 -- The fixture group and its generic shareable invitation, inserted directly
 -- (owner path) with clearly synthetic tokens.
@@ -440,6 +449,11 @@ select is(
   'verified', 'the same user replays verification idempotently'
 );
 
+-- Back to the superuser view: the remaining definer calls take their session
+-- identity from the GUCs above, while the direct inventory reads (private
+-- tables, audit_events, invitations) are revoked from client roles.
+reset role;
+
 -- 7. The state projection ------------------------------------------------------
 
 select is(
@@ -535,20 +549,22 @@ values (
   :'uid_a'::uuid, 1, null
 );
 
--- A dedicated coordinator for the already-joined and cap fixtures.
-select repeat('B', 41) || 'AE' as coord_cap \gset
+-- A dedicated coordinator for the already-joined and cap fixtures (distinct
+-- from coord_secret, whose inventory already carries the earlier flows).
+select repeat('H', 41) || 'AE' as coord_cap \gset
 select is(
   (select result::text from public.establish_group_invitation_coordinator(:'coord_cap', repeat('L', 41) || 'AE')),
   'established', 'the cap fixture coordinator is established'
 );
 
+-- The organizer's own targeted credential: the accepting session is the
+-- organizer (the target), set before the begin so the begin binds the same
+-- identity the acceptance rechecks.
+select set_config('request.jwt.claim.sub', :'uid_a', true);
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
+
 select flow_id::text as flow_org
 from public.begin_group_invitation_flow(repeat('k', 42) || '8', repeat('H', 41) || 'AE', :'coord_cap') \gset
-
--- The organizer's own targeted credential: the accepting session is the
--- organizer (the target).
-set local "request.jwt.claim.sub" = :'uid_a';
-select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
 select result::text as org_result
 from public.accept_group_invitation_flow(:'flow_org'::uuid, repeat('H', 41) || 'AE') \gset
@@ -576,7 +592,7 @@ begin
     begin
       select flow_id into v_flow
       from public.begin_group_invitation_flow(
-        repeat('k', 42) || '8', v_secret, 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBAE'
+        repeat('k', 42) || '8', v_secret, 'HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHAE'
       );
     exception when others then
       v_flow := null;
@@ -598,11 +614,33 @@ select is(
     from private.invitation_continuations
     where coordinator_id = (
       select id from private.invitation_coordinators
-      where coordinator_digest = private.invitation_digest('BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBAE')
+      where coordinator_digest = private.invitation_digest('HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHAE')
     ) and envelope_released_at is null
   ),
   8, 'the unreleased envelope inventory never exceeds eight'
 );
+
+-- Release the cap coordinator's whole inventory so the discard and logout
+-- fixtures start from an empty inventory.
+do $$
+declare
+  chars text[] := string_to_array('AEIMQUYcgkosw048', null);
+  v_secret text;
+  v_flow uuid;
+begin
+  for i in 1..8 loop
+    v_secret := repeat('A', 41) || chars[i] || 'E';
+    select c.flow_id into v_flow
+    from private.invitation_continuations c
+    join private.invitation_coordinators k on k.id = c.coordinator_id
+    where k.coordinator_digest = private.invitation_digest('HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHAE')
+      and c.browser_secret_digest = private.invitation_digest(v_secret)
+      and c.envelope_released_at is null;
+    if v_flow is not null then
+      perform public.discard_group_invitation_flow(v_flow, v_secret, 'HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHAE');
+    end if;
+  end loop;
+end $$;
 
 -- 10. Discard and logout invalidation ------------------------------------------
 
@@ -626,6 +664,11 @@ select repeat('C', 41) || 'AE' as coord_logout \gset
 select repeat('D', 41) || 'AE' as secret_logout_a \gset
 select repeat('E', 41) || 'AE' as secret_logout_b \gset
 
+-- The logout fixtures begin ANONYMOUSLY (no session identity); each flow's
+-- binding and verification are then driven explicitly.
+select set_config('request.jwt.claim.sub', '', true);
+select set_config('request.jwt.claims', '', true);
+
 select is(
   (select result::text from public.establish_group_invitation_coordinator(:'coord_logout', repeat('L', 41) || 'AE')),
   'established', 'the logout fixture coordinator is established'
@@ -639,6 +682,8 @@ from public.begin_group_invitation_flow(:'tok_live', :'secret_logout_b', :'coord
 -- Bind, verify, and accept flow A (uid_b session).
 select result::text as _bind_a
 from public.bind_group_invitation_flow_email(:'logout_flow_a'::uuid, :'secret_logout_a', 'group-fixture-b@example.invalid') \gset
+select set_config('request.jwt.claim.sub', :'uid_b', true);
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_b'), true);
 select result::text as _verify_a
 from public.verify_group_invitation_flow(:'logout_flow_a'::uuid, :'secret_logout_a') \gset
 select result::text as _accept_a
