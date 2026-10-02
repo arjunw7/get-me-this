@@ -218,6 +218,8 @@ test.describe("invitation preview and acceptance", () => {
         // Review note e: enumerate every Set-Cookie writer observed across
         // the whole journey and prove each is in the named inventory.
         const writers = observeCookieWriters(recipient);
+        const step = (label: string) =>
+          console.log(`[journey] ${label} url=${recipient.url()}`);
 
         await recipient.goto(`/invite/${token}`, {
           waitUntil: "domcontentloaded",
@@ -225,6 +227,7 @@ test.describe("invitation preview and acceptance", () => {
         // The raw landing never renders content: it redirects (directly,
         // or through the token-free start bootstrap) to the clean preview.
         await recipient.waitForURL(/\/invite\/continue\/[0-9a-f-]{36}$/);
+        step("preview");
 
         // Exactly the approved preview content renders.
         await expect(
@@ -234,11 +237,13 @@ test.describe("invitation preview and acceptance", () => {
         ).toBeVisible();
         await expect(recipient.getByText("Organizer Ona")).toBeVisible();
         await expect(recipient.getByText("Joined so far")).toBeVisible();
+        step("preview content");
 
         // Join: signed-out → the dedicated invitation email screen.
         await recipient.getByRole("button", { name: "Join the group" }).click();
         await recipient.waitForURL("/auth/invite/**");
         const flowId = new URL(recipient.url()).pathname.split("/").pop() ?? "";
+        step("email screen");
 
         const email = `invitations-e2e-recipient-${Date.now()}@example.invalid`;
         await recipient.getByLabel("Email").fill(email);
@@ -250,11 +255,13 @@ test.describe("invitation preview and acceptance", () => {
         await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/verify$/);
         const code = await readCodeFor(email);
         await enterCode(recipient, code);
+        step("code entered");
         await recipient.getByRole("button", { name: "Verify" }).click();
 
         // The verification response never binds or accepts: the clean
         // reconciliation screen requires the explicit continuation POST.
         await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/reconcile$/);
+        step("reconcile");
         await expect(
           recipient.getByRole("heading", { name: "You're signed in." }),
         ).toBeVisible();
@@ -266,6 +273,7 @@ test.describe("invitation preview and acceptance", () => {
         // new recipient to the invitation onboarding (it never accepts):
         // completing it returns to the live preview for the third Join.
         await recipient.waitForURL(`/invite/continue/${flowId}`);
+        step("second preview");
         await expect(
           recipient.getByRole("heading", {
             name: `You're invited to ${GROUP_NAME}.`,
@@ -273,6 +281,7 @@ test.describe("invitation preview and acceptance", () => {
         ).toBeVisible();
         await recipient.getByRole("button", { name: "Join the group" }).click();
         await recipient.waitForURL(`/onboarding/invite/${flowId}`);
+        step("onboarding");
         await recipient
           .getByLabel("What should friends call you?")
           .fill("Recipient Rhea");
@@ -286,6 +295,7 @@ test.describe("invitation preview and acceptance", () => {
         ).toBeVisible();
         await recipient.getByRole("button", { name: "Join the group" }).click();
         await recipient.waitForURL(`/invite/continue/${flowId}`);
+        step("third preview joined");
         await expect(
           recipient.getByRole("heading", { name: "You're in." }),
         ).toBeVisible();
@@ -298,6 +308,7 @@ test.describe("invitation preview and acceptance", () => {
         await expect
           .poll(() => joinedCount(groupId, recipientId), { timeout: 10_000 })
           .toBe("1");
+        step("membership row");
         expect(invitationUseCount(groupId)).toBe("1");
         const accepted = runStackSql(
           `select count(*)::text from private.invitation_continuations where verified_user_id = '${recipientId}'::uuid and accepted_at is not null;`,
@@ -523,6 +534,7 @@ test.describe("invitation preview and acceptance", () => {
         });
 
         await enterCode(recipient, code);
+        console.log(`[broker] code entered url=${recipient.url()}`);
         await recipient.getByRole("button", { name: "Verify" }).click();
 
         // The broker fired the acknowledgement, which is now held before
@@ -531,6 +543,7 @@ test.describe("invitation preview and acceptance", () => {
         await expect
           .poll(() => held.length, { timeout: 15_000 })
           .toBeGreaterThan(0);
+        console.log(`[broker] ack held url=${recipient.url()}`);
 
         // A second tab's confirmed logout is blocked honestly: it lands on
         // the flagged /home state with the session preserved.
@@ -540,6 +553,7 @@ test.describe("invitation preview and acceptance", () => {
         await second.getByRole("button", { name: "Log out" }).click();
         await second.getByRole("button", { name: "Log out" }).click();
         await second.waitForURL(/\/home\?logoutBlocked=1$/);
+        console.log(`[broker] second tab blocked url=${second.url()}`);
         await expect(
           second.getByRole("button", { name: /account/i }),
         ).toBeVisible();
@@ -550,6 +564,7 @@ test.describe("invitation preview and acceptance", () => {
         await context.unroute("**/auth/invite/mutation/acknowledge");
         for (const release of held.splice(0)) release();
         await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/reconcile$/);
+        console.log(`[broker] released url=${recipient.url()}`);
 
         // The retry completes the logout and its own delivery
         // acknowledgement under the same lock.
