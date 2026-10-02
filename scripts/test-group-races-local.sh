@@ -194,10 +194,10 @@ check() {
 # targeted overload binds that user's current membership generation.
 issue_token() {
   local token
-  if [ -n "${3:-}" ]; then
+  if [ -n "${2:-}" ]; then
     token="$({
       printf "set request.jwt.claim.sub = '%s';\n" "$UID_A"
-      printf "select token from public.issue_group_invitation('%s'::uuid, '%s'::uuid);\n" "$1" "$3"
+      printf "select token from public.issue_group_invitation('%s'::uuid, '%s'::uuid);\n" "$1" "$2"
     } | psql_one | tail -n 1)"
   else
     token="$({
@@ -288,9 +288,9 @@ echo "group-races: seeding synthetic fixtures"
   printf "on conflict (id) do nothing;\n"
 } | psql_one >/dev/null || die "synthetic user seeding failed"
 
-# --- scenario 1: accept/accept at the targeted one-use limit ----------------------
+# --- scenario 1: accept/accept on the targeted token (one bound user) --------------
 
-echo "scenario 1: accept/accept at the targeted one-use limit"
+echo "scenario 1: accept/accept on the targeted token (one bound user)"
 G1="$(new_group)"; T1="$(issue_token "$G1" "$UID_B")"
 
 send 3 "begin;"
