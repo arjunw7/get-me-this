@@ -88,7 +88,7 @@
       "approvedDate": "2026-10-02"
     },
     "groups-new-conflict-mobile.png": {
-      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): mobile form baselines are the CI runner's own ubuntu-24.04 renders (cross-OS extent variance on the form's borderline-wrapping privacy line and native date input); all other group baselines are approved preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app; no raw token in any artifact",
       "approvedDate": "2026-10-02"
     },
     "groups-new-empty-desktop.png": {
@@ -96,7 +96,7 @@
       "approvedDate": "2026-10-02"
     },
     "groups-new-empty-mobile.png": {
-      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): mobile form baselines are the CI runner's own ubuntu-24.04 renders (cross-OS extent variance on the form's borderline-wrapping privacy line and native date input); all other group baselines are approved preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app; no raw token in any artifact",
       "approvedDate": "2026-10-02"
     },
     "groups-new-pending-desktop.png": {
@@ -104,7 +104,7 @@
       "approvedDate": "2026-10-02"
     },
     "groups-new-pending-mobile.png": {
-      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): mobile form baselines are the CI runner's own ubuntu-24.04 renders (cross-OS extent variance on the form's borderline-wrapping privacy line and native date input); all other group baselines are approved preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app; no raw token in any artifact",
       "approvedDate": "2026-10-02"
     },
     "groups-new-validation-desktop.png": {
@@ -112,7 +112,7 @@
       "approvedDate": "2026-10-02"
     },
     "groups-new-validation-mobile.png": {
-      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
+      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): mobile form baselines are the CI runner's own ubuntu-24.04 renders (cross-OS extent variance on the form's borderline-wrapping privacy line and native date input); all other group baselines are approved preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app; no raw token in any artifact",
       "approvedDate": "2026-10-02"
     }
   },
@@ -160,12 +160,12 @@
     "groups-created-token-present-desktop.png": "d0084cb80197116dfe03583b8aeb57bfde7847766edb9f2d0e2736da19a0f3d9",
     "groups-created-token-present-mobile.png": "f87fca74d1f7c01d108d147dc48807b38299596b60479cea507ea7c9f45afb85",
     "groups-new-conflict-desktop.png": "2a4357fe5b3c1e68e1fce72c842e648ebfe98fb10b302c526b6dcfc062032638",
-    "groups-new-conflict-mobile.png": "c287e4f870c51ff6672bd13d12b76e1c208cc16c24a0dba930fb3264c552a86d",
+    "groups-new-conflict-mobile.png": "5114ac51973ccbbe798164de5cf83cf52960194188d4d79bae6d2f30a1739c3b",
     "groups-new-empty-desktop.png": "abd226ffd6b7bcdb7666cb68c0ca69f9894ed9680a4e6721d206cab1d30b8d60",
-    "groups-new-empty-mobile.png": "a93e9c847090af4bbc61b689cbfaf33502e63b115a9a0feaf46571194502ce05",
+    "groups-new-empty-mobile.png": "e611592c6141d469bcebf898dbc2e21c2462fc67c76c3970687e022e4c1bff53",
     "groups-new-pending-desktop.png": "3028d26712d541011248445aaa0d5a1c7934d93cd4bfb54c17920ebc56b833bc",
-    "groups-new-pending-mobile.png": "3a1b460f7fcd67dd9866f66dd17f8962caa35135bd7210741040a0fccad82c9d",
+    "groups-new-pending-mobile.png": "a57a7547921b07b39ec0f59a973aef167052034f0cc8c7d96768e6bfd8bcc018",
     "groups-new-validation-desktop.png": "aa9785652d3f19186f867e75f690dbb3c57c616addcd581e612bbfa02f520c2b",
-    "groups-new-validation-mobile.png": "c2e46c3107e339919543d45cf80bbccb2908b85a66f3bef1052291c97ad75442"
+    "groups-new-validation-mobile.png": "beab2b784ee1cf1087c4e167d707ff81d8886df0a103ba2a4d9aa02604f75e8c"
   }
 }

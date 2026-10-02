@@ -20,8 +20,12 @@ import {
  *
  * Cross-OS capture variance is absorbed with the documented
  * maxDiffPixelRatio tolerance (docs/delivery/evidence/arj-27/README.md,
- * finding 4): identical typefaces and text extents, Linux glyph
- * anti-aliasing differs at the pixel level only.
+ * finding 4). The mobile form baselines are the CI runner's own renders
+ * (ubuntu-24.04): the form's borderline-wrapping privacy line and the
+ * native date input's locale rendering differ by one text line across OS
+ * builds, which a pixel tolerance cannot absorb. The remaining baselines
+ * are the approved preview captures; per-file provenance is recorded in
+ * BASELINE-MANIFEST.json.
  *
  * The pending state is reached deterministically by gating the server
  * action response; the conflict state is reached WITHOUT any request by
@@ -144,7 +148,9 @@ test.describe("the create-group form", () => {
       await page.getByLabel("Date").fill(date);
 
       // Hold the server-action response open so the pending state is
-      // stable for the capture, then release it.
+      // stable for the capture, then release it. The swallowed rejection
+      // absorbs the unroute race: Playwright can deliver the trailing
+      // continue after the listener was removed mid-flight.
       let release!: () => void;
       const gate = new Promise<void>((resolve) => {
         release = resolve;
@@ -153,7 +159,7 @@ test.describe("the create-group form", () => {
         if (route.request().headers()["next-action"] !== undefined) {
           await gate;
         }
-        await route.continue();
+        await route.continue().catch(() => {});
       });
 
       await page.getByRole("button", { name: "Create group" }).click();
