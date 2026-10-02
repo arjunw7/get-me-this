@@ -115,6 +115,23 @@ jobs:
       - name: Run group two-session races
         timeout-minutes: 5
         run: pnpm test:db:races
+      # Brief 006b criteria 4 and 8: the receipt-backed creation and the
+      # compare-and-swap shareable-link races (same-key create serialization,
+      # changed-payload conflict, rollback waiter success, same-version issue
+      # and issue/revoke contention) with two independent sessions.
+      - name: Run 006b group races
+        timeout-minutes: 5
+        run: pnpm test:db:races:006b
+      # Brief 006b criterion 14: the 006b migration must also succeed against
+      # a POPULATED 006a predecessor state, not only a fresh stack. This
+      # bounded harness builds disposable local databases from the committed
+      # migrations through 006a, seeds both fixture kinds (generic history
+      # and zero generic history) plus multiple-active/expired/targeted
+      # cases, applies 006b once, asserts the backfilled versions and system
+      # audits, and proves a forced migration failure rolls everything back.
+      - name: Run the populated-state group upgrade
+        timeout-minutes: 5
+        run: pnpm test:db:group-upgrade
       - name: Install the Playwright Chromium browser
         timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
@@ -174,6 +191,27 @@ jobs:
         with:
           name: wishlist-visual-evidence
           path: wishlist-visual-evidence/
+          if-no-files-found: ignore
+          retention-days: 3
+      # ARJ-37: the groups visual specs' actual/expected/diff captures, for
+      # cross-OS review of the committed baselines (the wishlist collector
+      # above is fail-closed to the wishlist names only).
+      - name: Collect groups visual evidence
+        if: failure()
+        run: |
+          mkdir groups-visual-evidence
+          find test-results -type f \
+            -name "groups-*-actual.png" -exec cp {} groups-visual-evidence/ \;
+          find test-results -type f \
+            -name "groups-*-expected.png" -exec cp {} groups-visual-evidence/ \;
+          find test-results -type f \
+            -name "groups-*-diff.png" -exec cp {} groups-visual-evidence/ \;
+      - name: Upload groups visual evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: groups-visual-evidence
+          path: groups-visual-evidence/
           if-no-files-found: ignore
           retention-days: 3
 

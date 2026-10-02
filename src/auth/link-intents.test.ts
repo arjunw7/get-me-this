@@ -43,10 +43,10 @@ const BYPASS_CORPUS = [
 describe("resolveSafeRedirectTarget", () => {
   it("maps every approved intent to a server-defined route", () => {
     expect(resolveSafeRedirectTarget("home")).toBe(HOME);
-    // Unbuilt wishlist / create-group experiences resolve to home with no
-    // claim of creation (004e serves the real routes).
+    // The unbuilt wishlist experience resolves to home with no claim of
+    // creation; 006b serves the real create-group route.
     expect(resolveSafeRedirectTarget("wishlist")).toBe(HOME);
-    expect(resolveSafeRedirectTarget("create-group")).toBe(HOME);
+    expect(resolveSafeRedirectTarget("create-group")).toBe("/groups/new");
   });
 
   it("defaults an absent intent to home", () => {
