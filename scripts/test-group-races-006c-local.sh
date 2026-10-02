@@ -79,6 +79,7 @@ psql_one() {
 # Synthetic fixed fixture ids (hex only). Never real users; removed on exit.
 UID_A='a8000000-0000-4000-8000-00000000a801'
 UID_B='a8000000-0000-4000-8000-00000000a802'
+UID_C='a8000000-0000-4000-8000-00000000a804'
 GROUP_ID='a8000000-0000-4000-8000-00000000a803'
 
 GROUPS_SQL='public."groups"'
