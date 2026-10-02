@@ -230,6 +230,19 @@ send 5 'set idle_session_timeout = 30000;'
 
 echo "group-races: seeding synthetic fixtures"
 
+# The scenarios accept and organize as synthetic users; seed them
+# idempotently so reruns against a warm database are safe (profiles rows
+# come from the on-auth-user trigger).
+{
+  printf "insert into auth.users (id, aud, role, email, encrypted_password) values\n"
+  printf "  ('%s', 'authenticated', 'authenticated', 'group-race-a@example.invalid', ''),\n" "$UID_A"
+  printf "  ('%s', 'authenticated', 'authenticated', 'group-race-b@example.invalid', ''),\n" "$UID_B"
+  printf "  ('%s', 'authenticated', 'authenticated', 'group-race-c@example.invalid', ''),\n" "$UID_C"
+  printf "  ('%s', 'authenticated', 'authenticated', 'group-race-e@example.invalid', ''),\n" "$UID_E"
+  printf "  ('%s', 'authenticated', 'authenticated', 'group-race-f@example.invalid', '')\n" "$UID_F"
+  printf "on conflict (id) do nothing;\n"
+} | psql_one >/dev/null || die "synthetic user seeding failed"
+
 # --- scenario 1: accept/accept at a one-use limit --------------------------------
 
 echo "scenario 1: accept/accept at a one-use limit"
