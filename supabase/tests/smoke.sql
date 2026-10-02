@@ -1,23 +1,27 @@
 -- Infrastructure smoke test for the 002d local Supabase foundation,
--- amended by the reviewed 004a profiles migration and the reviewed 005a
--- wishlist migration.
+-- amended by the reviewed 004a profiles migration, the reviewed 005a
+-- wishlist migration, and the reviewed 006a group security model.
 --
 -- Run with: pnpm test:db   (supabase test db --local)
 --
--- This suite asserts foundation-level facts only. It makes two explicit,
+-- This suite asserts foundation-level facts only. It makes three explicit,
 -- reviewed concessions to the product schema: public.profiles is expected
 -- to exist (004a; see docs/delivery/issues/004a-profiles-schema-grants-rls-
--- and-tests.md), and public.wishlists and public.wishlist_items are
+-- and-tests.md), public.wishlists and public.wishlist_items are
 -- expected to exist alongside it (005a; see docs/delivery/issues/005a-
--- wishlist-schema-grants-rls-and-tests.md), together with exactly the one
--- synthetic fixture user seeded by supabase/seed.sql, its trigger-created
--- profile and wishlist, and its three fixture items. It still fails if the
--- baseline migrations were not applied or if any other application table or
--- seeded row appears without a reviewed migration.
+-- wishlist-schema-grants-rls-and-tests.md), and public."groups",
+-- public.group_members, public.group_invitations,
+-- public.group_invitation_uses, and public.audit_events are expected to
+-- exist alongside those (006a; see docs/delivery/issues/006a-group-security-
+-- model.md), together with exactly the one synthetic fixture user seeded by
+-- supabase/seed.sql, its trigger-created profile and wishlist, and its
+-- three fixture items. It still fails if the baseline migrations were not
+-- applied or if any other application table or seeded row appears without a
+-- reviewed migration.
 
 begin;
 
-select plan(13);
+select plan(18);
 
 -- 1. pgTAP is available in this database, whichever schema it is installed in.
 select ok(
@@ -47,15 +51,16 @@ select ok(
   'baseline migration 20260927000000 is recorded as applied'
 );
 
--- 4. Exactly the three reviewed application tables exist in public:
---    profiles (004a) plus wishlists and wishlist_items (005a). Any other
---    public table means an unreviewed schema change. (Deliberate, reviewed
---    amendment of the 002d assertion "no application tables exist" and of
---    the 004a single-table count; see the 004a and 005a briefs.)
+-- 4. Exactly the eight reviewed application tables exist in public:
+--    profiles (004a) plus wishlists and wishlist_items (005a) plus the five
+--    006a group tables. Any other public table means an unreviewed schema
+--    change. (Deliberate, reviewed amendment of the 002d assertion "no
+--    application tables exist" and of the 004a/005a counts; see the 004a,
+--    005a, and 006a briefs.)
 select is(
   (select count(*)::int from pg_tables where schemaname = 'public'),
-  3,
-  'only the reviewed public tables (profiles, wishlists, wishlist_items) exist in the public schema'
+  8,
+  'only the reviewed public tables (profiles, wishlists, wishlist_items, groups, group_members, group_invitations, group_invitation_uses, audit_events) exist in the public schema'
 );
 
 select has_table(
@@ -74,6 +79,36 @@ select has_table(
   'public',
   'wishlist_items',
   'public.wishlist_items is the reviewed 005a wishlist_items table'
+);
+
+select has_table(
+  'public',
+  'groups',
+  'public.groups is the reviewed 006a group table'
+);
+
+select has_table(
+  'public',
+  'group_members',
+  'public.group_members is the reviewed 006a membership history table'
+);
+
+select has_table(
+  'public',
+  'group_invitations',
+  'public.group_invitations is the reviewed 006a invitation table'
+);
+
+select has_table(
+  'public',
+  'group_invitation_uses',
+  'public.group_invitation_uses is the reviewed 006a invitation-use table'
+);
+
+select has_table(
+  'public',
+  'audit_events',
+  'public.audit_events is the reviewed 006a append-only audit table'
 );
 
 -- 5. Local authentication infrastructure is present in the stack.

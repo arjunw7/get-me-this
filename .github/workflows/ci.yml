@@ -108,6 +108,13 @@ jobs:
       - name: Run pgTAP database suites
         timeout-minutes: 5
         run: pnpm test:db
+      # Brief 006a criterion 6: the pgTAP suites cannot prove real
+      # concurrency. This harness opens two independent psql sessions against
+      # the same local stack with barriers and finite timeouts; a green pgTAP
+      # step alone never satisfies the race criterion.
+      - name: Run group two-session races
+        timeout-minutes: 5
+        run: pnpm test:db:races
       - name: Install the Playwright Chromium browser
         timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
