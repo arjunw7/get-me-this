@@ -639,54 +639,87 @@ select is(
   'every security-definer function is definer with an explicit (empty) search_path'
 );
 
--- Declared result shapes are closed; no extra fields.
+-- Declared result shapes are closed; no extra fields. The out columns are
+-- read from each function's composite return type (prorettype's rowtype).
 select is(
   (
-    select string_agg(x.name, ',' order by x.ord)
-    from unnest(p.proargnames, p.proargmodes) with ordinality as x(name, mode, ord)
-    where x.mode = 'o'
+    select string_agg(a.attname, ',' order by a.attnum)
+    from pg_attribute a
+    where a.attrelid = (
+      select t.typrelid
+      from pg_type t
+      where t.oid = (
+        select p.prorettype
+        from pg_proc p
+        where p.oid = 'public.group_detail(uuid)'::regprocedure
+      )
+    )
+      and a.attnum > 0
+      and not a.attisdropped
   ),
   'id,organizer_id,name,occasion,occasion_at,time_zone,location,description,budget_amount_minor,budget_currency,mode,status,joined_member_count',
   'group_detail returns exactly the approved columns'
-)
-from pg_proc p
-where p.oid = 'public.group_detail(uuid)'::regprocedure;
+);
 
 select is(
   (
-    select string_agg(x.name, ',' order by x.ord)
-    from unnest(p.proargnames, p.proargmodes) with ordinality as x(name, mode, ord)
-    where x.mode = 'o'
+    select string_agg(a.attname, ',' order by a.attnum)
+    from pg_attribute a
+    where a.attrelid = (
+      select t.typrelid
+      from pg_type t
+      where t.oid = (
+        select p.prorettype
+        from pg_proc p
+        where p.oid = 'public.group_roster(uuid)'::regprocedure
+      )
+    )
+      and a.attnum > 0
+      and not a.attisdropped
   ),
   'user_id,display_name,participating,joined_at',
   'group_roster returns exactly the approved columns'
-)
-from pg_proc p
-where p.oid = 'public.group_roster(uuid)'::regprocedure;
+);
 
 select is(
   (
-    select string_agg(x.name, ',' order by x.ord)
-    from unnest(p.proargnames, p.proargmodes) with ordinality as x(name, mode, ord)
-    where x.mode = 'o'
+    select string_agg(a.attname, ',' order by a.attnum)
+    from pg_attribute a
+    where a.attrelid = (
+      select t.typrelid
+      from pg_type t
+      where t.oid = (
+        select p.prorettype
+        from pg_proc p
+        where p.oid = 'public.group_admin_members(uuid)'::regprocedure
+      )
+    )
+      and a.attnum > 0
+      and not a.attisdropped
   ),
   'user_id,display_name,status,participating,joined_at,left_at',
   'group_admin_members returns exactly the approved columns'
-)
-from pg_proc p
-where p.oid = 'public.group_admin_members(uuid)'::regprocedure;
+);
 
 select is(
   (
-    select string_agg(x.name, ',' order by x.ord)
-    from unnest(p.proargnames, p.proargmodes) with ordinality as x(name, mode, ord)
-    where x.mode = 'o'
+    select string_agg(a.attname, ',' order by a.attnum)
+    from pg_attribute a
+    where a.attrelid = (
+      select t.typrelid
+      from pg_type t
+      where t.oid = (
+        select p.prorettype
+        from pg_proc p
+        where p.oid = 'public.preview_group_invitation(text)'::regprocedure
+      )
+    )
+      and a.attnum > 0
+      and not a.attisdropped
   ),
   'host_display_name,group_name,occasion_at,budget_amount_minor,budget_currency,mode,joined_member_count',
   'preview_group_invitation returns exactly the seven approved fields'
-)
-from pg_proc p
-where p.oid = 'public.preview_group_invitation(text)'::regprocedure;
+);
 
 -- 3. Fixtures (all synthetic; the transaction rolls back at the end) --------------
 
@@ -714,7 +747,7 @@ from public.create_group(
   null, null, 200000, 'INR', 'secret_draw'
 ) \gset
 
-select is(:'create_result', 'created', 'create_group returns the created result');
+select is(:'create_result'::text, 'created', 'create_group returns the created result');
 select is((select count(*)::int from public."groups"), 1, 'exactly one group row exists');
 
 -- Owner view: internal rows.
@@ -854,7 +887,7 @@ select throws_ok(
 select result::text as issue1_result, invitation_id::text as inv1_id, token as tok1
 from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', 2, null) \gset
 
-select is(:'issue1_result', 'issued', 'the organizer can issue a shareable invitation');
+select is(:'issue1_result'::text, 'issued', 'the organizer can issue a shareable invitation');
 select is(char_length(:'tok1'), 43, 'the raw token is the canonical 43-character base64url encoding of 32 bytes');
 
 -- Owner view: only the digest is stored, and it is the digest of the token.
@@ -884,7 +917,7 @@ select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticate
 select result::text as issue2_result, invitation_id::text as inv2_id, token as tok2
 from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', null, null) \gset
 
-select is(:'issue2_result', 'issued', 'a second shareable invitation can be issued');
+select is(:'issue2_result'::text, 'issued', 'a second shareable invitation can be issued');
 
 -- Invalid issuance inputs fail generically.
 select is(
@@ -1027,8 +1060,8 @@ select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticate
 select result::text as accept1_result, group_id::text as accept1_group
 from public.accept_group_invitation(:'tok1') \gset
 
-select is(:'accept1_result', 'joined', 'a new member accepting a valid token is joined');
-select is(:'accept1_group', :'gid', 'acceptance returns the group id');
+select is(:'accept1_result'::text, 'joined', 'a new member accepting a valid token is joined');
+select is(:'accept1_group'::text, :'gid', 'acceptance returns the group id');
 
 -- Owner view: membership, use, count, audit.
 reset role;
@@ -1067,7 +1100,7 @@ select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticate
 select result::text as replay1_result
 from public.accept_group_invitation(:'tok1') \gset
 
-select is(:'replay1_result', 'replayed', 'a same-user replay in the same joined generation succeeds idempotently');
+select is(:'replay1_result'::text, 'replayed', 'a same-user replay in the same joined generation succeeds idempotently');
 
 -- Owner view: nothing changed.
 reset role;
@@ -1097,12 +1130,12 @@ select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticate
 select result::text as accept_c_result
 from public.accept_group_invitation(:'tok2') \gset
 
-select is(:'accept_c_result', 'joined', 'member C joins through the second shareable token');
+select is(:'accept_c_result'::text, 'joined', 'member C joins through the second shareable token');
 
 select result::text as already_result
 from public.accept_group_invitation(:'tok1') \gset
 
-select is(:'already_result', 'already_joined', 'an already joined user with no use of this token gets already_joined');
+select is(:'already_result'::text, 'already_joined', 'an already joined user with no use of this token gets already_joined');
 
 -- Owner path: simulate exhaustion directly, then prove a fresh user cannot
 -- join and the joined user's already_joined result disappears too.
@@ -1297,7 +1330,7 @@ select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticate
 select result::text as issue3_result, invitation_id::text as inv3_id, token as tok3
 from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', null, null) \gset
 
-select is(:'issue3_result', 'issued', 'the organizer can issue a fresh generic link');
+select is(:'issue3_result'::text, 'issued', 'the organizer can issue a fresh generic link');
 
 select set_config('request.jwt.claim.sub', :'uid_c', true);
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_c'), true);
@@ -1314,7 +1347,7 @@ select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticate
 select result::text as issue4_result, invitation_id::text as inv4_id, token as tok4
 from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', null, :'uid_c'::uuid) \gset
 
-select is(:'issue4_result', 'issued', 'the organizer can issue a targeted reinvitation');
+select is(:'issue4_result'::text, 'issued', 'the organizer can issue a targeted reinvitation');
 
 -- Owner view: the targeted pair and the untouched durable status.
 reset role;
@@ -1324,7 +1357,7 @@ select is(
     select coalesce(target_user_id::text, 'none') || ':' || coalesce(target_membership_generation::text, 'none')
     from public.group_invitations where id = :'inv4_id'::uuid
   ),
-  :'uid_c' || ':3',
+  :'uid_c'::text || ':3',
   'the targeted reinvitation binds the target user and the exact incremented generation'
 );
 select is(
@@ -1350,7 +1383,7 @@ select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticate
 select result::text as issue5_result, invitation_id::text as inv5_id, token as tok5
 from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', null, :'uid_c'::uuid) \gset
 
-select is(:'issue5_result', 'issued', 'a second targeted invitation supersedes the first');
+select is(:'issue5_result'::text, 'issued', 'a second targeted invitation supersedes the first');
 
 -- as C: the stale token fails, the matching one works.
 select set_config('request.jwt.claim.sub', :'uid_c', true);
@@ -1444,7 +1477,7 @@ select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticate
 select result::text as issue6_result, invitation_id::text as inv6_id, token as tok6
 from public.issue_group_invitation(:'gid'::uuid, clock_timestamp() + interval '1 hour', null, :'uid_d'::uuid) \gset
 
-select is(:'issue6_result', 'issued', 'a targeted invitation for a known user with no row creates an invited row');
+select is(:'issue6_result'::text, 'issued', 'a targeted invitation for a known user with no row creates an invited row');
 
 -- Owner view: the invited row at generation 1.
 reset role;
@@ -1664,7 +1697,7 @@ select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticate
 select result::text as atomic_result
 from public.accept_group_invitation(:'tok3') \gset
 
-select is(:'atomic_result', 'joined', 'the fresh member accepts the valid generic token inside the savepoint');
+select is(:'atomic_result'::text, 'joined', 'the fresh member accepts the valid generic token inside the savepoint');
 
 reset role;
 
