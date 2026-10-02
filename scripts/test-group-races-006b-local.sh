@@ -345,6 +345,6 @@ await 6 "3"
 check 3 "s6-version" "3 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G4}')"
 check 3 "s6-two-rows" "2 = (select count(*) from public.group_invitations where group_id = '${G4}' and shareable_version is not null)"
 check 3 "s6-one-active" "1 = (select count(*) from public.group_invitations where group_id = '${G4}' and shareable_version = 3 and status = 'active')"
-check 3 "s6-audits" "2 = (select count(*) from public.audit_events where group_id = '${G4}' and event_type = 'invitation_issued') and 2 = (select count(*) from public.audit_events where group_id = '${G4}' and event_type = 'invitation_revoked')"
+check 3 "s6-audits" "2 = (select count(*) from public.audit_events where group_id = '${G4}' and event_type = 'invitation_issued') and 1 = (select count(*) from public.audit_events where group_id = '${G4}' and event_type = 'invitation_revoked')"
 
 echo "group-races-006b: all scenarios passed"
