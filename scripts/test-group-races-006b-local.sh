@@ -87,7 +87,15 @@ A_PID=""; B_PID=""
 mkfifo "$A_IN" "$A_OUT" "$B_IN" "$B_OUT"
 
 cleanup() {
+  # Terminate both sessions first: an open blocked transaction releases its
+  # locks before the fixture deletes run.
+  if [ -n "$A_PID" ]; then kill "$A_PID" 2>/dev/null || true; fi
+  if [ -n "$B_PID" ]; then kill "$B_PID" 2>/dev/null || true; fi
   {
+    # Bounded: a failed session can leave a blocked transaction holding
+    # locks; the cleanup connection must never wait behind it.
+    printf "set statement_timeout = '10s';\n"
+    printf "set lock_timeout = '5s';\n"
     printf 'begin;\n'
     printf "create temp table cl_g as select id from %s where organizer_id = '%s';\n" "$GROUPS_SQL" "$UID_A"
     printf "delete from public.audit_events where group_id = any(select id from cl_g);\n"
@@ -99,8 +107,6 @@ cleanup() {
     printf "delete from auth.users where id = '%s';\n" "$UID_A"
     printf 'commit;\n'
   } | psql_one >/dev/null 2>&1 || true
-  if [ -n "$A_PID" ]; then kill "$A_PID" 2>/dev/null || true; fi
-  if [ -n "$B_PID" ]; then kill "$B_PID" 2>/dev/null || true; fi
   rm -rf "$tmpdir"
 }
 trap cleanup EXIT
@@ -267,6 +273,7 @@ send 3 "do \$\$ begin
   perform public.issue_group_invitation('${G4}'::uuid, 0::bigint);
   insert into race_markers4a values ('ISSUED');
 end \$\$;"
+send 3 "select marker from race_markers4a;"
 await 4 "ISSUED"
 
 send 5 "create temp table race_markers4(marker text);"
