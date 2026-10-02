@@ -33,7 +33,6 @@ select gen_random_uuid() as uid_d \gset
 -- Canonical 43-character base64url stand-ins: the final character carries
 -- the two zero bits, so it must be from the canonical alphabet.
 select repeat('c', 43) as tok_live \gset
-select repeat('w', 43) as tok_second \gset
 
 -- Browser-secret and coordinator stand-ins (same canonical shape).
 select repeat('B', 41) || 'AE' as coord_secret \gset
@@ -259,24 +258,9 @@ values (
   null, null, 1
 );
 
--- The compare-and-swap issue path revokes the previous generic invitation
--- before recording its successor (one active generic per group).
-update public.group_invitations set status = 'revoked'
-  where id = '00000000-0000-4000-8000-000000006c02';
-
-insert into public.group_invitations (
-  id, group_id, creator_id, status, token_hash, expires_at, max_uses, use_count,
-  target_user_id, target_membership_generation, shareable_version
-)
-values (
-  '00000000-0000-4000-8000-000000006c03', '00000000-0000-4000-8000-000000006c01',
-  :'uid_a'::uuid, 'active',
-  extensions.digest(convert_to(:'tok_second', 'UTF8'), 'sha256'),
-  clock_timestamp() + interval '30 days', null, 0,
-  null, null, 2
-);
-update public."groups" set shareable_invitation_version = 2
-  where id = '00000000-0000-4000-8000-000000006c01';
+-- The "second independent flow" reuses the SAME live invitation through a
+-- different browser secret (exactly what a second browser opening the same
+-- link is); only one active generic per group can exist.
 
 -- Anonymous caller context (no GUCs).
 reset role;
@@ -509,7 +493,7 @@ select is(
 
 -- A second independent flow for the same user marks only itself.
 select flow_id::text as flow_two
-from public.begin_group_invitation_flow(:'tok_second', repeat('G', 41) || 'AE', :'coord_secret') \gset
+from public.begin_group_invitation_flow(:'tok_live', repeat('G', 41) || 'AE', :'coord_secret') \gset
 
 -- The second flow begins authenticated (uid_b's session): the same
 -- transaction binds the user and email shortcut.
@@ -537,7 +521,8 @@ select is(
   1, 'the second-flow reconciliation appends no audit event'
 );
 
--- An already-joined user with no use of a token is write-free.
+-- An already-joined user with no use of a token is write-free. Targeted to
+-- the organizer (the group's single active generic stays live).
 insert into public.group_invitations (
   id, group_id, creator_id, status, token_hash, expires_at, max_uses, use_count,
   target_user_id, target_membership_generation, shareable_version
@@ -547,10 +532,8 @@ values (
   :'uid_a'::uuid, 'active',
   extensions.digest(convert_to(repeat('k', 42) || '8', 'UTF8'), 'sha256'),
   clock_timestamp() + interval '30 days', null, 0,
-  null, null, 3
+  :'uid_a'::uuid, 1, null
 );
-update public."groups" set shareable_invitation_version = 3
-  where id = '00000000-0000-4000-8000-000000006c01';
 
 -- A dedicated coordinator for the already-joined and cap fixtures.
 select repeat('B', 41) || 'AE' as coord_cap \gset
@@ -561,6 +544,11 @@ select is(
 
 select flow_id::text as flow_org
 from public.begin_group_invitation_flow(repeat('k', 42) || '8', repeat('H', 41) || 'AE', :'coord_cap') \gset
+
+-- The organizer's own targeted credential: the accepting session is the
+-- organizer (the target).
+set local "request.jwt.claim.sub" = :'uid_a';
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
 select result::text as org_result
 from public.accept_group_invitation_flow(:'flow_org'::uuid, repeat('H', 41) || 'AE') \gset
@@ -621,7 +609,7 @@ select is(
 -- Explicit discard proves both secrets and releases exactly one envelope.
 select repeat('I', 41) || 'AE' as secret_discard \gset
 select flow_id::text as flow_discard
-from public.begin_group_invitation_flow(:'tok_second', :'secret_discard', :'coord_cap') \gset
+from public.begin_group_invitation_flow(:'tok_live', :'secret_discard', :'coord_cap') \gset
 select is(
   (select result::text from public.discard_group_invitation_flow(:'flow_discard'::uuid, :'secret_discard', :'coord_cap')),
   'discarded', 'a proven discard succeeds'
@@ -646,7 +634,7 @@ select is(
 select flow_id::text as logout_flow_a
 from public.begin_group_invitation_flow(:'tok_live', :'secret_logout_a', :'coord_logout') \gset
 select flow_id::text as logout_flow_b
-from public.begin_group_invitation_flow(:'tok_second', :'secret_logout_b', :'coord_logout') \gset
+from public.begin_group_invitation_flow(:'tok_live', :'secret_logout_b', :'coord_logout') \gset
 
 -- Bind, verify, and accept flow A (uid_b session).
 select result::text as _bind_a
