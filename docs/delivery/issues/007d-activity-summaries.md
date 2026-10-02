@@ -146,6 +146,17 @@ the blind spots, with negative tests.
   inventory is unchanged; if the implementation touches the smoke suite at
   all, the change is a deliberate, recorded, scoped amendment — never a
   silent relaxation.
+- **Reservation entries after item deletion.** A reservation released by
+  007c's `item_deleted` path has a null `item_id`; its entry resolves
+  `item_title` by joining the audit metadata's `reservation_id` to
+  `group_item_reservations.item_title_snapshot` — never through a direct
+  `wishlist_items` join, which the deleted item row can no longer satisfy.
+  The join stays inside the same single statement.
+- **Anon-callable surface.** As of this brief there are zero
+  anon-callable functions in the database (006c's invitation preview is
+  not yet merged); when 006c merges, its signed-out invitation preview
+  becomes the only anon-callable function. In either state, no activity
+  projection is ever callable by `anon`.
 
 ### UI states
 
@@ -273,6 +284,9 @@ established local-stack helpers (`scripts/e2e-local-stack.sh`,
   referenced by entry fields.
 - 006d supplies the group room route and generic-denial behavior; 006e
   supplies the browse surface and the one-statement projection pattern.
+- 006c supplies invitation acceptance and the signed-out invitation
+  preview; once merged it is the only anon-callable function, and these
+  activity projections never join it in that state.
 - 007c must be merged: the `item_reserved`/`reservation_released` kinds,
   their metadata contract, and the state-only visibility rules are defined
   there and consumed here.

@@ -42,7 +42,7 @@ owner can access.
   | `item_title_snapshot` | text, not null, bounded to the 005a title length and whitespace rules   |
   | `reserved_at`         | timestamptz, not null, `clock_timestamp()`                              |
   | `released_at`         | timestamptz, nullable                                                   |
-  | `released_reason`     | `public.group_reservation_release_reason` (`by_reserver`, `item_deleted`), nullable |
+  | `released_reason`     | `public.group_reservation_release_reason` (`by_reserver`, `item_deleted`, `reserver_departed`), nullable |
   | `created_at` / `updated_at` | timestamptz, not null, database-managed (`clock_timestamp()` triggers, as 006a) |
 
   A partial unique index on `(group_id, item_id)` where
@@ -56,17 +56,31 @@ owner can access.
   for a group and wishlist item") and the duplicate-prevention promise. Two
   members who want the same gift coordinate outside the reservation; the
   second claimant receives the friendly conflict state.
-- **Decision — eligibility is uniform in this slice.** A member may claim
+- **Decision — eligibility is uniform in this slice (decided in review).**
+  A member may claim
   exactly when, in the same statement: the caller is a currently `joined`
   member of the group (via the 006a
   `private.is_joined_group_member(group_id)` semantics), the item's owner is
   a currently `joined` member of the same group, and the caller is not the
-  item's owner. This applies to all three group modes. The permissions
-  matrix marks reserve eligibility "mode-dependent"; the mode-specific
-  narrowing (secret-draw assignments, gift-everyone participation) requires
+  item's owner. This applies to all three group modes. Restricting
+  reservations to `wishlist_only` groups was considered and rejected: it
+  would wrongly disable reservations in `gift_everyone` groups, where
+  members also browse and reserve without assignments. The permissions
+  matrix marks reserve eligibility "mode-dependent"; the remaining
+  mode-specific narrowing (secret-draw assignments) requires
   Phase 7 assignment tables that do not exist yet. Any narrowing is a
   reviewed revision of this brief, never a silent policy edit. Self-
   reservation of one's own item is denied in every mode.
+- **Decision — departure auto-releases the reserver's active
+  reservations.** When a reserver's `group_members` row transitions to
+  `left` or `removed`, every `active` reservation they hold in that group
+  is released in the same transaction with
+  `released_reason = 'reserver_departed'`, by a SECURITY DEFINER trigger
+  added in this slice's migration. The release is silent: owner-blind
+  rules are unchanged (the owner still learns nothing), no notification or
+  email is sent, and the departing member retains no access. The released
+  item is immediately claimable again through the normal atomic claim
+  path. Rows remain durable history.
 - **Decision — reservation identity is visible only to the reserver.** Other
   eligible members see only that an item is reserved (a boolean state), never
   who reserved it. This is the most private reading of "visible only to the
@@ -80,7 +94,8 @@ owner can access.
   `(result text, reservation_id uuid)`. SECURITY DEFINER, empty
   `search_path`, caller derived from `auth.uid()`. Results:
   `reserved` (success), `already_yours` (the caller already holds the active
-  reservation — idempotent, no second row, no second audit event),
+  reservation — an idempotent no-write replay: no second row, no second
+  audit event, and no analytics event),
   `conflict` (another member holds the active reservation — the friendly
   conflict), and `unavailable` for every denial class (signed out,
   outsider, pending/declined/left/removed, cross-group item, unknown
@@ -110,6 +125,19 @@ owner can access.
   has no new error, no new latency contract, and no observable difference
   between a reserved and an unreserved item; no notification, email, or
   analytics event reaches the owner from this path.
+- **Departure releases the reserver's active reservations.** A SECURITY
+  DEFINER trigger on `public.group_members` — added by this slice's
+  migration — watches the status transition to `left` or `removed` and, in
+  the same transaction, releases every `active` reservation that member
+  holds in the group with `released_reason = 'reserver_departed'` and
+  `released_at = clock_timestamp()`. The release is silent: no
+  notification or email reaches anyone, the owner-blind rules are
+  unchanged, and the freed item is immediately claimable through the
+  normal atomic claim path. The trigger appends the same single
+  `reservation_released` audit event as an explicit release (actor is the
+  departing reserver) so 007d's source inventory stays complete. If the
+  membership transition rolls back, the release and its audit event roll
+  back with it.
 - **Audit via the private appender.** Successful claim and release append
   one event each to `public.audit_events` in the same transaction, through
   the existing `private.append_group_event` (never a direct client write
@@ -155,6 +183,12 @@ owner can access.
   - `reserved_by_other` is true exactly when another member holds the
     active reservation and the caller is an eligible member. It is never
     true for the item's owner.
+  - **Authorized-empty sentinel.** On the 006e authorized-empty case (a
+    successfully authorized target whose visible item set is empty), the
+    projection returns exactly the 006e sentinel row — `item_id` null and
+    every other item column null — with both flags `false`. Shape tests
+    assert these exact values; no reservation state is evaluated for a
+    sentinel row.
   - **Owner-blind evaluation.** When the target member is the caller (own
     wishlist), both flags are false and the statement does not read the
     reservation table for the caller's own items at all. The owner's
@@ -172,7 +206,8 @@ owner can access.
   migration if split per above) with matching pgTAP privilege,
   result-shape, positive, negative, and enumeration tests. Existing 005a
   owner CRUD, 006a group behavior, and 006e browsing must remain unchanged
-  outside the two named 006a amendments.
+  outside the named 006a amendments and the two triggers this slice adds
+  (item deletion on `wishlist_items`; departure on `group_members`).
 
 ### Browse-surface UI states
 
@@ -230,9 +265,22 @@ pin.
   audit events after each, including both commit orders where relevant:
   1. **Two members claim the last unreserved state.** Exactly one `reserved`
      result and one active row; the loser receives `conflict` and no row.
-  2. **Claim vs. release race.** Release commits first: the waiting claim
-     wins. Claim commits first: the release releases the fresh reservation.
-     Both orders asserted.
+  2. **Claim vs. release race** (R1 is member A's active reservation;
+     member B claims the same item). The harness encodes these exact
+     expected results per order, with no runtime semantic derivation:
+     - **Order 1 — A's release of R1 commits first.** B's waiting claim
+       then receives `reserved`; R1 is `released` with reason
+       `by_reserver`; B's new row is the only active reservation; the
+       audit trail holds exactly two events (`item_reserved` for B's
+       claim, `reservation_released` for R1).
+     - **Order 2 — B's claim commits first.** B receives `conflict` and
+       no row (R1 was still active); A's release of R1 then succeeds with
+       reason `by_reserver`; a subsequent re-claim by B receives
+       `reserved` and creates a new active row; the audit trail holds
+       exactly two events (R1's release and B's successful re-claim) —
+       B's conflicting claim appends none, per the analytics rule.
+     Both orders assert exact final rows, statuses, reasons, and audit
+     counts.
   3. **Claim vs. owner-delete.** Delete commits first: the waiting claim
      resolves `unavailable` with zero rows and the owner delete produced no
      error. Claim commits first: the delete still succeeds without error,
@@ -246,6 +294,14 @@ pin.
   5. **Loser rollback.** A forced rollback of a losing transaction leaves
      no partial reservation, audit, or lock effects, and a subsequent claim
      by the other member succeeds.
+- Membership-transition race note: a `release_group_reservation` call that
+  contends with the reserver's own leave/removal must serialize through the
+  group lock. Both commit orders leave the reservation released exactly
+  once (reason `by_reserver` from the explicit release or
+  `reserver_departed` from the departure trigger) with exactly one audit
+  event, and a subsequent claim by another member follows the normal
+  atomic claim path. The harness asserts these exact outcomes without
+  deriving them at runtime.
 - The implementation adds `pnpm test:db:races:reservations` to
   `package.json` and an explicit `Run reservation two-session races` step
   to the existing CI `database` job **after** the existing group race step
@@ -291,40 +347,51 @@ pin.
    against a concurrent claim; active reservations become
    `item_deleted`-released; no error, notification, or observable
    difference reaches the owner.
-6. **Owner-blind privacy (pgTAP, negative).** As the item's owner: direct
-   table access is privilege-denied; `member_wishlist_gifting_snapshot` for
-   the owner's own items returns both flags false and reads no reservation
-   rows; no projection, count, error, or payload reveals reservation
+6. **Departure release (pgTAP + races).** Leaving and being removed each
+   auto-release the departing member's active reservations in that group
+   with reason `reserver_departed`, in the same transaction as the
+   membership transition; the release is silent (owner-blind rules
+   unchanged, no notification), a rolled-back transition leaves the
+   reservation active, and a subsequent claim by another member succeeds
+   through the normal atomic path.
+7. **Owner-blind privacy (pgTAP, negative).** As the item's owner: direct
+   table access is privilege-denied; `member_wishlist_gifting_snapshot`
+   for the owner's own items returns both flags false, and its output is
+   byte-identical whether zero, one, or many reservations exist on the
+   owner's items (an observable, pgTAP-assertable equivalence); no
+   projection, count, error, or payload reveals reservation
    existence, count, identity, or timing for the owner's items, with
    reservations demonstrably present in the database during the test.
-7. **Identity privacy (pgTAP, negative).** A non-reserver eligible member
+8. **Identity privacy (pgTAP, negative).** A non-reserver eligible member
    observes `reserved_by_other` without any reserver identity, id, or
    timestamp; only `my_group_reservations` returns reserver-scoped rows,
    and only to the reserver.
-8. **Grants, RLS, and inventory (pgTAP).** The REVOKE-then-exact-GRANT
+9. **Grants, RLS, and inventory (pgTAP).** The REVOKE-then-exact-GRANT
    inventory matches the brief for the new table and every new function,
    including overloads; no client SELECT/INSERT/UPDATE/DELETE/TRUNCATE
    exists on the reservation table; `audit_events` remains write-only
    through the private appender; the two 006a amendments are exactly as
    scoped (enum values; the two metadata keys).
-9. **Audit correctness (pgTAP).** Exactly one safe event per successful
-   claim or state-changing release, same-transaction, bounded metadata;
-   failed and denied attempts append nothing; metadata contains no tokens,
-   emails, or wishlist content.
-10. **Race harness in CI.** `pnpm test:db:races:reservations` runs all five
-    scenarios in the CI `database` job on the exact PR head with the
+10. **Audit and analytics correctness (pgTAP).** Exactly one safe event
+    per state-changing success — a first `reserved` claim, a release that
+    changes state, or a departure-triggered release — same-transaction,
+    bounded metadata; the idempotent `already_yours` replay, `conflict`
+    outcomes, and every failed or denied attempt append nothing; metadata
+    contains no tokens, emails, or wishlist content.
+11. **Race harness in CI.** `pnpm test:db:races:reservations` runs all
+    five scenarios in the CI `database` job on the exact PR head with the
     registered step, timeouts, cleanup, and no credential output.
-11. **Fresh migration and smoke.** A reset from committed migrations and
+12. **Fresh migration and smoke.** A reset from committed migrations and
     seed succeeds; all existing pgTAP suites pass; `smoke.sql`'s public-
     table inventory (now ten reviewed tables) and plan count are amended
     deliberately and recorded as a scoped amendment.
-12. **UI states and zero owner diff.** Eligible viewers see the reserve,
+13. **UI states and zero owner diff.** Eligible viewers see the reserve,
     reserved-by-you, reserved-by-another, and conflict states per the
     pinned V18 region at both approved viewports with accessible,
     confirmed release; the owner wishlist and owner-facing routes produce
     zero visual diff and existing baselines stay green without
     modification.
-13. **Regression safety and delivery evidence.** `pnpm verify`, existing
+14. **Regression safety and delivery evidence.** `pnpm verify`, existing
     database tests, stack-gated e2e, and existing race harnesses pass on
     the same head; the PR includes acceptance criteria with evidence,
     migration and forward-fix notes, the staging ledger (below), and
@@ -368,15 +435,18 @@ pin.
 
 ## Analytics, security, and privacy
 
-- Two privacy-safe server-emitted events, only after a state-changing
-  success, exactly once each: `reservation_created` and
-  `reservation_released`. Closed property schemas:
+- Two privacy-safe server-emitted events, emitted only for a
+  **state-changing success** — a first `reserved` claim, a release that
+  changes state (explicit or departure-triggered), exactly once each:
+  `reservation_created` and `reservation_released`. The idempotent
+  `already_yours` replay is a no-write result and emits **no** event of
+  either name. Closed property schemas:
 
   | Event                  | Property      | Type        | Allowed values (exact enum)                                                     |
   | ---------------------- | ------------- | ----------- | -------------------------------------------------------------------------------- |
-  | `reservation_created`  | `outcome`     | string enum | `reserved`, `already_yours` (never emitted for `conflict` or any denial)         |
+  | `reservation_created`  | `outcome`     | string enum | `reserved` — the only emitting outcome; `already_yours`, `conflict`, and every denial never emit |
   | `reservation_created`  | `gifting_mode`| string enum | `secret_draw`, `gift_everyone`, `wishlist_only`                                  |
-  | `reservation_released` | `reason`      | string enum | `by_reserver` (never emitted for `item_deleted`)                                 |
+  | `reservation_released` | `reason`      | string enum | `by_reserver`, `reserver_departed` (never emitted for `item_deleted`)            |
   | `reservation_released` | `gifting_mode`| string enum | `secret_draw`, `gift_everyone`, `wishlist_only`                                  |
 
   No other property, identifier, or count is sent: no item, group, user, or
@@ -385,8 +455,9 @@ pin.
 - **Tracking-plan change required.** The implementation PR adds both events
   to `docs/analytics/tracking-plan.md` as server-source events with exactly
   the properties above, reviewed against that plan's prohibited-data list.
-- **Zero-emission denial proof.** Every denial class, and the friendly
-  `conflict` outcome, emits no event of either name and no other new event.
+- **Zero-emission denial proof.** Every denial class, the friendly
+  `conflict` outcome, and the idempotent `already_yours` replay emit no
+  event of either name and no other new event.
 - Server authorization is authoritative; client state, hidden buttons, and
   analytics never grant eligibility. Cache behavior is private and
   user-specific. Security logging uses identifiers and coarse categories,
