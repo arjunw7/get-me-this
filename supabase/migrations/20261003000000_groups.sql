@@ -334,7 +334,7 @@ as $$
   select jsonb_typeof(p_metadata) = 'object'
     and coalesce(
       bool_and(
-        k = any (
+        e.k = any (
           array[
             'invitation_id',
             'membership_generation',
@@ -343,11 +343,11 @@ as $$
             'new_organizer_id'
           ]
         )
-        and jsonb_typeof(v) = any (array['string', 'number'])
+        and jsonb_typeof(e.v) = any (array['string', 'number'])
       ),
       true
     )
-  from jsonb_each(p_metadata)
+  from jsonb_each(p_metadata) as e(k, v)
 $$;
 
 comment on function private.audit_metadata_is_safe(jsonb) is
