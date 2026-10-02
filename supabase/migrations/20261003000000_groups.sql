@@ -865,14 +865,16 @@ begin
   end if;
 
   if member_found then
+    -- Qualify the target columns: group_id is also this function's OUT
+    -- variable, so an unqualified reference is ambiguous to plpgsql.
     update public.group_members
     set status = 'joined',
         participating = true,
         joined_at = clock_timestamp(),
         left_at = null,
         membership_generation = membership_generation + 1
-    where group_id = resolved_group_id
-      and user_id = caller_id
+    where public.group_members.group_id = resolved_group_id
+      and public.group_members.user_id = caller_id
     returning membership_generation into reached_generation;
   else
     insert into public.group_members (
