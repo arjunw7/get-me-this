@@ -75,6 +75,13 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
   page.setDefaultTimeout(15_000);
   const admin = stackAdminClient();
   const scope = new FixtureScope();
+  // The fixed-id SQL fixtures are scoped per Playwright project: the mobile
+  // and desktop runs may execute concurrently on a developer machine, and
+  // shared uuids or email lookups would collide (CI runs one worker at a
+  // time; local runs do not).
+  const projectTag = testInfo.project.name === "desktop" ? "b" : "a";
+  const sqlUserId = (n: number): string =>
+    `8f380000-0000-4000-8000-00000000${projectTag}3${String(n).padStart(2, "0")}`;
   await scope.run(async () => {
     // The organizer creates the group through the real UI.
     const organizerId = await createSignedInFixture(
@@ -93,14 +100,7 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
     await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
     const groupId = new URL(page.url()).pathname.split("/")[2];
 
-    const sqlUserIds = [
-      "8f380000-0000-4000-8000-00000000a381",
-      "8f380000-0000-4000-8000-00000000a382",
-      "8f380000-0000-4000-8000-00000000a383",
-      "8f380000-0000-4000-8000-00000000a384",
-      "8f380000-0000-4000-8000-00000000a385",
-      "8f380000-0000-4000-8000-00000000a386",
-    ];
+    const sqlUserIds = [1, 2, 3, 4, 5, 6, 7].map(sqlUserId);
     scope.register("fixture groups", async () => {
       deleteFixtureGroupsSql([groupId], [organizerId, ...sqlUserIds]);
       // The SQL-only fixture users are not admin-API fixtures: their
@@ -111,15 +111,16 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
         delete from auth.users where id in (${sqlUserIds.map((id) => `'${id}'::uuid`).join(",")});`);
     });
 
-    // Roster: two more joined members (with and without a display name),
-    // a live targeted invitee, a generic-link-only invitee, an outsider,
-    // and durable former-member rows.
-    addSqlUser(sqlUserIds[0], "arj38-joined@example.invalid");
-    addSqlUser(sqlUserIds[1], "arj38-fallback@example.invalid");
-    addSqlUser(sqlUserIds[2], "arj38-invited@example.invalid");
-    addSqlUser(sqlUserIds[3], "arj38-generic@example.invalid");
-    addSqlUser(sqlUserIds[4], "arj38-outsider@example.invalid");
-    addSqlUser(sqlUserIds[5], "arj38-former@example.invalid");
+    // Roster: three more joined members (named, display-name fallback, and a
+    // second named member), a live targeted invitee, a generic-link-only
+    // invitee, an outsider, and durable former-member rows.
+    addSqlUser(sqlUserIds[0], `arj38-joined-${projectTag}@example.invalid`);
+    addSqlUser(sqlUserIds[1], `arj38-fallback-${projectTag}@example.invalid`);
+    addSqlUser(sqlUserIds[2], `arj38-invited-${projectTag}@example.invalid`);
+    addSqlUser(sqlUserIds[3], `arj38-generic-${projectTag}@example.invalid`);
+    addSqlUser(sqlUserIds[4], `arj38-outsider-${projectTag}@example.invalid`);
+    addSqlUser(sqlUserIds[5], `arj38-former-${projectTag}@example.invalid`);
+    addSqlUser(sqlUserIds[6], `arj38-third-${projectTag}@example.invalid`);
     addSqlMember(
       groupId,
       sqlUserIds[0],
@@ -133,6 +134,13 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
       "joined",
       null,
       "clock_timestamp() - interval '1 hour'",
+    );
+    addSqlMember(
+      groupId,
+      sqlUserIds[6],
+      "joined",
+      "Joined Nia",
+      "clock_timestamp() - interval '30 minutes'",
     );
     addSqlMember(
       groupId,
@@ -178,22 +186,25 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
     await expect(
       page.getByRole("heading", { level: 2, name: "Who's in" }),
     ).toBeVisible();
-    // Four joined (organizer, two SQL members, fallback row) and one live
-    // targeted pending row; the generic-link-only invitee appears nowhere.
+    // Four joined (organizer + three SQL members, one without a display
+    // name) and one live targeted pending row; the generic-link-only
+    // invitee appears nowhere.
     await expect(page.getByText("4 joined, 1 invited")).toBeVisible();
     await expect(page.getByTestId("pending-row")).toHaveCount(1);
-    await expect(page.getByTestId("joined-row")).toHaveCount(3);
+    await expect(page.getByTestId("joined-row")).toHaveCount(4);
     await expect(page.getByText("You · Organizer")).toBeVisible();
     await expect(page.getByText(MEMBER_NAMES[1])).toBeVisible();
+    await expect(page.getByText("Joined Nia")).toBeVisible();
     await expect(page.getByText("Member", { exact: true })).toBeVisible();
     await expect(page.getByText("Invited", { exact: true })).toBeVisible();
     await expect(page.getByText("Generic Only Gale")).toHaveCount(0);
     await expect(page.getByText("Former Fae")).toHaveCount(0);
 
-    // The room surface is blocked from autocapture and session replay.
+    // The room surface is blocked from autocapture and session replay
+    // (React renders the bare marker attribute as "true").
     expect(
       await page.getByTestId("group-room").getAttribute("data-ph-no-capture"),
-    ).toBe("");
+    ).not.toBeNull();
 
     // The in-room Home action is a real link to the existing /home.
     await page.getByRole("link", { name: "Home" }).click();
@@ -206,7 +217,7 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
       await createSignedInFixture(
         memberPage,
         admin,
-        "arj38-browser-member",
+        `arj38-${projectTag}-browser-member`,
         { displayName: MEMBER_NAMES[2], tasteLine: "reads the roster" },
         scope,
       );
@@ -224,7 +235,7 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
       runStackSql(`
         insert into public.group_members (group_id, user_id, status, participating, joined_at, membership_generation)
         values ('${groupId}'::uuid, (
-          select id from auth.users where email like 'arj38-browser-member-%@example.invalid' limit 1
+          select id from auth.users where email like 'arj38-${projectTag}-browser-member-%@example.invalid' limit 1
         ), 'joined', true, clock_timestamp(), 1);`);
       await memberPage.goto(`/groups/${groupId}`);
       await expect(
@@ -239,7 +250,7 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
       // A committed removal ends the access on the next navigation: the
       // same URL now renders the same not-found result as an outsider.
       const memberId = runStackSql(
-        `select id::text from auth.users where email like 'arj38-browser-member-%@example.invalid' limit 1;`,
+        `select id::text from auth.users where email like 'arj38-${projectTag}-browser-member-%@example.invalid' limit 1;`,
       ).trim();
       runStackSql(
         withIdentity(
@@ -273,20 +284,20 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
       await createSignedInFixture(
         invitedPage,
         admin,
-        "arj38-browser-invited",
+        `arj38-${projectTag}-browser-invited`,
         { displayName: "Browser Invitee", tasteLine: "sees the preview only" },
         scope,
       );
       runStackSql(`
         insert into public.group_members (group_id, user_id, status, participating, membership_generation)
         values ('${groupId}'::uuid, (
-          select id from auth.users where email like 'arj38-browser-invited-%@example.invalid' limit 1
+          select id from auth.users where email like 'arj38-${projectTag}-browser-invited-%@example.invalid' limit 1
         ), 'invited', false, 1);`);
       stackIssueTargeted(
         organizerId,
         groupId,
         runStackSql(
-          `select id::text from auth.users where email like 'arj38-browser-invited-%@example.invalid' limit 1;`,
+          `select id::text from auth.users where email like 'arj38-${projectTag}-browser-invited-%@example.invalid' limit 1;`,
         ).trim(),
       );
 
