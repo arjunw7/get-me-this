@@ -42,8 +42,11 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
   const admin = stackAdminClient();
   const scope = new FixtureScope();
   const projectTag = testInfo.project.name === "desktop" ? "b" : "a";
+  // Disjoint fixed-uuid namespace: the 8f39 space belongs to the 006e
+  // group-wishlist spec, whose parallel workers and teardown must never
+  // see, collide with, or delete this spec's roster fixtures mid-run.
   const sqlUserId = (n: number): string =>
-    `8f390000-0000-4000-8000-00000000${projectTag}4${String(n).padStart(2, "0")}`;
+    `9f390000-0000-4000-8000-00000000${projectTag}4${String(n).padStart(2, "0")}`;
 
   await scope.run(async () => {
     // The organizer creates the group through the real UI.
@@ -133,16 +136,19 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
     await openToolsPanel();
     const panel = page.getByTestId("organizer-tools-panel");
 
-    // Exact labels plus the honest activity empty state. The projection's
-    // row order is its own; rows are located by their pinned display names.
+    // Exact labels plus the activity feed. The fixture's targeted issue for
+    // Live Liv committed one member_reinvited audit event, so the feed opens
+    // with that sentence — the empty state is covered by the component test
+    // and by the leakage scan below. The projection's row order is its own;
+    // rows are located by their pinned display names.
     const rows = panel.getByTestId("admin-member-row");
     await expect(rows).toHaveCount(6);
     await expect(rowFor("Admin Ona")).toContainText("Organizer");
     await expect(rowFor("Member Jay")).toContainText("Joined");
     await expect(rowFor("Pending Pia")).toContainText("Invited");
     await expect(rowFor("Former Fae")).toContainText("Removed");
-    await expect(panel.getByTestId("admin-audit-empty")).toContainText(
-      "No member activity yet",
+    await expect(panel.getByTestId("admin-audit-list")).toContainText(
+      "Live Liv was re-invited",
     );
 
     // The live invitee's row offers Revoke invite, never Invite again.
@@ -190,6 +196,17 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
     ).toBeVisible();
 
     // Transfer back through the database to restore the fixture organizer.
+    const dbgBack = runStackSql(
+      withIdentity(
+        sqlUserIds[1],
+        `select 'uid' as k, auth.uid()::text as v union all
+         select 'ver', (select member_admin_version::text from public."groups" where id = '${groupId}'::uuid) union all
+         select 'org', (select organizer_id::text from public."groups" where id = '${groupId}'::uuid) union all
+         select 'mio_row', (select status::text from public.group_members where group_id = '${groupId}'::uuid and user_id = '${sqlUserIds[1]}'::uuid) union all
+         select 'mio_member', (select count(*)::text from public.group_members where group_id = '${groupId}'::uuid and user_id = '${sqlUserIds[1]}'::uuid);`,
+      ),
+    );
+    console.log("DBG-SQL-BACK:", JSON.stringify(dbgBack));
     runStackSql(
       withIdentity(
         sqlUserIds[1],
@@ -229,7 +246,10 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
     const whatsappHref = await inviteCard
       .getByRole("link", { name: "Share on WhatsApp" })
       .getAttribute("href");
-    expect(whatsappHref).toContain("/invite/");
+    // The href is the wa.me share URL with the invite link percent-encoded
+    // inside its text parameter — decode before asserting the path shape.
+    expect(whatsappHref).toContain("wa.me");
+    expect(decodeURIComponent(whatsappHref ?? "")).toContain("/invite/");
     // A navigation discards the token permanently: the card is gone.
     await page.reload();
     await expect(page.getByTestId("targeted-invite-card")).toHaveCount(0);
@@ -245,9 +265,11 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
     ).toBeVisible();
 
     // --- two-tab stale recovery: the pinned copy, never an overwrite -------
-    const tabB = await page.context().browser()!.newContext();
+    // Tab B is a second TAB of the same signed-in organizer session — the
+    // scenario is one organizer with the room open twice, not a second
+    // identity. A fresh browser context would be signed out by definition.
+    const tabBPage = await page.context().newPage();
     try {
-      const tabBPage = await tabB.newPage();
       await tabBPage.goto(`/groups/${groupId}`);
       await expect(
         tabBPage.getByRole("heading", { level: 1, name: GROUP_NAME }),
@@ -284,7 +306,7 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
         "The member list changed. Review the current list and try again.",
       );
     } finally {
-      await tabB.close();
+      await tabBPage.close();
     }
 
     // --- leakage scans: no admin markers for non-organizers ----------------

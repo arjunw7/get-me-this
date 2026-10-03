@@ -182,9 +182,11 @@ test("a joined member copies a friend's item into their own wishlist", async ({
     runStackSql(
       withIdentity(
         copierId,
-        // The organizer removes the friend; the copier's own removal is
-        // proven by the 007b race harness at the database level.
-        `select result from public.remove_group_member('${groupId}'::uuid, '${friendId}'::uuid);`,
+        // The organizer removes the friend through the compare-and-swap 006f
+        // overload at the group's current member-admin version; the copier's
+        // own removal is proven by the 007b race harness at the database
+        // level.
+        `select member_admin_version from public.remove_group_member('${groupId}'::uuid, '${friendId}'::uuid, (select member_admin_version from public."groups" where id = '${groupId}'::uuid));`,
       ),
     );
     await page.goto(`/groups/${groupId}/members/${friendId}/wishlist`);

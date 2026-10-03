@@ -35,7 +35,6 @@ export type ReinviteOutcome =
 type VersionedRpcRow = { member_admin_version: unknown };
 
 type ReinviteRpcRow = {
-  member_admin_version: unknown;
   token: unknown;
   expires_at: unknown;
 };
@@ -78,7 +77,7 @@ export async function removeGroupMember(
 ): Promise<MemberAdminMutationOutcome> {
   return runVersionedMutation("remove_group_member", {
     p_group_id: groupId,
-    p_member_id: memberId,
+    p_target_user_id: memberId,
     p_expected_member_admin_version: Number(expectedVersion),
   });
 }
@@ -91,7 +90,7 @@ export async function transferGroupOrganizer(
 ): Promise<MemberAdminMutationOutcome> {
   return runVersionedMutation("transfer_group_organizer", {
     p_group_id: groupId,
-    p_new_organizer_id: memberId,
+    p_target_user_id: memberId,
     p_expected_member_admin_version: Number(expectedVersion),
   });
 }
@@ -122,9 +121,15 @@ export async function reinviteGroupMember(
   const client = await createSupabaseServerClient();
   if (!client) return { kind: "unavailable" };
 
-  const { data, error } = await client.rpc("reinvite_group_member", {
+  // Reinvitation IS the targeted issue: the reviewed CAS
+  // issue_group_invitation overload covers declined/left/removed targets,
+  // invited targets without a live invitation, and fresh invitations. It
+  // returns the raw token and expiry; it does not return the version, so
+  // the committed version is read back through the organizer-only
+  // projection immediately after the commit.
+  const { data, error } = await client.rpc("issue_group_invitation", {
     p_group_id: groupId,
-    p_member_id: memberId,
+    p_target_user_id: memberId,
     p_expected_member_admin_version: Number(expectedVersion),
   });
   if (error) {
@@ -138,19 +143,27 @@ export async function reinviteGroupMember(
       ? { kind: "unavailable" }
       : { kind: "retry" };
   }
-  const version = normalizeVersion(row.member_admin_version);
   if (
-    version &&
-    typeof row.token === "string" &&
-    row.token.length > 0 &&
-    typeof row.expires_at === "string"
+    typeof row.token !== "string" ||
+    row.token.length === 0 ||
+    typeof row.expires_at !== "string"
   ) {
-    return {
-      kind: "committed",
-      version,
-      token: row.token,
-      expiresAt: row.expires_at,
-    };
+    return { kind: "retry" };
   }
-  return { kind: "retry" };
+
+  const versionResult = await client.rpc("group_admin_version", {
+    p_group_id: groupId,
+  });
+  const versionRows = versionResult.data as readonly VersionedRpcRow[] | null;
+  const versionRow = versionRows?.[0];
+  const version = versionRow
+    ? normalizeVersion(versionRow.member_admin_version)
+    : null;
+  if (!version) return { kind: "retry" };
+  return {
+    kind: "committed",
+    version,
+    token: row.token,
+    expiresAt: row.expires_at,
+  };
 }
