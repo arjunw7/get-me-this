@@ -21,7 +21,7 @@
 
 begin;
 
-select plan(19);
+select plan(20);
 
 -- 1. pgTAP is available in this database, whichever schema it is installed in.
 select ok(
@@ -59,8 +59,8 @@ select ok(
 --    and of the 004a/005a/006a counts; see those briefs and 006b.)
 select is(
   (select count(*)::int from pg_tables where schemaname = 'public'),
-  10,
-  'only the reviewed public tables (profiles, wishlists, wishlist_items, groups, group_members, group_invitations, group_invitation_uses, audit_events, group_creation_receipts, gift_checklist_entries) exist in the public schema'
+  11,
+  'only the reviewed public tables (profiles, wishlists, wishlist_items, groups, group_members, group_invitations, group_invitation_uses, audit_events, group_creation_receipts, gift_checklist_entries, group_assignments) exist in the public schema'
 );
 
 select has_table(
@@ -91,6 +91,12 @@ select has_table(
   'public',
   'gift_checklist_entries',
   'public.gift_checklist_entries is the reviewed 008b gift-everyone checklist table'
+);
+
+select has_table(
+  'public',
+  'group_assignments',
+  'public.group_assignments is the reviewed 008c secret-draw assignment table'
 );
 
 select has_table(
