@@ -74,7 +74,10 @@ select enum_has_labels(
   'the release reason enum has exactly the approved labels in order'
 );
 
--- Enum values for the 006a amendment (additive, permanent).
+-- Enum values for the 006a amendment (additive, permanent). Deliberate,
+-- reviewed amendment for the post-008c union schema: the two reservation
+-- values precede the two 008c draw values (migration order 20261010000001
+-- before 20261012020000).
 select enum_has_labels(
   'public', 'group_audit_event_type',
   ARRAY[
@@ -88,9 +91,11 @@ select enum_has_labels(
     'member_removed',
     'member_reinvited',
     'item_reserved',
-    'reservation_released'
+    'reservation_released',
+    'draw_created',
+    'draw_redrawn'
   ],
-  'the audit event enum now carries the two reservation values after the shared ones'
+  'the audit event enum carries the two reservation values after the shared ones and before the 008c draw values'
 );
 
 -- FK delete actions: group RESTRICT, item SET NULL, user RESTRICT.
