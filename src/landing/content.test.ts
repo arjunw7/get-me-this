@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   createGroupHref,
+  dashboardHref,
+  dashboardLabel,
   finalCta,
   footer,
   hero,
@@ -36,6 +38,10 @@ describe("landing content", () => {
     expect(startWishlistHref).toBe("/auth?intent=wishlist");
     expect(createGroupHref).toBe("/auth?intent=create-group");
     expect(loginHref).toBe("/auth?intent=home");
+    // ARJ-54: the signed-in header's Dashboard entry targets the real
+    // authenticated home.
+    expect(dashboardHref).toBe("/home");
+    expect(dashboardLabel).toBe("Dashboard");
   });
 
   it("exposes the three anchor-nav destinations from the reference", () => {

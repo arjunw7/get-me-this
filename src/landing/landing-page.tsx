@@ -7,6 +7,8 @@ import { GroupDemoSection } from "./group-demo";
 import { CtaLink } from "./cta-link";
 import {
   createGroupHref,
+  dashboardHref,
+  dashboardLabel,
   finalCta,
   footer,
   hero,
@@ -21,12 +23,23 @@ import { loggedOutConfirmation } from "@/src/auth/flow-copy";
 
 /**
  * The landing page, ported from the frozen V18 reference
- * (pages/Landing.tsx). Server component: fully static, no client JS.
+ * (pages/Landing.tsx). Server component: no client JS.
+ *
+ * ARJ-54: a live session swaps the header's Log in anchor for a Dashboard
+ * link to /home — the persisted session is reflected on return visits to
+ * the home screen instead of inviting a redundant login. The signed-out
+ * render is unchanged from the committed baseline.
  *
  * Layout geometry (max-w-6xl sections, px-5/sm:px-8 gutters) follows the
  * reference; colours, type, radii, and shadows are semantic tokens.
  */
-export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
+export function LandingPage({
+  loggedOut = false,
+  signedIn = false,
+}: {
+  loggedOut?: boolean;
+  signedIn?: boolean;
+}) {
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-surface-page text-content-primary">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
@@ -45,12 +58,21 @@ export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
               {item.label}
             </a>
           ))}
-          <a
-            href={loginHref}
-            className="inline-flex h-11 items-center rounded-surface px-3 text-sm font-bold hover:bg-surface-sunken"
-          >
-            Log in
-          </a>
+          {signedIn ? (
+            <Link
+              href={dashboardHref}
+              className="inline-flex h-11 items-center rounded-surface px-3 text-sm font-bold hover:bg-surface-sunken"
+            >
+              {dashboardLabel}
+            </Link>
+          ) : (
+            <a
+              href={loginHref}
+              className="inline-flex h-11 items-center rounded-surface px-3 text-sm font-bold hover:bg-surface-sunken"
+            >
+              Log in
+            </a>
+          )}
         </nav>
       </header>
 

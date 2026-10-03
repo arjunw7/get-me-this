@@ -12,6 +12,8 @@ export const landingNav = [
 ] as const;
 
 export const loginHref = "/auth?intent=home";
+export const dashboardHref = "/home";
+export const dashboardLabel = "Dashboard";
 export const startWishlistHref = "/auth?intent=wishlist";
 export const createGroupHref = "/auth?intent=create-group";
 
