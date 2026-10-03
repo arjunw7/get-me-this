@@ -177,9 +177,13 @@ $$;
 STUB_SQL
     local migration
     for migration in "$repo_root"/supabase/migrations/*.sql; do
+      # The exact ARJ-35 predecessor: every committed migration BEFORE 006b.
+      # Migration filenames sort by version stamp, so everything from the
+      # 006b migration onward (006b itself, the 006c-006f group slices, and
+      # anything later) is skipped — a later slice's DDL (for example 006f
+      # dropping the 006b-created non-CAS overloads) must never run here.
       case "$(basename "$migration")" in
-        # The exact ARJ-35 predecessor: every committed migration BEFORE 006b.
-        20261004000000_groups_006b_shareable_invitations.sql) ;;
+        2026100[4-9]*|202610[1-9]*|2026[1-9][1-9]*|2027*) ;;
         *) cat "$migration" ;;
       esac
     done

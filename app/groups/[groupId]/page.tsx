@@ -14,6 +14,14 @@ import { loadDrawState, loadMyAssignment } from "@/src/groups/assignment-data";
 import { AssignmentView } from "@/src/groups/assignment-view";
 import { RedrawSection } from "@/src/groups/redraw-section";
 import { runDrawAction } from "@/src/groups/draw-actions";
+import { loadMemberAdminState } from "@/src/groups/member-admin-data";
+import { OrganizerTools } from "@/src/groups/organizer-tools";
+import {
+  removeGroupMemberAction,
+  transferOrganizerAction,
+  revokeInvitationAction,
+  reinviteMemberAction,
+} from "@/src/groups/member-admin-actions";
 import { requireCompleteProfile } from "@/src/profile/session";
 
 export const metadata: Metadata = {
@@ -93,6 +101,31 @@ export default async function GroupRoomPage({
         : null
       : null;
 
+  // Brief 006f: the organizer membership tools render only for the current
+  // joined organizer. A non-organizer caller never triggers the admin
+  // projections — the payload carries nothing about them, including audit
+  // rows or former-member states. Any shape the admin loader refuses maps to
+  // no tools at all, never a degraded disclosure.
+  const adminState =
+    room.organizerId === userId
+      ? await loadMemberAdminState(room.groupId, room.organizerId, userId)
+      : null;
+  const organizerTools = adminState ? (
+    <OrganizerTools
+      groupId={adminState.groupId}
+      groupName={room.name}
+      organizerId={room.organizerId}
+      initialVersion={adminState.version}
+      members={adminState.members}
+      liveInvitations={adminState.liveInvitations}
+      audit={adminState.audit}
+      removeAction={removeGroupMemberAction}
+      transferAction={transferOrganizerAction}
+      revokeAction={revokeInvitationAction}
+      reinviteAction={reinviteMemberAction}
+    />
+  ) : null;
+
   return (
     <main className="min-h-screen w-full bg-surface-page text-content-primary">
       <GroupRoomScreen
@@ -100,6 +133,7 @@ export default async function GroupRoomPage({
         callerId={userId}
         today={today}
         activity={activity}
+        organizerTools={organizerTools}
       />
       {room.mode === "secret_draw" ? (
         <div

@@ -107,13 +107,13 @@ cleanup() {
     printf "delete from private.invitation_continuations where coordinator_id in (select id from private.invitation_coordinators where coordinator_digest in (select private.invitation_digest(x) from unnest(array['%s','%s']) as t(x)));\n" "$COORD" "$COORDB"
     printf "delete from private.invitation_pending_starts where invitation_id in (select id from public.group_invitations where group_id = '%s');\n" "$GROUP_ID"
     printf "delete from private.invitation_coordinators where coordinator_digest in (select private.invitation_digest(x) from unnest(array['%s','%s']) as t(x));\n" "$COORD" "$COORDB"
-    printf "delete from public.audit_events where group_id = '%s' or actor_id = any(array['%s','%s']::uuid[]);\n" "$GROUP_ID" "$UID_A" "$UID_B"
+    printf "delete from public.audit_events where group_id = '%s' or actor_id = any(array['%s','%s','%s']::uuid[]);\n" "$GROUP_ID" "$UID_A" "$UID_B" "$UID_C"
     printf "delete from public.group_invitation_uses where invitation_id in (select id from public.group_invitations where group_id = '%s');\n" "$GROUP_ID"
     printf "delete from public.group_invitations where group_id = '%s';\n" "$GROUP_ID"
-    printf "delete from public.group_members where group_id = '%s' or user_id = any(array['%s','%s']::uuid[]);\n" "$GROUP_ID" "$UID_A" "$UID_B"
+    printf "delete from public.group_members where group_id = '%s' or user_id = any(array['%s','%s','%s']::uuid[]);\n" "$GROUP_ID" "$UID_A" "$UID_B" "$UID_C"
     printf "delete from %s where id = '%s' or organizer_id = any(array['%s','%s']::uuid[]);\n" "$GROUPS_SQL" "$GROUP_ID" "$UID_A" "$UID_B"
-    printf "delete from public.profiles where id = any(array['%s','%s']::uuid[]);\n" "$UID_A" "$UID_B"
-    printf "delete from auth.users where id = any(array['%s','%s']::uuid[]);\n" "$UID_A" "$UID_B"
+    printf "delete from public.profiles where id = any(array['%s','%s','%s']::uuid[]);\n" "$UID_A" "$UID_B" "$UID_C"
+    printf "delete from auth.users where id = any(array['%s','%s','%s']::uuid[]);\n" "$UID_A" "$UID_B" "$UID_C"
     printf 'commit;\n'
   } | psql_one >/dev/null 2>&1 || true
   rm -rf "$tmpdir"
@@ -341,6 +341,10 @@ send 3 "begin;"
 send 3 "select result from public.invalidate_group_invitation_flows_for_logout(array['${FLOW4}'::uuid], array['${SECRET_A}'], '${COORD}');"
 await 4 "invalidated"
 send 3 "commit;"
+# Barrier: the logout-first order requires the invalidation commit to be
+# durable before the acceptance session starts, so round-trip a synchronous
+# probe instead of racing the async commit.
+psql_one <<< "select 'invalidation-committed';" > /dev/null
 
 # The accepting session carries uid_b's identity (the verified user).
 as_user 5 "$UID_B"
@@ -369,6 +373,10 @@ sleep 1
 send 3 "commit;"
 await 6 "invalidated"
 send 5 "commit;"
+# Barrier: the checks below read committed state on session 3, so round-trip
+# a synchronous probe on session 5 instead of racing the async commit.
+send 5 "select 'invalidation-committed';"
+await 6 "invalidation-committed"
 
 check 3 "s4b-member-remains" "1 = (select count(*) from public.group_members where group_id = '${GROUP_ID}'::uuid and user_id = '${UID_C}'::uuid and status = 'joined')"
 check 3 "s4b-released-not-invalidated" "1 = (select count(*) from private.invitation_continuations where flow_id = '${FLOW5}'::uuid and envelope_released_at is not null and invalidated_at is null and accepted_at is not null)"

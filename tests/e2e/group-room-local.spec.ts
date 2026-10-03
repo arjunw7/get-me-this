@@ -255,7 +255,7 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
       runStackSql(
         withIdentity(
           organizerId,
-          `select result from public.remove_group_member('${groupId}'::uuid, '${memberId}'::uuid);`,
+          `select member_admin_version from public.remove_group_member('${groupId}'::uuid, '${memberId}'::uuid, (select member_admin_version from public."groups" where id = '${groupId}'::uuid));`,
         ),
       );
       await memberPage.goto(`/groups/${groupId}`);

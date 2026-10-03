@@ -335,9 +335,9 @@ set local role authenticated;
 set local "request.jwt.claim.sub" = :'uid_a';
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
--- A targeted issue must not move the durable group version.
+-- A targeted issue must not move the durable shareable version.
 select token as tok_t1, target_membership_generation::text as gen_t1
-from public.issue_group_invitation(:'gid'::uuid, :'uid_b'::uuid) \gset
+from public.issue_group_invitation(:'gid'::uuid, :'uid_b'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid))) \gset
 
 reset role;
 
@@ -363,9 +363,9 @@ set local "request.jwt.claim.sub" = :'uid_a';
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
 select is(
-  (select result::text from public.revoke_group_invitation(:'gid'::uuid, :'inv_generic_id'::uuid)),
-  'unavailable',
-  'the targeted revoke-by-ID overload refuses a generic row'
+  (select revoked::text from public.revoke_group_invitation(:'gid'::uuid, :'inv_generic_id'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid)))),
+  'false',
+  'the targeted revoke-by-ID overload is a no-op for a generic row'
 );
 
 reset role;
@@ -385,8 +385,8 @@ set local "request.jwt.claim.sub" = :'uid_a';
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
 select is(
-  (select result::text from public.revoke_group_invitation(:'gid'::uuid, :'inv_targeted_id'::uuid)),
-  'revoked',
+  (select revoked::text from public.revoke_group_invitation(:'gid'::uuid, :'inv_targeted_id'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid)))),
+  'true',
   'the targeted revoke-by-ID overload revokes the targeted row'
 );
 
@@ -404,7 +404,7 @@ set local "request.jwt.claim.sub" = :'uid_a';
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
 select token as tok_t2, target_membership_generation::text as gen_t2
-from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid) \gset
+from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid))) \gset
 
 select invitation_version::text as v4, token as tok4
 from public.issue_group_invitation(:'gid'::uuid, 3::bigint) \gset

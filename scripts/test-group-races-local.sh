@@ -197,7 +197,7 @@ issue_token() {
   if [ -n "${2:-}" ]; then
     token="$({
       printf "set request.jwt.claim.sub = '%s';\n" "$UID_A"
-      printf "select token from public.issue_group_invitation('%s'::uuid, '%s'::uuid);\n" "$1" "$2"
+      printf "select token from public.issue_group_invitation('%s'::uuid, '%s'::uuid, (select member_admin_version from %s where id = '%s'::uuid));\n" "$1" "$2" "$GROUPS_SQL" "$1"
     } | psql_one | tail -n 1)"
   else
     token="$({
@@ -386,8 +386,8 @@ join_token "$G4" "$T4" "$UID_B"
 # Order 1: the removal commits while the removed member's replay waits.
 send 3 "begin;"
 as_user 3 "$UID_A"
-send 3 "select result from public.remove_group_member('${G4}'::uuid, '${UID_B}'::uuid);"
-await 4 "removed"
+send 3 "select member_admin_version::text from public.remove_group_member('${G4}'::uuid, '${UID_B}'::uuid, (select member_admin_version from public.group_admin_version('${G4}'::uuid)));"
+await 4 "1"
 
 as_user 5 "$UID_B"
 send 5 "select result from public.accept_group_invitation('${T4}');"
@@ -406,10 +406,10 @@ send 3 "select result from public.accept_group_invitation('${T4B}');"
 await 4 "joined"
 
 as_user 5 "$UID_A"
-send 5 "select result from public.remove_group_member('${G4}'::uuid, '${UID_C}'::uuid);"
+send 5 "select member_admin_version::text from public.remove_group_member('${G4}'::uuid, '${UID_C}'::uuid, (select member_admin_version from public.group_admin_version('${G4}'::uuid)));"
 sleep 1
 send 3 "commit;"
-await 6 "removed"
+await 6 "2"
 
 as_user 5 "$UID_C"
 send 5 "select result from public.accept_group_invitation('${T4B}');"
@@ -427,14 +427,21 @@ join_token "$G5" "$T5" "$UID_B"
 # Order 1: the transfer commits; the old organizer's removal then fails.
 send 3 "begin;"
 as_user 3 "$UID_A"
-send 3 "select result from public.transfer_group_organizer('${G5}'::uuid, '${UID_B}'::uuid);"
-await 4 "transferred"
+send 3 "select member_admin_version::text from public.transfer_group_organizer('${G5}'::uuid, '${UID_B}'::uuid, (select member_admin_version from public.group_admin_version('${G5}'::uuid)));"
+await 4 "1"
 
 as_user 5 "$UID_A"
-send 5 "select result from public.remove_group_member('${G5}'::uuid, '${UID_B}'::uuid);"
+send 5 "create temp table race_markers5(marker text);"
+send 5 "do \$\$ begin
+  perform public.remove_group_member('${G5}'::uuid, '${UID_B}'::uuid, (select member_admin_version from public.group_admin_version('${G5}'::uuid)));
+  insert into race_markers5 values ('REMOVED-UNEXPECTEDLY');
+exception when others then
+  insert into race_markers5 values (case when sqlstate = 'PT409' then 'STALE' else 'ERROR:' || sqlstate end);
+end \$\$;"
+send 5 "select marker from race_markers5;"
 sleep 1
 send 3 "commit;"
-await 6 "unavailable"
+await 6 "STALE" 20
 
 check 3 "s5-organizer" "'${UID_B}' = (select organizer_id from ${GROUPS_SQL} where id = '${G5}')"
 check 3 "s5-b-joined" "exists (select 1 from public.group_members where group_id = '${G5}' and user_id = '${UID_B}' and status = 'joined')"
@@ -447,14 +454,21 @@ join_token "$G6" "$T6" "$UID_C"
 
 send 3 "begin;"
 as_user 3 "$UID_A"
-send 3 "select result from public.remove_group_member('${G6}'::uuid, '${UID_C}'::uuid);"
-await 4 "removed"
+send 3 "select member_admin_version::text from public.remove_group_member('${G6}'::uuid, '${UID_C}'::uuid, (select member_admin_version from public.group_admin_version('${G6}'::uuid)));"
+await 4 "1"
 
 as_user 5 "$UID_A"
-send 5 "select result from public.transfer_group_organizer('${G6}'::uuid, '${UID_C}'::uuid);"
+send 5 "create temp table race_markers6(marker text);"
+send 5 "do \$\$ begin
+  perform public.transfer_group_organizer('${G6}'::uuid, '${UID_C}'::uuid, (select member_admin_version from public.group_admin_version('${G6}'::uuid)));
+  insert into race_markers6 values ('TRANSFERRED-UNEXPECTEDLY');
+exception when others then
+  insert into race_markers6 values (case when sqlstate = 'PT409' then 'STALE' else 'ERROR:' || sqlstate end);
+end \$\$;"
+send 5 "select marker from race_markers6;"
 sleep 1
 send 3 "commit;"
-await 6 "unavailable"
+await 6 "STALE" 20
 
 check 3 "s6-organizer" "'${UID_A}' = (select organizer_id from ${GROUPS_SQL} where id = '${G6}')"
 
@@ -562,8 +576,8 @@ join_token "$G10" "$T10" "$UID_B"
 # leaves the destination user fully referenced.
 send 3 "begin;"
 as_user 3 "$UID_A"
-send 3 "select result from public.transfer_group_organizer('${G10}'::uuid, '${UID_B}'::uuid);"
-await 4 "transferred"
+send 3 "select member_admin_version::text from public.transfer_group_organizer('${G10}'::uuid, '${UID_B}'::uuid, (select member_admin_version from public.group_admin_version('${G10}'::uuid)));"
+await 4 "1"
 send 3 "commit;"
 
 send 5 "create temp table race_markers9(marker text);"
@@ -601,10 +615,10 @@ send 3 "$(issue_generic "$G11")"
 await 4 "1"
 
 as_user 5 "$UID_A"
-send 5 "select result from public.transfer_group_organizer('${G11}'::uuid, '${UID_B}'::uuid);"
+send 5 "select member_admin_version::text from public.transfer_group_organizer('${G11}'::uuid, '${UID_B}'::uuid, (select member_admin_version from public.group_admin_version('${G11}'::uuid)));"
 sleep 1
 send 3 "commit;"
-await 6 "transferred"
+await 6 "2"
 
 check 3 "s10-organizer" "'${UID_B}' = (select organizer_id from ${GROUPS_SQL} where id = '${G11}')"
 check 3 "s10-issued" "1 = (select count(*) from public.audit_events where group_id = '${G11}' and event_type = 'invitation_issued')"
@@ -618,8 +632,8 @@ join_token "$G12" "$T12" "$UID_C"
 
 send 3 "begin;"
 as_user 3 "$UID_A"
-send 3 "select result from public.transfer_group_organizer('${G12}'::uuid, '${UID_C}'::uuid);"
-await 4 "transferred"
+send 3 "select member_admin_version::text from public.transfer_group_organizer('${G12}'::uuid, '${UID_C}'::uuid, (select member_admin_version from public.group_admin_version('${G12}'::uuid)));"
+await 4 "2"
 
 as_user 5 "$UID_A"
 send 5 "create temp table race_markers10(marker text);"
@@ -653,10 +667,10 @@ send 3 "$(issue_generic "$G13")"
 await 4 "1"
 
 as_user 5 "$UID_A"
-send 5 "select result from public.remove_group_member('${G13}'::uuid, '${UID_B}'::uuid);"
+send 5 "select member_admin_version::text from public.remove_group_member('${G13}'::uuid, '${UID_B}'::uuid, (select member_admin_version from public.group_admin_version('${G13}'::uuid)));"
 sleep 1
 send 3 "commit;"
-await 6 "removed"
+await 6 "2"
 
 check 3 "s11-removed" "exists (select 1 from public.group_members where group_id = '${G13}' and user_id = '${UID_B}' and status = 'removed')"
 check 3 "s11-generic-row" "1 = (select count(*) from public.group_invitations where group_id = '${G13}' and target_user_id is null and shareable_version = 1 and status = 'active')"
@@ -671,8 +685,8 @@ join_token "$G14" "$T14" "$UID_C"
 
 send 3 "begin;"
 as_user 3 "$UID_A"
-send 3 "select result from public.remove_group_member('${G14}'::uuid, '${UID_C}'::uuid);"
-await 4 "removed"
+send 3 "select member_admin_version::text from public.remove_group_member('${G14}'::uuid, '${UID_C}'::uuid, (select member_admin_version from public.group_admin_version('${G14}'::uuid)));"
+await 4 "2"
 
 as_user 5 "$UID_A"
 send 5 "$(issue_generic "$G14")"

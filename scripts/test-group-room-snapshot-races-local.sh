@@ -202,8 +202,8 @@ echo "room-races-006d: seeding synthetic fixtures"
 
 # Live targeted invitations for C and D, issued through the real RPC as the
 # organizer. Token material is captured silently and never printed.
-TOKEN_C="$(psql_as "$UID_A" "select token from public.issue_group_invitation('${GROUP_ID}'::uuid, '${UID_C}'::uuid);" | tail -n 1)"
-TOKEN_D="$(psql_as "$UID_A" "select token from public.issue_group_invitation('${GROUP_ID}'::uuid, '${UID_D}'::uuid);" | tail -n 1)"
+TOKEN_C="$(psql_as "$UID_A" "select token from public.issue_group_invitation('${GROUP_ID}'::uuid, '${UID_C}'::uuid, (select member_admin_version from public.group_admin_version('${GROUP_ID}'::uuid)));" | tail -n 1)"
+TOKEN_D="$(psql_as "$UID_A" "select token from public.issue_group_invitation('${GROUP_ID}'::uuid, '${UID_D}'::uuid, (select member_admin_version from public.group_admin_version('${GROUP_ID}'::uuid)));" | tail -n 1)"
 if [[ -z "$TOKEN_C" || ${#TOKEN_C} -ne 43 || -z "$TOKEN_D" || ${#TOKEN_D} -ne 43 ]]; then
   die "fixture token issuance failed"
 fi
@@ -222,7 +222,7 @@ echo "  ok: single-statement body"
 # --- scenario 1: a committed removal cannot survive into a later data read -----
 
 echo "scenario 1: removal held uncommitted while the other session reads"
-launch_holder "$UID_A" "select result from public.remove_group_member('${GROUP_ID}'::uuid, '${UID_B}'::uuid);" "$HOLD_SECONDS"
+launch_holder "$UID_A" "select member_admin_version from public.remove_group_member('${GROUP_ID}'::uuid, '${UID_B}'::uuid, (select member_admin_version from public.group_admin_version('${GROUP_ID}'::uuid)));" "$HOLD_SECONDS"
 await_holder_open 30
 
 # The removed member's own read is wholly the pre-commit state.
@@ -251,7 +251,7 @@ read_expect "$UID_A" "after the commit C is joined exactly once and the count ma
 # --- scenario 3: a committed revocation cannot leave a pending row -------------
 
 echo "scenario 3: targeted-invitation revoke held uncommitted while the organizer reads"
-launch_holder "$UID_A" "select result from public.revoke_group_invitation('${GROUP_ID}'::uuid, (select id from public.group_invitations where group_id = '${GROUP_ID}'::uuid and target_user_id = '${UID_D}'::uuid limit 1));" "$HOLD_SECONDS"
+launch_holder "$UID_A" "select revoked from public.revoke_group_invitation('${GROUP_ID}'::uuid, (select id from public.group_invitations where group_id = '${GROUP_ID}'::uuid and target_user_id = '${UID_D}'::uuid limit 1), (select member_admin_version from public.group_admin_version('${GROUP_ID}'::uuid)));" "$HOLD_SECONDS"
 await_holder_open 30
 
 read_expect "$UID_A" "the uncommitted revoke still shows the pending row" "1" \

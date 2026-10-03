@@ -220,7 +220,7 @@ read_expect "$UID_B" "the reads above wrote nothing" "0:2:3" \
 # --- scenario 1: the target's committed removal cannot survive into a later read
 
 echo "scenario 1: target removal held uncommitted while the viewer reads"
-launch_holder "$UID_A" "select result from public.remove_group_member('${GROUP_ID}'::uuid, '${UID_C}'::uuid);" "$HOLD_SECONDS"
+launch_holder "$UID_A" "select member_admin_version from public.remove_group_member('${GROUP_ID}'::uuid, '${UID_C}'::uuid, (select member_admin_version from public.group_admin_version('${GROUP_ID}'::uuid)));" "$HOLD_SECONDS"
 await_holder_open 30
 
 # Pre-commit: the viewer sees the complete authorized snapshot (sentinel
@@ -239,7 +239,7 @@ read_expect "$UID_B" "after the commit the removed target reads zero rows" "0" \
 # --- scenario 2: the viewer's committed removal cannot survive into a later read
 
 echo "scenario 2: viewer removal held uncommitted while the viewer reads"
-launch_holder "$UID_A" "select result from public.remove_group_member('${GROUP_ID}'::uuid, '${UID_B}'::uuid);" "$HOLD_SECONDS"
+launch_holder "$UID_A" "select member_admin_version from public.remove_group_member('${GROUP_ID}'::uuid, '${UID_B}'::uuid, (select member_admin_version from public.group_admin_version('${GROUP_ID}'::uuid)));" "$HOLD_SECONDS"
 await_holder_open 30
 
 read_expect "$UID_B" "the uncommitted viewer removal changes nothing for the viewer's read" "Race Target:2" \

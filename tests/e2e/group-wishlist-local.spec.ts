@@ -300,7 +300,7 @@ test("a joined member browses friends' wishlists from the room roster", async ({
     runStackSql(
       withIdentity(
         organizerId,
-        `select result from public.remove_group_member('${groupId}'::uuid, '${jayId}'::uuid);`,
+        `select member_admin_version from public.remove_group_member('${groupId}'::uuid, '${jayId}'::uuid, (select member_admin_version from public."groups" where id = '${groupId}'::uuid));`,
       ),
     );
     await page.goto(`/groups/${groupId}/members/${jayId}/wishlist`);
