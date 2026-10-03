@@ -27,6 +27,20 @@ const ROUTE_TEMPLATES: readonly (readonly (string | `:${string}`)[])[] = [
   [], // "/"
   ["onboarding"],
   ["invite", ":token"],
+  // Brief 006c: every invitation-family route emits only its template —
+  // the raw token, start id, and flow id are never emitted, and the
+  // invitation regions are blocked from autocapture and replay by the
+  // screens' sensitive-region attributes.
+  ["invite", "start", ":startId"],
+  ["invite", "continue", ":flowId"],
+  ["invite", "unavailable"],
+  ["invite", "bootstrap"],
+  ["auth", "invite", ":flowId"],
+  ["auth", "invite", ":flowId", "verify"],
+  ["auth", "invite", ":flowId", "reconcile"],
+  ["auth", "confirm", "invite", ":flowId"],
+  ["auth", "link", "invite", ":flowId"],
+  ["onboarding", "invite", ":flowId"],
   ["auth", "callback"],
   ["auth", "link"],
   ["groups", ":groupId"],

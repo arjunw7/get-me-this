@@ -29,10 +29,22 @@ export default defineConfig({
     },
   },
   fullyParallel: true,
+  // CI's stack job shares two cores among the Supabase stack, the
+  // production server, and every browser instance; parallel workers
+  // starve a renderer mid-journey (a wedged page answers nothing — no
+  // navigation, no DOM access — and fails as a timeout). One worker at a
+  // time keeps every journey's cookie jar, Web Lock, and RSC streams
+  // intact; local runs keep the parallel default for speed.
+  workers: process.env.CI ? 1 : undefined,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: "http://127.0.0.1:3100",
     deviceScaleFactor: 1,
+    // Failure diagnostics (the CI database job uploads test-results/ when
+    // the e2e step fails): a trace makes a hang or a timeout diagnosable
+    // without a local repro. Retained only on failure to keep green runs
+    // cheap.
+    trace: "retain-on-failure",
   },
   webServer: {
     command: "pnpm exec next start --port 3100",

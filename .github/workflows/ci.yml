@@ -186,6 +186,12 @@ jobs:
       - name: Run 006b group races
         timeout-minutes: 5
         run: pnpm test:db:races:006b
+      # Brief 006c criteria 10 and 12: the continuation-bound acceptance,
+      # binding, logout-invalidation, and eight-envelope-cap races (two
+      # independent sessions, finite timeouts, deterministic outcomes).
+      - name: Run 006c continuation races
+        timeout-minutes: 5
+        run: pnpm test:db:races:006c
 
   # The stack-gated Playwright suites (e2e, axe, visual) boot their own stack
   # on a dedicated runner, in parallel with the database job above.

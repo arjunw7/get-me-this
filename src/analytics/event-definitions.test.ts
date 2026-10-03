@@ -8,7 +8,6 @@
  */
 import { beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import type { AnalyticsEventName } from "./event-definitions";
 import type { ServerAnalytics, EventProperties } from "./types";
 import { EVENT_DEFINITIONS, SUPPORTED_CURRENCIES } from "./event-definitions";
 

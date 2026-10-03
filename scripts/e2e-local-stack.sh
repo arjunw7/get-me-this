@@ -66,6 +66,22 @@ if [ -z "${AUTH_LINK_COOKIE_SECRET:-}" ]; then
   export AUTH_LINK_COOKIE_SECRET
 fi
 
+# The 006c invitation continuation sealing secret: the same pattern — a
+# per-run canonical opaque token (43 base64url chars) generated when not
+# already provided. Without it the entire invitation surface is disabled
+# (every landing maps to the generic unavailable state). Never printed,
+# logged, or committed.
+if [ -z "${INVITATION_CONTINUATION_COOKIE_SECRET:-}" ]; then
+  INVITATION_CONTINUATION_COOKIE_SECRET="$(node -e '
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let out = "";
+    const bytes = require("node:crypto").randomBytes(42);
+    for (const byte of bytes) out += alphabet[byte % 64];
+    process.stdout.write(out + "A");
+  ')"
+  export INVITATION_CONTINUATION_COOKIE_SECRET
+fi
+
 pnpm build
 
 # Test-only outbound transport controller. It has no Supabase credentials and
@@ -118,7 +134,8 @@ pnpm exec supabase db query --local \
 # whose fixtures need the running local stack. 005g adds the dormant
 # price-presentation spec (tests/e2e/wishlist-price-local.spec.ts).
 # 006b adds the private-group creation spec
-# (tests/e2e/groups-local.spec.ts).
+# (tests/e2e/groups-local.spec.ts). 006c adds the invitation
+# preview-and-acceptance spec (tests/e2e/invitations-local.spec.ts).
 pnpm exec playwright test \
   tests/e2e/auth-otp.spec.ts \
   tests/e2e/wishlist.spec.ts \
@@ -129,6 +146,7 @@ pnpm exec playwright test \
   tests/e2e/wishlist-reorder-local.spec.ts \
   tests/e2e/wishlist-extract-local.spec.ts \
   tests/e2e/groups-local.spec.ts \
+  tests/e2e/invitations-local.spec.ts \
   tests/visual/wishlist-empty.visual.spec.ts \
   tests/visual/wishlist-filled.visual.spec.ts \
   tests/visual/wishlist-items.visual.spec.ts \

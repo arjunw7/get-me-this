@@ -30,6 +30,10 @@ export const overLimitCopy =
 export const unavailableCopy =
   "We couldn’t send your code just now. Try again in a moment.";
 
+/** The invitation auth-mutation broker holds the coordinator lease (006c). */
+export const brokerBlockedCopy =
+  "Another sign-in or sign-out is finishing up in a different tab. Try again in a moment.";
+
 /** Verify screen heading and intro. */
 export const verifyHeading = "Check your inbox.";
 

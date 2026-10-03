@@ -20,6 +20,7 @@ import {
 } from "./actions";
 import type { ResendCodeState, VerifyCodeState } from "./action-state";
 import {
+  brokerBlockedCopy,
   changeEmailLabel,
   overLimitCopy,
   rejectedCodeCopy,
@@ -36,6 +37,7 @@ import {
 } from "./flow-copy";
 import { authCardClassName, AuthLayout } from "./auth-layout";
 import { OtpInput } from "./otp-input";
+import { runInvitationMutationResolved } from "@/src/invite/mutation-broker";
 
 /**
  * The real verify screen of the email-code flow (004c), reached from the
@@ -118,7 +120,16 @@ export function VerifyFlowScreen({
     return (
       <SignedInFrame
         email={email}
-        onSignOut={() => startTransition(() => void signOutAction())}
+        // With a coordinator cookie the sign-out is a session mutation:
+        // it runs under the broker lock and its redirect is applied by
+        // the router after the cleared-session delivery settles.
+        onSignOut={() =>
+          startTransition(() => {
+            void runInvitationMutationResolved(() => signOutAction()).catch(
+              () => {},
+            );
+          })
+        }
         pending={pending}
       />
     );
@@ -147,13 +158,15 @@ export function VerifyFlowScreen({
     verifyFailure === "over-limit" || resendFailure === "over-limit";
   const alertCopy = overLimit
     ? undefined
-    : localError === "short-code" || verifyFailure === "invalid-code"
-      ? shortCodeCopy
-      : verifyFailure === "rejected-code"
-        ? rejectedCodeCopy
-        : verifyFailure === "unavailable" || resendFailure === "unavailable"
-          ? unavailableCopy
-          : undefined;
+    : verifyFailure === "blocked"
+      ? brokerBlockedCopy
+      : localError === "short-code" || verifyFailure === "invalid-code"
+        ? shortCodeCopy
+        : verifyFailure === "rejected-code"
+          ? rejectedCodeCopy
+          : verifyFailure === "unavailable" || resendFailure === "unavailable"
+            ? unavailableCopy
+            : undefined;
 
   return (
     <AuthLayout

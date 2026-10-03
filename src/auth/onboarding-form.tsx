@@ -54,10 +54,21 @@ const SAVE_FAILED_COPY =
 export function OnboardingForm({
   variant,
   live = false,
+  completeAction,
+  flowId,
 }: {
   variant?: OnboardingVariant;
   /** Live mode: the real server-action submission (004e). */
   live?: boolean;
+  /**
+   * Optional alternate completion action (brief 006c): the invitation
+   * onboarding passes its flow-specific action, which re-checks the
+   * session and flow on every submit and returns to the clean invitation
+   * preview instead of /home. Defaults to the 004e action.
+   */
+  completeAction?: typeof completeOnboardingAction;
+  /** The invitation flow id, carried as hidden input for the invite action. */
+  flowId?: string;
 }) {
   const parsed = parseOnboardingVariant(variant);
   const [name, setName] = useState("");
@@ -65,7 +76,7 @@ export function OnboardingForm({
   const [touched, setTouched] = useState(parsed === "validation");
   const [preview, setPreview] = useState(false);
   const [submitState, submitFormAction] = useActionState(
-    completeOnboardingAction,
+    completeAction ?? completeOnboardingAction,
     { status: "idle" } as OnboardingSubmitState,
   );
   const nameErrorId = useId();
@@ -123,6 +134,7 @@ export function OnboardingForm({
           noValidate
           className="mt-7 flex flex-col gap-6"
         >
+          {flowId ? <input type="hidden" name="flowId" value={flowId} /> : null}
           <div className="block">
             <label htmlFor="display-name" className="block text-sm font-bold">
               What should friends call you?
