@@ -12,6 +12,8 @@ import {
 import { GIFTING_MODES } from "./occasions";
 
 import type { GroupRoomSnapshot } from "./room-data";
+import type { ActivityEntry } from "./activity-data";
+import { GroupActivitySection } from "./activity-section";
 
 /**
  * The private group room (brief 006d): the V18-informed header hierarchy
@@ -30,10 +32,12 @@ export function GroupRoomScreen({
   room,
   callerId,
   today,
+  activity,
 }: {
   readonly room: GroupRoomSnapshot;
   readonly callerId: string;
   readonly today: string | null;
+  readonly activity?: readonly ActivityEntry[];
 }) {
   const occasionIsoDate = wallClockIsoDate(room.occasionAt);
   const occasionDate = occasionIsoDate
@@ -175,6 +179,10 @@ export function GroupRoomScreen({
           </ul>
         </div>
       </section>
+
+      {/* Brief 007d: the additive activity section. Optional so existing
+          room renders and tests are untouched when no entries are loaded. */}
+      {activity ? <GroupActivitySection entries={activity} /> : null}
 
       <div className="mt-10 flex flex-col gap-2 sm:flex-row">
         <Link

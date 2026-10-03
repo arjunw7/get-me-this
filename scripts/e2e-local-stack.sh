@@ -152,10 +152,10 @@ pnpm exec supabase db query --local \
 # (tests/e2e/groups-local.spec.ts). 006c adds the invitation
 # preview-and-acceptance spec (tests/e2e/invitations-local.spec.ts).
 # 006d adds the private group room spec
-# (tests/e2e/group-room-local.spec.ts). 006e adds the member wishlist
-# browsing spec (tests/e2e/group-wishlist-local.spec.ts). 007b adds the
-# copy-to-own-wishlist spec (tests/e2e/group-copy-local.spec.ts). The
-# fast-lane real-authenticated-home slice adds the home spec
+# (tests/e2e/group-room-local.spec.ts). 007d adds the group activity spec
+# (tests/e2e/group-activity-local.spec.ts). 006e adds the member wishlist
+# browsing spec (tests/e2e/group-wishlist-local.spec.ts). The fast-lane
+# real-authenticated-home slice adds the home spec
 # (tests/e2e/home-local.spec.ts) and its review-only visual captures
 # (tests/visual/home.visual.spec.ts). 008d adds the assignment view and
 # confirmed redraw spec (tests/e2e/draw-assignment-local.spec.ts).
@@ -172,6 +172,7 @@ pnpm exec playwright test \
   tests/e2e/groups-local.spec.ts \
   tests/e2e/invitations-local.spec.ts \
   tests/e2e/group-room-local.spec.ts \
+  tests/e2e/group-activity-local.spec.ts \
   tests/e2e/group-wishlist-local.spec.ts \
   tests/e2e/group-copy-local.spec.ts \
   tests/e2e/draw-assignment-local.spec.ts \

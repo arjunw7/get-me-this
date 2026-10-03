@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { getServerAnalytics } from "@/src/analytics/server";
+import { loadGroupActivity } from "@/src/groups/activity-data";
+import {
+  groupActivityViewedEvent,
+  type GroupActivityMode,
+} from "@/src/groups/activity-view";
 import { calendarDateInZone } from "@/src/groups/room-format";
 import { loadGroupRoomSnapshot } from "@/src/groups/room-data";
 import { GroupRoomScreen } from "@/src/groups/room-screen";
@@ -50,6 +56,20 @@ export default async function GroupRoomPage({
   const room = await loadGroupRoomSnapshot(groupId, userId);
   if (!room) notFound();
 
+  // Brief 007d: the authorized activity page loads through its single
+  // projection; the one server-emitted event fires exactly once per
+  // authorized render, after authorization, over the viewer's visible
+  // entries only. Every denial of the room already returned above and
+  // emitted nothing.
+  const activity = await loadGroupActivity(groupId);
+  const analytics = await getServerAnalytics();
+  await analytics.capture(
+    "group_activity_viewed",
+    groupActivityViewedEvent(activity.length, room.mode as GroupActivityMode)
+      .properties,
+    { distinctId: userId },
+  );
+
   // One server-captured clock for the whole render.
   const today = calendarDateInZone(new Date(), room.timeZone);
 
@@ -75,7 +95,12 @@ export default async function GroupRoomPage({
 
   return (
     <main className="min-h-screen w-full bg-surface-page text-content-primary">
-      <GroupRoomScreen room={room} callerId={userId} today={today} />
+      <GroupRoomScreen
+        room={room}
+        callerId={userId}
+        today={today}
+        activity={activity}
+      />
       {room.mode === "secret_draw" ? (
         <div
           className="mx-auto w-full max-w-2xl px-gutter pb-10 sm:pb-14"
