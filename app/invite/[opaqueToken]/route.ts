@@ -17,6 +17,8 @@ import {
   generateCanonicalSecret,
   isCanonicalOpaqueToken,
 } from "@/src/invite/token";
+import { enforceInviteLandingLimit } from "@/src/invite/landing-guard";
+import { unavailableLandingResponse } from "@/src/invite/unavailable-response";
 
 /**
  * The raw-token landing handler (brief 006c): a GET-only bounded redirect,
@@ -41,10 +43,7 @@ const NO_STORE = "no-store";
 const NO_REFERRER = "no-referrer";
 
 function unavailable(origin: string): NextResponse {
-  const response = NextResponse.redirect(`${origin}/invite/unavailable`, 302);
-  response.headers.set("Cache-Control", NO_STORE);
-  response.headers.set("Referrer-Policy", NO_REFERRER);
-  return response;
+  return unavailableLandingResponse(origin);
 }
 
 /**
@@ -74,6 +73,11 @@ export async function GET(
 
   const { opaqueToken } = await context.params;
   if (!isCanonicalOpaqueToken(opaqueToken)) return unavailable(origin);
+
+  // 009b: the authoritative per-coarse-key landing limit. A denial is the
+  // same unavailable response as an invalid token (above) — never a
+  // distinguishing error.
+  if (!(await enforceInviteLandingLimit())) return unavailable(origin);
 
   // Reorder-safe cleanup headers on every branch below.
   const coordinator = await readCoordinatorCookie();

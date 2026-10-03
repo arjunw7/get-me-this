@@ -49,10 +49,15 @@ function makeDeps(
   }> = [];
   const deps = {
     claim: vi.fn(async () => [invitationRow]),
-    send: vi.fn(async (_userId: string): Promise<SendOutcome> => ({
-      ok: true,
-      providerMessageId: "resend-id-1",
-    })),
+    send: vi.fn(
+      async (
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- injected dependency shape
+        _userId: string,
+      ): Promise<SendOutcome> => ({
+        ok: true,
+        providerMessageId: "resend-id-1",
+      }),
+    ),
     record: vi.fn(
       async (
         id: string,

@@ -10,6 +10,7 @@ import { clearLinkCarry, readLinkCarry } from "./link-carry";
 import { isValidEmail } from "./email";
 import { emailRedirectToForOrigin, requestOrigin } from "./email-redirect";
 import { mapRequestCodeFailure, mapVerifyCodeFailure } from "./provider-errors";
+import { gateOtpSendRequest, gateOtpVerify } from "./abuse-gate";
 import {
   acquireMutationLease,
   deliverMutationPending,
@@ -71,6 +72,13 @@ export async function requestCodeAction(
     return { status: "error", failure: "unavailable" };
   }
 
+  // 009b: the durable per-coarse-key send limiter and the Turnstile gate
+  // (application-level wiring — see src/auth/captcha.ts). Both denials land
+  // in the existing generic recovery classes, byte-identical to the
+  // provider's own over-limit/unavailable outcomes.
+  const sendDenial = await gateOtpSendRequest(formData);
+  if (sendDenial) return { status: "error", failure: sendDenial };
+
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: { emailRedirectTo },
@@ -108,6 +116,15 @@ export async function verifyCodeAction(
     return { status: "error", failure: "blocked" };
   }
   const lease = acquisition.outcome === "held" ? acquisition.lease : null;
+
+  // 009b: the durable per-coarse-key verify limiter. A denial reuses the
+  // provider's own over-limit class — the approved "Hold on." recovery —
+  // with no distinguishing signal.
+  const verifyDenial = await gateOtpVerify();
+  if (verifyDenial) {
+    if (lease) await releaseMutationLease(lease);
+    return { status: "error", failure: verifyDenial };
+  }
 
   const { error } = await supabase.auth.verifyOtp({
     email: carry.email,

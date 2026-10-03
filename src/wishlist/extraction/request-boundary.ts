@@ -11,6 +11,7 @@ import {
   type ExtractionLimiter,
 } from "./limiter";
 import { validateExtractionResult, type ExtractionResult } from "./result";
+import { durableExtractionLimit } from "./durable-limit";
 
 const BODY_LIMIT_BYTES = 8 * 1_024;
 const BODY_TIMEOUT_MS = 2_000;
@@ -28,6 +29,8 @@ type BoundaryDependencies = {
   } | null>;
   readonly trustedOrigin?: string | null;
   readonly limiter?: Pick<ExtractionLimiter, "acquire">;
+  /** The 009b authoritative durable per-user limit; null/true admits. */
+  readonly durableLimit?: (userId: string) => Promise<boolean | null>;
   readonly extract?: (
     url: string,
     options: { readonly signal: AbortSignal; readonly deadline: number },
@@ -243,6 +246,17 @@ export async function handleExtractionPost(
           new ExtractionError("extraction_failed"),
         ),
       });
+    }
+
+    const durable = dependencies.durableLimit ?? durableExtractionLimit;
+    const durableVerdict = session.userId
+      ? await durable(session.userId)
+      : null;
+    if (durableVerdict === false) {
+      // The 009b durable per-user budget is exhausted: the same rate denial
+      // the per-instance limiter produces — this user's manual-entry
+      // fallback, other users unaffected.
+      return deniedAdmission({ ok: false, reason: "rate" });
     }
 
     const admission = (dependencies.limiter ?? extractionLimiter).acquire(
