@@ -309,6 +309,16 @@ export function CreatedScreen({
         >
           Add to my wishlist
         </Link>
+        {/* The committed group is the only destination this state links for
+            the room (brief 006d): the organizer's own group id, never a
+            client-supplied one. */}
+        <Link
+          href={`/groups/${groupId}`}
+          data-testid="open-group"
+          className="inline-flex h-control-lg items-center justify-center rounded-surface-lg border-2 border-outline-strong bg-surface-raised px-6 font-display text-heading font-bold shadow-chunk-sm transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+        >
+          Open group
+        </Link>
         <Link
           href="/home"
           className="inline-flex h-control-lg items-center justify-center rounded-surface-lg px-6 font-display text-heading font-bold underline-offset-4 hover:underline"

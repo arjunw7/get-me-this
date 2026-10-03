@@ -23,6 +23,27 @@
 | Read/write `private.email_outbox` (009a) | No | No (no grant, no policy) | No | No | No |
 | Read/write `private.rate_limit_windows` (009b) | No | No (no grant, no policy) | No | No | No |
 
+## Group room snapshot (006d)
+
+The private group room reads through exactly one projection,
+`public.group_room_snapshot(uuid)` (migration
+`20261016000000_groups_006d_group_room.sql`): SECURITY DEFINER owned by the
+trusted non-client database role, empty `search_path`, one data-reading SQL
+statement (one statement snapshot; honestly VOLATILE because it captures
+`clock_timestamp()` once). The caller is derived only from `auth.uid()`; a
+currently joined membership and an active group are required, and every other
+state — anon, outsider, invited, declined, left, removed, cross-group,
+archived — returns zero rows. EXECUTE is revoked from `PUBLIC`, `anon`, and
+`service_role` and granted only to `authenticated` for the exact `(uuid)`
+overload. Pending rows appear only for a currently `invited` membership with
+a live, matching-generation, capacity-available targeted invitation.
+Organizer status grants no extra read: organizer and ordinary joined callers
+receive identical facts and roster. No table, schema, or sequence grant is
+added, RLS is unchanged, and the projection exposes no emails, tokens,
+generations, invitation metadata, or wishlist data (pgTAP:
+`supabase/tests/groups-006d.sql`, race harness
+`scripts/test-group-room-snapshot-races-local.sh`).
+
 ## Transactional email outbox (009a)
 
 The private `email_outbox` table (migration

@@ -70,7 +70,7 @@ export default async function InviteContinuePage({
     const groupName = await loadJoinedGroupName(state.groupId);
     return (
       <main className="min-h-screen w-full bg-surface-page text-content-primary">
-        <InviteJoinedScreen groupName={groupName} />
+        <InviteJoinedScreen groupName={groupName} groupId={state.groupId} />
       </main>
     );
   }
