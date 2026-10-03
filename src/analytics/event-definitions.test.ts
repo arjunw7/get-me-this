@@ -34,6 +34,7 @@ const TRACKING_PLAN_EVENTS = [
   "gift_checklist_progressed",
   "member_wishlist_viewed",
   "item_copied",
+  "group_activity_viewed",
 ] as const;
 
 const EXPECTED_PROPERTIES: Record<
@@ -71,6 +72,7 @@ const EXPECTED_PROPERTIES: Record<
     "member_count_bucket",
     "time_to_activation_bucket",
   ],
+  group_activity_viewed: ["scope", "entry_count_bucket", "gifting_mode"],
 };
 
 describe("analytics event catalog", () => {

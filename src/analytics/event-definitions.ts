@@ -371,6 +371,22 @@ export const EVENT_DEFINITIONS = {
       ]),
     },
   },
+  group_activity_viewed: {
+    properties: {
+      scope: stringEnum(["group"]),
+      entry_count_bucket: stringEnum([
+        "zero",
+        "one_to_five",
+        "six_to_twenty",
+        "twenty_one_plus",
+      ]),
+      gifting_mode: stringEnum([
+        "secret_draw",
+        "gift_everyone",
+        "wishlist_only",
+      ]),
+    },
+  },
 } as const satisfies Record<string, EventDefinition>;
 
 export type AnalyticsEventName = keyof typeof EVENT_DEFINITIONS;

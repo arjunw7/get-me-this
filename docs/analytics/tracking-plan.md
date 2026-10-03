@@ -26,24 +26,25 @@ Secondary quality signals are extraction reliability and gifting-mode completion
 
 ## Event catalog
 
-| Event | Source | Required properties |
-| --- | --- | --- |
-| `auth_completed` | server | `method`, `is_new_user` |
-| `onboarding_completed` | server | `avatar_selected` |
-| `group_created` | server | `occasion_type`, `gifting_mode`, `currency`, `has_budget_cap` |
-| `invite_sent` | server | `channel`, `group_member_count_bucket` |
-| `invite_accepted` | server | `was_authenticated` |
-| `wishlist_item_added` | server | `entry_method`, `has_price`, `has_image` |
-| `product_extraction_completed` | server | `outcome`, `duration_bucket`, `manual_fallback_offered` |
-| `gifting_mode_selected` | server | `gifting_mode`, `changed_from_existing` |
-| `name_draw_completed` | server | `participant_count_bucket`, `is_redraw` |
-| `group_activated` | server | `gifting_mode`, `member_count_bucket`, `time_to_activation_bucket` |
-| `gift_checklist_progressed` | server | `action`, `checklist_total_bucket` |
-| `member_wishlist_viewed` | server | `view_scope`, `wishlist_state`, `item_count_bucket`, `gifting_mode` |
-| `item_reacted` | server | `reaction_kind`, `action` |
-| `item_copied` | server | `copy_outcome` |
-| `reservation_created` | server | `outcome`, `gifting_mode` |
-| `reservation_released` | server | `reason`, `gifting_mode` |
+| Event                          | Source | Required properties                                                 |
+| ------------------------------ | ------ | ------------------------------------------------------------------- |
+| `auth_completed`               | server | `method`, `is_new_user`                                             |
+| `onboarding_completed`         | server | `avatar_selected`                                                   |
+| `group_created`                | server | `occasion_type`, `gifting_mode`, `currency`, `has_budget_cap`       |
+| `invite_sent`                  | server | `channel`, `group_member_count_bucket`                              |
+| `invite_accepted`              | server | `was_authenticated`                                                 |
+| `wishlist_item_added`          | server | `entry_method`, `has_price`, `has_image`                            |
+| `product_extraction_completed` | server | `outcome`, `duration_bucket`, `manual_fallback_offered`             |
+| `gifting_mode_selected`        | server | `gifting_mode`, `changed_from_existing`                             |
+| `name_draw_completed`          | server | `participant_count_bucket`, `is_redraw`                             |
+| `group_activated`              | server | `gifting_mode`, `member_count_bucket`, `time_to_activation_bucket`  |
+| `gift_checklist_progressed`    | server | `action`, `checklist_total_bucket`                                  |
+| `member_wishlist_viewed`       | server | `view_scope`, `wishlist_state`, `item_count_bucket`, `gifting_mode` |
+| `group_activity_viewed`        | server | `scope`, `entry_count_bucket`, `gifting_mode`                       |
+| `item_reacted`                 | server | `reaction_kind`, `action`                                           |
+| `item_copied`                  | server | `copy_outcome`                                                      |
+| `reservation_created`          | server | `outcome`, `gifting_mode`                                           |
+| `reservation_released`         | server | `reason`, `gifting_mode`                                            |
 
 Allowed enum values are defined in the typed analytics catalog during Phase 1. Do not add arbitrary strings from user content.
 
@@ -68,6 +69,17 @@ Closed property vocabularies for the gifting-social events (briefs 007a/007c; no
   currencies, or item IDs. Every denial class — signed-out, incomplete
   profile, outsider, pending, declined, left, removed, cross-group, stale
   target, unknown group — emits no event at all.
+
+- `group_activity_viewed` (added by 007d): server-emitted only, after
+  successful authorization, exactly once per authorized group-room render
+  (a refresh is a new event). Properties: `scope` (`group`),
+  `entry_count_bucket` (`zero` | `one_to_five` | `six_to_twenty` |
+  `twenty_one_plus` — counted over the viewer's visible entries only, so
+  the bucket cannot reveal withheld entries), and `gifting_mode`
+  (`secret_draw` | `gift_everyone` | `wishlist_only`). No other property,
+  identifier, or count is sent: no item, group, user, reservation, or event
+  ids, no titles, no kinds, no timestamps. Every denial class emits no
+  `group_activity_viewed` event and no other new event.
 
 - `item_reacted`: `reaction_kind` is `very_you`, `questionable`, or `want_it_too`; `action` is `added`, `replaced`, or `removed`. Emitted only after a successful write, exactly once per successful call; every denial class emits nothing.
 - `item_copied` (added by 007b): server-emitted only, after a successful
@@ -119,4 +131,3 @@ Flags are allowed for controlled rollout and experiments. Every flag needs an ow
 - A development test sink makes emitted events inspectable without contacting PostHog.
 - Staging uses synthetic accounts and confirms that prohibited data is absent.
 - PostHog dashboards begin with activation, invite conversion, extraction success, and gifting-mode completion.
-
