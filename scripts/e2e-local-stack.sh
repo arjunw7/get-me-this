@@ -55,6 +55,20 @@ export SUPABASE_SERVICE_ROLE_KEY="$(node -e '
   }
   process.stdout.write(key);
 ')"
+# The 009a/008d server-side service configuration for the built server: the
+# SAME local development fixture key, treated as secret (parsed silently,
+# never printed). The assignment-email enqueue in the draw action requires
+# it; without it the enqueue fails safe to silence.
+export SUPABASE_URL="$(node -e '
+  const s = require("/tmp/gmt-supabase-status.json");
+  process.stdout.write(s.API_URL);
+')"
+export SUPABASE_SERVICE_KEY="$(node -e '
+  const s = require("/tmp/gmt-supabase-status.json");
+  const key = s.SERVICE_KEY ?? s.SERVICE_ROLE_KEY ?? s.SECRET_KEY;
+  if (!key) process.exit(1);
+  process.stdout.write(key);
+')"
 # Guard for the specs: absent in a plain `pnpm test:e2e` run.
 export E2E_LOCAL_SUPABASE=1
 
@@ -85,12 +99,13 @@ fi
 pnpm build
 
 # Test-only outbound transport controller. It has no Supabase credentials and
-# is reachable only from this runner's loopback network namespace.
-export E2E_WISHLIST_CONTROL_URL="http://127.0.0.1:3199"
+# is reachable only from this runner's loopback network namespace. The port
+# defaults to the CI pin; a concurrent local lane may pre-set a free port.
+export E2E_WISHLIST_CONTROL_URL="http://127.0.0.1:${E2E_WISHLIST_CONTROL_PORT:-3199}"
 E2E_WISHLIST_CONTROL_TOKEN="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
 export E2E_WISHLIST_CONTROL_TOKEN
 env -i PATH="$PATH" E2E_WISHLIST_CONTROL_TOKEN="$E2E_WISHLIST_CONTROL_TOKEN" \
-  E2E_WISHLIST_CONTROL_PORT=3199 node tests/helpers/wishlist-test-control.mjs \
+  E2E_WISHLIST_CONTROL_PORT="${E2E_WISHLIST_CONTROL_PORT:-3199}" node tests/helpers/wishlist-test-control.mjs \
   >/tmp/gmt-arj28-control.log 2>&1 &
 WISHLIST_CONTROL_PID=$!
 cleanup_control() {
@@ -142,7 +157,8 @@ pnpm exec supabase db query --local \
 # copy-to-own-wishlist spec (tests/e2e/group-copy-local.spec.ts). The
 # fast-lane real-authenticated-home slice adds the home spec
 # (tests/e2e/home-local.spec.ts) and its review-only visual captures
-# (tests/visual/home.visual.spec.ts).
+# (tests/visual/home.visual.spec.ts). 008d adds the assignment view and
+# confirmed redraw spec (tests/e2e/draw-assignment-local.spec.ts).
 pnpm exec playwright test \
   tests/e2e/auth-otp.spec.ts \
   tests/e2e/home-local.spec.ts \
@@ -158,6 +174,7 @@ pnpm exec playwright test \
   tests/e2e/group-room-local.spec.ts \
   tests/e2e/group-wishlist-local.spec.ts \
   tests/e2e/group-copy-local.spec.ts \
+  tests/e2e/draw-assignment-local.spec.ts \
   tests/visual/wishlist-empty.visual.spec.ts \
   tests/visual/wishlist-filled.visual.spec.ts \
   tests/visual/wishlist-items.visual.spec.ts \

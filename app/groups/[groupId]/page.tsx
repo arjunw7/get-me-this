@@ -4,6 +4,10 @@ import { notFound } from "next/navigation";
 import { calendarDateInZone } from "@/src/groups/room-format";
 import { loadGroupRoomSnapshot } from "@/src/groups/room-data";
 import { GroupRoomScreen } from "@/src/groups/room-screen";
+import { loadDrawState, loadMyAssignment } from "@/src/groups/assignment-data";
+import { AssignmentView } from "@/src/groups/assignment-view";
+import { RedrawSection } from "@/src/groups/redraw-section";
+import { runDrawAction } from "@/src/groups/draw-actions";
 import { requireCompleteProfile } from "@/src/profile/session";
 
 export const metadata: Metadata = {
@@ -33,8 +37,10 @@ const GROUP_ID_PATTERN =
  */
 export default async function GroupRoomPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ groupId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { groupId } = await params;
   if (!GROUP_ID_PATTERN.test(groupId)) notFound();
@@ -47,9 +53,45 @@ export default async function GroupRoomPage({
   // One server-captured clock for the whole render.
   const today = calendarDateInZone(new Date(), room.timeZone);
 
+  // 008d surfaces, loaded only for secret_draw rooms: the giver's own
+  // assignment (every joined member) and the organizer's draw existence
+  // metadata. Both projections map every denial class to the same null.
+  const assignment =
+    room.mode === "secret_draw" ? await loadMyAssignment(groupId) : null;
+  const drawState =
+    room.mode === "secret_draw" && userId === room.organizerId
+      ? await loadDrawState(groupId)
+      : null;
+
+  const drawParam = await searchParams;
+  const drawRaw = drawParam.draw;
+  const drawNotice =
+    room.mode === "secret_draw" && userId === room.organizerId
+      ? typeof drawRaw === "string" &&
+        ["drawn", "stale", "insufficient", "unavailable"].includes(drawRaw)
+        ? drawRaw
+        : null
+      : null;
+
   return (
     <main className="min-h-screen w-full bg-surface-page text-content-primary">
       <GroupRoomScreen room={room} callerId={userId} today={today} />
+      {room.mode === "secret_draw" ? (
+        <div
+          className="mx-auto w-full max-w-2xl px-gutter pb-10 sm:pb-14"
+          data-ph-no-capture
+        >
+          <AssignmentView assignment={assignment} />
+          {userId === room.organizerId ? (
+            <RedrawSection
+              groupId={groupId}
+              drawState={drawState}
+              drawNotice={drawNotice}
+              drawAction={runDrawAction}
+            />
+          ) : null}
+        </div>
+      ) : null}
     </main>
   );
 }

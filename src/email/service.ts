@@ -26,7 +26,13 @@ export function getEmailServiceConfig(): EmailServiceConfig | null {
   const supabaseUrl = process.env.SUPABASE_URL?.trim();
   const serviceKey = process.env.SUPABASE_SERVICE_KEY?.trim();
   if (!supabaseUrl || !serviceKey) return null;
-  if (!/^https:\/\//.test(supabaseUrl)) return null;
+  // Production targets are https-only; a plain-http loopback URL is the
+  // local development stack's shape (the same bounded allowance the
+  // stack-gated test helpers apply), so the 008d assignment-email enqueue
+  // is verifiable end-to-end against the local Supabase stack.
+  const isLocalLoopback =
+    /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/.test(supabaseUrl);
+  if (!/^https:\/\//.test(supabaseUrl) && !isLocalLoopback) return null;
   const appBaseUrl =
     process.env.APP_BASE_URL?.trim() ?? "http://127.0.0.1:3100";
   return {
