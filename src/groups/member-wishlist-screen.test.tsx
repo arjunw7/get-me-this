@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// The copy action is a "use server" module; the screen test renders the
+// server component's markup only and never exercises the action.
+vi.mock("./copy/copy-actions", () => ({
+  copyToMyWishlistAction: vi.fn(),
+}));
 
 import { MemberWishlistScreen } from "./member-wishlist-screen";
 

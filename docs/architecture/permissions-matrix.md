@@ -8,6 +8,8 @@
 | View limited invitation preview with valid token | Yes | Yes | Yes | Yes | Yes |
 | View private group | No | Only if member | Yes | Yes | Yes if member |
 | View member wishlist through shared group | No | Yes | Yes | Yes | Yes if member |
+| Copy another member's item to own wishlist (007b) | No | Never own item | Yes | Yes | Yes if eligible |
+| Learn that an item was copied, by whom, or how often (007b) | No | **Never** — no read path, function, log, or event reveals copies to the source owner or third parties | Only for own copies via own owner-scoped reads (`copied_from_item_id`) | Only for own copies | Only for own copies |
 | Edit wishlist/item | No | Yes | No | No | No |
 | React to another member's item | No | No | Yes | Yes | Yes if eligible |
 | View visible reaction summary | No | Yes | Yes | Yes | Yes if member |

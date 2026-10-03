@@ -41,6 +41,7 @@ Secondary quality signals are extraction reliability and gifting-mode completion
 | `gift_checklist_progressed` | server | `action`, `checklist_total_bucket` |
 | `member_wishlist_viewed` | server | `view_scope`, `wishlist_state`, `item_count_bucket`, `gifting_mode` |
 | `item_reacted` | server | `reaction_kind`, `action` |
+| `item_copied` | server | `copy_outcome` |
 | `reservation_created` | server | `outcome`, `gifting_mode` |
 | `reservation_released` | server | `reason`, `gifting_mode` |
 
@@ -69,6 +70,15 @@ Closed property vocabularies for the gifting-social events (briefs 007a/007c; no
   target, unknown group — emits no event at all.
 
 - `item_reacted`: `reaction_kind` is `very_you`, `questionable`, or `want_it_too`; `action` is `added`, `replaced`, or `removed`. Emitted only after a successful write, exactly once per successful call; every denial class emits nothing.
+- `item_copied` (added by 007b): server-emitted only, after a successful
+  copy path, exactly once per call. Properties: `copy_outcome`
+  (`created` | `already_copied`). No other property is sent: no user,
+  group, item, member, or copied-item IDs, no titles, URLs, prices,
+  currencies, or counts. Every denial class — signed-out, outsider,
+  pending, declined, left, removed, cross-group, unknown group/item,
+  invisible extraction state, own item — and every generic failure emits
+  no event at all. The event never reveals to the source owner or any
+  third party that an item was copied, by whom, or how often.
 - `reservation_created`: `outcome` is `reserved` — the only emitting outcome; `already_yours`, `conflict`, and every denial never emit. `gifting_mode` is `secret_draw`, `gift_everyone`, or `wishlist_only`.
 - `reservation_released`: `reason` is `by_reserver` or `reserver_departed` (never emitted for `item_deleted`); `gifting_mode` as above. Emitted only for a release that changes state.
 

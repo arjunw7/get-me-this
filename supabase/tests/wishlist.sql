@@ -117,8 +117,8 @@ select is(
     where conrelid = 'public.wishlist_items'::regclass
       and contype = 'f'
   ),
-  2,
-  'wishlist_items has exactly two foreign keys (owner FK and the composite FK); no second plain wishlist_id FK exists'
+  3,
+  'wishlist_items has exactly three foreign keys (owner FK, the composite FK, and the 007b self-referencing copied_from_item_id FK); no second plain wishlist_id FK exists'
 );
 
 select has_type(

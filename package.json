@@ -29,6 +29,7 @@
     "test:db:races:draw": "bash scripts/test-gift-draw-races-local.sh",
     "test:db:races:006d": "bash scripts/test-group-room-snapshot-races-local.sh",
     "test:db:races:006e": "bash scripts/test-member-wishlist-snapshot-races-local.sh",
+    "test:db:races:copy": "bash scripts/test-copy-races-local.sh",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:status": "supabase status",
