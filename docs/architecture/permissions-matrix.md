@@ -21,6 +21,7 @@
 | Invite/remove members | No | No | No | No | Organizer |
 | Read/write `wishlist-item-snapshots` Storage objects (005f) | No | Own `{owner_id}/` prefix only | No | No | No |
 | Read/write `private.email_outbox` (009a) | No | No (no grant, no policy) | No | No | No |
+| Read/write `private.rate_limit_windows` (009b) | No | No (no grant, no policy) | No | No | No |
 
 ## Transactional email outbox (009a)
 
@@ -36,6 +37,22 @@ SECURITY DEFINER functions granted for EXECUTE to `service_role` only
 accounting), and `private.record_email_result` (claimed-only resolution).
 The outbox never stores recipient addresses (profile email is a send-time
 lookup), raw tokens, secret URLs, or assignment identities.
+
+## Rate limiting (009b)
+
+The durable fixed-window limiter counters live in
+`private.rate_limit_windows` (migration
+`20261014010000_rate_limit_windows.sql`). They carry no grant for any
+application role — deny-by-default with RLS enabled and no permissive
+policy; only the SECURITY DEFINER `private.rate_limit_increment` and
+`private.rate_limit_cleanup` are executable, by `service_role` only.
+Counter keys are bounded coarse identifiers (route family plus hashed IP
+prefix or internal user id) and never contain raw tokens, addresses, or
+secret URLs. The limiter is a secondary defense: every database-level
+invariant from 006a/006c/007c/008c remains the authority, and a limiter
+failure can never create, reveal, or resurrect any state the database
+forbids. Selection rationale, pinned limits, and the CAPTCHA wiring are
+recorded in `docs/architecture/abuse-controls.md`.
 
 ## Storage (005f)
 
