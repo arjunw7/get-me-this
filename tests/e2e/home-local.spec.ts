@@ -55,6 +55,38 @@ test("the home route redirects signed-out visitors to sign-in", async ({
   await expect(page).toHaveURL(/\/auth/);
 });
 
+test("a signed-in user's landing visit offers Dashboard instead of Log in (ARJ-54)", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  page.setDefaultTimeout(15_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    await createSignedInFixture(
+      page,
+      admin,
+      "landing-signed-in",
+      { displayName: "Landing Ina", tasteLine: "lands signed in" },
+      scope,
+    );
+
+    // Returning to the public landing reflects the persisted session:
+    // the header offers the Dashboard entry, not a redundant Log in.
+    await page.goto("/");
+    const dashboard = page.getByRole("link", { name: "Dashboard" });
+    await expect(dashboard).toBeVisible();
+    await expect(page.getByRole("link", { name: "Log in" })).toHaveCount(0);
+
+    // Click-through: the entry reaches the real authenticated home.
+    await dashboard.click();
+    await page.waitForURL("**/home");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Welcome, Landing Ina." }),
+    ).toBeVisible();
+  });
+});
+
 test("a signed-in user with groups sees them and can navigate onward", async ({
   page,
 }) => {
