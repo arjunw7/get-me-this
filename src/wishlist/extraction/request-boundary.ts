@@ -229,8 +229,16 @@ export async function handleExtractionPost(
     const expectedOrigin = trustedApplicationOrigin(
       dependencies.trustedOrigin ?? process.env.APP_ORIGIN,
     );
+    // ARJ-62: an unconfigured (or malformed) APP_ORIGIN used to deny every
+    // caller with 403, bricking extraction on that deployment before any
+    // shop fetch. The boundary still refuses cross-site traffic: when no
+    // trusted origin is configured, it falls back to the origin this
+    // Request actually reached — browsers derive Host from the address bar
+    // and forbid overriding it in fetch, so cross-site and absent Origin
+    // headers still mismatch and are denied below.
+    const allowedOrigin = expectedOrigin ?? new URL(request.url).origin;
     const requestOrigin = request.headers.get("origin");
-    if (!expectedOrigin || requestOrigin !== expectedOrigin) {
+    if (!requestOrigin || requestOrigin !== allowedOrigin) {
       return json(403, {
         error: {
           code: "extraction_failed",

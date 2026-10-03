@@ -42,6 +42,15 @@ import type { ExtractionResultShape } from "./extract-response";
 
 type Step = "input" | "loading" | "review" | "manual";
 
+// ARJ-62: each step brings its own column width. Entry and extracting keep
+// the narrow reading column (--spacing-content-max, 520px); review and the
+// manual fallback need the wide container for their two-column composition.
+// Width must follow the STEP: the paste-into-empty-page path has no ?url=,
+// and pinning the width to the server-known param crushed the review/manual
+// form into the 520px entry column (sliver inputs, overlapping fields).
+const ENTRY_COLUMN = "mx-auto w-full max-w-[var(--spacing-content-max)]";
+const WIDE_COLUMN = "mx-auto w-full max-w-4xl";
+
 /** The client wait: the 005e 10s server deadline plus admission margin. */
 const EXTRACT_WAIT_MS = 12_000;
 
@@ -234,13 +243,17 @@ export function AddItemFlow({ initialUrl }: { initialUrl: string }) {
   }
 
   if (step === "loading") {
-    return <AddLoading host={host} onCancel={cancelExtract} />;
+    return (
+      <div className={ENTRY_COLUMN}>
+        <AddLoading host={host} onCancel={cancelExtract} />
+      </div>
+    );
   }
 
   if (step === "review" || step === "manual") {
     const reviewPhase = step === "review" ? "extracted" : "manual";
     return (
-      <div>
+      <div className={WIDE_COLUMN}>
         {step === "review" ? (
           <h1 className="mb-6 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
             Found it. Look right?
@@ -276,7 +289,7 @@ export function AddItemFlow({ initialUrl }: { initialUrl: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={`${ENTRY_COLUMN} flex flex-col gap-6`}>
       <Link
         href="/wishlist"
         aria-label="Close and return to your wishlist"
