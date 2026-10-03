@@ -15,13 +15,18 @@ export type SurfacePadding = "none" | "comfortable";
 // Exported for the auth module, which composes reference-exact controls
 // (V18 renders the auth email input with a 2px outline).
 export const OUTLINE_WIDTH = "border-[length:var(--border-strong)]";
-const OUTLINE = cx(OUTLINE_WIDTH, "border-outline-strong");
-const PRESS_MOTION =
-  "transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap";
 
 export function cx(...classNames: ReadonlyArray<string | false | undefined>) {
   return classNames.filter((value) => Boolean(value)).join(" ");
 }
+
+const OUTLINE = cx(OUTLINE_WIDTH, "border-outline-strong");
+const PRESS_MOTION = cx(
+  // Tailwind v4 emits translate utilities as the `translate` property, not
+  // `transform`, so the transition must name `translate` for the press
+  // motion to animate at all.
+  "transition-[transform,translate,box-shadow] duration-[var(--duration-press)] ease-snap",
+);
 
 const BUTTON_BASE = cx(
   "inline-flex items-center justify-center gap-2",
@@ -29,9 +34,12 @@ const BUTTON_BASE = cx(
   "rounded-surface min-h-touch-min",
   OUTLINE,
   PRESS_MOTION,
-  // Motion is gated on :enabled so a disabled control never moves on hover.
-  "enabled:hover:-translate-y-0.5",
-  "enabled:active:translate-x-0.5 enabled:active:translate-y-0.5 enabled:active:shadow-none",
+  // Motion is gated on :not(:disabled) so a disabled control never moves on
+  // hover or press. The :enabled pseudo-class cannot be used here: it never
+  // matches anchor elements, which silenced the hover lift on every
+  // anchor-rendered CTA (CtaLink).
+  "[&:not(:disabled)]:hover:-translate-y-0.5",
+  "[&:not(:disabled)]:active:translate-x-0.5 [&:not(:disabled)]:active:translate-y-0.5 [&:not(:disabled)]:active:shadow-none",
   "disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-content-muted disabled:shadow-none",
 );
 

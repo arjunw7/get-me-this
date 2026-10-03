@@ -247,3 +247,55 @@ test("the hero collage is static under reduced motion", async ({
     : parseFloat(duration) * 1000;
   expect(durationMs).toBeLessThanOrEqual(0.02);
 });
+
+test("the landing CTAs pop on hover with the approved press motion", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(
+    browserName !== "chromium",
+    "press-motion interpolation is asserted in Chromium, the approved evidence engine",
+  );
+
+  await page.goto("/");
+  const cta = page.getByRole("link", { name: "Start my wishlist" }).first();
+  await cta.waitFor({ state: "visible" });
+
+  // Sample the computed translate through the 150ms press transition while
+  // the pointer moves onto the CTA. The lift must animate through
+  // intermediate values: on staging the lift never fired on anchors at all
+  // (:enabled never matches an anchor), so the control read as inert.
+  const sampling = cta.evaluate(
+    (element) =>
+      new Promise<string[]>((resolve) => {
+        const read = () => getComputedStyle(element).translate;
+        const observed = [read()];
+        const start = performance.now();
+        const tick = () => {
+          observed.push(read());
+          if (performance.now() - start < 300) requestAnimationFrame(tick);
+          else resolve(observed);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+  await cta.hover();
+  const observed = await sampling;
+
+  const liftOf = (value: string) => {
+    if (!value || value === "none") return 0;
+    return Math.abs(parseFloat(value.split(" ")[1] ?? "0")) || 0;
+  };
+
+  // The hover end-state is the approved 2px lift (spacing token 0.5).
+  const finalLift = liftOf(observed[observed.length - 1]);
+  expect(finalLift).toBeGreaterThanOrEqual(1.9);
+  expect(finalLift).toBeLessThanOrEqual(2.1);
+
+  // The lift is animated: at least one sampled frame sits strictly between
+  // rest and the final lift. A jump (or no motion) fails this.
+  const intermediates = observed
+    .map(liftOf)
+    .filter((lift) => lift > 0.05 && lift < 1.9);
+  expect(intermediates.length).toBeGreaterThanOrEqual(1);
+});
