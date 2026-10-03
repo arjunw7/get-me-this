@@ -40,11 +40,12 @@ export default async function NewWishlistItemPage({
     <div className="min-h-screen w-full bg-surface-page text-content-primary">
       <AnalyticsIdentity userId={userId} />
       <WishlistShellHeader email={email} displayName={displayName} />
-      <main
-        className={`mx-auto w-full px-5 pt-10 pb-16 sm:px-8 ${
-          initialUrl ? "max-w-4xl" : "max-w-[var(--spacing-content-max)]"
-        }`}
-      >
+      {/* ARJ-62: the column width follows the flow's client-side step, not
+          the server-known ?url= param. Pinning the width here crushed the
+          005f review/manual form into the 520px entry column on the
+          paste-into-empty-page path (sliver inputs, overlapping fields);
+          add-item-flow.tsx now owns the per-step width. */}
+      <main className="mx-auto w-full px-5 pt-10 pb-16 sm:px-8">
         <AddItemFlow initialUrl={initialUrl ?? ""} />
       </main>
     </div>

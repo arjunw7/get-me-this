@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -99,6 +99,56 @@ describe("extraction POST boundary", () => {
       expect(extract).not.toHaveBeenCalled();
     },
   );
+
+  describe("with APP_ORIGIN unconfigured (same-origin fallback, ARJ-62)", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("admits a same-origin request instead of denying every caller", async () => {
+      vi.stubEnv("APP_ORIGIN", "");
+      const extract = vi.fn(async () => proposal);
+      const response = await handleExtractionPost(
+        request(),
+        dependencies({ extract, trustedOrigin: undefined }),
+      );
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ result: proposal });
+      expect(extract).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ["https://evil.example"], // cross-site origin
+      ["http://app.example"], // same host, downgraded scheme
+    ])("rejects a mismatched Origin before extraction", async (origin) => {
+      vi.stubEnv("APP_ORIGIN", "");
+      const extract = vi.fn(async () => proposal);
+      const response = await handleExtractionPost(
+        request(undefined, { Origin: origin }),
+        dependencies({ extract, trustedOrigin: undefined }),
+      );
+      expect(response.status).toBe(403);
+      expect(extract).not.toHaveBeenCalled();
+    });
+
+    it("rejects an absent Origin before extraction", async () => {
+      vi.stubEnv("APP_ORIGIN", "");
+      const extract = vi.fn(async () => proposal);
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const response = await handleExtractionPost(
+        new Request(`${ORIGIN}/wishlist/items/extract`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ url: "https://shop.example/item" }),
+        }),
+        dependencies({ extract, trustedOrigin: undefined }),
+      );
+      expect(response.status).toBe(403);
+      expect(extract).not.toHaveBeenCalled();
+    });
+  });
 
   it.each([
     ["not json", "application/json"],

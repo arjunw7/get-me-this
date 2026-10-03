@@ -520,6 +520,62 @@ describe("failed extraction, blocked URLs, and admission denials", () => {
   });
 });
 
+describe("step-driven column width (ARJ-62)", () => {
+  it("keeps entry and extracting in the narrow content column", async () => {
+    const user = userEvent.setup();
+    stubFetch(() => new Promise<Response>(() => undefined)); // never settles
+    const { container } = render(<AddItemFlow initialUrl="" />);
+
+    // Entry renders in the narrow reading column (--spacing-content-max).
+    expect((container.firstChild as HTMLElement).className).toMatch(
+      /content-max/,
+    );
+
+    await submitLink(user, "https://www.amazon.in/dp/B0D7SM71WK");
+    await waitFor(() => expect(screen.getByText("Being nosy…")).toBeVisible());
+    // Extracting keeps the same narrow column.
+    expect((container.firstChild as HTMLElement).className).toMatch(
+      /content-max/,
+    );
+  });
+
+  it("renders the extracted review in the wide review column", async () => {
+    const user = userEvent.setup();
+    stubFetch(() =>
+      Promise.resolve(extractResponse(200, { result: COMPLETE_RESULT })),
+    );
+    const { container } = render(<AddItemFlow initialUrl="" />);
+    await submitLink(user, "https://shop.example/product/lamp");
+
+    await screen.findByText("Found it. Look right?");
+    expect((container.firstChild as HTMLElement).className).toMatch(
+      /max-w-4xl/,
+    );
+  });
+
+  it("renders the failed manual fallback in the wide review column", async () => {
+    const user = userEvent.setup();
+    // The staging 403 shape: the boundary's "not allowed" denial.
+    stubFetch(() =>
+      Promise.resolve(
+        extractResponse(403, {
+          error: {
+            code: "extraction_failed",
+            message: "This request is not allowed.",
+          },
+        }),
+      ),
+    );
+    const { container } = render(<AddItemFlow initialUrl="" />);
+    await submitLink(user, "https://www.amazon.in/dp/B0D7SM71WK");
+
+    await screen.findByText("That link played hard to get.");
+    expect((container.firstChild as HTMLElement).className).toMatch(
+      /max-w-4xl/,
+    );
+  });
+});
+
 describe("save states", () => {
   it("submits the review with the selected candidate and reviewPhase 'extracted'", async () => {
     const user = userEvent.setup();
