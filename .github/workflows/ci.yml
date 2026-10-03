@@ -218,6 +218,13 @@ jobs:
       - name: Run 007b copy races
         timeout-minutes: 5
         run: pnpm test:db:races:copy
+      # Brief 008d criterion 8: the draw-commit vs. redraw-commit, redraw
+      # vs. leave, and redraw vs. tombstone races — two independent psql
+      # sessions contending on the groups row lock, finite timeouts, and a
+      # strict no-half-redrawn, no-tombstoned-enqueue invariant set.
+      - name: Run 008d draw view races
+        timeout-minutes: 5
+        run: pnpm test:db:races:008d
 
   # The stack-gated Playwright suites (e2e, axe, visual) boot their own stack
   # on a dedicated runner, in parallel with the database job above.

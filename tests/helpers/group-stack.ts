@@ -90,11 +90,32 @@ export function deleteFixtureGroupsSql(
     groupIds.length > 0
       ? `invitation_id in (select id from public.group_invitations where group_id in (${list(groupIds)}))`
       : null;
+  // The 008d assignment-email outbox rows carry no group column: they match
+  // through the exact 008c identity key's group segment or the recipient.
+  const assignmentEmailClauses = [
+    ...groupIds.map((id) => `idempotency_key like 'assignment:${id}:%'`),
+    ...(userIds.length > 0
+      ? [
+          "template_key = 'assignment' and recipient_user_id in (" +
+            list(userIds) +
+            ")",
+        ]
+      : []),
+  ];
+  const assignmentEmailWhere =
+    assignmentEmailClauses.length > 0
+      ? ` where (${assignmentEmailClauses.join(" or ")})`
+      : "";
   const sql = [
+    `delete from private.email_outbox${assignmentEmailWhere};`,
     `delete from public.audit_events${where(matches("group_id", groupIds), matches("actor_id", userIds))};`,
     `delete from public.group_invitation_uses${where(groupInvitationUses, matches("user_id", userIds))};`,
     `delete from public.group_invitations${where(matches("group_id", groupIds))};`,
     `delete from public.group_creation_receipts${where(matches("group_id", groupIds), matches("actor_id", userIds))};`,
+    // The 008c/008d assignment history and viewed markers restrict into
+    // group_members, so they go before the membership rows.
+    `delete from public.group_assignment_views${where(matches("group_id", groupIds), matches("giver_id", userIds))};`,
+    `delete from public.group_assignments${where(matches("group_id", groupIds), matches("giver_id", userIds), matches("recipient_id", userIds))};`,
     `delete from public.group_members${where(matches("group_id", groupIds), matches("user_id", userIds))};`,
     `delete from public."groups"${where(matches("id", groupIds), matches("organizer_id", userIds))};`,
   ].join("\n");

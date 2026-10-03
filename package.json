@@ -27,6 +27,7 @@
     "test:db:races:006c": "bash scripts/test-group-races-006c-local.sh",
     "test:db:races:gifting": "bash scripts/test-gift-checklist-races-local.sh",
     "test:db:races:draw": "bash scripts/test-gift-draw-races-local.sh",
+    "test:db:races:008d": "bash scripts/test-draw-008d-races-local.sh",
     "test:db:races:006d": "bash scripts/test-group-room-snapshot-races-local.sh",
     "test:db:races:006e": "bash scripts/test-member-wishlist-snapshot-races-local.sh",
     "test:db:races:copy": "bash scripts/test-copy-races-local.sh",
