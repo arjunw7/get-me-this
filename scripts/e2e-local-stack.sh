@@ -138,9 +138,13 @@ pnpm exec supabase db query --local \
 # preview-and-acceptance spec (tests/e2e/invitations-local.spec.ts).
 # 006d adds the private group room spec
 # (tests/e2e/group-room-local.spec.ts). 006e adds the member wishlist
-# browsing spec (tests/e2e/group-wishlist-local.spec.ts).
+# browsing spec (tests/e2e/group-wishlist-local.spec.ts). The fast-lane
+# real-authenticated-home slice adds the home spec
+# (tests/e2e/home-local.spec.ts) and its review-only visual captures
+# (tests/visual/home.visual.spec.ts).
 pnpm exec playwright test \
   tests/e2e/auth-otp.spec.ts \
+  tests/e2e/home-local.spec.ts \
   tests/e2e/wishlist.spec.ts \
   tests/e2e/wishlist-local.spec.ts \
   tests/e2e/wishlist-items-local.spec.ts \
@@ -159,4 +163,5 @@ pnpm exec playwright test \
   tests/visual/groups-new.visual.spec.ts \
   tests/visual/groups-created.visual.spec.ts \
   tests/visual/group-room.visual.spec.ts \
-  tests/visual/group-wishlist.visual.spec.ts
+  tests/visual/group-wishlist.visual.spec.ts \
+  tests/visual/home.visual.spec.ts
