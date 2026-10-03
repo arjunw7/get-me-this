@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// The activity data module is server-only; the pure parser under test is
+// exercised here with the guard mocked (the same pattern as room-data.test.ts).
+vi.mock("server-only", () => ({}));
 
 import { parseGroupActivity, type ActivityRow } from "./activity-data";
 

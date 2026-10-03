@@ -42,6 +42,7 @@ Secondary quality signals are extraction reliability and gifting-mode completion
 | `member_wishlist_viewed`       | server | `view_scope`, `wishlist_state`, `item_count_bucket`, `gifting_mode` |
 | `group_activity_viewed`        | server | `scope`, `entry_count_bucket`, `gifting_mode`                       |
 | `item_reacted`                 | server | `reaction_kind`, `action`                                           |
+| `item_copied`                  | server | `copy_outcome`                                                      |
 | `reservation_created`          | server | `outcome`, `gifting_mode`                                           |
 | `reservation_released`         | server | `reason`, `gifting_mode`                                            |
 
