@@ -39,6 +39,9 @@ Secondary quality signals are extraction reliability and gifting-mode completion
 | `name_draw_completed` | server | `participant_count_bucket`, `is_redraw` |
 | `group_activated` | server | `gifting_mode`, `member_count_bucket`, `time_to_activation_bucket` |
 | `gift_checklist_progressed` | server | `action`, `checklist_total_bucket` |
+| `item_reacted` | server | `reaction_kind`, `action` |
+| `reservation_created` | server | `outcome`, `gifting_mode` |
+| `reservation_released` | server | `reason`, `gifting_mode` |
 
 Allowed enum values are defined in the typed analytics catalog during Phase 1. Do not add arbitrary strings from user content.
 
@@ -49,6 +52,12 @@ Properties: `action` (`completed` | `reopened`) and `checklist_total_bucket`
 authorized-empty sentinel, and a conflict result emit nothing. Recipient
 identities, giver-recipient mappings, entry counts below the bucket
 granularity, group names, and item data are prohibited.
+
+Closed property vocabularies for the gifting-social events (briefs 007a/007c; no identifiers, counts, names, titles, or timestamps are ever sent with them):
+
+- `item_reacted`: `reaction_kind` is `very_you`, `questionable`, or `want_it_too`; `action` is `added`, `replaced`, or `removed`. Emitted only after a successful write, exactly once per successful call; every denial class emits nothing.
+- `reservation_created`: `outcome` is `reserved` — the only emitting outcome; `already_yours`, `conflict`, and every denial never emit. `gifting_mode` is `secret_draw`, `gift_everyone`, or `wishlist_only`.
+- `reservation_released`: `reason` is `by_reserver` or `reserver_departed` (never emitted for `item_deleted`); `gifting_mode` as above. Emitted only for a release that changes state.
 
 ## Identity
 
