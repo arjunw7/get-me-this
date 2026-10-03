@@ -83,7 +83,11 @@ export function isProtectedRoutePath(pathname: string): boolean {
   return (
     PROTECTED_ROUTE_PATHS.includes(pathname) ||
     /^\/wishlist\/items\/[^/]+\/edit$/.test(pathname) ||
-    /^\/groups\/[^/]+\/created$/.test(pathname)
+    /^\/groups\/[^/]+\/created$/.test(pathname) ||
+    // The private group room (006d): every /groups/[groupId] document and
+    // action response. /groups/new and the /created suffix are covered by
+    // the entries above; the room path covers the bare group id.
+    /^\/groups\/[^/]+$/.test(pathname)
   );
 }
 

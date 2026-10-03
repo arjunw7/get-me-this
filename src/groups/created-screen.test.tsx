@@ -60,6 +60,10 @@ describe("CreatedScreen", () => {
       screen.getByRole("link", { name: "Add to my wishlist" }),
     ).toBeTruthy();
     expect(screen.getByRole("link", { name: "Go to home" })).toBeTruthy();
+    // Brief 006d: the committed created state exposes a working Open group
+    // action pointing only at the committed group id.
+    const openGroup = screen.getByTestId("open-group");
+    expect(openGroup.getAttribute("href")).toBe(`/groups/${GROUP_ID}`);
     expect(issueAction).not.toHaveBeenCalled();
     expect(screen.queryByTestId("invite-link-card")).toBeNull();
   });

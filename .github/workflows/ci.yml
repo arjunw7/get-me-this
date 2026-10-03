@@ -192,6 +192,14 @@ jobs:
       - name: Run 006c continuation races
         timeout-minutes: 5
         run: pnpm test:db:races:006c
+      # Brief 006d: the room snapshot's two-session read-isolation harness —
+      # a removal, an acceptance, and a targeted-invitation revoke are each
+      # held uncommitted while the other session reads, then released; every
+      # read must be wholly the pre- or post-commit state, and the function
+      # body is proven to be one SQL statement.
+      - name: Run 006d room snapshot races
+        timeout-minutes: 5
+        run: pnpm test:db:races:006d
 
   # The stack-gated Playwright suites (e2e, axe, visual) boot their own stack
   # on a dedicated runner, in parallel with the database job above.

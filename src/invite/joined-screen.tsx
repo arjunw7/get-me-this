@@ -6,14 +6,16 @@ import { Button } from "@/src/ui/button";
  * The joined confirmation (brief 006c): "You're in." plus the group name,
  * shown only after the same verified user has an accepted/joined
  * continuation. The actions are the approved working links — Add an item
- * to my wishlist and Go to home. This state never links to or simulates
- * the later group room, roster, member wishlists, pending members,
- * organizer controls, or gifting views.
+ * to my wishlist, the 006d Open group action pointing at the accepted
+ * group id, and Go to home. This state never simulates the room's roster,
+ * member wishlists, pending members, organizer controls, or gifting views.
  */
 export function InviteJoinedScreen({
   groupName,
+  groupId,
 }: {
   readonly groupName: string | null;
+  readonly groupId?: string | null;
 }) {
   return (
     <div className="mx-auto w-full max-w-xl px-gutter py-10 sm:py-14">
@@ -46,6 +48,20 @@ export function InviteJoinedScreen({
         >
           Add an item to my wishlist
         </Link>
+        {/* Brief 006d: the accepted state exposes a working Open group
+            action, pointing only at the group id the database returned for
+            this verified user's accepted continuation. No unaccepted,
+            reconciled-only, or mismatched state reaches this screen, and no
+            client-supplied destination is honored. */}
+        {groupId ? (
+          <Link
+            href={`/groups/${groupId}`}
+            data-testid="open-group"
+            className="inline-flex h-control-lg items-center justify-center rounded-surface-lg border-2 border-outline-strong bg-surface-raised px-6 font-display text-heading font-bold shadow-chunk-sm transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+          >
+            Open group
+          </Link>
+        ) : null}
         <Link
           href="/home"
           className="inline-flex h-control-lg items-center justify-center rounded-surface-lg px-6 font-display text-heading font-bold underline-offset-4 hover:underline"

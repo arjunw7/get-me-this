@@ -309,12 +309,27 @@ export function CreatedScreen({
         >
           Add to my wishlist
         </Link>
-        <Link
-          href="/home"
-          className="inline-flex h-control-lg items-center justify-center rounded-surface-lg px-6 font-display text-heading font-bold underline-offset-4 hover:underline"
-        >
-          Go to home
-        </Link>
+        {/* The committed group is the only destination this state links for
+            the room (brief 006d): the organizer's own group id, never a
+            client-supplied one. On mobile the room action shares the fallback
+            row so the pinned created-screen composition keeps its row count;
+            on desktop the wrapper dissolves and all three actions stay in the
+            approved single row. */}
+        <div className="flex items-center gap-4 sm:contents">
+          <Link
+            href={`/groups/${groupId}`}
+            data-testid="open-group"
+            className="inline-flex h-control-lg items-center justify-center rounded-surface-lg border-2 border-outline-strong bg-surface-raised px-6 font-display text-heading font-bold shadow-chunk-sm transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+          >
+            Open group
+          </Link>
+          <Link
+            href="/home"
+            className="inline-flex h-control-lg items-center justify-center rounded-surface-lg px-6 font-display text-heading font-bold underline-offset-4 hover:underline"
+          >
+            Go to home
+          </Link>
+        </div>
       </div>
     </div>
   );
