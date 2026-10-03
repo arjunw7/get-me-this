@@ -67,11 +67,12 @@ export async function copyFriendGroupItem(
     p_group_id: groupId,
     p_item_id: itemId,
   });
-  if (error || !data) return { kind: "unavailable" };
+  if (error || data === null) return { kind: "unavailable" };
 
-  const rows = (data as readonly unknown[] | null) ?? [];
-  const copiedId = rows[0];
-  if (typeof copiedId !== "string" || !UUID_PATTERN.test(copiedId)) {
+  // The function returns a scalar uuid: PostgREST delivers it as a JSON
+  // string (not a result row array).
+  const copiedId = typeof data === "string" ? data : null;
+  if (!copiedId || !UUID_PATTERN.test(copiedId)) {
     return { kind: "unavailable" };
   }
 

@@ -29,7 +29,7 @@ function mockClient(
   const rpc =
     overrides.rpc ??
     vi.fn().mockResolvedValue({
-      data: ["00000000-0000-4000-8000-0000000000d1"],
+      data: "00000000-0000-4000-8000-0000000000d1",
       error: null,
     });
   const from =
@@ -135,8 +135,8 @@ describe("copyFriendGroupItem", () => {
   });
 
   it("maps every database denial to the generic unavailable outcome with zero emission", async () => {
-    // Empty result rows: every uniform denial class.
-    const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
+    // A null scalar result: every uniform denial class.
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
     mockClient({ rpc });
     const { capture } = mockAnalytics();
 
