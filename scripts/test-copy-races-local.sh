@@ -98,6 +98,7 @@ psql_as() { # uid sql
 }
 
 HOLDER_NAME='copy-race-007b-holder'
+HOLDER_OUT=/tmp/copy-race-007b-holder-output.log
 
 HOLDER_PID=""
 
@@ -124,6 +125,10 @@ trap cleanup EXIT
 
 die() {
   echo "copy-races-007b: $1" >&2
+  if [ -n "${HOLDER_OUT:-}" ] && [ -f "$HOLDER_OUT" ]; then
+    echo "copy-races-007b: holder output:" >&2
+    cat "$HOLDER_OUT" >&2 || true
+  fi
   if [ -n "$HOLDER_PID" ]; then
     kill "$HOLDER_PID" 2>/dev/null || true
   fi
@@ -288,11 +293,15 @@ expect "the copy after a committed removal is denied uniformly" "null" \
   "$(psql_as "$UID_COPIER" "select coalesce(public.copy_group_item('${GROUP_ID}'::uuid, '${ITEM_1}'::uuid)::text, 'null');")"
 
 echo "scenario 4b: the removal held uncommitted while the copier copies"
-launch_holder "$UID_OWNER" /dev/null \
-  "select member_admin_version::text from public.remove_group_member('${GROUP_ID}'::uuid, '${UID_COPIER}'::uuid, (select member_admin_version from public.group_admin_version('${GROUP_ID}'::uuid)));" "$HOLD_SECONDS"
-# Restore joined first: the fixture was committed-removed in 4a; the holder
-# now removes the RESTORED member while the copy runs.
+# Restore joined FIRST, before the holder exists: the fixture was
+# committed-removed in 4a, and the holder's uncommitted removal must target
+# the RESTORED joined member. Launching the holder before the restore races
+# the holder's row lock against the restore's UPDATE — the restore then
+# blocks for the whole hold window and the open-transaction barrier only
+# starts polling after the holder has already committed and exited.
 "${psql_base[@]}" <<< "update public.group_members set status = 'joined', participating = true, membership_generation = membership_generation + 1 where group_id = '${GROUP_ID}'::uuid and user_id = '${UID_COPIER}'::uuid;" >/dev/null || die "restore failed"
+launch_holder "$UID_OWNER" "$HOLDER_OUT" \
+  "select member_admin_version::text from public.remove_group_member('${GROUP_ID}'::uuid, '${UID_COPIER}'::uuid, (select member_admin_version from public.group_admin_version('${GROUP_ID}'::uuid)));" "$HOLD_SECONDS"
 await_holder_open 30
 
 REMOVAL_RACE_COPY_ID="$(psql_as "$UID_COPIER" "select coalesce(public.copy_group_item('${GROUP_ID}'::uuid, '${ITEM_1}'::uuid)::text, 'null');" | tail -n 1)"
