@@ -225,6 +225,15 @@ jobs:
       - name: Run 008d draw view races
         timeout-minutes: 5
         run: pnpm test:db:races:008d
+      # Brief 006f: the organizer membership controls' two-session harness —
+      # every conflicting pair (remove/remove, remove/transfer, transfer/
+      # transfer, reinvite/remove, revocation-first/reinvite, revoke/revoke,
+      # transfer/revoke, in both orders where applicable) yields exactly one
+      # committed winner and one stale loser with the deterministic PT409
+      # recovery state, no partial write, and no duplicate audit.
+      - name: Run 006f member admin races
+        timeout-minutes: 5
+        run: pnpm test:db:races:006f
 
   # The stack-gated Playwright suites (e2e, axe, visual) boot their own stack
   # on a dedicated runner, in parallel with the database job above.

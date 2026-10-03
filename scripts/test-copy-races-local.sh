@@ -283,13 +283,13 @@ expect "the copied item sorts before the later manual append" "true" \
 # --- scenario 4: copy versus organizer removal of the copier ------------------
 
 echo "scenario 4a: the organizer's committed removal precedes the copy"
-psql_as "$UID_OWNER" "select public.remove_group_member('${GROUP_ID}'::uuid, '${UID_COPIER}'::uuid);" >/dev/null || die "removal failed"
+psql_as "$UID_OWNER" "select member_admin_version::text from public.remove_group_member('${GROUP_ID}'::uuid, '${UID_COPIER}'::uuid, (select member_admin_version from public.group_admin_version('${GROUP_ID}'::uuid)));" >/dev/null || die "removal failed"
 expect "the copy after a committed removal is denied uniformly" "null" \
   "$(psql_as "$UID_COPIER" "select coalesce(public.copy_group_item('${GROUP_ID}'::uuid, '${ITEM_1}'::uuid)::text, 'null');")"
 
 echo "scenario 4b: the removal held uncommitted while the copier copies"
 launch_holder "$UID_OWNER" /dev/null \
-  "select result from public.remove_group_member('${GROUP_ID}'::uuid, '${UID_COPIER}'::uuid);" "$HOLD_SECONDS"
+  "select member_admin_version::text from public.remove_group_member('${GROUP_ID}'::uuid, '${UID_COPIER}'::uuid, (select member_admin_version from public.group_admin_version('${GROUP_ID}'::uuid)));" "$HOLD_SECONDS"
 # Restore joined first: the fixture was committed-removed in 4a; the holder
 # now removes the RESTORED member while the copy runs.
 "${psql_base[@]}" <<< "update public.group_members set status = 'joined', participating = true, membership_generation = membership_generation + 1 where group_id = '${GROUP_ID}'::uuid and user_id = '${UID_COPIER}'::uuid;" >/dev/null || die "restore failed"

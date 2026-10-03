@@ -72,6 +72,48 @@ owner's own wishlist route; reactions and reservations are absent by
 design (006e non-goals). No table, schema, or sequence grant is added and
 RLS is unchanged (pgTAP: `supabase/tests/groups-006e.sql`).
 
+## Organizer membership controls (006f)
+
+The current joined organizer mutates the roster through four
+compare-and-swap SECURITY DEFINER functions owned by the trusted
+non-client database role with empty `search_path` (migration
+`20261018000000_groups_006f_organizer_membership_controls.sql`):
+`remove_group_member(uuid, uuid, bigint)`,
+`transfer_group_organizer(uuid, uuid, bigint)`,
+`revoke_group_invitation(uuid, uuid, bigint)`, and
+`reinvite_group_member(uuid, uuid, bigint)`. The non-CAS predecessors were
+dropped; every mutation evaluates
+`p_expected_member_admin_version` against
+`groups.member_admin_version` (nonnegative, durable) before authority,
+locks the group row and then both membership rows in a fixed order, and
+returns the new version — the targeted issue and reinvitation also return
+the one-time 43-character token material and expiry, which exist only
+inside the transaction and the initiating response. Every committed
+action appends exactly one privacy-safe `group_admin_events` row
+(`member_removed`, `organizer_transferred`, `member_reinvited`,
+`invitation_revoked`; display label only, resolved at event time; no
+tokens, emails, wishlists, assignments, reservations, or reaction
+targets). Reinvitation restores declined/left/removed rows to `invited`
+at a new `membership_generation`, creates absent rows at generation 1,
+and reissues invited-no-live rows keeping status and generation; tokens
+are stored digest-only, expire in 30 days, and are single-use.
+
+EXECUTE is revoked from `PUBLIC`, `anon`, and `service_role` and granted
+only to `authenticated` for the exact four CAS overloads (plus the
+existing 006c `accept_group_invitation` surface, unchanged). Four
+organizer-only projections — `group_admin_members` (full roster across
+all five membership states with generation and former-state timestamps),
+`group_admin_audit` (the bounded recent event feed),
+`group_admin_version`, and `group_admin_live_invitations` (invitation
+ids and expiry, never token material) — return zero rows for
+`anon`, `service_role`, outsiders, invited, declined, left, removed,
+and former organizers; only the current joined organizer reads them.
+The application surface consumes only these projections: a
+non-organizer's room payload carries no admin markers, no former-member
+rows, and no audit content (pgTAP:
+`supabase/tests/groups-006f.sql`; race harness:
+`scripts/test-group-admin-races-local.sh`).
+
 ## Transactional email outbox (009a)
 
 The private `email_outbox` table (migration

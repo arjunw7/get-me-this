@@ -38,3 +38,17 @@ export type InvitationStateActionResult =
       expiresAt: string | null;
     }
   | { ok: false; reason: "unavailable" };
+
+export type MemberAdminActionResult =
+  | { ok: true; version: string }
+  | { ok: false; reason: "stale" | "unavailable" | "retry" };
+
+export type ReinviteActionResult =
+  | {
+      ok: true;
+      version: string;
+      /** One-time token material, shown once, never persisted client-side. */
+      token: string;
+      expiresAt: string;
+    }
+  | { ok: false; reason: "stale" | "unavailable" | "retry" };

@@ -33,11 +33,14 @@ export function GroupRoomScreen({
   callerId,
   today,
   activity,
+  organizerTools,
 }: {
   readonly room: GroupRoomSnapshot;
   readonly callerId: string;
   readonly today: string | null;
   readonly activity?: readonly ActivityEntry[];
+  /** The 006f organizer tools, rendered only for the current organizer. */
+  readonly organizerTools?: React.ReactNode;
 }) {
   const occasionIsoDate = wallClockIsoDate(room.occasionAt);
   const occasionDate = occasionIsoDate
@@ -183,6 +186,7 @@ export function GroupRoomScreen({
       {/* Brief 007d: the additive activity section. Optional so existing
           room renders and tests are untouched when no entries are loaded. */}
       {activity ? <GroupActivitySection entries={activity} /> : null}
+      {organizerTools}
 
       <div className="mt-10 flex flex-col gap-2 sm:flex-row">
         <Link
