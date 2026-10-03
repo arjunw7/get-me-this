@@ -20,6 +20,22 @@
 | Run/redraw secret draw | No | No | No | No | Organizer, confirmed and audited |
 | Invite/remove members | No | No | No | No | Organizer |
 | Read/write `wishlist-item-snapshots` Storage objects (005f) | No | Own `{owner_id}/` prefix only | No | No | No |
+| Read/write `private.email_outbox` (009a) | No | No (no grant, no policy) | No | No | No |
+
+## Transactional email outbox (009a)
+
+The private `email_outbox` table (migration
+`20261014000000_email_outbox.sql`) holds queued transactional email state.
+It carries no grant for any application role — `anon`, `authenticated`, and
+`service_role` have no direct table privilege and no permissive RLS policy
+(deny-by-default, no policy substitute). All writes go through three
+SECURITY DEFINER functions granted for EXECUTE to `service_role` only
+(server-side worker and server actions; never a browser path):
+`private.enqueue_email` (idempotent, allowlist-validated payload),
+`private.claim_due_emails` (SKIP LOCKED claim lease with claim-time attempt
+accounting), and `private.record_email_result` (claimed-only resolution).
+The outbox never stores recipient addresses (profile email is a send-time
+lookup), raw tokens, secret URLs, or assignment identities.
 
 ## Storage (005f)
 
