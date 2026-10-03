@@ -22,7 +22,8 @@ import type { GroupRoomSnapshot } from "./room-data";
  *
  * The whole surface is marked data-ph-no-capture: it combines private group
  * content with membership mappings, so autocapture and session replay are
- * blocked for the room.
+ * blocked for the room. Joined roster rows are the 006e entry points into
+ * each member's shared wishlist; pending rows stay honest placeholders.
  */
 
 export function GroupRoomScreen({
@@ -112,37 +113,65 @@ export function GroupRoomScreen({
           className="mt-4 overflow-x-auto rounded-surface-lg outline-offset-4 focus-visible:outline-2 focus-visible:outline-outline-strong"
         >
           <ul className="min-w-max space-y-2 pr-2">
-            {room.members.map((member) => (
-              <li
-                key={member.userId}
-                className={`flex min-w-44 items-center gap-3 rounded-surface border-2 bg-surface-raised px-4 py-3 shadow-chunk-sm ${
-                  member.state === "invited"
-                    ? "border-dashed border-outline"
-                    : "border-outline-strong"
-                }`}
-                data-testid={
-                  member.state === "invited" ? "pending-row" : "joined-row"
-                }
-              >
-                <span
-                  aria-hidden="true"
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-outline-strong font-display text-label font-bold ${accentClassFor(member.userId)}`}
-                >
-                  {initialsFor(member.displayName)}
-                </span>
-                <span className="flex min-w-0 flex-col">
+            {room.members.map((member) => {
+              const label = memberLabel(member, callerId);
+              // Brief 006e entry point: a joined member's roster row opens
+              // that member's shared wishlist; pending rows stay
+              // non-interactive placeholders (pending visibility is
+              // presentation, never authority).
+              const rowContent = (
+                <>
                   <span
-                    className="truncate font-bold"
-                    title={member.displayName}
+                    aria-hidden="true"
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-outline-strong font-display text-label font-bold ${accentClassFor(member.userId)}`}
                   >
-                    {member.displayName}
+                    {initialsFor(member.displayName)}
                   </span>
-                  <span className="text-caption text-content-secondary">
-                    {memberLabel(member, callerId)}
+                  <span className="flex min-w-0 flex-col">
+                    <span
+                      className="truncate font-bold"
+                      title={member.displayName}
+                    >
+                      {member.displayName}
+                    </span>
+                    <span className="text-caption text-content-secondary">
+                      {label}
+                    </span>
                   </span>
-                </span>
-              </li>
-            ))}
+                </>
+              );
+              if (member.state === "invited") {
+                return (
+                  <li
+                    key={member.userId}
+                    className="flex min-w-44 items-center gap-3 rounded-surface border-2 border-dashed border-outline bg-surface-raised px-4 py-3 shadow-chunk-sm"
+                    data-testid="pending-row"
+                  >
+                    {rowContent}
+                  </li>
+                );
+              }
+              return (
+                <li
+                  key={member.userId}
+                  className="min-w-44 rounded-surface border-2 border-outline-strong bg-surface-raised shadow-chunk-sm"
+                  data-testid="joined-row"
+                >
+                  <Link
+                    href={`/groups/${room.groupId}/members/${member.userId}/wishlist`}
+                    data-testid="roster-member-link"
+                    className="flex items-center gap-3 px-4 py-3 transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 focus-visible:rounded-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-outline-strong active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+                    aria-label={
+                      member.userId === callerId
+                        ? "Open your wishlist"
+                        : `Open ${member.displayName}'s wishlist`
+                    }
+                  >
+                    {rowContent}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </section>

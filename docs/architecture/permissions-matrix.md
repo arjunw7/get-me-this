@@ -44,6 +44,32 @@ generations, invitation metadata, or wishlist data (pgTAP:
 `supabase/tests/groups-006d.sql`, race harness
 `scripts/test-group-room-snapshot-races-local.sh`).
 
+## Member wishlist browsing (006e)
+
+A joined member browses another joined member's wishlist through exactly
+one projection, `public.member_wishlist_snapshot(uuid, uuid)` (migration
+`20261017000000_groups_006e_member_wishlist_browsing.sql`): SECURITY
+DEFINER owned by the trusted non-client database role, empty
+`search_path`, one data-reading SQL statement, honestly STABLE (no clock
+or volatile call). The caller is derived only from `auth.uid()`; the
+viewer and the target must both be currently joined to the same active
+group, and every other state — anon, outsider, invited, declined, left,
+removed (either side), cross-group viewer or target, archived group,
+guessed ids — returns zero rows. EXECUTE is revoked from `PUBLIC`, `anon`,
+and `service_role` and granted only to `authenticated` for the exact
+`(uuid, uuid)` overload. The projection exposes only the authorized
+display fields (display label with the generic `Member` fallback, title,
+source URL, retailer, `image_url` — never `image_snapshot_path` — note,
+desire level, and the original money pair) for items whose
+`extraction_status` is `manual` or `extracted`, in the committed 005d
+order (`sort_position asc, id asc`). An authorized caller browsing a
+member with no visible items receives one sentinel row (null item
+fields, populated label) instead of an indistinguishable denial. The
+owner self-view renders through the same projection and redirects to the
+owner's own wishlist route; reactions and reservations are absent by
+design (006e non-goals). No table, schema, or sequence grant is added and
+RLS is unchanged (pgTAP: `supabase/tests/groups-006e.sql`).
+
 ## Transactional email outbox (009a)
 
 The private `email_outbox` table (migration

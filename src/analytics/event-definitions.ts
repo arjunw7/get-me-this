@@ -1,5 +1,5 @@
 /**
- * Single source of truth for the ten server-authoritative business events.
+ * Single source of truth for the eleven server-authoritative business events.
  *
  * The tracking plan (docs/analytics/tracking-plan.md) defines the catalog,
  * the required properties, and the privacy exclusions. This module encodes
@@ -330,6 +330,23 @@ export const EVENT_DEFINITIONS = {
         "one_to_five",
         "six_to_ten",
         "eleven_plus",
+      ]),
+    },
+  },
+  member_wishlist_viewed: {
+    properties: {
+      view_scope: stringEnum(["own", "friend"]),
+      wishlist_state: stringEnum(["populated", "empty"]),
+      item_count_bucket: stringEnum([
+        "zero",
+        "one_to_five",
+        "six_to_ten",
+        "eleven_plus",
+      ]),
+      gifting_mode: stringEnum([
+        "secret_draw",
+        "gift_everyone",
+        "wishlist_only",
       ]),
     },
   },

@@ -87,7 +87,10 @@ export function isProtectedRoutePath(pathname: string): boolean {
     // The private group room (006d): every /groups/[groupId] document and
     // action response. /groups/new and the /created suffix are covered by
     // the entries above; the room path covers the bare group id.
-    /^\/groups\/[^/]+$/.test(pathname)
+    /^\/groups\/[^/]+$/.test(pathname) ||
+    // Member wishlist browsing (006e): the joined-member read route under
+    // the room.
+    /^\/groups\/[^/]+\/members\/[^/]+\/wishlist$/.test(pathname)
   );
 }
 

@@ -209,4 +209,34 @@ describe("GroupRoomScreen", () => {
       "data-ph-no-capture",
     );
   });
+
+  it("links joined roster rows to the member wishlist and leaves pending rows inert", () => {
+    render(
+      <GroupRoomScreen
+        room={fixtureRoom([
+          member(CALLER, "Riya", "joined", true),
+          member(OTHER, "Arjun", "joined", false),
+          member(PENDING, "Meera", "invited", false),
+        ])}
+        callerId={CALLER}
+        today="2026-11-07"
+      />,
+    );
+    const links = screen.getAllByTestId("roster-member-link");
+    expect(links).toHaveLength(2);
+    expect(links[0]).toHaveAttribute(
+      "href",
+      `/groups/${fixtureRoom([]).groupId}/members/${CALLER}/wishlist`,
+    );
+    expect(links[1]).toHaveAttribute(
+      "href",
+      `/groups/${fixtureRoom([]).groupId}/members/${OTHER}/wishlist`,
+    );
+    expect(links[0]).toHaveAttribute("aria-label", "Open your wishlist");
+    expect(links[1]).toHaveAttribute("aria-label", "Open Arjun's wishlist");
+    // The pending row is a placeholder, never an entry point.
+    expect(
+      within(screen.getByTestId("pending-row")).queryByRole("link"),
+    ).not.toBeInTheDocument();
+  });
 });
