@@ -137,7 +137,8 @@ pnpm exec supabase db query --local \
 # (tests/e2e/groups-local.spec.ts). 006c adds the invitation
 # preview-and-acceptance spec (tests/e2e/invitations-local.spec.ts).
 # 006d adds the private group room spec
-# (tests/e2e/group-room-local.spec.ts).
+# (tests/e2e/group-room-local.spec.ts). 006e adds the member wishlist
+# browsing spec (tests/e2e/group-wishlist-local.spec.ts).
 pnpm exec playwright test \
   tests/e2e/auth-otp.spec.ts \
   tests/e2e/wishlist.spec.ts \
@@ -150,10 +151,12 @@ pnpm exec playwright test \
   tests/e2e/groups-local.spec.ts \
   tests/e2e/invitations-local.spec.ts \
   tests/e2e/group-room-local.spec.ts \
+  tests/e2e/group-wishlist-local.spec.ts \
   tests/visual/wishlist-empty.visual.spec.ts \
   tests/visual/wishlist-filled.visual.spec.ts \
   tests/visual/wishlist-items.visual.spec.ts \
   tests/visual/wishlist-extract.visual.spec.ts \
   tests/visual/groups-new.visual.spec.ts \
   tests/visual/groups-created.visual.spec.ts \
-  tests/visual/group-room.visual.spec.ts
+  tests/visual/group-room.visual.spec.ts \
+  tests/visual/group-wishlist.visual.spec.ts

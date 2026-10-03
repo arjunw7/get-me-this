@@ -4,7 +4,7 @@
  * Owns ONLY: consent-gated session replay (shipped disabled), sanitized
  * pageviews, autocapture behind strict allowlists, and anonymous→
  * authenticated identity linking. This module exposes NO capture API for
- * the ten server-authoritative business events; the server lane
+ * the eleven server-authoritative business events; the server lane
  * (src/analytics/server.ts) owns them exclusively, so the browser never
  * duplicates a business event.
  *

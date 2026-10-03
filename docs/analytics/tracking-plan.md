@@ -39,6 +39,7 @@ Secondary quality signals are extraction reliability and gifting-mode completion
 | `name_draw_completed` | server | `participant_count_bucket`, `is_redraw` |
 | `group_activated` | server | `gifting_mode`, `member_count_bucket`, `time_to_activation_bucket` |
 | `gift_checklist_progressed` | server | `action`, `checklist_total_bucket` |
+| `member_wishlist_viewed` | server | `view_scope`, `wishlist_state`, `item_count_bucket`, `gifting_mode` |
 | `item_reacted` | server | `reaction_kind`, `action` |
 | `reservation_created` | server | `outcome`, `gifting_mode` |
 | `reservation_released` | server | `reason`, `gifting_mode` |
@@ -54,6 +55,18 @@ identities, giver-recipient mappings, entry counts below the bucket
 granularity, group names, and item data are prohibited.
 
 Closed property vocabularies for the gifting-social events (briefs 007a/007c; no identifiers, counts, names, titles, or timestamps are ever sent with them):
+
+- `member_wishlist_viewed` (added by 006e): server-emitted only, after
+  successful authorization, exactly once per authorized page render (a
+  refresh is a new event). Properties: `view_scope` (`own` | `friend`),
+  `wishlist_state` (`populated` | `empty`), `item_count_bucket` (`zero` |
+  `one_to_five` | `six_to_ten` | `eleven_plus`), and `gifting_mode`
+  (`secret_draw` | `gift_everyone` | `wishlist_only`). No other property,
+  identifier, or count is sent: no group IDs (this event does not attach
+  the group context), user IDs, member names, titles, URLs, notes, prices,
+  currencies, or item IDs. Every denial class — signed-out, incomplete
+  profile, outsider, pending, declined, left, removed, cross-group, stale
+  target, unknown group — emits no event at all.
 
 - `item_reacted`: `reaction_kind` is `very_you`, `questionable`, or `want_it_too`; `action` is `added`, `replaced`, or `removed`. Emitted only after a successful write, exactly once per successful call; every denial class emits nothing.
 - `reservation_created`: `outcome` is `reserved` — the only emitting outcome; `already_yours`, `conflict`, and every denial never emit. `gifting_mode` is `secret_draw`, `gift_everyone`, or `wishlist_only`.
