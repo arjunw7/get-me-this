@@ -6,6 +6,10 @@
 |---|---:|---:|---:|---:|---:|
 | View landing/auth | Yes | Yes | Yes | Yes | Yes |
 | View limited invitation preview with valid token | Yes | Yes | Yes | Yes | Yes |
+| View wishlist through its valid enabled public link | Yes | Yes | Yes | Yes | Yes |
+| Enable/revoke or retrieve own wishlist public link | No | Yes, own link only | No | No | No |
+| React through a valid public wishlist link | No | Never own item | Yes, signed-in non-owner; membership not required | Same | Same |
+| Read raw public-link/reaction tables or reactor identities | No | No | No | No | No |
 | View private group | No | Only if member | Yes | Yes | Yes if member |
 | View member wishlist through shared group | No | Yes | Yes | Yes | Yes if member |
 | Copy another member's item to own wishlist (007b) | No | Never own item | Yes | Yes | Yes if eligible |
@@ -175,3 +179,91 @@ user's objects by direct authenticated storage API (pgTAP:
 
 Every exposed table requires explicit grants, RLS policies, and allow/deny database tests in the same pull request.
 
+
+## Profile Vibe
+
+Migration `20261022000000_profiles_vibe.sql` adds the constrained, non-null
+`profiles.vibe` column with default `marigold`, preserving existing profile
+appearance. The only added table privilege is authenticated `UPDATE(vibe)`;
+owner-only profile SELECT/UPDATE RLS is unchanged.
+
+The separate `public.group_member_vibes(uuid)` projection exposes exactly
+`member_user_id` and `vibe` for joined members of one active group to a
+currently joined caller of that same group. Caller identity comes only
+from `auth.uid()`. The STABLE, single-statement SECURITY DEFINER function is
+owned by the trusted `postgres` role and has an empty search path; EXECUTE
+is revoked from PUBLIC, anon, and service_role and granted only to
+authenticated. Invited/declined/left/removed targets are absent, and denied
+callers or unknown/cross-group/archived groups receive zero rows. No direct
+foreign-profile access, assignment data, or reservation data is added.
+
+The allow/deny proof is `supabase/tests/profiles-vibe.sql`; rollout and
+non-destructive rollback guidance are in
+[Profile Vibe persistence](profile-vibe.md).
+
+
+## Public wishlist links
+
+The user-approved public sharing extension supersedes private-by-default wishlist
+visibility: migration `20261023000000_public_wishlists.sql` enables a random
+256-bit bearer link for every existing wishlist and every new wishlist. Groups
+and all gifting context remain private. Base profile, item, wishlist, and Storage
+RLS and grants remain unchanged.
+
+The deny-all `private.wishlist_public_links` table is readable only through the
+authenticated owner's `own_wishlist_share_state()` function; no direct table
+access is granted. Its raw token is retained to support stable repeated copying
+and is never returned by public projections. Owner enable/revoke operations
+accept only `p_expected_version`, derive identity from `auth.uid()`, and lock the
+wishlist/link before comparing versions. Revocation hides the token; re-enable
+creates a new token. No operation can target a caller-supplied owner.
+
+`public_wishlist_snapshot(text)` grants anon/authenticated exactly the approved
+profile/item fields, public-only reaction counts, and the caller's own reaction.
+It never exposes email, owner ID, group/private reaction data, reservation or
+purchase status, assignments, copied provenance, or Storage sources. Invalid or
+disabled tokens return zero rows; an authorized empty list has a header sentinel.
+
+`set_public_wishlist_reaction(text, uuid, group_item_reaction_kind)` permits a
+verified non-owner to set/replace/remove their public-context reaction without
+requiring group membership. It locks the active capability and visible item;
+revocation/deletion and reaction writes have a tested committed order. The new
+public reaction table has RLS enabled, zero policies, and zero application-role
+table grants. `own_public_wishlist_reaction_summary()` exposes only the owner's
+public counts. Existing group reaction projections are unchanged.
+
+`public_wishlist_image_source(text, uuid)` is service-role-only and performs its
+own token/item/visibility authorization before returning an owner-bound source
+to the server image route. Browser roles cannot call it; raw paths and signed
+Storage URLs must never appear in public responses. Every function is trusted
+SECURITY DEFINER with empty search path and explicit grants.
+
+Full lifecycle, concurrency proof, image responsibilities, rollout, and
+non-destructive disabling notes: [Public wishlist links](public-wishlists.md).
+
+## Recoverable generic invitation links
+
+Migration `20261024000000_recoverable_group_invite_links.sql` retains newly issued
+**generic** invitation bearer tokens in deny-all
+`private.group_shareable_invitation_tokens`. No application role has table
+access. Targeted invitations remain digest-only. The original generic issuance
+implementation moves to a trusted private helper with all client EXECUTE
+revoked; its public wrapper keeps the existing CAS signature and atomically
+stores the issued token while preserving expiry, audit, and acceptance behavior.
+
+`get_group_invite_link(uuid)` is authenticated-only and locks the active group
+before deriving current joined organizer authority from `auth.uid()`. It returns
+only state, version, bearer, and expiry. A saved live link is stable on reopen;
+a live legacy hash-only link returns `replacement_required` with no bearer and
+is never rotated without explicit organizer confirmation. Only a never-issued,
+expired, revoked, or exhausted link is created automatically when opening the
+modal. Stored bearer/digest mismatch also fails closed to confirmation.
+
+Unknown/archived groups, anonymous/null actors, non-organizers, former organizers,
+and organizers without joined membership receive no rows. Current organizers
+may recover a link issued by a previous organizer; original creation identity
+confers no ongoing access. Base-table grants, targeted invitation boundaries,
+group membership, reservations, and assignment visibility are unchanged.
+
+See [Recoverable generic group invitations](recoverable-group-invites.md) for
+locking, action shapes, proof, and non-destructive rollback notes.

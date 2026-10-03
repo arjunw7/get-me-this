@@ -22,6 +22,13 @@ const UUID_V4 =
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
   window.sessionStorage.clear();
   // jsdom's crypto may lack subtle/randomUUID depending on the host runtime;
   // provide deterministic fallbacks for the component flow.
@@ -63,7 +70,7 @@ function renderScreen() {
   return render(<CreateGroupScreen action={action as never} />);
 }
 
-/** The happy-path form fill; the date is set through change (jsdom date input). */
+/** The happy-path form fill keeps the canonical typed date contract. */
 async function fillValidForm(
   user: ReturnType<typeof userEvent.setup>,
 ): Promise<void> {
@@ -74,6 +81,57 @@ async function fillValidForm(
 }
 
 describe("CreateGroupScreen", () => {
+  it("submits the calendar date and searched currency through the existing action", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await user.type(screen.getByLabelText("Group name"), "Dinner together");
+    await user.type(screen.getByLabelText("Date"), "2028-02-28");
+    await user.click(screen.getByRole("button", { name: "Choose date" }));
+    await user.click(screen.getByRole("button", { name: "February 29, 2028" }));
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    await user.click(currency);
+    await user.type(currency, "Dollar");
+    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("button", { name: "Create group" }));
+    await waitFor(() => expect(action).toHaveBeenCalledTimes(1));
+    const data = action.mock.calls[0][1];
+    expect(data.get("occasionDate")).toBe("2028-02-29");
+    expect(data.get("budgetCurrency")).toBe("USD");
+  });
+
+  it("still rejects impossible manually typed dates before any action", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await user.type(screen.getByLabelText("Group name"), "Dinner together");
+    await user.type(screen.getByLabelText("Date"), "2027-02-29");
+    await user.click(screen.getByRole("button", { name: "Create group" }));
+    expect(action).not.toHaveBeenCalled();
+    expect(screen.getByText("Pick the real calendar date.")).toBeVisible();
+    expect(screen.getByLabelText("Date")).toHaveValue("2027-02-29");
+  });
+  it("keeps occasion-picker hints editable and requires the remaining creation fields", async () => {
+    const user = userEvent.setup();
+    render(
+      <CreateGroupScreen
+        action={action as never}
+        initialName="Diwali night"
+        initialOccasion="diwali"
+      />,
+    );
+    expect(screen.getByLabelText("Group name")).toHaveValue("Diwali night");
+    expect(screen.getByRole("radio", { name: "Diwali" })).toBeChecked();
+    await user.clear(screen.getByLabelText("Group name"));
+    await user.type(screen.getByLabelText("Group name"), "Our Diwali");
+    await user.click(screen.getByRole("radio", { name: "Eid" }));
+    expect(screen.getByLabelText("Group name")).toHaveValue("Our Diwali");
+    expect(screen.getByRole("radio", { name: "Eid" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Create group" }));
+    expect(action).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Date")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+  });
   it("renders every Version 18 field with persistent labels", () => {
     renderScreen();
     expect(screen.getByText("What are we celebrating?")).toBeTruthy();

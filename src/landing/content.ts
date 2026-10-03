@@ -24,7 +24,7 @@ export const hero = {
   primaryCta: "Start my wishlist",
   secondaryCta: "Create a group",
   privacyNote:
-    "Private by default. Only people in your groups can see your wishlist.",
+    "Share your wishlist with a link. Group gifting and reservations stay private.",
 } as const;
 
 export const howItWorks = {

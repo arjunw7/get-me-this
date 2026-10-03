@@ -57,3 +57,9 @@ No assignments or mandatory checklist. Members may browse, react, copy, and rese
 - Reactions remain visible to eligible members, including the wishlist owner.
 - Reservations and gifting progress never appear in reaction activity.
 
+
+## Invite more people from the room
+
+The organizer sees **Invite people** in the group header beside Organizer tools. It opens the existing invitation manager, where the organizer explicitly creates a link and can copy it or share it through WhatsApp. Active-link replacement and revocation keep their existing confirmation and version checks. Other members cannot mint or replace group invitation links; the UI and server both enforce that boundary.
+
+The group date field accepts ISO text entry and offers a branded keyboard-accessible calendar. Currency choices search their code and name while submitting only an explicitly selected supported code. These controls retain the existing server validation and exact budget semantics.

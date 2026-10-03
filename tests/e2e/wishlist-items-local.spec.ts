@@ -43,7 +43,12 @@ test("manual create, exact decimal readback, owner edit, and confirmed hard dele
       .click();
     await page.getByLabel("Item name").fill("Manual e2e fixture lamp");
     await page.getByLabel("Price").fill("24.99");
-    await page.getByLabel("Currency").selectOption("INR");
+    await page
+      .getByRole("combobox", { name: "Currency", exact: true })
+      .fill("INR");
+    await page
+      .getByRole("combobox", { name: "Currency", exact: true })
+      .press("Enter");
     await page
       .getByLabel("Link (optional)")
       .fill("https://arj28-fixture.invalid/lamp");

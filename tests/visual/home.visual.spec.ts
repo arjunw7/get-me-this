@@ -77,12 +77,15 @@ test("the authenticated home's state families are captured for review", async ({
 
     await page.goto("/home");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Welcome, Visual Ona." }),
+      page.getByRole("heading", { level: 1, name: "Hey Visual." }),
     ).toBeVisible();
     await expect(page.getByTestId("my-group-card")).toHaveCount(1);
     await capture(page, "home-with-group-full-page");
 
-    const emptyContext = await page.context().browser()!.newContext();
+    const emptyContext = await page
+      .context()
+      .browser()!
+      .newContext({ viewport: page.viewportSize(), deviceScaleFactor: 1 });
     try {
       const emptyPage = await emptyContext.newPage();
       await createSignedInFixture(
@@ -96,10 +99,14 @@ test("the authenticated home's state families are captured for review", async ({
       await expect(
         emptyPage.getByRole("heading", {
           level: 1,
-          name: "Welcome, Empty Eno.",
+          name: "Welcome in, Empty.",
         }),
       ).toBeVisible();
-      await expect(emptyPage.getByText("No groups yet.")).toBeVisible();
+      await expect(
+        emptyPage.getByRole("heading", {
+          name: "Add something you’d love to get",
+        }),
+      ).toBeVisible();
       await capture(emptyPage, "home-empty-full-page");
     } finally {
       await emptyContext.close();

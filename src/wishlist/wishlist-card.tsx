@@ -1,3 +1,6 @@
+import { OwnerReactionSummaryRow } from "@/src/groups/reactions/owner-reaction-summary";
+import type { OwnerReactionSummary } from "@/src/groups/reactions/reaction-write";
+import { AppIcon } from "@/src/home/app-icon";
 import Link from "next/link";
 
 import { CardImage, PlaceholderArt } from "./card-image";
@@ -73,9 +76,11 @@ function DesireChip({ level }: { level: WishlistItemView["desireLevel"] }) {
 export function WishlistCard({
   item,
   index,
+  reactionSummary,
 }: {
   item: WishlistItemView;
   index: number;
+  reactionSummary?: OwnerReactionSummary;
 }) {
   const aspect = ASPECTS[index % ASPECTS.length];
   const tilt = TILTS[index % TILTS.length];
@@ -95,10 +100,21 @@ export function WishlistCard({
       <article className="flex h-full flex-col overflow-hidden rounded-surface-lg border-2 border-outline-strong bg-surface-raised shadow-chunk">
         <div className={`relative overflow-hidden bg-surface-sunken ${aspect}`}>
           {item.imageSrc !== null ? (
-            <CardImage src={item.imageSrc} title={item.title} />
+            <CardImage
+              key={item.imageSrc}
+              src={item.imageSrc}
+              title={item.title}
+            />
           ) : (
             <PlaceholderArt title={item.title} />
           )}
+          <Link
+            href={`/wishlist/items/${item.id}/edit`}
+            aria-label={`Edit ${item.title}`}
+            className="absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-outline-strong bg-surface-raised text-content-primary shadow-chunk-sm transition-transform hover:-translate-y-0.5"
+          >
+            <AppIcon name="edit" />
+          </Link>
           <div className="absolute left-3 top-3">
             <DesireChip level={item.desireLevel} />
           </div>
@@ -162,15 +178,9 @@ export function WishlistCard({
               {item.note}
             </p>
           ) : null}
-        </div>
-        <div className="px-4 pb-4">
-          <Link
-            href={`/wishlist/items/${item.id}/edit`}
-            className="inline-flex min-h-touch-min items-center font-bold underline decoration-2 underline-offset-4 hover:text-action-primary-strong"
-            aria-label={`Edit ${item.title}`}
-          >
-            Edit item
-          </Link>
+          {reactionSummary?.itemId === item.id ? (
+            <OwnerReactionSummaryRow summary={reactionSummary} />
+          ) : null}
         </div>
       </article>
     </div>
@@ -180,14 +190,20 @@ export function WishlistCard({
 /** The wishlist card grid: the V18 masonry composition, in read order. */
 export function WishlistCardGrid({
   items,
+  reactionSummaries,
 }: {
   items: readonly WishlistItemView[];
+  reactionSummaries?: Readonly<Record<string, OwnerReactionSummary>>;
 }) {
   return (
     <div className="columns-1 gap-6 min-[480px]:columns-2 lg:columns-3">
       {items.map((item, index) => (
         <div key={item.id} className="mb-7 break-inside-avoid">
-          <WishlistCard item={item} index={index} />
+          <WishlistCard
+            item={item}
+            index={index}
+            reactionSummary={reactionSummaries?.[item.id]}
+          />
         </div>
       ))}
     </div>

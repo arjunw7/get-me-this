@@ -1,3 +1,13 @@
+import type { ReactNode } from "react";
+import {
+  DEFAULT_VIBE,
+  VIBE_OPTIONS,
+  vibeClasses,
+  type Vibe,
+} from "@/src/profile/vibe";
+import { EditProfileButton } from "@/src/profile/edit-profile-button";
+import type { OwnerReactionSummary } from "@/src/groups/reactions/reaction-write";
+import { profileInitials } from "@/src/home/profile-initials";
 import { formatItemCount } from "./display";
 import type { OwnWishlistView } from "./display";
 import type { ReorderActionResult } from "./reorder-actions";
@@ -24,16 +34,22 @@ import typography from "./wishlist-typography.module.css";
 export function WishlistView({
   displayName,
   tasteLine,
+  vibe = DEFAULT_VIBE,
   wishlist,
   notice = null,
+  reactionSummaries,
+  shareControl,
   reorderAction,
   refreshAction,
   deleteAction,
 }: {
   displayName: string;
   tasteLine: string | null;
+  vibe?: Vibe;
   wishlist: OwnWishlistView | null;
+  shareControl?: ReactNode;
   notice?: "added" | "updated" | "deleted" | null;
+  reactionSummaries?: Readonly<Record<string, OwnerReactionSummary>>;
   reorderAction: (input: WishlistMoveInput) => Promise<ReorderActionResult>;
   refreshAction: () => Promise<ReorderActionResult>;
   deleteAction: (
@@ -46,11 +62,13 @@ export function WishlistView({
     return <WishlistError />;
   }
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 pt-6 pb-16 sm:px-8 lg:pt-10">
+    <main className="mx-auto w-full max-w-6xl px-5 pt-6 sm:px-8 lg:pt-10">
       <ProfileHeaderCard
         displayName={displayName}
         tasteLine={tasteLine}
+        vibe={vibe}
         itemCount={wishlist.items.length}
+        shareControl={shareControl}
       />
       {notice ? (
         <p
@@ -64,44 +82,48 @@ export function WishlistView({
               : "Item removed from your wishlist."}
         </p>
       ) : null}
-      <div className="mt-8">
+      <div className={wishlist.items.length === 0 ? "mt-6" : "mt-8"}>
         {wishlist.items.length === 0 ? (
           <WishlistEmpty />
         ) : (
           <WishlistItemsPanel
             items={wishlist.items}
+            reactionSummaries={reactionSummaries}
             reorderAction={reorderAction}
             refreshAction={refreshAction}
             deleteAction={deleteAction}
           />
         )}
       </div>
-    </div>
+    </main>
   );
 }
 
 /**
- * The V18 profile header card (pages/Shelfie.tsx), with the accepted
- * differences recorded in the brief: no theme colour (the band uses the
- * default primary accent token), no "visible to 2 groups" line (no groups
- * before Phase 5), no Edit profile / Share buttons, and the repository's
- * initials-avatar initial disc in place of the V18 avatar image.
+ * The V18 profile composition uses the owner’s persisted Vibe and real initials.
  */
 function ProfileHeaderCard({
   displayName,
   tasteLine,
+  vibe = DEFAULT_VIBE,
   itemCount,
+  shareControl,
 }: {
   displayName: string;
   tasteLine: string | null;
+  vibe?: Vibe;
   itemCount: number;
+  shareControl?: ReactNode;
 }) {
   return (
     <section
       aria-label={displayName}
       className="relative overflow-hidden rounded-surface-2xl border-2 border-outline-strong bg-surface-raised shadow-chunk"
     >
-      <div className="relative h-24 border-b-2 border-outline-strong bg-action-primary sm:flex sm:h-auto sm:min-h-28 sm:items-end sm:px-7 sm:pt-3 sm:pb-3">
+      <div
+        data-vibe={vibe}
+        className={`relative h-24 border-b-2 border-outline-strong sm:flex sm:h-auto sm:min-h-28 sm:items-end sm:px-7 sm:pt-3 sm:pb-3 ${vibeClasses(vibe)}`}
+      >
         <svg
           aria-hidden="true"
           viewBox="0 0 400 100"
@@ -118,7 +140,7 @@ function ProfileHeaderCard({
           />
         </svg>
         <h1
-          className={`relative hidden font-display font-extrabold tracking-tight sm:ml-[6.25rem] sm:block sm:min-w-0 sm:flex-1 ${typography.profileName}`}
+          className={`relative hidden font-display font-extrabold tracking-tight sm:ml-[7.25rem] sm:block sm:min-w-0 sm:flex-1 ${typography.profileName}`}
         >
           {displayName}
         </h1>
@@ -127,11 +149,11 @@ function ProfileHeaderCard({
         <div className="flex flex-col gap-3 sm:min-w-0 sm:flex-1 sm:flex-row sm:items-start sm:gap-5">
           <span
             aria-hidden="true"
-            className="relative z-10 -mt-12 flex h-16 w-16 flex-none items-center justify-center rounded-full border-2 border-outline-strong bg-accent-fresh font-display text-2xl font-extrabold text-content-primary shadow-chunk-sm ring-4 ring-surface-raised sm:h-20 sm:w-20"
+            className={`relative z-10 -mt-12 flex h-24 w-24 flex-none items-center justify-center rounded-full border-2 border-outline-strong font-display text-3xl font-extrabold shadow-chunk-sm ring-4 ring-surface-raised ${vibeClasses(vibe)}`}
           >
-            {displayName.charAt(0).toUpperCase()}
+            {profileInitials(displayName)}
           </span>
-          <div className="sm:mt-2">
+          <div className="sm:mt-1">
             <h1
               className={`font-display font-extrabold tracking-tight sm:hidden ${typography.profileName}`}
             >
@@ -145,11 +167,22 @@ function ProfileHeaderCard({
             <p className="mt-2 inline-flex items-center gap-2 text-sm text-content-muted">
               <span
                 aria-hidden="true"
-                className="h-3 w-3 rounded-full border border-outline-strong bg-action-primary"
+                className={`h-3 w-3 rounded-full border border-outline-strong ${vibeClasses(vibe)}`}
               />
-              {formatItemCount(itemCount)}
+              <span>
+                {VIBE_OPTIONS.find((option) => option.value === vibe)?.label}{" "}
+                vibe · <span>{formatItemCount(itemCount)}</span>
+              </span>
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-2 sm:pt-3">
+          {shareControl}
+          <EditProfileButton
+            displayName={displayName}
+            tasteLine={tasteLine}
+            vibe={vibe}
+          />
         </div>
       </div>
     </section>

@@ -103,6 +103,16 @@ async function openTools() {
 }
 
 describe("OrganizerTools", () => {
+  it("uses the room toolbar label while retaining the working disclosure", async () => {
+    render(<OrganizerTools {...baseProps()} presentation="room" />);
+    const button = screen.getByRole("button", { name: "Organizer tools" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(button);
+    expect(
+      await screen.findByTestId("organizer-tools-panel"),
+    ).toBeInTheDocument();
+    expect(button).toHaveAttribute("aria-expanded", "true");
+  });
   it("renders the disclosure closed until the organizer opens it", () => {
     render(<OrganizerTools {...baseProps()} />);
     expect(

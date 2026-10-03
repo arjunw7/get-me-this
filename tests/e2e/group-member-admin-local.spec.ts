@@ -15,13 +15,13 @@ import {
 /**
  * Stack-gated organizer membership-control proof (006f) against the LOCAL
  * Supabase stack, run through scripts/e2e-local-stack.sh: real organizer
- * sessions drive the Member tools disclosure inside the 006d room through
+ * sessions drive the Organizer tools disclosure inside the 006d room through
  * the confirmed Server Actions. The suite covers the exact roster labels
  * (Organizer / Joined / Invited / Removed), the designed
  * Recent-member-activity empty state, the per-member action matrix (remove,
  * make organizer, revoke invite, invite again with the one-time link shown
  * exactly once), the two-tab stale-version recovery copy, organizer
- * authority loss after a transfer, no Member tools for a non-organizer, and
+ * authority loss after a transfer, no Organizer tools for a non-organizer, and
  * leakage scans on every non-organizer surface.
  *
  * No probe prints roster, audit, or token material: assertions reference
@@ -111,11 +111,11 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
     addSqlMember(sqlUserIds[4], "removed", "Former Fae");
     stackIssueTargeted(organizerId, groupId, sqlUserIds[2]);
 
-    // Opens the Member tools disclosure from any state: the closed button is
-    // "Member tools"; the open one is "Hide member tools" (state survives
+    // Opens the Organizer tools disclosure from any state: the closed button is
+    // "Organizer tools"; aria-expanded tracks its state (which survives
     // router.refresh(), not navigation).
     const toolsToggle = page.getByRole("button", {
-      name: /(Member tools|Hide member tools)/,
+      name: /Organizer tools/,
     });
     const openToolsPanel = async (): Promise<void> => {
       const state = await toolsToggle.getAttribute("aria-expanded");
@@ -128,7 +128,7 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
         .getByTestId("admin-member-row")
         .filter({ hasText: name });
 
-    // --- the organizer opens the room and the Member tools disclosure ------
+    // --- the organizer opens the room and the Organizer tools disclosure ------
     await page.goto(`/groups/${groupId}`);
     await expect(
       page.getByRole("heading", { level: 1, name: GROUP_NAME }),
@@ -187,7 +187,7 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
       .getByRole("button", { name: "Make organizer" })
       .click();
     await expect(
-      page.getByRole("button", { name: /Member tools/ }),
+      page.getByRole("button", { name: /Organizer tools/ }),
     ).toHaveCount(0);
     // The former organizer's room keeps the safe roster — authority is
     // derived from the database, not the browser.
@@ -274,7 +274,7 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
       await expect(
         tabBPage.getByRole("heading", { level: 1, name: GROUP_NAME }),
       ).toBeVisible();
-      await tabBPage.getByRole("button", { name: "Member tools" }).click();
+      await tabBPage.getByRole("button", { name: "Organizer tools" }).click();
       const rowBFor = (name: string) =>
         tabBPage
           .getByTestId("organizer-tools-panel")
@@ -331,7 +331,7 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
       ).toBeVisible();
       // No disclosure, no former-member roster rows, no audit content.
       await expect(
-        memberPage.getByRole("button", { name: "Member tools" }),
+        memberPage.getByRole("button", { name: "Organizer tools" }),
       ).toHaveCount(0);
       const memberHtml = await memberPage.content();
       expect(memberHtml).not.toContain("Former Fae");
@@ -360,7 +360,7 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
     // Visual candidates (no baseline adoption without product/design
     // approval): the open tools panel at this project's viewport.
     await page.goto(`/groups/${groupId}`);
-    await page.getByRole("button", { name: "Member tools" }).click();
+    await page.getByRole("button", { name: "Organizer tools" }).click();
     await expect(page.getByTestId("organizer-tools-panel")).toBeVisible();
     await testInfo.attach("member-admin-organizer", {
       body: await page.screenshot({ fullPage: true }),

@@ -49,6 +49,26 @@ describe("resolveSafeRedirectTarget", () => {
     expect(resolveSafeRedirectTarget("create-group")).toBe("/groups/new");
   });
 
+  it("only constructs a public wishlist path from the closed intent and canonical token", () => {
+    const token = "A".repeat(43);
+    expect(resolveSafeRedirectTarget("public-wishlist", token)).toBe(
+      `/s/${token}`,
+    );
+    expect(resolveSafeRedirectTarget("home", token)).toBe("/home");
+    expect(resolveSafeRedirectTarget("create-group", token)).toBe(
+      "/groups/new",
+    );
+    expect(resolveSafeRedirectTarget("public-wishlist")).toBe("/home");
+    for (const attempt of [
+      ...BYPASS_CORPUS,
+      "A".repeat(42) + "B",
+      "/s/" + token,
+    ]) {
+      expect(resolveSafeRedirectTarget("public-wishlist", attempt)).toBe(
+        "/home",
+      );
+    }
+  });
   it("defaults an absent intent to home", () => {
     expect(resolveSafeRedirectTarget(undefined)).toBe(HOME);
   });

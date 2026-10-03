@@ -22,6 +22,12 @@ describe("email redirect allowlist", () => {
     expect(emailRedirectToForOrigin("http://127.0.0.1:3100")).toBe(
       "http://127.0.0.1:3100/auth/confirm",
     );
+    expect(emailRedirectToForOrigin("http://localhost:3200")).toBe(
+      "http://localhost:3200/auth/confirm",
+    );
+    expect(emailRedirectToForOrigin("http://127.0.0.1:3200")).toBe(
+      "http://127.0.0.1:3200/auth/confirm",
+    );
     expect(
       emailRedirectToForOrigin("https://get-me-this-staging.up.railway.app"),
     ).toBe("https://get-me-this-staging.up.railway.app/auth/confirm");
@@ -32,6 +38,10 @@ describe("email redirect allowlist", () => {
 
   it("rejects untrusted origins — never client input, never an open redirect", () => {
     expect(emailRedirectToForOrigin("https://evil.example")).toBeNull();
+    expect(emailRedirectToForOrigin("http://127.0.0.1:3201")).toBeNull();
+    expect(
+      emailRedirectToForOrigin("http://127.0.0.1.evil.example:3200"),
+    ).toBeNull();
     expect(emailRedirectToForOrigin("//evil.example")).toBeNull();
     expect(emailRedirectToForOrigin("")).toBeNull();
     // A same-allowlist origin with a different path or scheme is not the

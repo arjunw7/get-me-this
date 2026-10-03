@@ -104,7 +104,7 @@ export function memberWishlistHeading(memberDisplayName: string): string {
 
 /** The honest sharing statement under the member header. */
 export const MEMBER_WISHLIST_SHARING_NOTE =
-  "Wishlists are shared only with joined group members.";
+  "You’re viewing this wishlist through your group.";
 
 /** The empty state's pinned copy — never an invitation to edit. */
 export const MEMBER_WISHLIST_EMPTY_TEXT =

@@ -37,6 +37,7 @@ export async function setGiftEntryStatusAction(
     redirect(`/groups/${groupId}/gifting?conflict=1`);
   }
   if (outcome.kind === "updated") {
+    revalidatePath("/home");
     revalidatePath(`/groups/${groupId}/gifting`);
   }
 }

@@ -483,7 +483,7 @@ select throws_ok(
 
 -- 9. Creation rollback atomicity ---------------------------------------------------------
 
-select is((select count(*)::int from public."groups"), 2, 'two groups exist before the rollback probe');
+select is((select count(*)::int from public."groups" where organizer_id = :'uid_a'::uuid), 2, 'two fixture groups exist before the rollback probe');
 
 savepoint create_atomicity;
 

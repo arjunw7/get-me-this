@@ -11,9 +11,9 @@ describe("gifting route dispatch", () => {
     expect(giftingRouteState("gift_everyone", "active")).toBe("checklist");
   });
 
-  it("resolves every other mode to the generic not-found result", () => {
-    expect(giftingRouteState("wishlist_only", "active")).toBe("not-found");
-    expect(giftingRouteState("secret_draw", "active")).toBe("not-found");
+  it("renders the other approved modes after active membership authorization", () => {
+    expect(giftingRouteState("wishlist_only", "active")).toBe("browse");
+    expect(giftingRouteState("secret_draw", "active")).toBe("secret");
   });
 
   it("denies archived groups and unknown mode values", () => {

@@ -22,6 +22,7 @@ import { TASTE_LINE_MAX } from "@/src/auth/fixtures";
 export const DISPLAY_NAME_MAX = 40;
 
 export type OnboardingErrors = {
+  readonly vibe?: "invalid";
   readonly displayName?: "required" | "too-long";
   readonly tasteLine?: "too-long";
 };

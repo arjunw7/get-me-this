@@ -21,8 +21,10 @@ export function ReserveAction({
   viewerState,
   onReserve,
   onRelease,
+  presentation = "default",
 }: {
   viewerState: "unreserved" | "yours" | "other";
+  presentation?: "default" | "gifting";
   onReserve: () => Promise<"reserved" | "conflict" | "error">;
   onRelease: () => Promise<"released" | "error">;
 }) {
@@ -55,7 +57,10 @@ export function ReserveAction({
   }
 
   return (
-    <div className="mt-3" aria-busy={isPending}>
+    <div
+      className={presentation === "gifting" ? "mt-auto pt-2" : "mt-3"}
+      aria-busy={isPending}
+    >
       <span id={labelId} className="sr-only">
         Gift coordination for this item
       </span>
@@ -64,7 +69,7 @@ export function ReserveAction({
           className="inline-flex items-center rounded-surface border-2 border-outline-strong bg-surface-raised px-3 py-1 text-sm font-semibold text-content-secondary"
           role="status"
         >
-          Reserved
+          {presentation === "gifting" ? "Reserved by someone else" : "Reserved"}
         </p>
       ) : viewerState === "yours" ? (
         confirmingRelease ? (
@@ -114,9 +119,30 @@ export function ReserveAction({
           disabled={isPending}
           onClick={reserve}
           aria-describedby={conflict ? `${labelId}-conflict` : undefined}
-          className="min-h-11 rounded-pill border-2 border-outline-strong bg-action-primary px-4 text-sm font-bold text-content-primary transition-transform duration-100 motion-reduce:transition-none disabled:opacity-60"
+          className={
+            presentation === "gifting"
+              ? "flex min-h-11 w-full items-center justify-center gap-2 rounded-control border-2 border-outline-strong bg-surface-raised px-3 text-sm font-bold disabled:opacity-60"
+              : "min-h-11 rounded-pill border-2 border-outline-strong bg-action-primary px-4 text-sm font-bold text-content-primary transition-transform duration-100 motion-reduce:transition-none disabled:opacity-60"
+          }
         >
-          Reserve gift
+          {presentation === "gifting" ? (
+            <>
+              <svg
+                aria-hidden="true"
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <rect x="4" y="10" width="16" height="11" rx="2" />
+                <path d="M8 10V6a4 4 0 0 1 8 0v4" />
+              </svg>
+              Reserve secretly
+            </>
+          ) : (
+            "Reserve gift"
+          )}
         </button>
       )}
       {conflict ? (

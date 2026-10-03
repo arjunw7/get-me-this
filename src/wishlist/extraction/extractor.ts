@@ -23,13 +23,21 @@ type WorkerResult = {
   readonly images?: unknown;
 };
 
-function decodeHtml(bytes: Uint8Array, charset: string | null): string {
+function decodeHtml(
+  bytes: Uint8Array,
+  charset: string | null,
+  truncated = false,
+): string {
   try {
     const encoding =
       charset === "iso-8859-1" || charset === "windows-1252"
         ? "windows-1252"
         : "utf-8";
-    return new TextDecoder(encoding, { fatal: true }).decode(bytes);
+    // A prefix may stop between UTF-8 bytes. Streaming mode discards only
+    // that unfinished trailing character; malformed bytes still fail.
+    return new TextDecoder(encoding, { fatal: true }).decode(bytes, {
+      stream: truncated,
+    });
   } catch {
     throw new ExtractionError("unsupported_content");
   }
@@ -37,12 +45,14 @@ function decodeHtml(bytes: Uint8Array, charset: string | null): string {
 
 async function parseInWorker(
   html: string,
+  amazonProduct: boolean,
+  finalUrl: string,
   signal?: AbortSignal,
 ): Promise<WorkerResult> {
   if (signal?.aborted) throw new ExtractionError("timeout");
   return await new Promise((resolve, reject) => {
     const worker = new Worker(new URL("./html-worker.mjs", import.meta.url), {
-      workerData: { html },
+      workerData: { html, amazonProduct, finalUrl },
       resourceLimits: { maxOldGenerationSizeMb: 64 },
     });
     let settled = false;
@@ -92,10 +102,16 @@ export async function extractProductLink(
     admittedSource,
     "html",
     options.transport,
-    { signal: options.signal, deadline: options.deadline },
+    {
+      signal: options.signal,
+      deadline: options.deadline,
+      allowHtmlPrefix: (destination) => isAmazonProduct(destination.href),
+    },
   );
   const metadata = await parseInWorker(
-    decodeHtml(response.body, response.charset),
+    decodeHtml(response.body, response.charset, response.truncated),
+    isAmazonProduct(response.finalUrl),
+    response.finalUrl,
     options.signal,
   );
   const title = safeWorkerText(metadata.title, 200);
@@ -138,6 +154,15 @@ export async function extractProductLink(
       : {}),
     candidateImageUrls,
   });
+}
+
+function isAmazonProduct(url: string): boolean {
+  const destination = new URL(url);
+  return (
+    (destination.hostname === "amazon.in" ||
+      destination.hostname === "www.amazon.in") &&
+    /\/(?:dp|gp\/product)\/[A-Z0-9]{10}(?:\/|$)/i.test(destination.pathname)
+  );
 }
 
 export const PARSER_LIMITS = {

@@ -3,7 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/src/supabase/server";
 
 /**
- * Server-side group-room data access (brief 006d). The room consumes exactly
+ * Server-side group-room data access (brief 006d). This loader consumes exactly
  * ONE database projection — public.group_room_snapshot(uuid) — and never a
  * base-table query, a direct profile/member/invitation read, a service-role
  * credential, or any wishlist or gifting surface. The actor is always

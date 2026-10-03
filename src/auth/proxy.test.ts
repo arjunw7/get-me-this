@@ -237,6 +237,32 @@ describe("proxy responses", () => {
     );
 
     it(
+      "preserves only a canonical public share continuation from anonymous onboarding",
+      withLocalConfig(async () => {
+        const token = "A".repeat(43);
+        const response = await proxy(requestFor(`/onboarding?share=${token}`));
+        expect(response.headers.get("location")).toBe(
+          `${APP_ORIGIN}/auth?intent=public-wishlist&share=${token}`,
+        );
+        expect(response.headers.get("cache-control")).toBe(NO_STORE);
+        expect(response.headers.get("referrer-policy")).toBe(NO_REFERRER);
+
+        for (const value of [
+          "//evil.example",
+          "A".repeat(42),
+          `${"A".repeat(42)}B`,
+        ]) {
+          const invalid = await proxy(
+            requestFor(`/onboarding?share=${encodeURIComponent(value)}`),
+          );
+          expect(invalid.headers.get("location")).toBe(`${APP_ORIGIN}/auth`);
+        }
+        const unrelated = await proxy(requestFor(`/wishlist?share=${token}`));
+        expect(unrelated.headers.get("location")).toBe(`${APP_ORIGIN}/auth`);
+      }),
+    );
+
+    it(
       "covers Server Actions on protected pages (they POST to the page's own URL)",
       withLocalConfig(async () => {
         for (const pathname of [
@@ -274,4 +300,21 @@ describe("proxy responses", () => {
       expect(response.status).not.toBe(302);
     });
   });
+});
+
+describe("public sharing privacy headers", () => {
+  it.each([
+    "/s/" + "A".repeat(43),
+    "/s/" + "A".repeat(43) + "/images/12345678-1234-4123-8123-123456789012",
+    "/auth?intent=public-wishlist&share=" + "A".repeat(43),
+    "/onboarding?share=" + "A".repeat(43),
+  ])(
+    "keeps share-bearing routes uncached and out of referrers: %s",
+    async (path) => {
+      const response = await proxy(requestFor(path));
+      expect(response.headers.get("cache-control")).toBe(NO_STORE);
+      expect(response.headers.get("referrer-policy")).toBe(NO_REFERRER);
+      expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    },
+  );
 });

@@ -76,6 +76,7 @@ const PROTECTED_ROUTE_PATHS: readonly string[] = [
   "/wishlist",
   "/wishlist/items/new",
   "/wishlist/items/extract",
+  "/groups",
   "/groups/new",
 ];
 

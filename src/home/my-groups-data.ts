@@ -3,7 +3,7 @@ import "server-only";
 import { createSupabaseServerClient } from "@/src/supabase/server";
 
 /**
- * Server-side home data access. The authenticated home consumes exactly ONE
+ * Server-side group index data access. This loader consumes exactly ONE
  * database projection — public.my_groups_snapshot() — and never a base-table
  * query or any direct group/member read. The actor is always derived inside
  * the database function from auth.uid().

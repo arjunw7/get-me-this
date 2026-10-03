@@ -13,10 +13,11 @@ import { DeleteDialog } from "./delete-dialog";
 import { DeleteErrorBoundary } from "./delete-error-boundary";
 import type { CreateDraft, EditDraft } from "./item-input";
 import { SUPPORTED_CURRENCY_CODES } from "./currency-metadata";
+import { CurrencySelect } from "./currency-select";
 import type { EditItem } from "./item-write";
 
 const INITIAL: ItemActionState = { status: "idle" };
-const QUICK_CURRENCIES = ["INR", "USD", "GBP", "EUR"];
+
 const DESIRE_CHOICES = [
   ["really_want", "Really want"],
   ["would_love", "Would love"],
@@ -221,22 +222,14 @@ function ItemFormFields({
             <label className="sr-only" htmlFor="item-currency">
               Currency
             </label>
-            <select
+            <CurrencySelect
               id="item-currency"
-              className={fieldClass}
+              className="mt-1"
               name="currency"
               value={draft.currency}
               disabled={opaquePreserve}
-              onChange={(event) => update("currency", event.target.value)}
-            >
-              {Array.from(
-                new Set([...QUICK_CURRENCIES, ...SUPPORTED_CURRENCY_CODES]),
-              ).map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
-              ))}
-            </select>
+              onChange={(code) => update("currency", code)}
+            />
           </div>
           {errors.amount ? (
             <p id="amount-error" className="text-sm text-feedback-error">
@@ -378,7 +371,7 @@ function ItemFormFields({
         >
           Photo preview — adding photos isn’t available yet.
         </div>
-        <div className="fixed inset-x-0 bottom-0 z-20 flex gap-3 border-t-2 border-outline-strong bg-surface-page/95 p-4 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+        <div className="fixed inset-x-0 bottom-[calc(4.375rem+env(safe-area-inset-bottom))] z-20 flex gap-3 border-t-2 border-outline-strong bg-surface-page/95 p-4 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
           <Link
             href="/wishlist"
             className="inline-flex min-h-touch-min flex-1 items-center justify-center rounded-surface border-2 border-outline-strong bg-surface-raised px-4 font-bold"

@@ -1,53 +1,74 @@
 import { totalReactionCount } from "./types";
-
-type Key = "veryYou" | "questionable" | "wantItToo";
-
-const LABEL_FOR_KEY: Record<Key, string> = {
-  veryYou: "Very you",
-  questionable: "Questionable",
-  wantItToo: "Want it too",
-};
 import type { OwnerReactionSummary } from "./reaction-write";
 
-/**
- * The approved read-only owner summary row for one of the caller's own items
- * (brief 007a): per-kind counts and breakdown, `No reactions yet` at zero.
- * No interactive control exists here anywhere; the owner cannot react to
- * their own items and never sees reactor identities.
- */
+type Key = "veryYou" | "questionable" | "wantItToo";
+const KINDS: readonly Key[] = ["veryYou", "questionable", "wantItToo"];
+const LABELS: Record<Key, string> = {
+  veryYou: "Very you",
+  questionable: "Questionable, but supported",
+  wantItToo: "Want it too",
+};
+const GLYPHS: Record<Key, string> = {
+  veryYou: "✧",
+  questionable: "?",
+  wantItToo: "♡",
+};
+const COLORS: Record<Key, string> = {
+  veryYou: "bg-action-primary text-content-primary",
+  questionable: "bg-accent-highlight text-content-primary",
+  wantItToo: "bg-accent-info text-white",
+};
+
+/** Aggregate-only owner summary: no reactor identity, reservation state, or mutation. */
 export function OwnerReactionSummaryRow({
   summary,
 }: {
   summary: OwnerReactionSummary;
 }) {
   const total = totalReactionCount(summary.counts);
-
-  if (total === 0) {
-    return (
-      <p
-        className="mt-3 text-sm font-semibold text-content-secondary"
-        role="status"
-      >
-        No reactions yet
-      </p>
-    );
-  }
-
+  const present = KINDS.filter((kind) => summary.counts[kind] > 0);
   return (
-    <dl
-      className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold"
+    <div
+      className="mt-1 border-t-2 border-outline-subtle pt-3 text-sm text-content-secondary"
       role="status"
     >
-      <dt className="sr-only">Reactions to this item</dt>
-      {(["veryYou", "questionable", "wantItToo"] as const).map((key: Key) => (
-        <div
-          key={key}
-          className="flex items-center gap-1 rounded-surface border-2 border-outline-strong bg-surface-raised px-3 py-1 text-content-primary"
-        >
-          <dt>{LABEL_FOR_KEY[key]}</dt>
-          <dd className="tabular-nums">{summary.counts[key]}</dd>
-        </div>
-      ))}
-    </dl>
+      {total === 0 ? (
+        <p>No reactions yet</p>
+      ) : (
+        <>
+          <p className="flex items-center gap-2">
+            <span aria-hidden="true" className="inline-flex -space-x-1">
+              {present.map((kind) => (
+                <span
+                  key={kind}
+                  className={`inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface-raised text-base font-bold ${COLORS[kind]}`}
+                >
+                  {GLYPHS[kind]}
+                </span>
+              ))}
+            </span>
+            <span>
+              {total} {total === 1 ? "reaction" : "reactions"}
+            </span>
+          </p>
+          <dl className="mt-2 space-y-1">
+            {present.map((kind) => (
+              <div key={kind} className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="w-3.5 text-center text-base leading-none text-content-primary"
+                >
+                  {GLYPHS[kind]}
+                </span>
+                <dd className="order-1 tabular-nums font-bold text-content-primary">
+                  {summary.counts[kind]}
+                </dd>
+                <dt className="order-2">{LABELS[kind]}</dt>
+              </div>
+            ))}
+          </dl>
+        </>
+      )}
+    </div>
   );
 }

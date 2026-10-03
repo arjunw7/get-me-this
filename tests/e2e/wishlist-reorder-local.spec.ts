@@ -60,7 +60,20 @@ function reorderStatus(surface: Page) {
   return surface.locator('p[role="status"][aria-live="polite"]');
 }
 
-test("arrow and touch moves persist across Done, reload, and a second tab", async ({
+async function keyboardMove(
+  page: Page,
+  title: string,
+  direction: "up" | "down",
+) {
+  const handle = page.getByRole("button", { name: `Drag to reorder ${title}` });
+  await handle.focus();
+  await handle.press("Space");
+  await expect(handle).toHaveAttribute("aria-pressed", "true");
+  await handle.press(direction === "up" ? "ArrowUp" : "ArrowDown");
+  await handle.press("Space");
+}
+
+test("keyboard and touch moves persist across Done, reload, and a second tab", async ({
   page,
 }, testInfo) => {
   test.setTimeout(120_000);
@@ -104,16 +117,20 @@ test("arrow and touch moves persist across Done, reload, and a second tab", asyn
       fullPage: true,
       animations: "disabled",
     });
-    await page
-      .getByRole("button", { name: "Move Ceramic matcha set down" })
-      .press("Enter");
+    await keyboardMove(page, "Ceramic matcha set", "down");
     await expect(reorderStatus(page)).toHaveText("Order saved.");
 
-    const rows = page.getByRole("listitem");
+    // The shell also contains navigation list items. Drag only within the
+    // wishlist content so the destination is a product row at every viewport.
+    const rows = page.getByRole("main").getByRole("listitem");
+    await expect(rows).toHaveCount(items.length);
     const firstHandle = page.getByRole("button", {
       name: "Drag to reorder Tiny gold hoops",
     });
     const lastRow = rows.nth(2);
+    // Keep the drop target above the fixed mobile navigation. Synthetic
+    // pointer events do not perform the scrolling a real touch gesture needs.
+    await lastRow.evaluate((row) => row.scrollIntoView({ block: "center" }));
     const start = await firstHandle.boundingBox();
     const target = await lastRow.boundingBox();
     if (!start || !target) throw new Error("reorder drag geometry unavailable");
@@ -195,9 +212,7 @@ test("incomplete profiles cannot reorder through the current action", async ({
       .eq("id", ownerId);
     expect(madeIncomplete.error).toBeNull();
 
-    await page
-      .getByRole("button", { name: "Move Ceramic matcha set down" })
-      .click();
+    await keyboardMove(page, "Ceramic matcha set", "down");
     await expect(page).toHaveURL(/\/onboarding(?:\?|$)/);
     const stored = await admin
       .from("wishlist_items")
@@ -231,21 +246,18 @@ test("a stale second tab refetches the authoritative order before another move",
     const staleTab = await page.context().newPage();
     await Promise.all([page.goto("/wishlist"), staleTab.goto("/wishlist")]);
     await page.getByRole("button", { name: "Reorder", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Move Ceramic matcha set down" })
-      .click();
+    await keyboardMove(page, "Ceramic matcha set", "down");
     await expect(reorderStatus(page)).toHaveText("Order saved.");
 
     await staleTab
       .getByRole("button", { name: "Reorder", exact: true })
       .click();
-    await staleTab
-      .getByRole("button", { name: "Move Linen pyjama set up" })
-      .click();
+    await keyboardMove(staleTab, "Linen pyjama set", "up");
     await expect(reorderStatus(staleTab)).toHaveText(
       "Order refreshed. Choose another move if needed.",
     );
     const staleRows = await staleTab
+      .getByRole("main")
       .getByRole("listitem")
       .locator("p.truncate")
       .allTextContents();
@@ -303,17 +315,13 @@ test("create and delete commit orders reconcile without overwriting or resurrect
       sort_position: 4,
     });
     expect(createdFirst.error).toBeNull();
-    await page
-      .getByRole("button", { name: "Move Ceramic matcha set down" })
-      .click();
+    await keyboardMove(page, "Ceramic matcha set", "down");
     await expect(reorderStatus(page)).toHaveText(
       "Order refreshed. Choose another move if needed.",
     );
     await expect(page.getByText("Created before reorder")).toBeVisible();
 
-    await page
-      .getByRole("button", { name: "Move Ceramic matcha set down" })
-      .click();
+    await keyboardMove(page, "Ceramic matcha set", "down");
     await expect(reorderStatus(page)).toHaveText("Order saved.");
     await page.getByRole("button", { name: "Done" }).click();
     await page.goto("/wishlist/items/new");
@@ -339,17 +347,13 @@ test("create and delete commit orders reconcile without overwriting or resurrect
       .eq("owner_id", ownerId)
       .eq("id", items[1].id);
     expect(deletedFirst.error).toBeNull();
-    await page
-      .getByRole("button", { name: "Move Ceramic matcha set down" })
-      .click();
+    await keyboardMove(page, "Ceramic matcha set", "down");
     await expect(reorderStatus(page)).toHaveText(
       "Order refreshed. Choose another move if needed.",
     );
     await expect(page.getByText("Tiny gold hoops")).toHaveCount(0);
 
-    await page
-      .getByRole("button", { name: "Move Ceramic matcha set down" })
-      .click();
+    await keyboardMove(page, "Ceramic matcha set", "down");
     await expect(reorderStatus(page)).toHaveText("Order saved.");
     await page.getByRole("button", { name: "Remove Linen pyjama set" }).click();
     await page.getByRole("button", { name: "Delete item" }).click();
@@ -398,9 +402,7 @@ test("Done waits for saving, stays open after a lost response, and axe passes", 
       }
       await route.continue();
     });
-    const saving = page
-      .getByRole("button", { name: "Move Ceramic matcha set down" })
-      .click();
+    const saving = keyboardMove(page, "Ceramic matcha set", "down");
     await received;
     await page.getByRole("button", { name: "Done" }).click();
     await expect(
@@ -423,9 +425,7 @@ test("Done waits for saving, stays open after a lost response, and axe passes", 
       }
       await route.continue();
     });
-    await page
-      .getByRole("button", { name: "Move Ceramic matcha set down" })
-      .click();
+    await keyboardMove(page, "Ceramic matcha set", "down");
     // The recovery box is not the only role="alert" on the page: the
     // Next.js route announcer is another, so the alert is addressed by its
     // recovery copy.

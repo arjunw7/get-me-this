@@ -54,6 +54,28 @@ function convertedTuple(
 }
 
 describe("WishlistCard", () => {
+  it("loads a replacement image after the previous image failed", () => {
+    const { rerender } = render(
+      <WishlistCard
+        item={item({ imageSrc: "https://example.invalid/old.jpg" })}
+        index={0}
+      />,
+    );
+    fireEvent.error(screen.getByRole("img"));
+    expect(screen.getByTestId("wishlist-image-placeholder")).toBeVisible();
+
+    rerender(
+      <WishlistCard
+        item={item({ imageSrc: "https://example.invalid/new.jpg" })}
+        index={0}
+      />,
+    );
+    expect(screen.getByRole("img")).toHaveAttribute(
+      "src",
+      "https://example.invalid/new.jpg",
+    );
+  });
+
   it("keeps an unsupported stored currency opaque with an unavailable-price explanation", () => {
     render(
       <WishlistCard
@@ -365,5 +387,57 @@ describe("WishlistCardGrid", () => {
     ]);
     // The zero-decimal JPY item never shows fractional digits.
     expect(within(cards[1]).getByText("132000 JPY")).toBeVisible();
+  });
+});
+
+describe("owner reaction summary wiring", () => {
+  it("matches aggregate rows by item id and exposes no gifting controls", () => {
+    const first = item({ id: "first", title: "First item" });
+    const second = item({ id: "second", title: "Second item" });
+    render(
+      <WishlistCardGrid
+        items={[first, second]}
+        reactionSummaries={{
+          second: {
+            itemId: "second",
+            counts: { veryYou: 2, questionable: 0, wantItToo: 1 },
+          },
+          first: {
+            itemId: "first",
+            counts: { veryYou: 0, questionable: 0, wantItToo: 0 },
+          },
+        }}
+      />,
+    );
+    const firstCard = screen
+      .getByRole("heading", { name: "First item" })
+      .closest("article")!;
+    const secondCard = screen
+      .getByRole("heading", { name: "Second item" })
+      .closest("article")!;
+    expect(within(firstCard).getByText("No reactions yet")).toBeVisible();
+    expect(within(secondCard).getByText("3 reactions")).toBeVisible();
+    expect(
+      within(secondCard).queryByText("Questionable, but supported"),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /react|reserve/i })).toBeNull();
+    expect(screen.queryByText(/reserved/i)).toBeNull();
+  });
+  it("does not invent zero counts when the summary read was unavailable", () => {
+    render(<WishlistCard item={item()} index={0} />);
+    expect(screen.queryByText("No reactions yet")).toBeNull();
+  });
+  it("does not render a summary supplied for another item", () => {
+    render(
+      <WishlistCard
+        item={item()}
+        index={0}
+        reactionSummary={{
+          itemId: "another-item",
+          counts: { veryYou: 2, questionable: 0, wantItToo: 0 },
+        }}
+      />,
+    );
+    expect(screen.queryByText("2 reactions")).toBeNull();
   });
 });

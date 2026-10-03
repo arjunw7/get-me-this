@@ -71,7 +71,7 @@ async function assertProfileGeometry(
   const band = await region.locator(":scope > div:first-child").boundingBox();
   const heading = page.getByRole("heading", { name: profile.displayName });
   const name = await heading.boundingBox();
-  const taste = await page.getByText(profile.tasteLine).boundingBox();
+  const taste = await region.getByText(profile.tasteLine).boundingBox();
   expect(band).not.toBeNull();
   expect(name).not.toBeNull();
   expect(taste).not.toBeNull();
@@ -88,7 +88,7 @@ async function assertProfileGeometry(
       isTopmost: topmost === element || element.contains(topmost),
     };
   });
-  expect(avatarPaint.color).toBe("rgb(198, 240, 98)");
+  expect(avatarPaint.color).toBe("rgb(255, 179, 32)");
   expect(
     avatarPaint.isTopmost,
     `${profile.displayName} avatar is covered within its band overlap`,
@@ -348,12 +348,14 @@ test("a fresh owner with zero items sees the V18 empty composition and its CTA n
     await expect(
       page.getByText(/Your friends will take it from there/),
     ).toHaveCount(0);
-    const cta = page.getByRole("link", { name: "Add an item" });
+    const cta = page
+      .getByRole("main")
+      .getByRole("link", { name: "Add an item" });
     await expect(cta).toBeVisible();
 
     // No fake items, no loading residue, no public-visibility language.
     await expect(page.getByRole("article")).toHaveCount(0);
-    const body = (await page.locator("body").innerText()).toLowerCase();
+    const body = (await page.getByRole("main").innerText()).toLowerCase();
     for (const phrase of ["share", "visible to", "group"]) {
       expect(body, `empty state says "${phrase}"`).not.toContain(phrase);
     }
@@ -361,7 +363,9 @@ test("a fresh owner with zero items sees the V18 empty composition and its CTA n
     // The profile header: display name, taste line, "0 things".
     await expect(page.getByRole("heading", { name: "Ada" })).toBeVisible();
     await expect(
-      page.getByText("currently in my tiny-luxuries era"),
+      page
+        .getByRole("region", { name: "Ada", exact: true })
+        .getByText("currently in my tiny-luxuries era"),
     ).toBeVisible();
     await expect(page.getByText("0 things")).toBeVisible();
     await assertProfileGeometry(page, true);
@@ -830,7 +834,9 @@ test("every interactive element is keyboard-operable with visible focus, and bot
     await expect(account).toHaveAttribute("aria-expanded", "true");
     await tabTo(
       page,
-      page.getByRole("link", { name: "My wishlist" }),
+      page
+        .getByTestId("account-menu-content")
+        .getByRole("link", { name: "My wishlist" }),
       "My wishlist menu entry",
     );
     await page.keyboard.press("Enter");
@@ -842,7 +848,9 @@ test("every interactive element is keyboard-operable with visible focus, and bot
     await page.keyboard.press("Enter");
     await tabTo(
       page,
-      page.getByRole("link", { name: "My wishlist" }),
+      page
+        .getByTestId("account-menu-content")
+        .getByRole("link", { name: "My wishlist" }),
       "My wishlist menu entry",
     );
     await tabTo(
@@ -865,7 +873,7 @@ test("every interactive element is keyboard-operable with visible focus, and bot
     await tabTo(page, account, "account trigger");
     await tabTo(
       page,
-      page.getByRole("link", { name: "Add an item" }),
+      page.getByRole("main").getByRole("link", { name: "Add an item" }),
       "empty CTA",
     );
     await page.keyboard.press("Enter");
@@ -875,16 +883,10 @@ test("every interactive element is keyboard-operable with visible focus, and bot
         name: "Drop the link. We’ll do the nosy part.",
       }),
     ).toBeVisible();
-    await tabTo(
-      page,
-      page.getByRole("link", { name: "Get Me This home" }),
-      "interim wordmark",
-    );
-    await tabTo(
-      page,
-      page.getByRole("button", { name: "Account" }),
-      "interim account",
-    );
+    // V18 Add Item is standalone. Its keyboard exit is the header close
+    // link; application navigation and account controls are absent here.
+    await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Account" })).toHaveCount(0);
     await tabTo(
       page,
       page.getByRole("link", { name: "Close and return to your wishlist" }),
@@ -892,6 +894,26 @@ test("every interactive element is keyboard-operable with visible focus, and bot
     );
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/wishlist$/);
+
+    const editProfile = page
+      .getByRole("main")
+      .getByRole("button", { name: "Edit profile" });
+    await tabTo(page, editProfile, "profile editor trigger");
+    await page.keyboard.press("Enter");
+    const profileDialog = page.getByRole("dialog", {
+      name: "Edit your profile",
+    });
+    await expect(profileDialog).toBeVisible();
+    await expect(
+      profileDialog.getByLabel("Name", { exact: true }),
+    ).toBeFocused();
+    const profileScan = await new AxeBuilder({ page })
+      .withTags([...WCAG_TAGS])
+      .analyze();
+    expect(profileScan.violations).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(profileDialog).toHaveCount(0);
+    await expect(editProfile).toBeFocused();
 
     // Populated state: retailer links, axe, and keyboard reachability.
     await seedWishlistItems(admin, userId, populatedFixtures());

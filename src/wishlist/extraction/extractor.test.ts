@@ -47,6 +47,252 @@ function transport(html: string) {
 }
 
 describe("inert bounded metadata extraction", () => {
+  it("decodes HTML text and image attributes once, before URL validation", async () => {
+    const fixture = transport(`<title>Fallback</title>
+      <meta property="og:title" content="Tea &amp; Coffee &#x1f381; &#39;gift&#39; &constructor;">
+      <meta property="og:site_name" content="Tom &amp; Co">
+      <meta property="og:image" content="https://images.example/a.jpg?x=1&amp;y=2">
+      <meta property="product:price:amount" content="&#49;2.00">
+      <meta property="product:price:currency" content="USD">`);
+    const result = await extractProductLink("https://shop.example/item", {
+      transport: fixture.dependencies,
+    });
+    expect(result).toMatchObject({
+      title: "Tea & Coffee 🎁 'gift' &constructor;",
+      retailer: "Tom & Co",
+      originalAmountMinor: "1200",
+      candidateImageUrls: ["https://images.example/a.jpg?x=1&y=2"],
+    });
+  });
+
+  it("does not decode literal HTML entity text inside JSON-LD", async () => {
+    const fixture = transport(
+      '<script type="application/ld+json">{"@type":"Product","name":"Literal &amp; token"}</script>',
+    );
+    const result = await extractProductLink("https://shop.example/item", {
+      transport: fixture.dependencies,
+    });
+    expect(result.title).toBe("Literal &amp; token");
+  });
+
+  it.each([null, { name: "Myntra" }])(
+    "never treats a product brand as the shop (seller %j)",
+    async (seller) => {
+      const fixture = transport(
+        `<script type="application/ld+json">${JSON.stringify({ "@type": "Product", name: "Shoe", brand: { name: "Nike" }, offers: { seller } })}</script>`,
+      );
+      const result = await extractProductLink("https://shop.example/item", {
+        transport: fixture.dependencies,
+      });
+      expect(result.retailer).toBe(seller?.name ?? null);
+    },
+  );
+
+  it.each([
+    "<title>Just a moment...</title><body>Please verify you are human</body>",
+    '<title>Robot Check</title><form action="/errors/validateCaptcha">Check</form>',
+    '<title>Attention Required!</title><script src="/cdn-cgi/challenge-platform/x"></script>',
+  ])(
+    "rejects a confirmed challenge instead of proposing its title",
+    async (html) => {
+      const fixture = transport(html);
+      await expect(
+        extractProductLink("https://shop.example/item", {
+          transport: fixture.dependencies,
+        }),
+      ).rejects.toMatchObject({ code: "extraction_failed" });
+    },
+  );
+
+  it("does not reject a legitimate product merely named Just a moment", async () => {
+    const fixture = transport(
+      '<title>Just a moment</title><script type="application/ld+json">{"@type":"Product","name":"Just a moment"}</script>',
+    );
+    const result = await extractProductLink("https://shop.example/item", {
+      transport: fixture.dependencies,
+    });
+    expect(result.title).toBe("Just a moment");
+  });
+
+  it("binds multi-product fields to the exact URL match instead of a recommendation or global metadata", async () => {
+    const fixture =
+      transport(`<meta property="og:title" content="Recommended socks"><meta property="og:image" content="/socks.jpg"><meta property="product:price:amount" content="10"><meta property="product:price:currency" content="USD">
+      <script type="application/ld+json">[{"@type":"Product","url":"/socks","name":"Socks","offers":{"price":"10","priceCurrency":"USD"}},{"@type":"Product","url":"/coat?variant=blue","name":"Blue coat","image":"/blue.jpg","offers":{"price":"90","priceCurrency":"USD"}}]</script>`);
+    const result = await extractProductLink(
+      "https://shop.example/coat?variant=blue",
+      { transport: fixture.dependencies },
+    );
+    expect(result).toMatchObject({
+      title: "Blue coat",
+      originalAmountMinor: "9000",
+      candidateImageUrls: ["https://shop.example/blue.jpg"],
+    });
+  });
+
+  it("accepts a unique same-origin canonical match without query context", async () => {
+    const fixture = transport(
+      '<link rel="canonical" href="/coat"><script type="application/ld+json">[{"@type":"Product","url":"/socks","name":"Socks"},{"@type":"Product","url":"/coat","name":"Coat"}]</script>',
+    );
+    const result = await extractProductLink("https://shop.example/old-coat", {
+      transport: fixture.dependencies,
+    });
+    expect(result.title).toBe("Coat");
+  });
+
+  it.each([
+    ["/coat", [{ url: "/socks" }, { url: "/hat" }]],
+    ["/coat", [{ name: "Socks" }, { name: "Hat" }]],
+    ["/coat", [{ url: "/coat" }, { url: "/coat" }]],
+    ["/coat?variant=blue", [{ url: "/coat" }, { url: "/hat" }]],
+  ])(
+    "fails into editable entry when product identity is ambiguous: %s %j",
+    async (path, products) => {
+      const fixture = transport(
+        `<link rel="canonical" href="/coat"><meta property="og:title" content="Generic"><script type="application/ld+json">${JSON.stringify(products.map((product) => ({ "@type": "Product", ...product })))}</script>`,
+      );
+      await expect(
+        extractProductLink(`https://shop.example${path}`, {
+          transport: fixture.dependencies,
+        }),
+      ).rejects.toMatchObject({ code: "extraction_failed" });
+    },
+  );
+
+  it("omits price when several offers cannot be disambiguated", async () => {
+    const fixture = transport(
+      '<meta property="product:price:amount" content="10"><meta property="product:price:currency" content="USD"><script type="application/ld+json">{"@type":"Product","name":"Coat","offers":[{"price":"10","priceCurrency":"USD"},{"price":"90","priceCurrency":"USD"}]}</script>',
+    );
+    const result = await extractProductLink("https://shop.example/coat", {
+      transport: fixture.dependencies,
+    });
+    expect(result.title).toBe("Coat");
+    expect(result.originalAmountMinor).toBeUndefined();
+    expect(result.originalCurrency).toBeUndefined();
+  });
+
+  it("uses the exact matched offer rather than global money or the first offer", async () => {
+    const fixture = transport(
+      '<meta property="product:price:amount" content="10"><meta property="product:price:currency" content="USD"><script type="application/ld+json">{"@type":"Product","name":"Coat","offers":[{"url":"/coat?variant=red","price":"10","priceCurrency":"USD"},{"url":"/coat?variant=blue","price":"90","priceCurrency":"USD"}]}</script>',
+    );
+    const result = await extractProductLink(
+      "https://shop.example/coat?variant=blue",
+      { transport: fixture.dependencies },
+    );
+    expect(result.originalAmountMinor).toBe("9000");
+  });
+
+  it("never lets a generic page ID override an explicitly different variant URL", async () => {
+    const fixture = transport(
+      '<script type="application/ld+json">{"@type":"Product","@id":"#product","url":"/coat?variant=red","name":"Red coat"}</script>',
+    );
+    await expect(
+      extractProductLink("https://shop.example/coat?variant=blue", {
+        transport: fixture.dependencies,
+      }),
+    ).rejects.toMatchObject({ code: "extraction_failed" });
+  });
+
+  it("does not trust a cross-origin canonical product match", async () => {
+    const fixture = transport(
+      '<link rel="canonical" href="https://other.example/coat"><script type="application/ld+json">{"@type":"Product","url":"https://other.example/coat","name":"Other coat"}</script>',
+    );
+    await expect(
+      extractProductLink("https://shop.example/coat", {
+        transport: fixture.dependencies,
+      }),
+    ).rejects.toMatchObject({ code: "extraction_failed" });
+  });
+
+  it("applies image URL restrictions after entity decoding", async () => {
+    const fixture = transport(
+      '<title>Gift</title><meta property="og:image" content="https://&#49;27.0.0.1/private.jpg">',
+    );
+    const result = await extractProductLink("https://shop.example/item", {
+      transport: fixture.dependencies,
+    });
+    expect(result.candidateImageUrls).toEqual([]);
+  });
+
+  it.each([
+    '<meta property="product:price:amount" content="99">',
+    '<meta property="product:price:currency" content="USD">',
+  ])(
+    "never mixes incomplete metadata money with Amazon money: %s",
+    async (metadata) => {
+      const fixture = transport(
+        `${metadata}<script>var preferences={"currencyInfo":{"code":"INR"}};</script><span id="productTitle">Mirror</span><span class="priceToPay"><span class="a-price-whole">1,749</span></span><span class="a-price-whole">9,999</span><span class="a-price-fraction">99</span>`,
+      );
+      const result = await extractProductLink(
+        "https://www.amazon.in/dp/B0D7SM71WK",
+        { transport: fixture.dependencies },
+      );
+      expect(result.originalAmountMinor).toBe("174900");
+      expect(result.originalCurrency).toBe("INR");
+    },
+  );
+
+  it("handles a prefix ending inside a UTF-8 character without accepting an incomplete price", async () => {
+    const metadata =
+      '<span id="productTitle">Mirror</span><script>var preferences={"currencyInfo":{"code":"INR"}};</script><span class="priceToPay"><span class="a-price-whole">1749</span>';
+    const fixture = transport(
+      `${metadata}${" ".repeat(1_048_575 - encoder.encode(metadata).length)}€</span>`,
+    );
+    const result = await extractProductLink(
+      "https://www.amazon.in/dp/B0D7SM71WK",
+      { transport: fixture.dependencies },
+    );
+    expect(result.title).toBe("Mirror");
+    expect(result.originalAmountMinor).toBeUndefined();
+  });
+  it.each(["priceToPay", "apex-pricetopay-value"])(
+    "extracts Amazon's explicit product fields from a bounded oversized page: %s",
+    async (priceClass) => {
+      const fixture =
+        transport(`<html><head><title>Retailer title</title></head><body>
+      <script>var preferences = {"currencyInfo":{"code":"INR"}};</script>
+      <span id="productTitle">Round mirror</span>
+      <img id="landingImage" src="https://images.example/small.jpg" data-old-hires="https://images.example/mirror.jpg">
+      <span class="a-price ${priceClass}"><span class="a-price-whole">1,749<span class="a-price-decimal">.</span></span><span class="a-price-fraction">00</span></span>
+      ${" ".repeat(1_048_576)}</body></html>`);
+      const result = await extractProductLink(
+        "https://www.amazon.in/dp/B0D7SM71WK",
+        { transport: fixture.dependencies },
+      );
+      expect(result).toMatchObject({
+        title: "Round mirror",
+        retailer: "Amazon",
+        originalAmountMinor: "174900",
+        originalCurrency: "INR",
+        candidateImageUrls: ["https://images.example/mirror.jpg"],
+      });
+      expect(fixture.connection.destroyed).toBe(true);
+    },
+  );
+
+  it("does not enable Amazon markup or prefix reads for a lookalike host", async () => {
+    const fixture = transport(
+      `<span id="productTitle">Spoof</span>${" ".repeat(1_048_576)}`,
+    );
+    await expect(
+      extractProductLink("https://amazon.in.attacker.example/product", {
+        transport: fixture.dependencies,
+      }),
+    ).rejects.toMatchObject({ code: "too_large" });
+  });
+
+  it("does not guess an Amazon currency or use an unrelated price", async () => {
+    const fixture = transport(
+      `<span id="productTitle">Mirror</span><span class="a-price"><span class="a-price-whole">999</span></span>`,
+    );
+    const result = await extractProductLink(
+      "https://www.amazon.in/dp/B0D7SM71WK",
+      { transport: fixture.dependencies },
+    );
+    expect(result.title).toBe("Mirror");
+    expect(result.originalAmountMinor).toBeUndefined();
+    expect(result.originalCurrency).toBeUndefined();
+  });
+
   it("uses deterministic metadata precedence and exact string money", async () => {
     const fixture = transport(`<!doctype html><html><head>
       <title>Fallback title</title>
@@ -104,7 +350,7 @@ describe("inert bounded metadata extraction", () => {
   it("never returns markup from title or retailer metadata", async () => {
     const fixture = transport(`
       <script type="application/ld+json">
-        {"@type":"Product","name":"<strong>Gift</strong>","brand":"<em>Shop</em>"}
+        {"@type":"Product","name":"<strong>Gift</strong>","offers":{"seller":{"name":"<em>Shop</em>"}}}
       </script>`);
     const result = await extractProductLink("https://shop.example/item", {
       transport: fixture.dependencies,

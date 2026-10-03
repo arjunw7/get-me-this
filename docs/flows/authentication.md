@@ -33,7 +33,7 @@ Errors include invalid code, expired code/link, excessive attempts, and unavaila
 
 ## Onboarding
 
-Only users without a completed profile see onboarding. Required field: display name. Optional field: taste line (per the 004e owner decisions; the earlier avatar idea was not shipped). Completion returns the user to the honest authenticated `/home` — the validated return intent is not preserved past onboarding, so no preserved-destination redirect happens here.
+Only users without a completed profile see onboarding. Required field: display name. Optional field: taste line. Choose a **Vibe** from Tomato, Marigold, Electric, and Acid lime, with Marigold selected by default. The chosen Vibe is saved to the authenticated owner’s profile on both ordinary and invitation onboarding; an uploaded avatar is not part of this flow. Ordinary completion returns the user to the honest authenticated `/home`. The public-wishlist sign-in flow is the bounded exception: it retains a validated public wishlist identifier through onboarding and returns to that wishlist after the profile is saved. Invitation onboarding saves the same profile fields and returns to the verified invitation continuation, without accepting the invitation automatically.
 
 Returning users never repeat onboarding unless their required profile data is missing.
 
@@ -41,10 +41,19 @@ Returning users never repeat onboarding unless their required profile data is mi
 
 - `wishlist` → first-item or wishlist experience
 - `create-group` → group creation
+- `public-wishlist` with a canonical public share identifier → `/s/{identifier}`, including after new-account onboarding
 - valid invitation → invitation acceptance and group
 - no intent → authenticated Home
 
-Only server-defined destinations are accepted. Never redirect to an arbitrary user-provided URL.
+Only server-defined destinations are accepted. Never redirect to an arbitrary user-provided URL. A public share identifier must be the canonical 43-character base64url representation of 32 random bytes; malformed identifiers fall back safely to Home. It is carried only for the `public-wishlist` intent, never attached to unrelated auth flows.
+
+### Return from a public wishlist
+
+A visitor can view a shared wishlist without signing in. **Sign in to react** opens `/auth?intent=public-wishlist&share={identifier}`. The ordinary email-code flow carries the validated identifier in its short-lived HttpOnly auth cookie; same-browser OTP and magic-link completion share the same destination logic. Because the cookie is scoped to `/auth`, a new account receives the validated identifier through the onboarding route and form, with server-side validation repeated on submission. Invitation onboarding retains its separate continuation protocol.
+
+Authentication never submits a reaction automatically. The visitor returns to the wishlist and explicitly chooses a reaction. If the owner revoked sharing while the visitor signed in, the public route shows its unavailable state and accepts no reaction. Opening the email link in a different browser without the original carry cookie uses the ordinary Home/onboarding fallback; the visitor can reopen the shared link afterward.
+
+Public identifiers and pending reactions are not analytics properties. Public continuation forms block capture; URL analytics discard query strings and sanitize route identifiers. No reaction intent is stored.
 
 ## Protected routes
 
@@ -52,5 +61,4 @@ All application routes require a valid session except the landing page, auth rou
 
 ## Logout
 
-The account menu currently shows the user's email and a confirmed Log out only — the flow's My wishlist and Edit profile entries are deferred until those routes exist (004e owner decision). Logout requires confirmation because signing in again requires email access. After logout, clear local session data and return to the landing page with: **You're logged out. See you soon.**
-
+The account menu shows the user’s email, My wishlist, Edit profile, and confirmed Log out. Edit profile opens a keyboard-accessible dialog (a bottom sheet on mobile) for name, personality line, and Vibe. The Vibe picker opens with the owner’s saved selection and the same four options as onboarding. The server verifies the session and updates only that owner’s row under RLS; errors retain the draft, and successful saves refresh Home, wishlist, and group views. Vibe persists across sessions and is visible to joined members through shared active groups. Cancel discards unsaved changes. Invalid Vibe values are rejected server-side; an older submission without the field leaves an existing choice unchanged. Uploaded avatar preferences remain outside the persisted profile model. Logout requires confirmation because signing in again requires email access. After logout, clear local session data and return to the landing page with: **You're logged out. See you soon.**

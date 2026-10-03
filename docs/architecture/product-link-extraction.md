@@ -20,6 +20,15 @@ deterministic fake-DNS/fake-socket tests: 10 seconds total, 2 seconds each for
 DNS/connect/headers, 1 second body idle, three redirects, 16 KiB/100 response
 headers, 1 MiB HTML, and 5 MiB image input. Compressed responses are rejected.
 
+Amazon India product pages have a narrow metadata-prefix exception: for
+`amazon.in` or `www.amazon.in` paths containing `/dp/<ASIN>` or
+`/gp/product/<ASIN>`, the transport may stop after the first 1 MiB of decoded
+HTML instead of rejecting an otherwise valid larger response. The connection
+is closed at the cap; the cap is not increased. Eligibility is checked again
+at each redirect, and selected images never use prefix mode. Other destinations
+retain the full-response size rejection. An incomplete final UTF-8 character
+is omitted from a truncated prefix; invalid encoding elsewhere still fails.
+
 ## Process admission
 
 Admission is deliberately local to one Node process for the first deployment:
@@ -34,6 +43,15 @@ HTML metadata is parsed as inert text in a killable 500 ms worker with a 64 MiB
 heap limit and explicit node, depth, JSON-LD, metadata-value, and image-candidate
 bounds. Returned text is normalized to plain Unicode and exact money uses
 decimal strings and `BigInt` only.
+
+For an eligible final Amazon product URL, bounded inert markup selectors can
+supplement standard metadata with the product title, main image, current
+`priceToPay` / `apex-pricetopay-value`, and explicit ISO currency. A price and currency must come from
+the same complete metadata source. Symbols and locale are not used to guess
+currency, and unrelated recommendation or list prices are not substituted.
+Missing or incomplete metadata remains editable manual entry. This exception
+changes the original oversized-response rejection policy only for the named
+product URLs and requires independent review with the implementation.
 
 Selected JPEG, PNG, or WebP candidates are fetched independently through the
 same transport. A separate codec process is killed on the one-second deadline;

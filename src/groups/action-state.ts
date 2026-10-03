@@ -52,3 +52,9 @@ export type ReinviteActionResult =
       expiresAt: string;
     }
   | { ok: false; reason: "stale" | "unavailable" | "retry" };
+
+/** Organizer modal link recovery, with explicit confirmation for legacy links. */
+export type GetGroupInviteLinkResult =
+  | { ok: true; token: string; version: string; expiresAt: string }
+  | { ok: false; reason: "replacement_required"; version: string }
+  | { ok: false; reason: "unavailable" | "retry" };

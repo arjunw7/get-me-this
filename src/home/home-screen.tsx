@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { resolveOwnWishlistView } from "@/src/wishlist/item-views";
+import { GettingStarted } from "./getting-started";
+import { ActiveHome } from "./active-home";
+import { loadHomeDashboard } from "./dashboard-data";
 
-import { Wordmark } from "@/src/landing/wordmark";
+import { AppNavigation } from "./app-navigation";
 import { AnalyticsIdentity } from "@/src/auth/analytics-identity";
 import { readCoordinatorCookie } from "@/src/invite/flow-session";
 import { occasionDateText } from "@/src/groups/room-format";
 import type { SessionProfile } from "@/src/profile/session";
-import { AccountMenu } from "./account-menu";
 import { loadMyGroups, type MyGroupSummary } from "./my-groups-data";
 
 const MODE_LABELS: Record<MyGroupSummary["mode"], string> = {
@@ -48,13 +51,9 @@ function GroupCard({ group }: { group: MyGroupSummary }) {
 }
 
 /**
- * The authenticated Home, against the pinned V18 `home-new-account`
- * reference: the welcome heading carrying the user's display name, the
- * My groups block backed by the caller's snapshot rows
- * (public.my_groups_snapshot), the My wishlist block linking to the real
- * wishlist, and the sidebar profile block. Loading, empty, and error
- * states are designed (see app/home/loading.tsx and the states below);
- * there is no browser-default state anywhere on the surface.
+ * Authenticated Home uses the caller's groups and wishlist to distinguish
+ * first-use steps from their existing group overview. All reads retain
+ * their existing owner/membership access boundaries.
  */
 export async function HomeScreen({
   userId,
@@ -72,117 +71,146 @@ export async function HomeScreen({
     readCoordinatorCookie(),
     loadMyGroups(),
   ]);
+  const now = new Date();
+  const [wishlist, dashboard] = await Promise.all([
+    resolveOwnWishlistView(userId).catch(() => null),
+    groups.status === "ready" && groups.groups.length > 0
+      ? loadHomeDashboard(groups.groups, userId, now)
+      : null,
+  ]);
+  const starterWishlist =
+    groups.status === "ready" && groups.groups.length === 0 ? wishlist : null;
+  const firstName = displayName.trim().split(/\s+/)[0];
   return (
-    <div className="min-h-screen w-full bg-surface-page text-content-primary">
+    <div className="min-h-screen w-full bg-surface-page pb-40 text-content-primary lg:pb-16 lg:pl-64">
       <AnalyticsIdentity userId={userId} />
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
-        <Link href="/home" aria-label="Get Me This home">
-          <Wordmark className="text-2xl sm:text-3xl" />
-        </Link>
-        <AccountMenu
-          email={email}
-          displayName={displayName}
-          brokered={coordinator !== null}
-        />
-      </header>
+      <AppNavigation
+        email={email}
+        displayName={displayName}
+        tasteLine={profile.tasteLine}
+        vibe={profile.vibe}
+        brokered={coordinator !== null}
+      />
 
-      <main className="mx-auto grid w-full max-w-6xl gap-8 px-5 pt-6 pb-16 sm:px-8 lg:grid-cols-[1fr_18rem] lg:pt-14">
+      <main
+        className={`mx-auto w-full px-5 pt-6 sm:px-8 lg:pt-10 ${starterWishlist ? "max-w-3xl" : "max-w-6xl"}`}
+      >
         <section>
-          <h1 className="font-display text-display-xl sm:text-6xl">
-            Welcome, {displayName}.
+          {dashboard && (
+            <p className="text-sm font-semibold text-content-muted">
+              {new Intl.DateTimeFormat("en-IN", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                timeZone: dashboard.room.timeZone,
+              }).format(now)}
+            </p>
+          )}
+          <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+            {starterWishlist
+              ? `Welcome in, ${firstName}.`
+              : `Hey ${firstName}.`}
           </h1>
-          <p className="mt-3 max-w-xl text-lg text-content-secondary">
-            Save what you want, share it with your people, and give without
-            guessing.
-          </p>
+          {!dashboard && (
+            <p className="mt-1 max-w-xl text-lg text-content-secondary">
+              {starterWishlist
+                ? "Two steps to get your friends gifting you the right stuff."
+                : "Save what you want, share it with your people, and give without guessing."}
+            </p>
+          )}
 
-          <div className="mt-10">
-            <div className="flex items-baseline justify-between gap-4">
-              <h2 className="font-display text-heading tracking-tight">
-                My groups
-              </h2>
-              <Link
-                href="/groups/new"
-                className="inline-flex min-h-11 items-center rounded-surface px-3 text-sm font-bold underline decoration-2 underline-offset-4 outline-offset-4 focus-visible:outline-2 focus-visible:outline-outline-strong"
-              >
-                Create a group
-              </Link>
-            </div>
+          {starterWishlist ? (
+            <GettingStarted wishlist={starterWishlist} />
+          ) : dashboard ? (
+            <ActiveHome
+              data={dashboard}
+              wishlist={wishlist}
+              now={now}
+              groupCount={groups.status === "ready" ? groups.groups.length : 0}
+            />
+          ) : (
+            <>
+              <GroupsContent groups={groups} />
 
-            {groups.status === "unavailable" ? (
-              <div
-                role="status"
-                className="mt-4 rounded-surface-lg border-2 border-dashed border-outline bg-surface-raised p-6 text-content-secondary"
-              >
-                <p className="font-bold text-content-primary">
-                  Your groups are unavailable right now.
-                </p>
-                <p className="mt-1 text-sm">
-                  Refresh the page in a moment — your groups are safe.
-                </p>
-              </div>
-            ) : groups.groups.length === 0 ? (
-              <div className="mt-4 rounded-surface-lg border-2 border-dashed border-outline bg-surface-raised p-6">
-                <p className="font-display text-label font-bold">
-                  No groups yet.
-                </p>
-                <p className="mt-1 text-sm text-content-secondary">
-                  Start one for your next occasion, or open an invite link a
-                  friend shared with you.
-                </p>
+              <div className="mt-10">
+                <h2 className="font-display text-heading tracking-tight">
+                  My wishlist
+                </h2>
                 <Link
-                  href="/groups/new"
-                  className="mt-4 inline-flex min-h-11 items-center justify-center rounded-surface-lg border-2 border-outline-strong bg-action-primary px-5 font-display text-label font-bold shadow-chunk outline-offset-4 transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-outline-strong active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+                  href="/wishlist"
+                  data-testid="home-wishlist-link"
+                  className="mt-4 flex min-h-11 flex-col gap-1 rounded-surface-lg border-2 border-outline-strong bg-surface-raised p-5 shadow-chunk-sm outline-offset-4 transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-outline-strong active:translate-x-0.5 active:translate-y-0.5 active:shadow-none sm:p-6"
                 >
-                  Create a group
+                  <span className="font-display text-label font-bold">
+                    Your wishlist is the list of things you actually want.
+                  </span>
+                  <span className="text-sm text-content-secondary">
+                    Add items, reorder, share the link — and give your friends a
+                    hint.
+                  </span>
+                  <span className="mt-2 inline-flex items-center text-sm font-bold underline decoration-2 underline-offset-4">
+                    Update my wishlist
+                  </span>
                 </Link>
               </div>
-            ) : (
-              <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-                {groups.groups.map((group) => (
-                  <GroupCard key={group.groupId} group={group} />
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="mt-10">
-            <h2 className="font-display text-heading tracking-tight">
-              My wishlist
-            </h2>
-            <Link
-              href="/wishlist"
-              data-testid="home-wishlist-link"
-              className="mt-4 flex min-h-11 flex-col gap-1 rounded-surface-lg border-2 border-outline-strong bg-surface-raised p-5 shadow-chunk-sm outline-offset-4 transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-outline-strong active:translate-x-0.5 active:translate-y-0.5 active:shadow-none sm:p-6"
-            >
-              <span className="font-display text-label font-bold">
-                Your wishlist is the list of things you actually want.
-              </span>
-              <span className="text-sm text-content-secondary">
-                Add items, reorder, share the link — and give your friends a
-                hint.
-              </span>
-              <span className="mt-2 inline-flex items-center text-sm font-bold underline decoration-2 underline-offset-4">
-                Update my wishlist
-              </span>
-            </Link>
-          </div>
+            </>
+          )}
         </section>
-
-        <aside>
-          <div className="rounded-surface-xl border-2 border-outline-strong bg-surface-raised p-6 shadow-chunk-sm">
-            <p className="text-caption text-content-muted">Your profile</p>
-            <p className="mt-2 font-display text-heading font-bold">
-              {displayName}
-            </p>
-            {profile.tasteLine ? (
-              <p className="mt-1 text-sm text-content-secondary">
-                {profile.tasteLine}
-              </p>
-            ) : null}
-          </div>
-        </aside>
       </main>
+    </div>
+  );
+}
+
+export function GroupsContent({
+  groups,
+}: {
+  groups: import("./my-groups-data").MyGroupsResult;
+}) {
+  return (
+    <div className="mt-10">
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="font-display text-heading tracking-tight">My groups</h2>
+        <Link
+          href="/groups/new"
+          className="inline-flex min-h-11 items-center rounded-surface px-3 text-sm font-bold underline decoration-2 underline-offset-4 outline-offset-4 focus-visible:outline-2 focus-visible:outline-outline-strong"
+        >
+          Create a group
+        </Link>
+      </div>
+
+      {groups.status === "unavailable" ? (
+        <div
+          role="status"
+          className="mt-4 rounded-surface-lg border-2 border-dashed border-outline bg-surface-raised p-6 text-content-secondary"
+        >
+          <p className="font-bold text-content-primary">
+            Your groups are unavailable right now.
+          </p>
+          <p className="mt-1 text-sm">
+            Refresh the page in a moment — your groups are safe.
+          </p>
+        </div>
+      ) : groups.groups.length === 0 ? (
+        <div className="mt-4 rounded-surface-lg border-2 border-dashed border-outline bg-surface-raised p-6">
+          <p className="font-display text-label font-bold">No groups yet.</p>
+          <p className="mt-1 text-sm text-content-secondary">
+            Start one for your next occasion, or open an invite link a friend
+            shared with you.
+          </p>
+          <Link
+            href="/groups/new"
+            className="mt-4 inline-flex min-h-11 items-center justify-center rounded-surface-lg border-2 border-outline-strong bg-action-primary px-5 font-display text-label font-bold shadow-chunk outline-offset-4 transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-outline-strong active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+          >
+            Create a group
+          </Link>
+        </div>
+      ) : (
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+          {groups.groups.map((group) => (
+            <GroupCard key={group.groupId} group={group} />
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

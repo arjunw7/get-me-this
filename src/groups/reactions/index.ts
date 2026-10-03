@@ -13,12 +13,10 @@
  * sentinel `item_id` null row), and pass a server action backed by
  * `setGroupItemReaction` that applies the authoritative returned summary.
  *
- * TODO(owner wiring): `OwnerReactionSummaryRow` +
- * `getOwnItemReactionSummary` are the read-only owner summary for the
- * owner's own `/wishlist` item cards. The owner surface is pinned by
- * committed visual baselines, so the summary row must be introduced
- * together with reviewed visual candidates at 390x844 and 1440x1000
- * (baseline commits require explicit product/design approval).
+ * Owner wiring: /wishlist loads `getOwnItemReactionSummary` and joins the
+ * aggregate-only rows by item id through the normal and reordered card
+ * views. Missing read results are omitted, never fabricated as zero counts.
+ * The owner summary has no mutation or reservation controls.
  */
 
 export { ReactionRow } from "./reaction-row";

@@ -6,20 +6,16 @@
 
 export type GiftingMode = "secret_draw" | "gift_everyone" | "wishlist_only";
 
-/**
- * Route dispatch for /groups/[groupId]/gifting. Only an active
- * `gift_everyone` group renders the checklist; every other mode — and any
- * unknown mode value — resolves to the same generic not-found result as an
- * outsider request. The dispatch reads only reviewed server projections of
- * the stored mode; no client claim can alter it.
- */
+/** Dispatch only after the authorized active-room projection has succeeded. */
 export function giftingRouteState(
   mode: string | null,
   groupStatus: string | null,
-): "checklist" | "not-found" {
-  return mode === "gift_everyone" && groupStatus === "active"
-    ? "checklist"
-    : "not-found";
+): "checklist" | "secret" | "browse" | "not-found" {
+  if (groupStatus !== "active") return "not-found";
+  if (mode === "gift_everyone") return "checklist";
+  if (mode === "secret_draw") return "secret";
+  if (mode === "wishlist_only") return "browse";
+  return "not-found";
 }
 
 /** Truthful, never color-only state text for a checklist row. */

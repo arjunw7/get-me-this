@@ -1,3 +1,4 @@
+import { vibeClasses, type Vibe } from "@/src/profile/vibe";
 import Link from "next/link";
 
 import { ArrowLeftIcon } from "@/src/landing/icons";
@@ -10,32 +11,10 @@ import {
   MEMBER_WISHLIST_SHARING_NOTE,
   memberWishlistHeading,
 } from "./member-wishlist-view";
-import { accentClassFor, initialsFor } from "./room-format";
+import { initialsFor } from "./room-format";
 import { CopyToWishlistButton } from "./copy/copy-button";
 
 import type { MemberWishlistItem } from "./member-wishlist-data";
-
-/**
- * The member wishlist browse screen (brief 006e): the V18 gifting-browse
- * member-wishlist region (the "Kabir's wishlist" item-grid region of the
- * approved prototype) backed by the authorized projection. The member
- * header identifies whose wishlist this is and states the sharing truth;
- * the item cards show only the authorized projection fields in the owner's
- * committed order.
- *
- * Deliberately absent (the briefs' non-goals): the gifting banner and
- * budget-fit summary, per-item reserve actions and reservation state, gift
- * tracking, budget-comparison filtering, gifting navigation, reaction
- * controls (a separate wiring slice owns those), and any edit affordance —
- * a member never edits another person's wishlist. The whole surface is
- * marked data-ph-no-capture: it maps group membership to wishlist
- * ownership, so autocapture and session replay are blocked.
- *
- * The one interactive affordance is the 007b `Copy to my wishlist` action
- * on each friend item card: it copies the item into the visitor's own
- * wishlist without navigation and reveals nothing about the copy to
- * anyone.
- */
 
 /** The vendored Lucide external-link glyph (no new runtime dependency). */
 function ExternalLinkIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -67,30 +46,70 @@ function sourceLabel(sourceUrl: string, retailer: string | null): string {
   }
 }
 
-function MemberWishlistItemCard({
+export function MemberWishlistItemCard({
   item,
   groupId,
+  presentation = "browse",
+  budgetLabel,
+  compact = false,
+  reservedByOther = false,
+  reservationBadge,
+  children,
 }: {
   readonly item: MemberWishlistItem;
   readonly groupId: string;
+  readonly presentation?: "browse" | "gifting" | "owner" | "room";
+  readonly reservationBadge?: "yours" | "other";
+  readonly budgetLabel?: string;
+  readonly compact?: boolean;
+  readonly reservedByOther?: boolean;
+  readonly children?: React.ReactNode;
 }) {
   return (
     <article
       data-testid="member-wishlist-item"
-      className="flex h-full flex-col overflow-hidden rounded-surface-lg border-2 border-outline-strong bg-surface-raised shadow-chunk"
+      className={`relative flex h-full flex-col overflow-hidden rounded-[26px] border-2 bg-surface-raised ${reservedByOther ? "border-outline/25 text-content-secondary" : "border-outline-strong"} ${presentation === "gifting" ? "" : "shadow-chunk"}`}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-surface-sunken">
+      <div
+        className={`relative overflow-hidden bg-surface-sunken ${presentation === "gifting" ? "aspect-[4/3]" : compact ? "aspect-square" : "aspect-[5/4]"}`}
+      >
         {item.imageUrl !== null ? (
           <CardImage src={item.imageUrl} title={item.title} />
         ) : (
           <PlaceholderArt title={item.title} />
         )}
+        {reservedByOther ? (
+          <>
+            <div className="absolute inset-0 bg-surface-page/65" />
+            <p className="absolute inset-x-3 bottom-3 rounded-pill border-2 border-outline-strong bg-surface-raised px-2 py-2 text-center text-caption font-bold text-content-primary">
+              Reserved by someone else
+            </p>
+          </>
+        ) : null}
+        {presentation === "room" && reservationBadge ? (
+          <div className="absolute inset-x-3 bottom-3">
+            <span
+              className={`inline-flex items-center gap-1 rounded-pill border-2 border-outline-strong px-2.5 py-1 text-xs font-bold ${reservationBadge === "yours" ? "bg-accent-fresh" : "bg-surface-raised"}`}
+            >
+              <span aria-hidden="true">
+                {reservationBadge === "yours" ? "✓" : "◉"}
+              </span>
+              {reservationBadge === "yours"
+                ? "Reserved by you"
+                : "Someone’s on it"}
+            </span>
+          </div>
+        ) : null}
         <div className="absolute left-3 top-3">
           <DesireChip level={item.desireLevel} />
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <h2 className="font-display text-heading leading-tight">
+      <div
+        className={`flex flex-1 flex-col gap-2 ${compact ? "p-3.5" : "p-4"}`}
+      >
+        <h2
+          className={`font-display font-extrabold leading-tight ${compact ? "text-base" : "text-xl"}`}
+        >
           {item.title}
         </h2>
         <p className="text-sm text-content-secondary">
@@ -116,24 +135,43 @@ function MemberWishlistItemCard({
             </span>
           ) : null}
         </p>
+        {budgetLabel ? (
+          <p className="text-sm font-bold text-content-secondary">
+            {budgetLabel}
+          </p>
+        ) : null}
         {item.note !== null ? (
           <p className="rounded-surface rounded-tl-sm bg-surface-sunken px-3 py-2 text-sm leading-snug text-content-primary">
             {item.note}
           </p>
         ) : null}
-        {item.sourceUrl !== null ? (
+        {presentation === "gifting" && !reservedByOther ? children : null}
+        {item.sourceUrl !== null &&
+        presentation !== "owner" &&
+        presentation !== "room" &&
+        !reservedByOther ? (
           <a
             href={item.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Open ${item.title}'s original page (opens in a new tab)`}
-            className="inline-flex min-h-touch-min items-center justify-center gap-2 rounded-control border-2 border-outline-strong bg-accent-info-soft px-4 font-display text-label font-bold text-content-primary transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+            className={`inline-flex min-h-touch-min items-center justify-center gap-2 rounded-control border-2 border-outline-strong px-4 font-display text-label font-bold transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none ${presentation === "gifting" ? "bg-accent-info text-white" : "bg-accent-info-soft text-content-primary"}`}
           >
-            Original page
+            {presentation === "gifting" ? "Get this" : "Original page"}
             <ExternalLinkIcon className="h-4 w-4" />
           </a>
         ) : null}
-        <CopyToWishlistButton groupId={groupId} itemId={item.itemId} />
+        {reservedByOther ? (
+          <p className="mt-auto rounded-surface bg-surface-sunken px-3 py-3 text-center text-caption font-bold">
+            Someone in the group has this covered.
+          </p>
+        ) : null}
+        {presentation !== "gifting" ? (
+          <div className="mt-auto pt-1">{children}</div>
+        ) : null}
+        {presentation === "browse" ? (
+          <CopyToWishlistButton groupId={groupId} itemId={item.itemId} />
+        ) : null}
       </div>
     </article>
   );
@@ -142,19 +180,22 @@ function MemberWishlistItemCard({
 export function MemberWishlistScreen({
   groupId,
   groupName,
-  memberUserId,
+  vibe,
   memberDisplayName,
   items,
+  itemControls,
 }: {
   readonly groupId: string;
   readonly groupName: string;
   readonly memberUserId: string;
+  readonly vibe?: Vibe;
   readonly memberDisplayName: string;
   readonly items: readonly MemberWishlistItem[];
+  readonly itemControls?: Readonly<Record<string, React.ReactNode>>;
 }) {
   return (
     <div
-      className="mx-auto w-full max-w-4xl px-gutter py-10 sm:py-14"
+      className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 lg:py-10"
       data-ph-no-capture
       data-testid="member-wishlist"
     >
@@ -166,10 +207,12 @@ export function MemberWishlistScreen({
         Back to {groupName}
       </Link>
 
-      <header className="mt-6 flex items-center gap-4">
+      <header
+        className={`mt-6 flex items-center gap-4 rounded-surface-2xl border-2 border-outline-strong p-5 sm:p-6 ${vibeClasses(vibe)}`}
+      >
         <span
           aria-hidden="true"
-          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-outline-strong font-display text-label font-bold ${accentClassFor(memberUserId)}`}
+          className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-outline-strong font-display text-label font-bold ${vibeClasses(vibe)}`}
         >
           {initialsFor(memberDisplayName)}
         </span>
@@ -177,7 +220,7 @@ export function MemberWishlistScreen({
           <h1 className="font-display text-display-lg leading-[1.02] tracking-tight">
             {memberWishlistHeading(memberDisplayName)}
           </h1>
-          <p className="mt-1 text-caption text-content-secondary">
+          <p className="mt-1 text-caption opacity-90">
             {MEMBER_WISHLIST_SHARING_NOTE}
           </p>
         </div>
@@ -195,12 +238,14 @@ export function MemberWishlistScreen({
         </section>
       ) : (
         <ul
-          className="mt-10 grid list-none gap-5 sm:grid-cols-2"
+          className="mt-10 grid list-none gap-5 sm:grid-cols-2 xl:grid-cols-3"
           data-testid="member-wishlist-grid"
         >
           {items.map((item) => (
             <li key={item.itemId} className="flex">
-              <MemberWishlistItemCard item={item} groupId={groupId} />
+              <MemberWishlistItemCard item={item} groupId={groupId}>
+                {itemControls?.[item.itemId]}
+              </MemberWishlistItemCard>
             </li>
           ))}
         </ul>

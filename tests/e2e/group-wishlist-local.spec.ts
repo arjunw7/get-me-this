@@ -188,7 +188,7 @@ test("a joined member browses friends' wishlists from the room roster", async ({
       }),
     ).toBeVisible();
     await expect(
-      page.getByText("Wishlists are shared only with joined group members."),
+      page.getByText("You’re viewing this wishlist through your group."),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: `Back to ${GROUP_NAME}` }),
@@ -238,8 +238,16 @@ test("a joined member browses friends' wishlists from the room roster", async ({
     ).toBeVisible();
     await expect(page.getByTestId("member-wishlist-empty")).toBeVisible();
     await expect(page.getByTestId("member-wishlist-item")).toHaveCount(0);
-    await expect(page.getByText("Add an item")).toHaveCount(0);
-    await expect(page.getByText("Edit item")).toHaveCount(0);
+    // The shared shell can add to the caller's own wishlist; it must never
+    // offer add/edit controls inside another member's wishlist.
+    const memberSurface = page.getByTestId("member-wishlist");
+    await expect(memberSurface.getByText("Add an item")).toHaveCount(0);
+    await expect(memberSurface.getByText("Edit item")).toHaveCount(0);
+    for (const addLink of await page
+      .getByRole("link", { name: "Add an item", exact: true })
+      .all()) {
+      await expect(addLink).toHaveAttribute("href", "/wishlist/items/new");
+    }
 
     await testInfo.attach("member-wishlist-empty", {
       body: await page.screenshot({ fullPage: true }),

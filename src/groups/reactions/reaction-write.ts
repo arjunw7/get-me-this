@@ -17,33 +17,39 @@ export type ReactionWriteOutcome =
   | { kind: "unavailable" }
   | { kind: "retry" };
 
-type ReactionFunctionRow = {
-  item_id: unknown;
-  very_you_count: unknown;
-  questionable_count: unknown;
-  want_it_too_count: unknown;
-  viewer_reaction: unknown;
-};
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function toSummaryRow(row: ReactionFunctionRow): ReactionSummaryRow | null {
+function isCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function toSummaryRow(
+  value: unknown,
+  requestedItemId?: string,
+): ReactionSummaryRow | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return null;
+  const row = value as Record<string, unknown>;
+  const itemId = requestedItemId ?? row.item_id;
   if (
-    typeof row.item_id !== "string" ||
-    typeof row.very_you_count !== "number" ||
-    typeof row.questionable_count !== "number" ||
-    typeof row.want_it_too_count !== "number"
+    typeof itemId !== "string" ||
+    !UUID_PATTERN.test(itemId) ||
+    !isCount(row.very_you_count) ||
+    !isCount(row.questionable_count) ||
+    !isCount(row.want_it_too_count) ||
+    (row.viewer_reaction !== null && !isReactionKind(row.viewer_reaction))
   ) {
     return null;
   }
   return {
-    itemId: row.item_id,
+    itemId,
     counts: {
       veryYou: row.very_you_count,
       questionable: row.questionable_count,
       wantItToo: row.want_it_too_count,
     },
-    viewerReaction: isReactionKind(row.viewer_reaction)
-      ? row.viewer_reaction
-      : null,
+    viewerReaction: row.viewer_reaction,
   };
 }
 
@@ -57,6 +63,12 @@ export async function setGroupItemReaction(
   itemId: string,
   reaction: ReactionKind | null,
 ): Promise<ReactionWriteOutcome> {
+  if (
+    !UUID_PATTERN.test(groupId) ||
+    !UUID_PATTERN.test(itemId) ||
+    (reaction !== null && !isReactionKind(reaction))
+  )
+    return { kind: "unavailable" };
   const client = await createSupabaseServerClient();
   if (!client) return { kind: "unavailable" };
 
@@ -67,10 +79,12 @@ export async function setGroupItemReaction(
   });
   if (error) return { kind: "retry" };
 
-  const rows = (data ?? []) as ReactionFunctionRow[];
-  const first = rows[0];
-  if (!first) return { kind: "unavailable" };
-  const summary = toSummaryRow(first);
+  if (data === null || (Array.isArray(data) && data.length === 0))
+    return { kind: "unavailable" };
+  if (!Array.isArray(data) || data.length !== 1) return { kind: "retry" };
+  // Unlike the read projection, this RPC returns only counts and the caller's
+  // reaction. Its single authorized result belongs to the validated request.
+  const summary = toSummaryRow(data[0], itemId);
   if (!summary) return { kind: "retry" };
   return { kind: "confirmed", summary };
 }
@@ -92,9 +106,9 @@ export async function getGroupItemReactionSnapshot(
   });
   if (error) return [];
 
-  const rows = (data ?? []) as ReactionFunctionRow[];
-  return rows
-    .map(toSummaryRow)
+  if (!Array.isArray(data)) return [];
+  return data
+    .map((row: unknown) => toSummaryRow(row))
     .filter((row): row is ReactionSummaryRow => row !== null);
 }
 

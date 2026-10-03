@@ -1,12 +1,15 @@
+import { InvitePeopleButton } from "./invite-people-button";
+import { vibeClasses } from "@/src/profile/vibe";
+import type { MemberVibes } from "./member-vibes-data";
 import Link from "next/link";
+import { FragmentTarget } from "./fragment-target";
+import { giftingMoney } from "./gifting-budget";
 
 import {
-  accentClassFor,
   countdownText,
   initialsFor,
   occasionDateText,
   rosterSummaryText,
-  roomBudgetText,
   wallClockIsoDate,
 } from "./room-format";
 import { GIFTING_MODES } from "./occasions";
@@ -15,25 +18,16 @@ import type { GroupRoomSnapshot } from "./room-data";
 import type { ActivityEntry } from "./activity-data";
 import { GroupActivitySection } from "./activity-section";
 
-/**
- * The private group room (brief 006d): the V18-informed header hierarchy
- * over the authoritative read model plus the minimal safe roster. The slice
- * deliberately ends after the roster and the optional bounded description —
- * no invite/share/organizer controls, no wishlist or gifting state, no
- * "coming soon" placeholders.
- *
- * The whole surface is marked data-ph-no-capture: it combines private group
- * content with membership mappings, so autocapture and session replay are
- * blocked for the room. Joined roster rows are the 006e entry points into
- * each member's shared wishlist; pending rows stay honest placeholders.
- */
-
 export function GroupRoomScreen({
   room,
   callerId,
   today,
   activity,
   organizerTools,
+  modeStatus,
+  memberWishlists,
+  drawControls,
+  memberVibes = {},
 }: {
   readonly room: GroupRoomSnapshot;
   readonly callerId: string;
@@ -41,6 +35,10 @@ export function GroupRoomScreen({
   readonly activity?: readonly ActivityEntry[];
   /** The 006f organizer tools, rendered only for the current organizer. */
   readonly organizerTools?: React.ReactNode;
+  readonly modeStatus?: React.ReactNode;
+  readonly memberWishlists?: React.ReactNode;
+  readonly drawControls?: React.ReactNode;
+  readonly memberVibes?: MemberVibes;
 }) {
   const occasionIsoDate = wallClockIsoDate(room.occasionAt);
   const occasionDate = occasionIsoDate
@@ -48,7 +46,7 @@ export function GroupRoomScreen({
     : null;
   const countdown =
     today && occasionIsoDate ? countdownText(today, occasionIsoDate) : null;
-  const budget = roomBudgetText(room.budgetAmountMinor, room.budgetCurrency);
+  const budget = giftingMoney(room.budgetAmountMinor, room.budgetCurrency);
   const modeLabel =
     GIFTING_MODES.find((mode) => mode.value === room.mode)?.name ?? room.mode;
 
@@ -59,43 +57,80 @@ export function GroupRoomScreen({
 
   return (
     <div
-      className="mx-auto w-full max-w-2xl px-gutter py-10 sm:py-14"
+      className="mx-auto w-full max-w-6xl px-5 py-4 sm:px-8 lg:py-10"
       data-ph-no-capture
       data-testid="group-room"
     >
-      <p className="inline-flex items-center rounded-pill border-2 border-outline-strong bg-accent-highlight-soft px-3 py-1 text-caption font-bold text-accent-highlight-strong">
-        {modeLabel}
-      </p>
-
-      <h1 className="mt-4 font-display text-display-lg leading-[1.02] tracking-tight">
-        {room.name}
-      </h1>
-
-      <p className="mt-3 text-lg text-content-secondary">
-        {room.occasion}
-        {occasionDate ? ` · ${occasionDate}` : ""}
-      </p>
-
-      {countdown ? (
-        <p className="mt-1 text-lg font-bold" suppressHydrationWarning>
-          {countdown}
-        </p>
-      ) : null}
-
-      {room.location ? (
-        <p className="mt-4 text-lg text-content-secondary">{room.location}</p>
-      ) : null}
-
-      {budget ? (
-        <p className="mt-4 text-lg font-bold">{budget} per person</p>
-      ) : null}
-
-      {room.description ? (
-        <p className="mt-6 text-lg text-content-secondary">
-          {room.description}
-        </p>
-      ) : null}
-
+      <Link
+        href="/home"
+        className="mb-3 inline-flex min-h-11 items-center gap-2 text-sm font-bold"
+      >
+        <span aria-hidden="true">←</span> Home
+      </Link>
+      <header className="relative overflow-hidden rounded-[32px] border-2 border-outline-strong bg-accent-highlight p-6 shadow-chunk sm:p-8">
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-6 top-3 text-5xl opacity-50"
+        >
+          ✧
+        </span>
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+          <div className="min-w-0">
+            <p className="inline-flex rounded-pill border-2 border-outline-strong bg-content-primary px-3 py-1 text-caption font-bold text-surface-raised">
+              {modeLabel}
+            </p>
+            <h1 className="mt-4 break-words font-display text-5xl font-extrabold leading-[0.95] tracking-tight sm:text-6xl">
+              {room.name}
+            </h1>
+            <p className="mt-3 text-[15px] font-semibold">
+              {room.occasion}
+              {occasionDate ? ` · ${occasionDate}` : ""}
+            </p>
+            {room.location ? (
+              <p className="mt-1 text-[15px] font-semibold">{room.location}</p>
+            ) : null}
+          </div>
+          <dl className="flex flex-wrap gap-8">
+            {countdown ? (
+              <div>
+                <dt className="text-sm font-semibold">Countdown</dt>
+                <dd
+                  className="font-display text-4xl font-extrabold tabular-nums sm:text-5xl"
+                  suppressHydrationWarning
+                >
+                  {countdown}
+                </dd>
+              </div>
+            ) : null}
+            {budget ? (
+              <div>
+                <dt className="text-sm font-semibold">Budget</dt>
+                <dd className="font-display text-3xl font-extrabold tabular-nums sm:text-4xl">
+                  {budget}
+                  <span className="block font-sans text-sm font-semibold">
+                    {" "}
+                    per person
+                  </span>
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        </div>
+        {room.description ? (
+          <p className="mt-5 max-w-2xl text-base">{room.description}</p>
+        ) : null}
+        {room.organizerId === callerId || organizerTools ? (
+          <div className="mt-6 flex flex-wrap items-start gap-2">
+            {room.organizerId === callerId ? (
+              <InvitePeopleButton
+                groupId={room.groupId}
+                groupName={room.name}
+              />
+            ) : null}
+            {organizerTools}
+          </div>
+        ) : null}
+      </header>
       <section className="mt-10">
         <h2
           id="whos-in-heading"
@@ -117,9 +152,11 @@ export function GroupRoomScreen({
           aria-describedby="whos-in-region-description"
           tabIndex={0}
           data-testid="roster-region"
-          className="mt-4 overflow-x-auto rounded-surface-lg outline-offset-4 focus-visible:outline-2 focus-visible:outline-outline-strong"
+          className="-mx-1 mt-2 overflow-x-auto rounded-surface-lg outline-offset-4 focus-visible:outline-2 focus-visible:outline-outline-strong"
         >
-          <ul className="min-w-max space-y-2 pr-2">
+          {/* Scrollports clip transformed children on both axes. Keep hover lift
+              and keyboard focus rings inside the rail's padded bounds. */}
+          <ul className="flex min-w-max gap-4 px-1 pb-2 pt-2">
             {room.members.map((member) => {
               const label = memberLabel(member, callerId);
               // Brief 006e entry point: a joined member's roster row opens
@@ -130,13 +167,13 @@ export function GroupRoomScreen({
                 <>
                   <span
                     aria-hidden="true"
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-outline-strong font-display text-label font-bold ${accentClassFor(member.userId)}`}
+                    className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 font-display text-label font-bold ${member.state === "invited" ? "border-dashed border-outline-strong/35 bg-surface-page text-content-secondary" : `border-outline-strong ${vibeClasses(memberVibes[member.userId])}`}`}
                   >
                     {initialsFor(member.displayName)}
                   </span>
-                  <span className="flex min-w-0 flex-col">
+                  <span className="mt-1.5 flex w-full min-w-0 flex-col text-center">
                     <span
-                      className="truncate font-bold"
+                      className="truncate text-sm font-bold"
                       title={member.displayName}
                     >
                       {member.displayName}
@@ -151,7 +188,7 @@ export function GroupRoomScreen({
                 return (
                   <li
                     key={member.userId}
-                    className="flex min-w-44 items-center gap-3 rounded-surface border-2 border-dashed border-outline bg-surface-raised px-4 py-3 shadow-chunk-sm"
+                    className="flex w-20 shrink-0 flex-col items-center"
                     data-testid="pending-row"
                   >
                     {rowContent}
@@ -161,13 +198,13 @@ export function GroupRoomScreen({
               return (
                 <li
                   key={member.userId}
-                  className="min-w-44 rounded-surface border-2 border-outline-strong bg-surface-raised shadow-chunk-sm"
+                  className="w-20 shrink-0"
                   data-testid="joined-row"
                 >
                   <Link
                     href={`/groups/${room.groupId}/members/${member.userId}/wishlist`}
                     data-testid="roster-member-link"
-                    className="flex items-center gap-3 px-4 py-3 transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 focus-visible:rounded-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-outline-strong active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+                    className="flex flex-col items-center transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 focus-visible:rounded-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-outline-strong active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
                     aria-label={
                       member.userId === callerId
                         ? "Open your wishlist"
@@ -183,19 +220,20 @@ export function GroupRoomScreen({
         </div>
       </section>
 
-      {/* Brief 007d: the additive activity section. Optional so existing
-          room renders and tests are untouched when no entries are loaded. */}
+      {modeStatus}
+      {memberWishlists ? (
+        // Keep the fragment target in the room shell: wishlist rows may stream
+        // later, after the browser has already looked for the URL's anchor.
+        <FragmentTarget id="wishlists">{memberWishlists}</FragmentTarget>
+      ) : null}
+      {pendingRows.length > 0 && memberWishlists ? (
+        <p className="mt-10 rounded-surface-lg border-2 border-dashed border-outline-subtle p-5 text-content-secondary">
+          {pendingRows.map((member) => member.displayName).join(", ")} haven’t
+          joined yet. Their wishlists show up here once they do.
+        </p>
+      ) : null}
+      {drawControls}
       {activity ? <GroupActivitySection entries={activity} /> : null}
-      {organizerTools}
-
-      <div className="mt-10 flex flex-col gap-2 sm:flex-row">
-        <Link
-          href="/home"
-          className="inline-flex h-control-lg min-h-11 items-center justify-center rounded-surface-lg border-2 border-outline-strong bg-action-primary px-6 font-display text-heading font-bold shadow-chunk transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
-        >
-          Home
-        </Link>
-      </div>
     </div>
   );
 }

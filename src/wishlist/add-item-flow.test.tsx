@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { StrictMode } from "react";
+import { act, StrictMode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -221,7 +221,9 @@ describe("extracting", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fetch details" }));
     expect(screen.getByText("Being nosy…")).toBeVisible();
 
-    await vi.advanceTimersByTimeAsync(12_001);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(12_001);
+    });
 
     // The expiry resolves to the failed/manual state with the URL kept.
     expect(screen.getByText("That link played hard to get.")).toBeVisible();
@@ -286,7 +288,7 @@ describe("extracted and partial review", () => {
     expect(screen.getByLabelText("Shop (optional)")).toHaveValue("");
     expect(screen.getByLabelText("Price")).toHaveValue("");
     expect(
-      screen.getByText("Photo preview — adding photos isn’t available yet."),
+      screen.getByText("Adding photos isn’t available yet."),
     ).toBeVisible();
   });
 
@@ -340,13 +342,27 @@ describe("extracted and partial review", () => {
     await submitLink(user, "https://shop.example/product/lamp");
     await screen.findByText("Found it. Look right?");
 
+    expect(
+      screen.getByRole("img", { name: "Selected product photo" }),
+    ).toHaveAttribute("src", COMPLETE_RESULT.candidateImageUrls[0]);
+    fireEvent.error(
+      screen.getByRole("img", { name: "Selected product photo" }),
+    );
+    expect(screen.getByText("This photo couldn’t be previewed")).toBeVisible();
+    expect(screen.getByRole("radio", { name: "Photo option 1" })).toBeChecked();
     await user.click(screen.getByRole("radio", { name: "Photo option 2" }));
+    expect(
+      screen.getByRole("img", { name: "Selected product photo" }),
+    ).toHaveAttribute("src", COMPLETE_RESULT.candidateImageUrls[1]);
     expect(screen.getByRole("radio", { name: "Photo option 2" })).toBeChecked();
     expect(
       screen.getByRole("radio", { name: "Photo option 1" }),
     ).not.toBeChecked();
     await user.click(screen.getByRole("radio", { name: "No photo" }));
     expect(screen.getByRole("radio", { name: "No photo" })).toBeChecked();
+    expect(
+      screen.queryByRole("img", { name: "Selected product photo" }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Add item" }));
     await waitFor(() =>
@@ -382,10 +398,19 @@ describe("extracted and partial review", () => {
         }),
       ),
     );
+    await user.click(screen.getByText("Edit product link"));
+    await user.clear(screen.getByLabelText("Link (optional)"));
+    await user.type(
+      screen.getByLabelText("Link (optional)"),
+      "https://shop.example/product/new-lamp",
+    );
     await user.click(
       screen.getByRole("button", { name: "Try the link again" }),
     );
     await screen.findByText("Found it. Look right?");
+    expect(extractCallBody(stub, 1)).toEqual({
+      url: "https://shop.example/product/new-lamp",
+    });
 
     expect(screen.getByLabelText("Item name")).toHaveValue(
       "Corrected lamp title",
@@ -398,9 +423,6 @@ describe("extracted and partial review", () => {
       (document.querySelector('input[name="submissionId"]') as HTMLInputElement)
         .value,
     ).toBe(submissionId);
-    expect(extractCallBody(stub, 1)).toEqual({
-      url: "https://shop.example/product/lamp",
-    });
   });
 
   it("Start over clears the fields and rotates the submission key", async () => {

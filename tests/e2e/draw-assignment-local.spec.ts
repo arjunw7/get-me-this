@@ -33,6 +33,17 @@ test.skip(
 
 const GROUP_NAME = "Fixture draw room";
 
+async function openDrawDetails(page: import("@playwright/test").Page) {
+  const details = page
+    .locator("details")
+    .filter({ has: page.locator("summary", { hasText: "Your draw details" }) });
+  await expect(details).toHaveCount(1);
+  if ((await details.getAttribute("open")) === null) {
+    await details.locator(":scope > summary").click();
+  }
+  await expect(details).toHaveAttribute("open", "");
+}
+
 async function capture(page: import("@playwright/test").Page, name: string) {
   const screenshot = await page.screenshot({ fullPage: true });
   await test.info().attach(name, {
@@ -92,6 +103,7 @@ test("the secret draw room: assignment view, viewed state, confirmed redraw, and
     // --- the organizer starts the draw -----------------------------------
     await page.getByTestId("open-group").click();
     await page.waitForURL(`**/groups/${groupId}`);
+    await openDrawDetails(page);
     await expect(
       page.getByRole("heading", { level: 1, name: GROUP_NAME }),
     ).toBeVisible();
@@ -107,6 +119,7 @@ test("the secret draw room: assignment view, viewed state, confirmed redraw, and
     );
     await page.getByTestId("draw-confirm-button").click();
     await page.waitForURL(`**/groups/${groupId}?draw=drawn`);
+    await openDrawDetails(page);
     await expect(page.getByTestId("draw-drawn")).toBeVisible();
 
     // The organizer's draw-state surface renders existence metadata only.
@@ -132,6 +145,7 @@ test("the secret draw room: assignment view, viewed state, confirmed redraw, and
 
     // The idempotent marker: a fresh render writes no second row.
     await page.reload();
+    await openDrawDetails(page);
     await expect(page.getByTestId("assignment-card")).toBeVisible();
     expect(Number(viewedRows())).toBe(1);
 
@@ -163,6 +177,7 @@ test("the secret draw room: assignment view, viewed state, confirmed redraw, and
         values ('${groupId}'::uuid, '${giverId}'::uuid, 'joined', true, clock_timestamp(), 1);`);
 
       await giverPage.goto(`/groups/${groupId}`);
+      await openDrawDetails(giverPage);
       await expect(
         giverPage.getByRole("heading", { level: 1, name: GROUP_NAME }),
       ).toBeVisible();
@@ -181,6 +196,7 @@ test("the secret draw room: assignment view, viewed state, confirmed redraw, and
         where group_id = '${groupId}'::uuid and user_id = '${giverUserId}'::uuid;`);
 
       await page.reload();
+      await openDrawDetails(page);
       await expect(page.getByTestId("roster-out-of-sync")).toBeVisible();
       const alert = await page.getByTestId("roster-out-of-sync").textContent();
       expect(alert ?? "").not.toContain("Gia");
@@ -203,6 +219,7 @@ test("the secret draw room: assignment view, viewed state, confirmed redraw, and
       );
       await page.getByTestId("draw-confirm-button").click();
       await page.waitForURL(`**/groups/${groupId}?draw=drawn`);
+      await openDrawDetails(page);
       await expect(page.getByTestId("draw-version")).toHaveText("#2");
 
       // The redraw enqueued under the NEW version's key only, one per valid
@@ -215,6 +232,7 @@ test("the secret draw room: assignment view, viewed state, confirmed redraw, and
 
       // The giver's new-version read is valid again.
       await giverPage.reload();
+      await openDrawDetails(giverPage);
       await expect(giverPage.getByTestId("assignment-card")).toBeVisible();
       await capture(page, "draw-redrawn");
     } finally {
@@ -254,9 +272,11 @@ test("the insufficient-participants draw renders the neutral blocked state", asy
 
     await page.getByTestId("open-group").click();
     await page.waitForURL(`**/groups/${groupId}`);
+    await openDrawDetails(page);
     await page.getByTestId("draw-confirm").click();
     await page.getByTestId("draw-confirm-button").click();
     await page.waitForURL(`**/groups/${groupId}?draw=insufficient`);
+    await openDrawDetails(page);
     await expect(page.getByTestId("draw-blocked")).toContainText(
       "at least 2 participating members",
     );

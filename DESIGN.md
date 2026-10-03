@@ -57,6 +57,14 @@ Humor may add personality around an action but may not replace a clear label or 
 
 Exact colour, typography, radius, shadow, spacing, and motion values must be extracted from the final prototype during the foundation slice and expressed as semantic tokens. Avoid scattered raw hex values and arbitrary pixel utilities.
 
+## Saved profile Vibe
+
+The user-approved profile extension adds **Vibe** to profile creation and Edit profile. Label the color picker **Choose your Vibe** in both creation and editing. Offer four labeled radio swatches: Tomato, Marigold, Electric, and Acid lime. Marigold is the default for new profiles and existing accounts without a prior choice.
+
+Use the semantic tokens `bg-action-primary`, `bg-accent-highlight`, `bg-accent-info`, and `bg-accent-fresh` respectively. Electric uses light foreground text; the other three use the dark primary foreground. Show the selected swatch with a check mark and visible focus treatment so selection never depends on color alone.
+
+The saved choice drives the person’s wishlist and profile accents wherever their profile is authorized to appear. Group members see that person’s selected Vibe, not a new color assigned by the viewer. Vibe changes presentation only; it does not change membership, gifting, or reservation permissions. This approved extension does not authorize replacing frozen visual baselines automatically.
+
 ## Interaction principles
 
 - Mobile-first, with touch targets of at least 44 by 44 CSS pixels.
@@ -97,3 +105,15 @@ Every implemented reference screen must have stable Playwright screenshots at mi
 Use deterministic seed data, local/stable images, fixed fonts, disabled time variance, and consistent browser versions. Screenshot diffs require human review; agents may not approve their own baseline changes.
 
 For each review, compare the production implementation and the deployed prototype using the same viewport, route-equivalent state, fixture content, scroll position, and open overlays. Review both the screenshot diff and the rendered interaction; pixel similarity alone does not prove correct behavior or accessibility.
+
+## Approved interaction refinements — 2026-10-04
+
+The user approved these changes beyond the frozen prototype's native controls:
+
+- A prominent organizer-only Invite people action in the group header, leading to the existing invitation manager. Member avatar hover/focus must fit within the horizontal roster's padded clipping bounds.
+- A branded date popover using the page's cream, ink, rounded outlines, accent selection, and offset shadow. Keep typed ISO date entry and keyboard calendar navigation.
+- Styled searchable currency choices, matched by code or full name, with room around the chevron. Group creation retains its approved four-currency set; item forms retain their supported currency set.
+- Explicit hover, focus, and pointer feedback on Edit profile.
+- Wishlist reorder handles without visible up/down buttons. Pointer/touch dragging and keyboard pickup/move/drop/cancel must persist through the existing order-write contract. Drag feedback must not shift list geometry.
+
+These are user-requested design extensions. Existing visual baselines are not silently regenerated to accept them.

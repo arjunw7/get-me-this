@@ -233,18 +233,21 @@ test("the group room activity section: state-only wording, owner blind spot, den
     const pendingContext = await browser.newContext();
     try {
       const pendingPage = await pendingContext.newPage();
-      await createSignedInFixture(
+      const browserPendingId = await createSignedInFixture(
         pendingPage,
         admin,
         `arj40-${projectTag}-browser-pending`,
         { displayName: "Pending Pia", tasteLine: "waits" },
         scope,
       );
+      scope.register("pending fixture membership", async () => {
+        runStackSql(
+          `delete from public.group_members where group_id = '${groupId}'::uuid and user_id = '${browserPendingId}'::uuid;`,
+        );
+      });
       runStackSql(`
         insert into public.group_members (group_id, user_id, status, participating, membership_generation)
-        values ('${groupId}'::uuid, (
-          select id from auth.users where email like 'arj40-${projectTag}-browser-pending-%@example.invalid' limit 1
-        ), 'invited', false, 1);`);
+        values ('${groupId}'::uuid, '${browserPendingId}'::uuid, 'invited', false, 1);`);
       await pendingPage.goto(`/groups/${groupId}`);
       await expect(
         pendingPage.getByText(/Not found|not found/i).first(),

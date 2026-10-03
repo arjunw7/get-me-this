@@ -118,7 +118,12 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     await page.getByLabel("Item name").fill("ARJ-28 candidate lamp");
     await page.getByLabel("Shop (optional)").fill("Candidate Shop");
     await page.getByLabel("Price").fill("24.99");
-    await page.getByLabel("Currency").selectOption("INR");
+    await page
+      .getByRole("combobox", { name: "Currency", exact: true })
+      .fill("INR");
+    await page
+      .getByRole("combobox", { name: "Currency", exact: true })
+      .press("Enter");
     await page
       .getByLabel("Link (optional)")
       .fill("https://arj28-candidate.invalid/lamp");
@@ -181,7 +186,12 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
       .click();
     await page.getByLabel("Item name").fill("ARJ-28 candidate lamp");
     await page.getByLabel("Price").fill("24.99");
-    await page.getByLabel("Currency").selectOption("INR");
+    await page
+      .getByRole("combobox", { name: "Currency", exact: true })
+      .fill("INR");
+    await page
+      .getByRole("combobox", { name: "Currency", exact: true })
+      .press("Enter");
     await page
       .getByLabel("Link (optional)")
       .fill("https://arj28-candidate.invalid/lamp");

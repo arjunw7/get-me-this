@@ -1,39 +1,22 @@
+import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import { parseIntent, type AuthIntent } from "./fixtures";
 
-/**
- * The 004d intent-to-route table: the ONLY mechanism that turns a carried
- * auth intent into a redirect target. Resolution is a pure value lookup —
- * redirect targets are never constructed from user input, so no external
- * URL, protocol-relative URL, encoded bypass, or unexpected intent value
- * can ever become a destination.
- *
- * 004d defines and unit-tests the table but does not navigate: the verify
- * action resolves the destination as a value only, and the unbuilt
- * `wishlist` / `create-group` routes resolve to `home` with no claim that a
- * wishlist or group was created (004e serves the real routes).
- */
-
-/**
- * Server-defined routes only, keyed by the closed 004c intent enum. The
- * wishlist experience resolves to its 005b route; 006b builds the real
- * `create-group` route. Unknown, absent, and malicious values fall through
- * `parseIntent`'s closed enum into the `home` default — attacker-controlled
- * input never reaches the result.
- */
+/** Existing destinations stay fixed. Public links add only a validated token
+ * under the fixed /s/ prefix; no caller-supplied URL or path is accepted. */
 const INTENT_ROUTES: Readonly<Record<AuthIntent, string>> = {
   home: "/home",
   wishlist: "/home",
   "create-group": "/groups/new",
+  "public-wishlist": "/home",
 };
 
-/**
- * Resolves a raw intent value (as carried by the 004c carry cookie) to a
- * server-defined route. Unknown, absent, and malicious values fall through
- * `parseIntent`'s closed enum into the `home` default — attacker-controlled
- * input never reaches the result.
- */
+/** Malformed intents and public identifiers safely resolve to /home. */
 export function resolveSafeRedirectTarget(
   rawValue: string | undefined,
+  shareToken?: unknown,
 ): string {
-  return INTENT_ROUTES[parseIntent(rawValue)];
+  const intent = parseIntent(rawValue);
+  const token =
+    intent === "public-wishlist" ? parsePublicShareToken(shareToken) : null;
+  return token ? `/s/${token}` : INTENT_ROUTES[intent];
 }

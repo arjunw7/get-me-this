@@ -45,6 +45,43 @@ describe("carry-cookie payload validation", () => {
     });
   });
 
+  it("carries only a validated public token for the matching intent", () => {
+    const shareToken = "A".repeat(43);
+    const value = encodeAuthCarry(
+      "you@example.com",
+      "public-wishlist",
+      NOW,
+      shareToken,
+    );
+    expect(parseAuthCarry(value, NOW)).toEqual({
+      email: "you@example.com",
+      intent: "public-wishlist",
+      shareToken,
+    });
+    expect(parseAuthCarry(value, NOW + 3601_000)).toBeNull();
+    expect(
+      parseAuthCarry(
+        encodeAuthCarry("you@example.com", "home", NOW, shareToken),
+        NOW,
+      ),
+    ).toEqual({ email: "you@example.com", intent: "home" });
+  });
+  it.each([undefined, "//evil.example", "A".repeat(42) + "B", "A".repeat(44)])(
+    "rejects missing or altered public token in a carried public intent",
+    (shareToken) => {
+      expect(
+        parseAuthCarry(
+          JSON.stringify({
+            email: "you@example.com",
+            intent: "public-wishlist",
+            shareToken,
+            exp: NOW / 1000 + 3600,
+          }),
+          NOW,
+        ),
+      ).toBeNull();
+    },
+  );
   it("accepts the value up to (not past) its expiry", () => {
     const value = encodeAuthCarry("you@example.com", "home", NOW);
     // Expiry is checked against the wall clock: at Max-Age minus one second

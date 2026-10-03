@@ -2,7 +2,7 @@
 
 ## Summary
 
-**Get Me This** is a playful, private social wishlist for young friend groups. A user maintains one persistent wishlist, reuses it across occasion-based groups, and can save products from any store. Group members browse one another's wishlists, react to items, choose how gifting works, and privately reserve gifts so recipients remain surprised and duplicate purchases are avoided.
+**Get Me This** is a playful social wishlist with private group gifting for young friend groups. A user maintains one persistent wishlist, reuses it across occasion-based groups, and can save products from any store. Group members browse one another's wishlists, react to items, choose how gifting works, and privately reserve gifts so recipients remain surprised and duplicate purchases are avoided.
 
 The product is India-born and globally usable across Diwali, Eid, birthdays, weddings, housewarmings, Secret Santa, and informal friend-group traditions.
 
@@ -66,7 +66,7 @@ Targets are launch hypotheses and should be revisited after the first meaningful
 ## Product loop
 
 1. Continue with email using an OTP or magic link.
-2. Complete a minimal profile with display name and optional avatar.
+2. Complete a minimal profile with display name, an optional taste line, and a saved Vibe: Tomato, Marigold, Electric, or Acid lime (Marigold by default).
 3. Add products to a persistent wishlist.
 4. Create or join an occasion-based group.
 5. Browse member wishlists and react or copy items.
@@ -92,9 +92,11 @@ Reservations are group-scoped and invisible to the wishlist owner in every mode.
 
 ## Trust rules
 
-- Wishlists are private by default and visible only through shared group membership.
+- Every wishlist automatically has an unguessable public sharing link. Anyone with the active link can see the profile name, personality line, Vibe, saved items, and public reaction counts. The sharing sheet offers Copy link and an open-link icon beside the URL, without a Stop sharing control. Backend revocation remains supported; re-enabling an already disabled link creates a new URL. There is no public discovery or directory.
+- A profile’s Vibe is saved across sessions and groups. Only the owner can change it; joined members see the saved color through their shared active group, without access to unrelated profile data.
 - A signed-out invitation preview exposes only the limited information needed to understand the invitation.
-- Reactions are visible to eligible group members.
+- Group reactions remain visible within eligible group contexts. Public-link reactions are separate; visitors must sign in to set, switch, or remove their own reaction. Owners cannot react to their own items.
+- Public wishlist pages never expose reservations, purchases, assignments, group details, member lists, private group activity, or private group reaction counts—even to signed-in visitors.
 - Reservations, assignment state, and gifting progress are hidden from recipients.
 - Imported product information remains editable.
 - Failed extraction falls back to manual entry.
@@ -119,4 +121,3 @@ Reservations are group-scoped and invisible to the wishlist owner in every mode.
 - Whether reminders are opt-out or individually configurable after launch.
 - Whether group organizers can archive groups in v1 or only leave them completed.
 - Whether copying an item also copies its note or only product metadata.
-

@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import Link from "next/link";
 
 import { parseExtractResponse } from "./extract-response";
 import { ExtractReviewForm } from "./extract-review-form";
@@ -22,8 +21,7 @@ import type { ExtractionResultShape } from "./extract-response";
  * every save and every remote fetch of page content happens on the
  * server). States on the protected `/wishlist/items/new` route, ported
  * from the frozen V18 `AddFromLink` composition with the brief's pinned
- * deviations (no `added` step, no conversion preview, no photo picker, no
- * starter-pick handoff):
+ * deviations (no `added` step, no conversion preview or manual image upload):
  *
  * 1. `input` — the V18 initial URL entry; `?url=` seeds the field.
  * 2. `loading` — the bounded extracting state (12s client wait over the
@@ -49,7 +47,7 @@ type Step = "input" | "loading" | "review" | "manual";
 // and pinning the width to the server-known param crushed the review/manual
 // form into the 520px entry column (sliver inputs, overlapping fields).
 const ENTRY_COLUMN = "mx-auto w-full max-w-[var(--spacing-content-max)]";
-const WIDE_COLUMN = "mx-auto w-full max-w-4xl";
+const WIDE_COLUMN = "mx-auto w-full max-w-4xl sm:px-5";
 
 /** The client wait: the 005e 10s server deadline plus admission margin. */
 const EXTRACT_WAIT_MS = 12_000;
@@ -80,14 +78,21 @@ function isCompleteResult(result: ExtractionResultShape): boolean {
   );
 }
 
-export function AddItemFlow({ initialUrl }: { initialUrl: string }) {
+export function AddItemFlow({
+  initialUrl,
+  starterIdea,
+}: {
+  initialUrl: string;
+  starterIdea?: { label: string; prompt: string; note: string } | null;
+}) {
   const [step, setStep] = useState<Step>("input");
   const [link, setLink] = useState(initialUrl);
   const [linkError, setLinkError] = useState<string | null>(null);
   const [host, setHost] = useState("");
-  const [draft, setDraft] = useState<CreateDraft>(() =>
-    createDraftDefaults(newSubmissionId()),
-  );
+  const [draft, setDraft] = useState<CreateDraft>(() => ({
+    ...createDraftDefaults(newSubmissionId()),
+    note: starterIdea?.note ?? "",
+  }));
   const [candidates, setCandidates] = useState<readonly string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [partial, setPartial] = useState(false);
@@ -104,7 +109,10 @@ export function AddItemFlow({ initialUrl }: { initialUrl: string }) {
 
   const enterManual = useCallback(
     (url: string, retain: CreateDraft | undefined, failure: boolean) => {
-      const base = retain ?? createDraftDefaults(submissionRef.current);
+      const base = retain ?? {
+        ...createDraftDefaults(submissionRef.current),
+        note: starterIdea?.note ?? "",
+      };
       setDraft({
         ...base,
         sourceUrl: url,
@@ -116,12 +124,15 @@ export function AddItemFlow({ initialUrl }: { initialUrl: string }) {
       setFailed(failure);
       setStep("manual");
     },
-    [],
+    [starterIdea?.note],
   );
 
   const applyResult = useCallback(
     (result: ExtractionResultShape, url: string, retain?: CreateDraft) => {
-      const base = retain ?? createDraftDefaults(submissionRef.current);
+      const base = retain ?? {
+        ...createDraftDefaults(submissionRef.current),
+        note: starterIdea?.note ?? "",
+      };
       // The extractor reports minor units as a decimal string; the form's
       // amount field is major units rendered back through the same frozen
       // currency table the save validation uses (never a conversion).
@@ -161,7 +172,7 @@ export function AddItemFlow({ initialUrl }: { initialUrl: string }) {
       setFailed(false);
       setStep("review");
     },
-    [],
+    [starterIdea?.note],
   );
 
   const runExtract = useCallback(
@@ -230,7 +241,10 @@ export function AddItemFlow({ initialUrl }: { initialUrl: string }) {
   function startOver() {
     const submissionId = newSubmissionId();
     submissionRef.current = submissionId;
-    setDraft(createDraftDefaults(submissionId));
+    setDraft({
+      ...createDraftDefaults(submissionId),
+      note: starterIdea?.note ?? "",
+    });
     setCandidates([]);
     setSelectedImage(null);
     setPartial(false);
@@ -279,7 +293,10 @@ export function AddItemFlow({ initialUrl }: { initialUrl: string }) {
           // fallback's retry; deliberate manual entry offers none.
           onRetryExtract={
             step === "review" || failed
-              ? () => void runExtract(link.trim(), draft)
+              ? () => {
+                  setLink(draft.sourceUrl);
+                  void runExtract(draft.sourceUrl, draft);
+                }
               : undefined
           }
           onFieldChange={updateField}
@@ -290,25 +307,14 @@ export function AddItemFlow({ initialUrl }: { initialUrl: string }) {
 
   return (
     <div className={`${ENTRY_COLUMN} flex flex-col gap-6`}>
-      <Link
-        href="/wishlist"
-        aria-label="Close and return to your wishlist"
-        className="inline-flex min-h-touch-min min-w-touch-min items-center justify-center self-start rounded-full border-2 border-outline-strong bg-surface-raised px-3 font-bold"
-      >
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="h-5 w-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M18 6 6 18" />
-          <path d="m6 6 12 12" />
-        </svg>
-      </Link>
+      {starterIdea && (
+        <aside className="rounded-2xl border-2 border-outline-strong bg-accent-highlight-soft p-4">
+          <p className="font-bold">{starterIdea.label}</p>
+          <p className="mt-1 text-sm text-content-secondary">
+            {starterIdea.prompt}
+          </p>
+        </aside>
+      )}
       <InitialEntry
         link={link}
         linkError={linkError}

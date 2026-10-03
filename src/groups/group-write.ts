@@ -141,12 +141,13 @@ export async function issueGroupInviteLink(
   const expected = /^\d+$/.test(expectedVersion)
     ? BigInt(expectedVersion)
     : undefined;
-  if (expected === undefined) return { kind: "unavailable" };
+  if (expected === undefined || expected > BigInt("9223372036854775807"))
+    return { kind: "unavailable" };
 
   const { data, error } = await client.rpc("issue_group_invitation", {
     p_group_id: groupId,
     // The database drives bigint; pass an exact integer-safe string form.
-    p_expected_invitation_version: Number(expected),
+    p_expected_invitation_version: expected.toString(),
   });
   if (error) {
     return error.code === "PT409" ? { kind: "stale" } : { kind: "retry" };
@@ -194,4 +195,65 @@ export async function loadJoinedGroupName(
   if (error) return null;
   const row = (data as GroupDetailRow[] | null)?.[0];
   return typeof row?.name === "string" && row.name.length > 0 ? row.name : null;
+}
+
+export type GetGroupInviteLinkOutcome =
+  | { kind: "ready"; token: string; version: string; expiresAt: string }
+  | { kind: "replacement_required"; version: string }
+  | { kind: "unavailable" | "retry" };
+
+function invitationVersion(value: unknown): string | null {
+  if (typeof value === "number" && (!Number.isSafeInteger(value) || value < 0))
+    return null;
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const version = String(value);
+  return /^\d+$/.test(version) &&
+    BigInt(version) <= BigInt("9223372036854775807")
+    ? version
+    : null;
+}
+
+/** No cache or logs: recover only through the current organizer's scoped RPC. */
+export async function getGroupInviteLink(
+  groupId: string,
+): Promise<GetGroupInviteLinkOutcome> {
+  const client = await createSupabaseServerClient();
+  if (!client) return { kind: "unavailable" };
+  try {
+    const { data, error } = await client.rpc("get_group_invite_link", {
+      p_group_id: groupId,
+    });
+    if (error) return { kind: "retry" };
+    if (!Array.isArray(data)) return { kind: "retry" };
+    if (data.length === 0) return { kind: "unavailable" };
+    if (data.length !== 1 || !data[0] || typeof data[0] !== "object")
+      return { kind: "retry" };
+    const row = data[0] as {
+      result?: unknown;
+      invitation_version?: unknown;
+      token?: unknown;
+      expires_at?: unknown;
+    };
+    const version = invitationVersion(row.invitation_version);
+    if (version === null) return { kind: "retry" };
+    if (row.result === "replacement_required" && row.token === null)
+      return { kind: "replacement_required", version };
+    if (
+      row.result === "ready" &&
+      typeof row.token === "string" &&
+      /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(row.token) &&
+      typeof row.expires_at === "string" &&
+      Number.isFinite(Date.parse(row.expires_at))
+    ) {
+      return {
+        kind: "ready",
+        token: row.token,
+        version,
+        expiresAt: row.expires_at,
+      };
+    }
+    return { kind: "retry" };
+  } catch {
+    return { kind: "retry" };
+  }
 }
