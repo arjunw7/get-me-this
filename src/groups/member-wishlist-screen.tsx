@@ -11,6 +11,7 @@ import {
   memberWishlistHeading,
 } from "./member-wishlist-view";
 import { accentClassFor, initialsFor } from "./room-format";
+import { CopyToWishlistButton } from "./copy/copy-button";
 
 import type { MemberWishlistItem } from "./member-wishlist-data";
 
@@ -22,13 +23,18 @@ import type { MemberWishlistItem } from "./member-wishlist-data";
  * the item cards show only the authorized projection fields in the owner's
  * committed order.
  *
- * Deliberately absent (the brief's non-goals): the gifting banner and
+ * Deliberately absent (the briefs' non-goals): the gifting banner and
  * budget-fit summary, per-item reserve actions and reservation state, gift
  * tracking, budget-comparison filtering, gifting navigation, reaction
- * controls, and any edit affordance — a member never edits another
- * person's wishlist. The whole surface is marked data-ph-no-capture: it
- * maps group membership to wishlist ownership, so autocapture and session
- * replay are blocked.
+ * controls (a separate wiring slice owns those), and any edit affordance —
+ * a member never edits another person's wishlist. The whole surface is
+ * marked data-ph-no-capture: it maps group membership to wishlist
+ * ownership, so autocapture and session replay are blocked.
+ *
+ * The one interactive affordance is the 007b `Copy to my wishlist` action
+ * on each friend item card: it copies the item into the visitor's own
+ * wishlist without navigation and reveals nothing about the copy to
+ * anyone.
  */
 
 /** The vendored Lucide external-link glyph (no new runtime dependency). */
@@ -63,8 +69,10 @@ function sourceLabel(sourceUrl: string, retailer: string | null): string {
 
 function MemberWishlistItemCard({
   item,
+  groupId,
 }: {
   readonly item: MemberWishlistItem;
+  readonly groupId: string;
 }) {
   return (
     <article
@@ -119,12 +127,13 @@ function MemberWishlistItemCard({
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Open ${item.title}'s original page (opens in a new tab)`}
-            className="mt-auto inline-flex min-h-touch-min items-center justify-center gap-2 rounded-control border-2 border-outline-strong bg-accent-info-soft px-4 font-display text-label font-bold text-content-primary transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+            className="inline-flex min-h-touch-min items-center justify-center gap-2 rounded-control border-2 border-outline-strong bg-accent-info-soft px-4 font-display text-label font-bold text-content-primary transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
           >
             Original page
             <ExternalLinkIcon className="h-4 w-4" />
           </a>
         ) : null}
+        <CopyToWishlistButton groupId={groupId} itemId={item.itemId} />
       </div>
     </article>
   );
@@ -191,7 +200,7 @@ export function MemberWishlistScreen({
         >
           {items.map((item) => (
             <li key={item.itemId} className="flex">
-              <MemberWishlistItemCard item={item} />
+              <MemberWishlistItemCard item={item} groupId={groupId} />
             </li>
           ))}
         </ul>

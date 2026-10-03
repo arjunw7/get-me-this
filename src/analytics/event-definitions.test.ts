@@ -1,5 +1,5 @@
 /**
- * Catalog tests: the eleven server-authoritative business events and their
+ * Catalog tests: the server-authoritative business events and their
  * exact allowed values, matching docs/analytics/tracking-plan.md, plus the
  * complete active ISO 4217 currency allowlist. Compile-time tests prove,
  * against the REAL exported ServerAnalytics.capture() surface, that unknown
@@ -33,6 +33,7 @@ const TRACKING_PLAN_EVENTS = [
   "group_activated",
   "gift_checklist_progressed",
   "member_wishlist_viewed",
+  "item_copied",
 ] as const;
 
 const EXPECTED_PROPERTIES: Record<
@@ -58,6 +59,7 @@ const EXPECTED_PROPERTIES: Record<
   gifting_mode_selected: ["gifting_mode", "changed_from_existing"],
   name_draw_completed: ["participant_count_bucket", "is_redraw"],
   gift_checklist_progressed: ["action", "checklist_total_bucket"],
+  item_copied: ["copy_outcome"],
   member_wishlist_viewed: [
     "view_scope",
     "wishlist_state",
@@ -72,7 +74,7 @@ const EXPECTED_PROPERTIES: Record<
 };
 
 describe("analytics event catalog", () => {
-  it("contains exactly the eleven tracking-plan events", () => {
+  it("contains exactly the tracking-plan events", () => {
     expect(Object.keys(EVENT_DEFINITIONS).sort()).toEqual(
       [...TRACKING_PLAN_EVENTS].sort(),
     );

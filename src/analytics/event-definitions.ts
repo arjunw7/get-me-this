@@ -1,5 +1,5 @@
 /**
- * Single source of truth for the eleven server-authoritative business events.
+ * Single source of truth for the server-authoritative business events.
  *
  * The tracking plan (docs/analytics/tracking-plan.md) defines the catalog,
  * the required properties, and the privacy exclusions. This module encodes
@@ -238,7 +238,7 @@ export interface EventDefinition {
 }
 
 /**
- * The ten server-authoritative business events with their exact allowed
+ * The server-authoritative business events with their exact allowed
  * values. Every controlled property is an enum or a strict boolean; no
  * free-form strings, raw prices, user content, or identifiers other than
  * internal UUIDs passed as the distinct id / group context by the adapter.
@@ -348,6 +348,11 @@ export const EVENT_DEFINITIONS = {
         "gift_everyone",
         "wishlist_only",
       ]),
+    },
+  },
+  item_copied: {
+    properties: {
+      copy_outcome: stringEnum(["created", "already_copied"]),
     },
   },
   group_activated: {
