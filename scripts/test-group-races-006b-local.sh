@@ -371,7 +371,7 @@ await 4 "1"
 
 send 5 "create temp table race_markers7(marker text);"
 send 5 "do \$\$ begin
-  perform public.issue_group_invitation('${G7}'::uuid, '${UID_B}'::uuid);
+  perform public.issue_group_invitation('${G7}'::uuid, '${UID_B}'::uuid, (select member_admin_version from public.group_admin_version('${G7}'::uuid)));
   insert into race_markers7 values ('TARGETED-ISSUED');
 end \$\$;"
 sleep 1
@@ -400,7 +400,7 @@ await 4 "2"
 
 send 5 "create temp table race_markers8(marker text);"
 send 5 "do \$\$ begin
-  perform public.revoke_group_invitation('${G7}'::uuid, '${T8}'::uuid);
+  perform public.revoke_group_invitation('${G7}'::uuid, '${T8}'::uuid, (select member_admin_version from public.group_admin_version('${G7}'::uuid)));
   insert into race_markers8 values ('TARGETED-REVOKED');
 end \$\$;"
 sleep 1
@@ -418,8 +418,8 @@ check 3 "s8-audits" "1 = (select count(*) from public.audit_events where group_i
 send 5 "$(issue_call "$G7" 2)"
 await 6 "3"
 GEN8B="$(psql_one <<< "select id::text from public.group_invitations where group_id = '${G7}' and shareable_version = 3;" | tail -n 1)"
-send 5 "select result from public.revoke_group_invitation('${G7}'::uuid, '${GEN8B}'::uuid);"
-await 6 "unavailable"
+send 5 "select revoked::text from public.revoke_group_invitation('${G7}'::uuid, '${GEN8B}'::uuid, (select member_admin_version from ${GROUPS_SQL} where id = '${G7}'::uuid));"
+await 6 "false"
 check 3 "s8-refusal-no-write" "1 = (select count(*) from public.group_invitations where id = '${GEN8B}' and status = 'active' and shareable_version = 3)"
 check 3 "s8-refusal-version" "3 = (select shareable_invitation_version from ${GROUPS_SQL} where id = '${G7}')"
 check 3 "s8-refusal-no-audit" "0 = (select count(*) from public.audit_events where group_id = '${G7}' and event_type = 'invitation_revoked' and invitation_id = '${GEN8B}')"

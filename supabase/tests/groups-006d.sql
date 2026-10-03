@@ -205,7 +205,7 @@ set local role authenticated;
 set local "request.jwt.claim.sub" = :'uid_a';
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', substring(current_setting('request.jwt.claim.sub', true) for 36)), true);
 select target_membership_generation
-from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid);
+from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid)));
 
 reset role;
 
@@ -397,10 +397,10 @@ select is(
   'a stale-generation targeted token produces no pending row'
 );
 reset role;
--- The targeted issue above advanced C's invited generation to 2 and bound
--- the token to exactly that generation.
+-- The targeted issue above bound the token to C's invited generation. The
+-- 006f reinvitation leaves an invited row's status and generation unchanged.
 update public.group_invitations
-set target_membership_generation = 2
+set target_membership_generation = 1
 where target_user_id = :'uid_c'::uuid;
 
 -- Multiple live targeted tokens for one membership still produce one row.

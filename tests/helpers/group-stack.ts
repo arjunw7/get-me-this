@@ -203,9 +203,10 @@ export function stackTargetedStatus(
 }
 
 /**
- * A targeted invitation issued through the reshaped 006b overload. The
- * returned row result (token material) is discarded inside the database; the
- * id is resolved from the non-sensitive columns afterwards.
+ * A targeted invitation issued through the compare-and-swap 006f overload
+ * at the group's current member-admin version. The returned row result
+ * (token material) is discarded inside the database; the id is resolved
+ * from the non-sensitive columns afterwards.
  */
 export function stackIssueTargeted(
   organizerId: string,
@@ -216,7 +217,7 @@ export function stackIssueTargeted(
     withIdentity(
       organizerId,
       `do $$ begin
-  perform public.issue_group_invitation('${groupId}'::uuid, '${targetUserId}'::uuid);
+  perform public.issue_group_invitation('${groupId}'::uuid, '${targetUserId}'::uuid, (select member_admin_version from public."groups" where id = '${groupId}'::uuid));
 end $$;`,
     ),
   );

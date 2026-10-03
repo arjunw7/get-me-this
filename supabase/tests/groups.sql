@@ -20,7 +20,7 @@
 
 begin;
 
-select plan(400);
+select plan(406);
 
 -- Synthetic test identities; rolled back at the end of the suite.
 select gen_random_uuid() as uid_a \gset
@@ -214,12 +214,13 @@ select is(
     'groups_description_bounded',
     'groups_draw_version_positive',
     'groups_location_bounded',
+    'groups_member_admin_version_non_negative',
     'groups_name_bounded',
     'groups_occasion_bounded',
     'groups_shareable_invitation_version_non_negative',
     'groups_time_zone_bounded'
   ]::text[],
-  'exactly the pinned CHECK constraints exist on groups (006b adds the shareable version check)'
+  'exactly the pinned CHECK constraints exist on groups (006b adds the shareable version check, 006f the member-admin version check)'
 );
 
 select is(
@@ -537,17 +538,17 @@ select ok(not has_function_privilege('authenticated', 'private.group_fields_are_
 select ok(has_function_privilege('authenticated', 'public.create_group_v1(uuid, jsonb)', 'EXECUTE'), 'authenticated can execute create_group_v1');
 select ok(has_function_privilege('authenticated', 'public.update_group_settings(uuid, text, text, timestamptz, text, text, text, bigint, text, text)', 'EXECUTE'), 'authenticated can execute update_group_settings');
 select ok(has_function_privilege('authenticated', 'public.issue_group_invitation(uuid, bigint)', 'EXECUTE'), 'authenticated can execute the generic issue overload');
-select ok(has_function_privilege('authenticated', 'public.issue_group_invitation(uuid, uuid)', 'EXECUTE'), 'authenticated can execute the targeted issue overload');
+select ok(has_function_privilege('authenticated', 'public.issue_group_invitation(uuid, uuid, bigint)', 'EXECUTE'), 'authenticated can execute the targeted issue overload');
 select ok(has_function_privilege('authenticated', 'public.revoke_group_invitation(uuid, bigint)', 'EXECUTE'), 'authenticated can execute the generic revoke overload');
-select ok(has_function_privilege('authenticated', 'public.revoke_group_invitation(uuid, uuid)', 'EXECUTE'), 'authenticated can execute the targeted revoke overload');
+select ok(has_function_privilege('authenticated', 'public.revoke_group_invitation(uuid, uuid, bigint)', 'EXECUTE'), 'authenticated can execute the targeted revoke overload');
 select ok(has_function_privilege('authenticated', 'public.group_shareable_invitation_state(uuid)', 'EXECUTE'), 'authenticated can execute the organizer invitation-state projection');
 -- 006c supersede: the direct raw-token acceptance entry point is no longer
 -- executable by any application role — acceptance goes through the
 -- continuation-bound function (supabase/tests/groups-006c.sql proves the
 -- revocation and the new surface).
 select ok(not has_function_privilege('authenticated', 'public.accept_group_invitation(text)', 'EXECUTE'), 'authenticated cannot execute the superseded direct accept_group_invitation (006c)');
-select ok(has_function_privilege('authenticated', 'public.remove_group_member(uuid, uuid)', 'EXECUTE'), 'authenticated can execute remove_group_member');
-select ok(has_function_privilege('authenticated', 'public.transfer_group_organizer(uuid, uuid)', 'EXECUTE'), 'authenticated can execute transfer_group_organizer');
+select ok(has_function_privilege('authenticated', 'public.remove_group_member(uuid, uuid, bigint)', 'EXECUTE'), 'authenticated can execute remove_group_member');
+select ok(has_function_privilege('authenticated', 'public.transfer_group_organizer(uuid, uuid, bigint)', 'EXECUTE'), 'authenticated can execute transfer_group_organizer');
 select ok(has_function_privilege('authenticated', 'public.leave_group(uuid)', 'EXECUTE'), 'authenticated can execute leave_group');
 select ok(has_function_privilege('authenticated', 'public.decline_group_invitation(uuid)', 'EXECUTE'), 'authenticated can execute decline_group_invitation');
 select ok(has_function_privilege('authenticated', 'public.group_detail(uuid)', 'EXECUTE'), 'authenticated can execute group_detail');
@@ -613,6 +614,32 @@ select is(
    where n.nspname = 'public' and p.proname = 'transfer_group_organizer'),
   1, 'transfer_group_organizer has exactly one overload'
 );
+-- 006f supersede: the non-CAS 006a/006b organizer overloads are fully
+-- removed; the CAS signatures are the only callable mutations.
+select is(
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'remove_group_member'
+     and pg_get_function_identity_arguments(p.oid) = 'p_group_id uuid, p_target_user_id uuid'),
+  0, 'the non-CAS remove_group_member overload is fully removed'
+);
+select is(
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'transfer_group_organizer'
+     and pg_get_function_identity_arguments(p.oid) = 'p_group_id uuid, p_new_organizer_id uuid'),
+  0, 'the non-CAS transfer_group_organizer overload is fully removed'
+);
+select is(
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'issue_group_invitation'
+     and pg_get_function_identity_arguments(p.oid) = 'p_group_id uuid, p_target_user_id uuid'),
+  0, 'the non-CAS targeted issue overload is fully removed'
+);
+select is(
+  (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'revoke_group_invitation'
+     and pg_get_function_identity_arguments(p.oid) = 'p_group_id uuid, p_invitation_id uuid'),
+  0, 'the non-CAS targeted revoke overload is fully removed'
+);
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname = 'leave_group'),
@@ -655,12 +682,12 @@ select is(
         'public.update_group_settings(uuid, text, text, timestamptz, text, text, text, bigint, text, text)'::regprocedure,
         'public.group_shareable_invitation_state(uuid)'::regprocedure,
         'public.issue_group_invitation(uuid, bigint)'::regprocedure,
-        'public.issue_group_invitation(uuid, uuid)'::regprocedure,
+        'public.issue_group_invitation(uuid, uuid, bigint)'::regprocedure,
         'public.revoke_group_invitation(uuid, bigint)'::regprocedure,
-        'public.revoke_group_invitation(uuid, uuid)'::regprocedure,
+        'public.revoke_group_invitation(uuid, uuid, bigint)'::regprocedure,
         'public.accept_group_invitation(text)'::regprocedure,
-        'public.remove_group_member(uuid, uuid)'::regprocedure,
-        'public.transfer_group_organizer(uuid, uuid)'::regprocedure,
+        'public.remove_group_member(uuid, uuid, bigint)'::regprocedure,
+        'public.transfer_group_organizer(uuid, uuid, bigint)'::regprocedure,
         'public.leave_group(uuid)'::regprocedure,
         'public.decline_group_invitation(uuid)'::regprocedure,
         'public.group_detail(uuid)'::regprocedure,
@@ -1631,14 +1658,26 @@ select is(
   'unavailable', 'the organizer cannot decline (not an invited row)'
 );
 select is(
-  (select result::text from public.remove_group_member(:'gid'::uuid, :'uid_a'::uuid)),
-  'unavailable', 'the organizer cannot remove self'
+  (
+    select count(*)::int
+    from public.remove_group_member(
+      :'gid'::uuid, :'uid_a'::uuid,
+      (select member_admin_version from public.group_admin_version(:'gid'::uuid))
+    )
+  ),
+  0, 'the organizer cannot remove self (zero rows, no write)'
 );
 
 -- The organizer can remove a joined member; the row is durable history.
 select is(
-  (select result::text from public.remove_group_member(:'gid'::uuid, :'uid_c'::uuid)),
-  'removed', 'the organizer can remove a joined member'
+  (
+    select member_admin_version::text
+    from public.remove_group_member(
+      :'gid'::uuid, :'uid_c'::uuid,
+      (select member_admin_version from public.group_admin_version(:'gid'::uuid))
+    )
+  ),
+  '1', 'the organizer can remove a joined member (version 1 returned)'
 );
 
 -- Owner view: the removed row and its audit event.
@@ -1701,11 +1740,13 @@ select set_config('request.jwt.claim.sub', :'uid_a', true);
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
 select token as tok4, target_membership_generation::text as issue4_generation
-from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid) \gset
+from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid))) \gset
 
 select is(:'issue4_generation'::text, '3', 'the organizer can issue a targeted reinvitation bound to generation 3');
 
--- Owner view: the targeted pair and the untouched durable status.
+-- Owner view: the targeted pair and the reinstated invited row (006f pins
+-- the state-table transition: reinvitation moves declined/left/removed rows
+-- to invited).
 reset role;
 
 select id::text as inv4_id from public.group_invitations
@@ -1721,7 +1762,7 @@ select is(
 );
 select is(
   (select status::text from public.group_members where group_id = :'gid'::uuid and user_id = :'uid_c'::uuid),
-  'removed', 'issuing a targeted invitation does not rewrite the durable status'
+  'invited', 'the targeted reinvitation restores the former row to invited (006f state table)'
 );
 
 -- as B: a targeted token for another user cannot be consumed.
@@ -1735,14 +1776,33 @@ select is(
   'unavailable', 'a targeted token cannot be consumed by another user'
 );
 
--- as A: a second targeted invitation supersedes the first.
+-- A second targeted invitation while the first is still live is refused.
+select set_config('request.jwt.claim.sub', :'uid_a', true);
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
+
+select is(
+  (select count(*)::int from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid)))),
+  0, 'an invited row with a live targeted invitation cannot be reinvited'
+);
+
+-- as A: revoking the live invitation opens the reinvitation path again.
+select set_config('request.jwt.claim.sub', :'uid_a', true);
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
+
+select revoked::text as rev4, coalesce(revoked_at::text, 'none') as rev4_at
+from public.revoke_group_invitation(:'gid'::uuid, :'inv4_id'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid))) \gset
+
+select is(:'rev4' || ':' || (:'rev4_at' <> 'none')::text, 'true:true', 'revoking the live targeted invitation succeeds');
+
+-- as A: the reinvitation of the invited row with no live invitation keeps
+-- the row's status and generation unchanged.
 select set_config('request.jwt.claim.sub', :'uid_a', true);
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
 select token as tok5, target_membership_generation::text as issue5_generation
-from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid) \gset
+from public.issue_group_invitation(:'gid'::uuid, :'uid_c'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid))) \gset
 
-select is(:'issue5_generation'::text, '4', 'a second targeted invitation supersedes the first and advances the generation again');
+select is(:'issue5_generation'::text, '3', 'a reinvitation of an invited row with no live invitation binds the unchanged generation');
 
 -- as C: the stale token fails, the matching one works.
 select set_config('request.jwt.claim.sub', :'uid_c', true);
@@ -1834,7 +1894,7 @@ select set_config('request.jwt.claim.sub', :'uid_a', true);
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
 select token as tok6, target_membership_generation::text as issue6_generation
-from public.issue_group_invitation(:'gid'::uuid, :'uid_d'::uuid) \gset
+from public.issue_group_invitation(:'gid'::uuid, :'uid_d'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid))) \gset
 
 select is(:'issue6_generation'::text, '1', 'a targeted invitation for a known user with no row creates an invited row at generation 1');
 
@@ -1893,16 +1953,16 @@ select set_config('request.jwt.claim.sub', :'uid_a', true);
 select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', :'uid_a'), true);
 
 select is(
-  (select result::text from public.transfer_group_organizer(:'gid'::uuid, :'uid_e'::uuid)),
-  'unavailable', 'transfer to a non-joined destination is denied'
+  (select count(*)::int from public.transfer_group_organizer(:'gid'::uuid, :'uid_e'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid)))),
+  0, 'transfer to a non-joined destination is denied'
 );
 select is(
-  (select result::text from public.transfer_group_organizer(:'gid'::uuid, :'uid_a'::uuid)),
-  'unavailable', 'transfer to self is denied'
+  (select count(*)::int from public.transfer_group_organizer(:'gid'::uuid, :'uid_a'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid)))),
+  0, 'transfer to self is denied'
 );
 select is(
-  (select result::text from public.transfer_group_organizer(:'gid'::uuid, :'uid_c'::uuid)),
-  'transferred', 'transfer to a joined member succeeds'
+  (select member_admin_version::text || ':' || new_organizer_id::text from public.transfer_group_organizer(:'gid'::uuid, :'uid_c'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid)))),
+  '6:' || :'uid_c', 'transfer to a joined member succeeds and returns the committed version'
 );
 
 -- Owner view: the authority field and the single transfer event.
@@ -1947,8 +2007,8 @@ select is(
 
 -- The new organizer can remove the previous organizer; access is lost again.
 select is(
-  (select result::text from public.remove_group_member(:'gid'::uuid, :'uid_a'::uuid)),
-  'removed', 'the new organizer can remove the previous organizer'
+  (select member_admin_version::text from public.remove_group_member(:'gid'::uuid, :'uid_a'::uuid, (select member_admin_version from public.group_admin_version(:'gid'::uuid)))),
+  '7', 'the new organizer can remove the previous organizer (version 7 returned)'
 );
 
 -- Owner view: the former-organizer row and the second removal event.
@@ -1983,8 +2043,8 @@ where token_hash = extensions.digest(convert_to(:'tok5', 'UTF8'), 'sha256') \gse
 
 select is(
   (select count(*)::int from public.audit_events where group_id = :'gid'::uuid),
-  18,
-  'the audit trail has the expected eighteen events before the deletion denials'
+  19,
+  'the audit trail has the expected nineteen events before the deletion denials'
 );
 
 -- Deleting any referenced auth user is denied.
@@ -2013,7 +2073,7 @@ select throws_ok(
 
 select is(
   (select count(*)::int from public.audit_events where group_id = :'gid'::uuid),
-  18,
+  19,
   'every audit row is unchanged after the denied deletions'
 );
 select is(
