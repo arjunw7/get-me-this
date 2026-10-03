@@ -31,6 +31,7 @@ const TRACKING_PLAN_EVENTS = [
   "gifting_mode_selected",
   "name_draw_completed",
   "group_activated",
+  "gift_checklist_progressed",
 ] as const;
 
 const EXPECTED_PROPERTIES: Record<
@@ -55,6 +56,7 @@ const EXPECTED_PROPERTIES: Record<
   ],
   gifting_mode_selected: ["gifting_mode", "changed_from_existing"],
   name_draw_completed: ["participant_count_bucket", "is_redraw"],
+  gift_checklist_progressed: ["action", "checklist_total_bucket"],
   group_activated: [
     "gifting_mode",
     "member_count_bucket",
@@ -63,7 +65,7 @@ const EXPECTED_PROPERTIES: Record<
 };
 
 describe("analytics event catalog", () => {
-  it("contains exactly the ten tracking-plan events", () => {
+  it("contains exactly the eleven tracking-plan events", () => {
     expect(Object.keys(EVENT_DEFINITIONS).sort()).toEqual(
       [...TRACKING_PLAN_EVENTS].sort(),
     );

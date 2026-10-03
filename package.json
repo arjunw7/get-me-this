@@ -24,6 +24,7 @@
     "test:db:races": "bash scripts/test-group-races-local.sh",
     "test:db:races:006b": "bash scripts/test-group-races-006b-local.sh",
     "test:db:races:006c": "bash scripts/test-group-races-006c-local.sh",
+    "test:db:races:gifting": "bash scripts/test-gift-checklist-races-local.sh",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:status": "supabase status",
