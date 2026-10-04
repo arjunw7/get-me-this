@@ -23,13 +23,15 @@ editor plumbing, new dependencies, or visual baseline updates are shipped.
 
 ## Verification
 
-- `pnpm verify`: passed; 167 test files, 1,615 tests, production build. Two
+- `pnpm verify`: passed; 167 test files, 1,617 tests, production build. Two
   pre-existing lint warnings remain in unrelated copying/redraw code.
 - `pnpm test:analytics`: passed, two real browser tests. A local synthetic
   ingestion endpoint receives events; no request is allowed to leave the app
   origin. Evidence covers initial and client-side pageviews, sanitized routes,
   transport UUIDs, location-enrichment suppression, pending consent, grant,
-  persistence across reload, withdrawal, and exact mobile footer edges.
+  persistence across reload, withdrawal, and exact mobile footer edges. Unit
+  tests additionally verify a changed account resets identity and a profile
+  mounted before SDK loading identifies once loading finishes.
 - `pnpm test:db`: passed; 28 files, 1,881 authorization/database checks on an
   isolated local stack. No schema or production database changes.
 - `bash scripts/e2e-local-stack.sh`: 243 passed, six intentionally skipped,

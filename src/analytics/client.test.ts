@@ -396,6 +396,35 @@ describe("client analytics lane", () => {
       expect(posthogMock.identify).toHaveBeenCalledTimes(1);
     });
 
+    it("resets before identifying a changed authenticated account", async () => {
+      const client = await importClient();
+      await client.initClientAnalytics();
+      client.setAnalyticsConsent("granted");
+      client.identifyAuthenticatedUser(USER_UUID);
+      const secondUser = "22222222-2222-4222-8222-222222222222";
+      expect(client.identifyAuthenticatedUser(secondUser)).toBe(true);
+      expect(posthogMock.reset).toHaveBeenCalledTimes(1);
+      expect(posthogMock.identify.mock.calls).toEqual([
+        [USER_UUID],
+        [secondUser],
+      ]);
+      expect(client.identifyAuthenticatedUser(secondUser)).toBe(false);
+      expect(posthogMock.alias).not.toHaveBeenCalled();
+    });
+
+    it("links the authenticated projection after asynchronous SDK loading", async () => {
+      let loaded: ((instance: unknown) => void) | undefined;
+      posthogMock.init.mockImplementation((_token, config) => {
+        loaded = config.loaded;
+      });
+      const client = await importClient();
+      client.setAnalyticsConsent("granted");
+      await client.initClientAnalytics();
+      expect(client.identifyAuthenticatedUser(USER_UUID)).toBe(false);
+      loaded?.(posthogMock);
+      expect(posthogMock.identify).toHaveBeenCalledExactlyOnceWith(USER_UUID);
+    });
+
     it("refuses non-UUID identifiers such as emails and display names", async () => {
       const client = await importClient();
       await client.initClientAnalytics();

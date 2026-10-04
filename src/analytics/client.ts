@@ -60,7 +60,7 @@ interface ClientAnalyticsConfig {
 
 let posthog: PostHog | undefined;
 let initialized = false;
-let identifiedThisSession = false;
+let identifiedUserId: string | undefined;
 let pendingUserId: string | undefined;
 let lastPageviewPath: string | undefined;
 
@@ -128,10 +128,10 @@ export function applyAnalyticsConsent(): void {
       captureSanitizedPageview(window.location.pathname);
     } else {
       posthog.opt_out_capturing();
-      if (identifiedThisSession) {
+      if (identifiedUserId) {
         posthog.reset();
         posthog.opt_out_capturing();
-        identifiedThisSession = false;
+        identifiedUserId = undefined;
         lastPageviewPath = undefined;
       }
       lastPageviewPath = undefined;
@@ -146,23 +146,27 @@ export function applyAnalyticsConsent(): void {
  * consent is pending or denied. Returns whether an identify was emitted.
  */
 export function identifyAuthenticatedUser(userId: string): boolean {
-  if (isUuid(userId)) pendingUserId = userId;
-  if (!posthog || !initialized || identifiedThisSession) {
-    return false;
-  }
-  if (getAnalyticsConsent() !== "granted") {
-    return false;
-  }
   if (!isUuid(userId)) {
-    // Analytics must never receive an email, display name, or other
-    // identifier masquerading as a UUID. Fail closed.
     console.warn("[analytics] identify rejected: distinct id is not a UUID");
     return false;
   }
+  pendingUserId = userId;
+  if (!posthog || !initialized) return false;
+  if (identifiedUserId && identifiedUserId !== userId) {
+    // An authenticated projection can change after another tab switches
+    // accounts. Never link the next account to the previous person's history.
+    posthog.reset();
+    if (getAnalyticsConsent() === "granted") posthog.opt_in_capturing();
+    else posthog.opt_out_capturing();
+    identifiedUserId = undefined;
+    lastPageviewPath = undefined;
+  }
+  if (getAnalyticsConsent() !== "granted") return false;
+  if (identifiedUserId === userId) return false;
   // The pinned SDK links the anonymous history during identify; no separate
   // alias() call is required or made.
   posthog.identify(userId);
-  identifiedThisSession = true;
+  identifiedUserId = userId;
   return true;
 }
 
@@ -175,7 +179,7 @@ export function resetAnalyticsOnLogout(): void {
   if (posthog && initialized) {
     posthog.reset();
   }
-  identifiedThisSession = false;
+  identifiedUserId = undefined;
   pendingUserId = undefined;
   lastPageviewPath = undefined;
   const consent = getAnalyticsConsent();
