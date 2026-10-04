@@ -1,6 +1,13 @@
 "use client";
 
-import { useActionState, useId, useState, type FormEvent } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useId,
+  useState,
+  type FormEvent,
+} from "react";
 
 import { buttonClassName, cx } from "@/src/ui/styles";
 import { ArrowRightIcon, MailIcon } from "@/src/landing/icons";
@@ -38,7 +45,7 @@ import {
 
 const EMAIL_COPY = {
   heading: "Join with your email.",
-  help: "We'll send a six-digit code and a sign-in link. Verify to continue joining — nothing is joined until you confirm on the next screen.",
+  help: "We'll send a six-digit code and a sign-in link. Verify to join the group. If you’re new, we’ll ask for your name first.",
   pending: "Sending the code…",
   codeLabel: "Enter the code",
   codeHelp: "It expires soon. We also sent a sign-in link you can use instead.",
@@ -308,6 +315,14 @@ export function InviteReconcileScreen({ flowId }: { readonly flowId: string }) {
     } as InviteVerifyState,
   );
 
+  const formRef = useRef<HTMLFormElement>(null);
+  const startedFlow = useRef<string | null>(null);
+  useEffect(() => {
+    if (startedFlow.current === flowId) return;
+    startedFlow.current = flowId;
+    formRef.current?.requestSubmit();
+  }, [flowId]);
+
   const restart = state.status === "restart" || state.status === "unavailable";
   // An unacknowledged broker delivery (criterion 12): the server lease is
   // still in delivery_pending — the person retries in a moment; this is
@@ -318,11 +333,10 @@ export function InviteReconcileScreen({ flowId }: { readonly flowId: string }) {
     <AuthLayout>
       <div className={authCardClassName}>
         <h1 className="text-center font-display text-4xl leading-[1] font-extrabold tracking-tight sm:text-display-xl">
-          You&apos;re signed in.
+          Finishing sign-in…
         </h1>
         <p className="mt-3 text-center text-lg text-content-secondary">
-          Continue this invitation to pick up where you left off. Nothing is
-          joined yet.
+          We’re checking your profile and continuing your invitation.
         </p>
         {restart ? (
           <p
@@ -341,17 +355,30 @@ export function InviteReconcileScreen({ flowId }: { readonly flowId: string }) {
             Finishing the sign-in from your other tab. Try again in a moment.
           </p>
         ) : null}
-        <form action={formAction} className="mt-7 flex flex-col gap-4">
+        <form
+          ref={formRef}
+          action={formAction}
+          className="mt-7 flex flex-col gap-4"
+        >
           <input type="hidden" name="flowId" value={flowId} />
           <button
             type="submit"
+            hidden={state.status === "idle" || pending}
             disabled={pending || restart}
             className={cx(
               `${buttonClassName({ variant: "primary", size: "lg" })} w-full`,
             )}
           >
-            {pending ? "Continuing…" : "Continue this invitation"}
+            Try again
           </button>
+          <noscript>
+            <button
+              type="submit"
+              className={`${buttonClassName({ variant: "primary", size: "lg" })} w-full`}
+            >
+              Continue this invitation
+            </button>
+          </noscript>
         </form>
       </div>
     </AuthLayout>

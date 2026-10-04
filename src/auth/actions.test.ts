@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
+const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
+vi.mock("@/src/analytics/server", () => ({
+  getServerAnalytics: () => analytics,
+}));
 
 class RedirectSignal extends Error {
   constructor(readonly to: string) {
@@ -97,6 +101,7 @@ function formData(entries: Record<string, string>): FormData {
 }
 
 beforeEach(() => {
+  analytics.capture.mockReset();
   cookieStore.clear();
   requestHeaders.host = "127.0.0.1:3100";
   delete requestHeaders["x-forwarded-proto"];
@@ -281,6 +286,11 @@ describe("verifyCodeAction", () => {
     await expect(
       verifyCodeAction(IDLE, formData({ code: "123456" })),
     ).rejects.toThrow(new RedirectSignal("/onboarding"));
+    expect(analytics.capture).toHaveBeenCalledExactlyOnceWith(
+      "auth_completed",
+      { method: "email", is_new_user: true },
+      { distinctId: "user-1" },
+    );
 
     expect(verifyOtp).toHaveBeenCalledWith({
       email: "you@example.com",
@@ -369,6 +379,7 @@ describe("verifyCodeAction", () => {
     const result = await verifyCodeAction(IDLE, formData({ code: "000000" }));
 
     expect(result).toEqual({ status: "error", failure: "rejected-code" });
+    expect(analytics.capture).not.toHaveBeenCalled();
     // The carried email survives a rejection: the user can retry or resend
     // without re-entering their address.
     expect(cookieStore.get(CARRY_COOKIE_NAME)?.value).toContain(
@@ -604,6 +615,7 @@ describe("verifyMagicLinkAction", () => {
   it("treats a missing link cookie as the closed recovery, never verifying", async () => {
     const result = await verifyMagicLinkAction(IDLE_LINK);
     expect(result).toEqual({ status: "error", failure: "rejected-code" });
+    expect(analytics.capture).not.toHaveBeenCalled();
     expect(verifyOtp).not.toHaveBeenCalled();
   });
 
@@ -620,6 +632,7 @@ describe("verifyMagicLinkAction", () => {
     });
     const result = await verifyMagicLinkAction(IDLE_LINK);
     expect(result).toEqual({ status: "error", failure: "rejected-code" });
+    expect(analytics.capture).not.toHaveBeenCalled();
     expect(verifyOtp).not.toHaveBeenCalled();
 
     // A tampered payload under a valid-looking envelope is the same.
@@ -647,6 +660,7 @@ describe("verifyMagicLinkAction", () => {
 
     const result = await verifyMagicLinkAction(IDLE_LINK);
     expect(result).toEqual({ status: "error", failure: "rejected-code" });
+    expect(analytics.capture).not.toHaveBeenCalled();
     expect(cookieStore.get(LINK_COOKIE_NAME)?.options).toMatchObject({
       maxAge: 0,
     });

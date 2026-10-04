@@ -55,10 +55,9 @@ import { clearAuthCarry } from "@/src/auth/carry-cookie";
  * actor id, invitation id, group id, token, email binding, or membership
  * generation from the browser.
  *
- * Authentication and onboarding NEVER accept the invitation: after either
- * path the person sees the live preview again and must activate Join the
- * group. Acceptance happens only through the explicit same-origin Join
- * POST.
+ * The initial same-origin Join POST records consent in the sealed flow.
+ * Authentication reconciliation and onboarding resume that decision via a
+ * POST; landing pages and email scanners never create membership.
  */
 
 const CODE_PATTERN = /^\d{6}$/;
@@ -111,11 +110,10 @@ export type InviteLinkState = {
 };
 
 /**
- * The explicit Join action: the only path that can invoke continuation
- * acceptance. Same-origin POST only (Next.js Server Actions reject
- * cross-origin submissions before this handler runs); the request-only
- * client may validate the session but the response sets NO cookie — a
- * late Join response can never resurrect cookies cleared by logout.
+ * The initial Join decision is a same-origin POST (Next.js rejects
+ * cross-origin submissions). Incomplete journeys record only flow-specific
+ * consent; acceptance uses the request-only client and never writes session
+ * cookies. The database invalidates continuations on logout.
  */
 export async function joinGroupInvitationAction(
   formData: FormData,
@@ -125,29 +123,63 @@ export async function joinGroupInvitationAction(
   const flow = await readFlowCookie(flowId);
   if (!flow) redirect("/invite/unavailable");
 
-  // The profile gate: a signed-out visitor goes to the dedicated
-  // invitation email screen; an incomplete profile goes straight to
-  // invitation onboarding. Neither accepts the invitation.
+  // This POST is the person's one Join decision. Preserve it only in the
+  // authenticated envelope for this flow, never a query or a hidden field.
+  const user = await getSessionUser();
+  const profile = user ? await getOwnProfile(user.id) : null;
+  if (!user || !isProfileComplete(profile?.displayName ?? null)) {
+    const secret = getInvitationCookieSecret();
+    if (!secret) redirect("/invite/unavailable");
+    const store = await cookies();
+    store.set(
+      flowCookieName(flowId),
+      await sealFlowCookie(
+        { ...flow, joinRequested: true },
+        Date.now(),
+        secret,
+      ),
+      invitationCookieOptions(3600),
+    );
+    if (!user) redirect(`/auth/invite/${flowId}`);
+    redirect(`/onboarding/invite/${flowId}`);
+  }
+  await finishInvitationJoin(flowId, flow.browserSecret, user.id);
+}
+
+/** Resume only the decision recorded by the original Join POST. */
+export async function resumeInvitationJoinAction(
+  formData: FormData,
+): Promise<void> {
+  const rawFlowId = formData.get("flowId");
+  const flowId = typeof rawFlowId === "string" ? rawFlowId : "";
+  const flow = await readFlowCookie(flowId);
+  if (!flow) redirect("/invite/unavailable");
+  if (flow.joinRequested !== true) redirect(`/invite/continue/${flowId}`);
   const user = await getSessionUser();
   if (!user) redirect(`/auth/invite/${flowId}`);
   const profile = await getOwnProfile(user.id);
-  if (!isProfileComplete(profile?.displayName ?? null)) {
+  if (!isProfileComplete(profile?.displayName ?? null))
     redirect(`/onboarding/invite/${flowId}`);
-  }
+  await finishInvitationJoin(flowId, flow.browserSecret, user.id);
+}
 
-  const outcome = await acceptFlow(flowId, flow.browserSecret);
-
+async function finishInvitationJoin(
+  flowId: string,
+  browserSecret: string,
+  userId: string,
+): Promise<void> {
+  // The database rechecks the verified actor, flow lifetime, invitation,
+  // membership generation and capacity atomically. Replays are write-free.
+  const outcome = await acceptFlow(flowId, browserSecret);
   if (outcome.kind === "accepted") {
-    // The one allowed analytics property comes from the continuation's
-    // start state, projected to the verified user.
-    const state = await loadFlowState(flowId, flow.browserSecret);
+    const state = await loadFlowState(flowId, browserSecret);
     await emitInviteAccepted(
       outcome.acceptedNow,
       state?.beganAuthenticated,
-      user.id,
+      userId,
       outcome.groupId,
     );
-    redirect(`/invite/continue/${flowId}`);
+    redirect("/home");
   }
   // An uncommitted failure (including the rolled-back lost race) stays
   // safely retryable from the live preview; no UI claims a known committed
@@ -236,11 +268,7 @@ export async function requestInvitationEmailAction(
   // same-email retry; the cookie reseal only follows a successful send.
   const secret = getInvitationCookieSecret();
   if (secret) {
-    const sealed = await sealFlowCookie(
-      { flowId, browserSecret: flow.browserSecret, email },
-      Date.now(),
-      secret,
-    );
+    const sealed = await sealFlowCookie({ ...flow, email }, Date.now(), secret);
     const store = await cookies();
     store.set(flowCookieName(flowId), sealed, {
       ...invitationCookieOptions(3600),
@@ -296,7 +324,7 @@ export async function verifyInvitationCodeAction(
     if (lease) await releaseMutationLease(lease);
     if (existingEmail === flow.email) {
       const bound = await verifyFlow(flowId, flow.browserSecret);
-      if (bound === "verified") redirect(`/invite/continue/${flowId}`);
+      if (bound === "verified") redirect(`/auth/invite/${flowId}/reconcile`);
       return { status: "restart" };
     }
     return { status: "mismatch" };
@@ -325,6 +353,19 @@ export async function verifyInvitationCodeAction(
   // the delivered user and advances the epoch. If the lease cannot move,
   // the lease is released and the real session still reconciles — the
   // provider verification already happened.
+  const verifiedUser = await supabase.auth.getUser();
+  if (verifiedUser.data.user) {
+    const profile = await getOwnProfile(verifiedUser.data.user.id);
+    await getServerAnalytics().capture(
+      "auth_completed",
+      {
+        method: "email",
+        is_new_user: !isProfileComplete(profile?.displayName ?? null),
+      },
+      { distinctId: verifiedUser.data.user.id },
+    );
+  }
+
   if (lease) {
     const verified = await supabase.auth.getUser();
     const delivered = await deliverMutationPending(
@@ -342,7 +383,8 @@ export async function verifyInvitationCodeAction(
 
 /**
  * The idempotent reconciliation POST: binds the provider-verified session
- * to the continuation. Never re-verifies with the provider, never accepts.
+ * to the continuation. Never re-verifies with the provider; after binding,
+ * it resumes only a Join decision already recorded in this flow.
  * Repeating it after a committed bind returns the same verified state; a
  * changed user, email, or expired flow changes nothing.
  */
@@ -371,7 +413,10 @@ export async function reconcileInvitationAction(
   if (!user) return { status: "restart" };
 
   const bound = await verifyFlow(flowId, flow.browserSecret);
-  if (bound === "verified") redirect(`/invite/continue/${flowId}`);
+  if (bound === "verified") {
+    if (flow.joinRequested === true) await resumeInvitationJoinAction(formData);
+    redirect(`/invite/continue/${flowId}`);
+  }
   return { status: "restart" };
 }
 
@@ -405,7 +450,7 @@ export async function verifyInvitationLinkAction(
     if (existingEmail && flow.email && existingEmail === flow.email) {
       await clearInviteLinkCarry();
       const bound = await verifyFlow(flowId, flow.browserSecret);
-      if (bound === "verified") redirect(`/invite/continue/${flowId}`);
+      if (bound === "verified") redirect(`/auth/invite/${flowId}/reconcile`);
       return { status: "restart" };
     }
     return { status: "mismatch" };
@@ -427,6 +472,19 @@ export async function verifyInvitationLinkAction(
   if (error) {
     if (lease) await releaseMutationLease(lease);
     return { status: "provider" };
+  }
+
+  const verifiedUser = await supabase.auth.getUser();
+  if (verifiedUser.data.user) {
+    const profile = await getOwnProfile(verifiedUser.data.user.id);
+    await getServerAnalytics().capture(
+      "auth_completed",
+      {
+        method: "email",
+        is_new_user: !isProfileComplete(profile?.displayName ?? null),
+      },
+      { distinctId: verifiedUser.data.user.id },
+    );
   }
 
   if (lease) {

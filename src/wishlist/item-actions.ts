@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getServerAnalytics } from "@/src/analytics/server";
 import { redirect } from "next/navigation";
 
 import { requireCompleteProfile } from "@/src/profile/session";
@@ -87,6 +88,21 @@ export async function createItemAction(
     validation.value,
   );
   if (outcome.kind === "saved") {
+    if (!outcome.replayed) {
+      try {
+        await getServerAnalytics().capture(
+          "wishlist_item_added",
+          {
+            entry_method: "manual",
+            has_price: validation.value.original_amount_minor !== null,
+            has_image: false,
+          },
+          { distinctId: userId },
+        );
+      } catch {
+        // A committed save remains successful when analytics is unavailable.
+      }
+    }
     revalidatePath("/wishlist");
     redirect("/wishlist?item=added");
   }

@@ -2,12 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const mocks = vi.hoisted(() => ({
   flow: vi.fn(),
+  capture: vi.fn(),
   client: vi.fn(),
   user: vi.fn(),
   from: vi.fn(),
   update: vi.fn(),
   eq: vi.fn(),
   profile: vi.fn(),
+  resume: vi.fn(),
+}));
+vi.mock("@/src/analytics/server", () => ({
+  getServerAnalytics: () => ({ capture: mocks.capture }),
 }));
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => {
@@ -19,6 +24,9 @@ vi.mock("@/src/supabase/server", () => ({
   createSupabaseServerClient: mocks.client,
 }));
 vi.mock("@/src/profile/session", () => ({ getOwnProfile: mocks.profile }));
+vi.mock("./invite-actions", () => ({
+  resumeInvitationJoinAction: mocks.resume,
+}));
 import { completeOnboardingForInvitationAction } from "./onboarding-actions";
 const flowId = "f431c043-c7dc-4bce-81ac-682af38f1a35";
 function form(vibe?: string) {
@@ -65,6 +73,7 @@ describe("invitation onboarding Vibe", () => {
       ),
     ).toEqual({ status: "error", errors: { vibe: "invalid" } });
     expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.capture).not.toHaveBeenCalled();
   });
   it("keeps a saved Vibe unchanged for legacy forms", async () => {
     await expect(
@@ -84,6 +93,7 @@ describe("invitation onboarding Vibe", () => {
       ),
     ).rejects.toThrow(`redirect:/auth/invite/${flowId}`);
     expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.capture).not.toHaveBeenCalled();
   });
   it("cannot write when the invitation continuation is unavailable", async () => {
     mocks.flow.mockResolvedValue(null);
@@ -94,5 +104,17 @@ describe("invitation onboarding Vibe", () => {
       ),
     ).rejects.toThrow("redirect:/invite/unavailable");
     expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.capture).not.toHaveBeenCalled();
   });
+});
+
+it("automatically resumes the original Join after saving a complete profile", async () => {
+  mocks.flow.mockResolvedValue({ flowId, joinRequested: true });
+  mocks.resume.mockImplementation(async () => {
+    throw new Error("redirect:/home");
+  });
+  await expect(
+    completeOnboardingForInvitationAction({ status: "idle" }, form("tomato")),
+  ).rejects.toThrow("redirect:/home");
+  expect(mocks.resume).toHaveBeenCalledWith(expect.any(FormData));
 });

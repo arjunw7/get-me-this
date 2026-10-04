@@ -216,6 +216,35 @@ describe("sanitizeClientEventForSend (before_send)", () => {
     }
   });
 
+  it("preserves UUID transport identity but removes profile envelopes and arbitrary identifiers", () => {
+    const event = sanitizeClientEventForSend({
+      event: "$pageview",
+      uuid: USER_UUID,
+      $set_once: { $initial_current_url: "https://app.example?otp=secret" },
+      $set: { email: "secret@example.com" },
+      properties: {
+        $current_url: "https://app.example/s/private-token?otp=secret",
+        distinct_id: USER_UUID,
+        $session_id: "0199aaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        $window_id: "secret@example.com",
+        token: "phc-fixture",
+        $process_person_profile: true,
+      },
+    });
+    expect(event).toEqual({
+      event: "$pageview",
+      uuid: USER_UUID,
+      properties: {
+        $current_url: "https://app.example/s/:shareToken",
+        $pathname: "/s/:shareToken",
+        distinct_id: USER_UUID,
+        $session_id: "0199aaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+        token: "phc-fixture",
+        $process_person_profile: true,
+      },
+    });
+  });
+
   it("allows only the minimum pinned-SDK properties on identity and consent events", () => {
     // $identify: exactly the anonymous→authenticated transition fields.
     const identify = sanitizeClientEventForSend({

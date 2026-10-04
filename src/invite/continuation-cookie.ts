@@ -222,12 +222,15 @@ export type FlowCookie = {
   readonly flowId: string;
   readonly browserSecret: string;
   readonly email: string | null;
+  /** Set only by the same-origin Join POST; never by a landing GET. */
+  readonly joinRequested?: true;
 };
 
 type FlowCookiePayload = EnvelopePayload & {
   flowId?: unknown;
   browserSecret?: unknown;
   email?: unknown;
+  joinRequested?: unknown;
 };
 
 export async function sealFlowCookie(
@@ -241,6 +244,7 @@ export async function sealFlowCookie(
       flowId: flow.flowId,
       browserSecret: flow.browserSecret,
       email: flow.email,
+      ...(flow.joinRequested === true ? { joinRequested: true } : {}),
       iat: Math.floor(nowMs / 1000),
       exp: Math.floor(nowMs / 1000) + FLOW_COOKIE_MAX_AGE_SECONDS,
     }),
@@ -277,11 +281,14 @@ export async function parseFlowCookie(
   ) {
     return null;
   }
+  if (payload.joinRequested !== undefined && payload.joinRequested !== true)
+    return null;
   if (payload.email !== null && typeof payload.email !== "string") return null;
   return {
     flowId,
     browserSecret: payload.browserSecret,
     email: payload.email ?? null,
+    ...(payload.joinRequested === true ? { joinRequested: true as const } : {}),
   };
 }
 

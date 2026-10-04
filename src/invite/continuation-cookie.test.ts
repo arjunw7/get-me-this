@@ -204,3 +204,23 @@ describe("the coordinator, pending, and lease envelopes", () => {
     expect(parsed?.lease).toBe(BROWSER_SECRET);
   });
 });
+
+it("preserves Join consent only inside the authenticated flow envelope", async () => {
+  const sealed = await sealFlowCookie(
+    {
+      flowId: FLOW_ID,
+      browserSecret: BROWSER_SECRET,
+      email: null,
+      joinRequested: true,
+    } as Parameters<typeof sealFlowCookie>[0],
+    NOW,
+    SECRET,
+  );
+  expect(await parseFlowCookie(sealed, FLOW_ID, NOW, SECRET)).toMatchObject({
+    joinRequested: true,
+  });
+  expect(await parseFlowCookie(sealed, OTHER_FLOW_ID, NOW, SECRET)).toBeNull();
+  expect(
+    await parseFlowCookie(sealed, FLOW_ID, NOW + 3_700_000, SECRET),
+  ).toBeNull();
+});

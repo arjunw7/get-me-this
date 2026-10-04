@@ -1,4 +1,5 @@
 import localFont from "next/font/local";
+import { AnalyticsConsentControl } from "@/src/analytics/consent-control";
 import { createBrandMetadata } from "@/src/brand/metadata";
 import type { ReactNode } from "react";
 
@@ -33,7 +34,10 @@ export default function RootLayout({
       lang="en"
       className={`${displayFont.variable} ${bodyFont.variable} font-body`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <AnalyticsConsentControl />
+      </body>
     </html>
   );
 }
