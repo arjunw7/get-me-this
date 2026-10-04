@@ -9,8 +9,9 @@ entry for blocked, unavailable, ambiguous or incomplete products. The user
 approved Firecrawl and the Amazon headless approach on 4 October 2026.
 
 This bounded slice changes acquisition and timeout/admission settings only.
-There is no redesign, schema migration, paid subscription, production resource
-change. It supersedes the local HTML acquisition
+There is no redesign, schema migration or paid subscription. The user later
+approved a separate capped Railway staging worker project/service and chose
+a Railway-compatible browser design. It supersedes the local HTML acquisition
 requirement in 005e for the primary extractor; guarded image acquisition remains.
 
 ## Acceptance criteria
@@ -24,7 +25,9 @@ requirement in 005e for the primary extractor; guarded image acquisition remains
    become confident imports. Partial results remain editable.
 3. Authentication, complete-profile, origin, durable abuse control, guarded
    image saving and explicit-save behavior remain enforced. Initial private DNS answers are rejected. Amazon browser traffic uses a
-   separately isolated, public-address-pinned CONNECT broker; Firecrawl owns
+   separate-project worker with an application-enforced, public-address-pinned
+   loopback CONNECT broker; redirects and all subresources are blocked. Railway
+   has no host-level egress firewall; Firecrawl owns
    other stores' redirects/subrequests.
 4. API keys remain server-only. Provider bodies, deadlines, browser starts and
    concurrency are bounded. Sessions are stopped on success, error and
@@ -45,6 +48,6 @@ this slice restores the original local HTML extractor and its admission/timeouts
 Multi-instance provider quota coordination and universal-store support are
 follow-up work; neither is claimed by this slice.
 
-The additional production dependency is `playwright-core`, needed for the app
-to connect to the separately hosted browser. The Chromium binary lives in the
+The worker runtime dependency is `playwright-core`; the web app calls a narrow
+authenticated HTTPS API using native fetch. The Chromium binary lives in the
 worker image, not the web application. No schema or visual changes are included.

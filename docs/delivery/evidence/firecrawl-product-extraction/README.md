@@ -142,3 +142,23 @@ extractor/timeouts and admission settings. Remove worker URL/key configuration
 when rolling back; the approved cloud worker can be stopped separately by its
 owner. No Magic Patterns mock data/editor artifacts were added to the app;
 existing automated test fixtures remain test-only.
+
+## Railway staging proof
+
+[Deployed worker results](amazon-railway-staging.json) record the native production
+client calling the authenticated HTTPS worker in the approved separate Railway
+project. Three of three Amazon India pages returned title/image; B09MTQ23X4
+returned INR 2,799 and other prices stayed blank. Authentication rejection (401),
+arbitrary-host rejection (422), concurrent-job rejection (503), caller cancellation
+and a successful next job all passed. No Firecrawl call or app/database credentials
+were used. An initial deployment returned safe extraction failures; safe stage
+logging and redeployment preceded the successful checks. The initial cause was
+not established, so these checks do not demonstrate an all-pages success rate.
+
+The worker is pinned to tested code commit `3011d5f`, one replica, 1 vCPU/1 GB,
+ON_FAILURE/three retries, idle sleep enabled and API port 8080 only. PR preview
+worker variables are set. Production URL/secret are staged in Railway patch
+`b8bde8c8-25ca-43a1-9612-cf3a48db683a` (two settings only), not applied; production
+was not redeployed. Apply only after PR review/merge with exact-head green CI and
+human approval. The public worker domain exposes only the narrow metadata API;
+the broker and browser control socket remain loopback-only.
