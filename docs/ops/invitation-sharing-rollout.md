@@ -2,7 +2,7 @@
 
 ## Read-only production findings, 4 October 2026
 
-The live Railway service runs main commit `1488a8e`, whose invitation modal calls
+The initial live Railway inspection found commit `1488a8e`, whose invitation modal calls
 `public.get_group_invite_link(uuid)`. The connected GetMeThis database contains
 the user's active Wadhwa Diwali group, but that function and
 `private.group_shareable_invitation_tokens` are absent. Its migration ledger
@@ -18,7 +18,41 @@ of invitation links return unavailable before starting a continuation.
 No production database, hosting, secret, invitation, or membership was modified
 during this investigation. Variable values and invitation tokens were not read.
 
-## Concrete repair (requires explicit production authorization)
+## Authorized production repair completed, 4 October 2026
+
+The user explicitly approved the production repair and separately approved
+aligning the migration-history identifier with the committed file.
+
+- Confirmed the exact group UUID shown in the signed-in live app exists in
+  Supabase project `lfnccxtowemdzemhcroz`, with matching name and occasion.
+- Applied only `20261024000000_recoverable_group_invite_links.sql`. The migration
+  tool initially recorded version `20261004095428`; after separate approval,
+  corrected only that entry to `20261024000000`, retaining its statements/name.
+- Generated and configured a dedicated canonical 32-byte invitation cookie key.
+  Existing keys were preserved; no secret value is included in this evidence.
+- Redeployed the previously live main revision `c18b7b6` successfully as Railway
+  deployment `45daecf8-c1f5-451c-8d78-f34dffc27c30` (15:26 IST).
+  Unrelated staged APP_ORIGIN/SEO settings were not committed.
+- In the live organizer session, opened Invite people for Wadhwa Diwali Sqaud:
+  a link appeared. Closed and reopened the modal and compared links in memory:
+  identical. Opened the link and reached the token-free invitation preview,
+  showing host, occasion, budget and the explicit Join button.
+- Did not click Join, send an invite, or change memberships. After verification,
+  the group still had one membership and zero invitation uses.
+- Verified authenticated getter execution, anonymous denial, private-table RLS,
+  no authenticated table SELECT, and no direct application access to the core.
+  Security advisors report the expected deny-all table with no policies and
+  the authenticated SECURITY DEFINER API; no grants were broadened in response.
+  See [advisor guidance](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
+
+This verifies live link creation, stable reopening and the initial invitation
+preview. A new guest's complete OTP/onboarding/join journey was not run against
+production. It remains covered by the isolated local browser tests. The dynamic
+banner migration and PR #85 web changes have not been deployed to production.
+Other pending schema versions (22/23/25) were outside this repair and were not
+applied automatically.
+
+## Concrete repair procedure (completed)
 
 1. Confirm the Railway production service's configured Supabase project is
    `lfnccxtowemdzemhcroz` before applying anything. The matching group and schema

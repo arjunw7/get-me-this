@@ -1,8 +1,8 @@
 # Invitation sharing evidence
 
 This is a separate invitation-sharing change from the delete-group proposal in
-PR #84. Production remains unchanged; the live repair requires authorization
-under AGENTS.md. The exact repair is documented in
+PR #84. The user authorized the live repair, which is now applied and verified.
+Dynamic banners remain a separate proposed deployment. The exact repair is documented in
 [invitation-sharing-rollout.md](../../../ops/invitation-sharing-rollout.md).
 
 ## Acceptance criteria from the user
@@ -10,7 +10,7 @@ under AGENTS.md. The exact repair is documented in
 - [x] “I'm not able to create an invitation link for a particular group. Can you
   see why it's not working?” Read-only inspection found the live modal's
   `get_group_invite_link(uuid)` function absent and the migration ledger ending
-  at 20261021. The live web service also lacks its invitation cookie secret.
+  at 20261021. The live web service also lacked its invitation cookie secret.
   The matching Wadhwa Diwali group exists and is active.
 - [x] “The banner of that link” has “that group name,” “the organizer's name,”
   and “a date as well.” The HTML metadata and generated PNG use those exact
@@ -33,8 +33,10 @@ under AGENTS.md. The exact repair is documented in
   only a bold invitation chip at top right and make it “30% more bigger.”
   The star is removed, the gift precedes the wordmark, and the chip uses
   Bricolage Grotesque 800 at 46.8px (30% larger than the previous 36px).
-- [ ] Apply the production repair and verify the user's real group. No
-  production mutation has been performed or claimed as complete.
+- [x] Apply the production repair and verify the user's real group. After explicit
+  approval, applied the missing migration, configured the dedicated secret and
+  redeployed. Live organizer link creation, stable reopening and the token-free
+  invitation preview passed; no membership was added.
 
 ## Automated proof
 
