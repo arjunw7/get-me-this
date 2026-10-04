@@ -111,9 +111,6 @@ export function LandingPage({
           className="border-y-2 border-outline-strong bg-surface-raised"
         >
           <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
-            <p className="mb-3 text-sm font-bold uppercase tracking-wider text-action-primary-strong">
-              How it works · no group needed
-            </p>
             <h2
               id="how-title"
               className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl"
@@ -228,7 +225,7 @@ export function LandingPage({
             </div>
             <CtaLink
               href={startWishlistHref}
-              variant="contrast"
+              variant="subtle"
               size="lg"
               className="shrink-0"
             >

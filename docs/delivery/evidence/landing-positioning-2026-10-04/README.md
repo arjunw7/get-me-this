@@ -6,6 +6,8 @@ The user approved the marketing review after new visitors could not understand h
 
 ## Acceptance criteria and evidence
 
+- [x] Remove the How it works eyebrow, optional-next-step eyebrow, and group-mode footnote. Give the final Create my wishlist CTA a light face with a visible dark bottom/right shadow and hover lift.
+
 - [x] Lead with a shareable individual wishlist. Primary action: **Create my wishlist**, preserving `/auth?intent=wishlist`.
 - [x] Explicitly say no group is needed and friends can view without signing up. How it works explains add → share → buy at the original store before introducing groups.
 - [x] Preserve the selected headline, supporting copy and new page structure while restoring the original hero collage: three overlapping product cards, tape, avatars, reaction bubbles and entrance motion. The restored illustration is decorative, not interactive.
@@ -24,6 +26,9 @@ Route `/`, anonymous session, fixed demo content, no overlays, desktop **1440×1
 - [Original before — mobile](before-mobile.png)
 - [Final after — desktop](after-desktop.png)
 - [Final after — mobile](after-mobile.png)
+- [How it works — desktop](how-desktop.png) / [mobile](how-mobile.png)
+- [Groups section — desktop](groups-section-desktop.png) / [mobile](groups-section-mobile.png)
+- [Final raised CTA — desktop](final-cta-desktop.png) / [mobile](final-cta-mobile.png)
 - [Final hero — desktop](hero-desktop.png)
 - [Final hero — mobile](hero-mobile.png)
 - [Restored group illustration — desktop](group-desktop.png)
@@ -38,6 +43,8 @@ Intermediate interactive-demo screenshots have been removed from the final evide
 These are review evidence, **not approved replacement golden screenshots**. No baseline files or manifest were changed. The landing still differs from the old group-first goldens, so a separate explicit baseline approval is required after human review.
 
 ## Final integrated verification
+
+After the final copy removals and CTA refinement, `pnpm verify` passed again: formatting, lint, types, all **154 files /1,512 tests**, and production build. Rendered checks at 1440×1000 and 390×844 confirmed all three removed lines are absent, the CTA retains `/auth?intent=wishlist`, its dark shadow extends 2px right/down, and hover lifts it 2px. Current full-page captures include these latest changes. Earlier verification history follows for context.
 
 Final screenshots use the integrated landing branch based on **ad2dfd7**, plus the border/column refinements committed with this evidence. It includes the approved landing changes, integrated CI fixes and brand/favicon/social assets. The coordinating agent built and served this branch on3300 with the actual local Supabase configuration. The server was not stopped or rebuilt during evidence collection.
 

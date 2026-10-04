@@ -16,9 +16,6 @@ export function GroupDemoSection() {
     >
       <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.15fr] lg:gap-16">
         <div>
-          <p className="mb-3 text-sm font-bold uppercase tracking-wider text-action-primary-strong">
-            An optional next step
-          </p>
           <h2
             id="groups-title"
             className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl"
@@ -46,9 +43,6 @@ export function GroupDemoSection() {
               Create a group
             </CtaLink>
           </div>
-          <p className="mt-4 text-sm leading-relaxed text-content-secondary">
-            Browse wishlists, draw names privately, or plan a gift for everyone.
-          </p>
         </div>
         <div className="sm:pl-8 lg:pl-4">
           <GroupSnapshot />
