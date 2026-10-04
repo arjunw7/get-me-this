@@ -54,9 +54,6 @@ export function GroupDemoSection() {
           <GroupSnapshot />
         </div>
       </div>
-      <p className="mt-12 text-center text-sm font-semibold text-content-secondary">
-        Birthdays · Diwali · Eid · Secret Santa · Just because
-      </p>
     </section>
   );
 }

@@ -13,6 +13,7 @@ import {
   landingNav,
   loginHref,
   faqs,
+  occasions,
   startWishlistHref,
   groupCopy,
 } from "./content";
@@ -62,6 +63,7 @@ describe("landing content", () => {
       howItWorks,
       groupCopy,
       faqs,
+      occasions,
       finalCta,
       footer,
       demoGroup,

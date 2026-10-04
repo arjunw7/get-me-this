@@ -74,6 +74,34 @@ export const faqs = [
       "At the original store. Get Me This helps you share ideas and coordinate gifts; it doesn’t process the purchase.",
   },
 ] as const;
+export type OccasionTile = {
+  readonly label: string;
+  readonly example: string;
+  /** Semantic accent used for the tile fill, one dominant accent per screen. */
+  readonly tone: "coral" | "electric" | "lime" | "marigold" | "paper";
+};
+
+export const occasions: readonly OccasionTile[] = [
+  { label: "Diwali", example: "Diwali Scenes", tone: "marigold" },
+  { label: "Eid", example: "Eid at Nani's", tone: "lime" },
+  { label: "Birthdays", example: "Rohan turns 27", tone: "coral" },
+  { label: "Weddings", example: "Meera & Arjun, finally", tone: "paper" },
+  { label: "Housewarming", example: "New flat, who dis", tone: "electric" },
+  { label: "Secret Santa", example: "Studio 4B Santa", tone: "paper" },
+  { label: "Just because", example: "Galentine’s, but July", tone: "coral" },
+];
+
+/** Tile rotation rhythm from the reference; indexes repeat cyclically. */
+export const occasionTilts = [
+  "-rotate-2",
+  "rotate-1",
+  "-rotate-1",
+  "rotate-2",
+  "rotate-0",
+  "-rotate-2",
+  "rotate-1",
+] as const;
+
 export const finalCta = {
   title: "Next time they ask what you want, send your wishlist.",
   body: "Less guessing. More “you remembered!”",

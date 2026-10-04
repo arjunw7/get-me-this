@@ -12,6 +12,7 @@ The user approved the marketing review after new visitors could not understand h
 - [x] Make the secondary hero action useful: **How it works** scrolls to `#how` at desktop and mobile sizes. The removed interactive example is not moved elsewhere; its unused component and unit tests are deleted.
 - [x] Keep public-sharing claims truthful. The original hero's “Reserved secretly” sticker is omitted because public wishlist links never expose reservations. This is the only change inside the restored hero illustration; its composition and remaining content stay intact.
 - [x] Introduce groups as optional and use existing individual wishlists. Restore the original Santa Party member/product illustration, including its private reservation badges, budget states and explicit explanation that Kabir cannot see reservations on his own list. The three current benefits use the original numbered tomato markers (1, 2, 3), as requested. The old universal “No double gifts” headline is not restored.
+- [x] Restore the original **Any excuse to gift.** events section with its colorful occasion tiles between groups and FAQ. Remove the condensed “Birthdays · Diwali · Eid · Secret Santa · Just because” line beneath groups. Preserve the original section geometry, colors and content.
 - [x] Explain public-link visibility, sign-in requirements for reactions/groups and external purchases in accessible disclosure questions.
 - [x] Preserve authentication intent, session-aware navigation and logout confirmation. No schema, permissions, protected-app, dependency or production-resource changes.
 
@@ -44,3 +45,7 @@ These are review evidence, **not approved replacement golden screenshots**. No b
 The restored illustrations use existing local marketing fixtures only; they are never a data source for application features. No Magic Patterns contexts, router, scaffolding, editor artifacts or application mock data were added. No claims of universal extraction, permanent free pricing, conversion improvement or guaranteed duplicate-free gifting are made.
 
 No migration is required. Reverting the landing commits restores the previous page without changing authentication or persisted data. A Railway preview was not created during this local implementation. Local review: `http://127.0.0.1:3300/`.
+
+## Occasion-section restoration
+
+The final follow-up restores the original V18 occasion section immediately before the FAQ, as explicitly requested. It reuses the original seven fixed tiles, semantic colors, rotation rhythm, layout and copy. The condensed occasion line is removed. Focused formatting and landing unit checks run on this commit; the coordinating agent will rebuild the combined branch and refresh final screenshots afterward. No server was started or stopped by this follow-up.

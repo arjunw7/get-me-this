@@ -21,6 +21,7 @@ test("renders the approved landing hierarchy", async ({ page }) => {
   for (const section of [
     "Your wishlist. One link. Happy friends.",
     "A few good questions.",
+    "Any excuse to gift.",
   ]) {
     await expect(page.getByRole("heading", { name: section })).toBeVisible();
   }

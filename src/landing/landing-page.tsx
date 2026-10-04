@@ -15,6 +15,8 @@ import {
   landingNav,
   loginHref,
   faqs,
+  occasions,
+  occasionTilts,
   startWishlistHref,
 } from "./content";
 import { loggedOutConfirmation } from "@/src/auth/flow-copy";
@@ -141,6 +143,48 @@ export function LandingPage({
 
         <GroupDemoSection />
 
+        {/* Occasions */}
+        <section
+          id="occasions"
+          aria-labelledby="occasions-title"
+          className="mx-auto max-w-6xl px-5 pt-20 pb-30 sm:px-8"
+        >
+          <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:items-center">
+            <div>
+              <h2
+                id="occasions-title"
+                className="font-display text-4xl leading-[1.02] font-extrabold tracking-tight sm:text-5xl"
+              >
+                Any excuse to gift.
+              </h2>
+              <p className="mt-4 text-lg text-content-secondary">
+                One wishlist, as many groups as you like. Use the same list for
+                Eid, Diwali or someone’s chaotic housewarming.
+              </p>
+            </div>
+            <ul className="flex flex-wrap gap-3">
+              {occasions.map((occasion, index) => (
+                <li
+                  key={occasion.label}
+                  className={`rounded-surface border-2 border-outline-strong px-4 py-3 shadow-chunk-sm ${TONE_CLASS[occasion.tone]} ${occasionTilts[index % occasionTilts.length]}`}
+                >
+                  <p className="font-display text-lg leading-tight font-extrabold">
+                    {occasion.label}
+                  </p>
+                  {/* V18 renders the electric tile's example at white/85 and
+                      the others at ink-soft; both fail WCAG AA on their tile
+                      fills, so the approved full-contrast tones are used. */}
+                  <p
+                    className={`text-sm ${occasion.tone === "electric" ? "text-surface-page" : "text-content-primary"}`}
+                  >
+                    &ldquo;{occasion.example}&rdquo;
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
         <section
           aria-labelledby="questions-title"
           className="border-t-2 border-outline-strong bg-surface-raised"
@@ -204,3 +248,11 @@ export function LandingPage({
     </div>
   );
 }
+
+const TONE_CLASS = {
+  marigold: "bg-accent-highlight",
+  lime: "bg-accent-fresh",
+  coral: "bg-action-primary",
+  electric: "bg-accent-info text-surface-page",
+  paper: "bg-surface-raised",
+} as const;
