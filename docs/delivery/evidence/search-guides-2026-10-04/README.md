@@ -2,6 +2,10 @@
 
 Owner request: add the remaining birthday, cross-store and Secret Santa pages and visible homepage references. This extends the public guide issue in PR #83, on the same branch. Base before these additions: `cbd07bb3fec6bac31a273d78f5935bb2c0869b5a`; PR base main is `1488a8e5ad567d7da8d74ff749934e0ffd6605f5`.
 
+## Approved homepage baseline update
+
+The owner explicitly replied "Approved." after reviewing the old/candidate/diff gallery. Exactly the desktop/mobile homepage captures from Ubuntu CI head `1c94a8a` are now adopted; exact source, authorization and hashes are in baseline-approval.json and the manifest. Other baselines and all comparison tolerances are unchanged. The preapproval validation history below records the original screenshot failures; new exact-head CI must pass before merge/deployment.
+
 ## Acceptance evidence
 
 - Add/share/shop and standalone wishlist before optional groups: existing how-it-works guide plus three distinct topic guides. Copy checked against implemented behavior and docs/flows; organizer participation statement corrected during independent review.
@@ -11,9 +15,9 @@ Owner request: add the remaining birthday, cross-store and Secret Santa pages an
 - Canonical/social identity and WebPage/BreadcrumbList: policy unit tests and no-JavaScript browser assertions cover the new routes. Local production-mode response checks verify the exact five sitemap URLs (homepage plus four guides).
 - Fail-closed indexing: unit and browser negative checks cover previews, disabled flags, personal/utility URLs, similar unknown routes and non-GET methods. HTTP checks verify private noindex, preview host noindex, canonical www redirect preserving repeated query parameters.
 - Existing fonts, tokens and CTA component used. Both approved viewports have no horizontal overflow; native FAQ keyboard interactions and CTA intent click-through pass; axe finds no WCAG 2 A/AA or 2.1 AA violations.
-- Before/after desktop 1440×1000 and mobile 390×844 screenshots saved in this directory. Before new routes are404; homepage before and after both use ordinary anonymous view, FAQs collapsed. New guides have no V18 equivalent screen; they are owner-requested new marketing designs pending live approval. No visual baselines replaced.
+- Before/after desktop 1440×1000 and mobile 390×844 screenshots saved in this directory. Before new routes are404; homepage before and after both use ordinary anonymous view, FAQs collapsed. New guides have no V18 equivalent screen; they are owner-requested new marketing designs pending live approval. At initial capture, no visual baselines were replaced. The owner subsequently approved exactly the two homepage captures; see the approval section above.
 
-## Validation
+## Validation before baseline approval
 
 Final `pnpm verify` passed:157 files /1,564 tests, format, lint, typecheck and build. Two existing unused-variable warnings remain. An intermediate full run failed the unchanged PNG image-normalization test; its isolated15 tests and two subsequent full verification runs passed. Assertions and timeouts were not weakened.
 
@@ -38,3 +42,7 @@ Independent review by seo_merge_review is clean after three copy corrections. Ex
 The review server uses the verified noindex build. Railway preview URL is not available at evidence capture. No production Railway/Supabase settings changed. Activation still requires production-only SEO opt-in at build and runtime, then live checks and Search Console/Bing submission. No promised ranking or AI-citation timeline.
 
 No dependencies, schema migrations, data-access changes, user fixtures, Magic Patterns mock data or editor artifacts shipped. Rollback: revert the guide slice to remove routes/navigation/allowlist entries, or disable indexing and rebuild/redeploy. No database rollback.
+
+## Verification after explicit approval
+
+Full pnpm verify passed again after baseline replacement (157 files /1,564 tests, format, lint, typecheck and build). Independent read-only review confirmed both images byte-identical to the reviewed candidates, exact hashes/provenance and no changes to other baselines or test tolerances. Exact-head CI runs again after this commit; merge/deployment stay with the owner.

@@ -22,4 +22,4 @@ No database, auth, extraction, production configuration, dependencies or homepag
 
 Initial guide: docs/delivery/evidence/how-it-works-seo-2026-10-04/README.md.
 Expanded guide slice: docs/delivery/evidence/search-guides-2026-10-04/README.md.
-Owner live review, matching visual-baseline approval, new exact-head CI and deployment remain pending.
+Owner reviewed and explicitly approved the desktop/mobile homepage changes; exactly those two Ubuntu CI baselines are adopted with recorded hashes. New exact-head CI and deployment remain pending.

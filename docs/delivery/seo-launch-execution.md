@@ -93,7 +93,7 @@ Starting source map from4October research (not proof of ranking influence):
 - [ ] /birthday-wishlist: implemented in PR #83 with practical notes, price range and sharing etiquette; pending review/deployment.
 - [ ] /secret-santa: implemented in PR #83 with organizer/participant steps, private assignments, group-scoped reservations and supported draw limits; pending review/deployment.
 - [ ] /wishlist-from-different-stores: implemented in PR #83 with editable imports, manual fallback, original currencies and retailer checkout; pending review/deployment.
-- [ ] Homepage Helpful guides and related links: implemented in PR #83; pending owner design review/deployment. Existing visual baselines have not been replaced.
+- [ ] Homepage Helpful guides and related links: implemented in PR #83; owner desktop/mobile homepage design review and baseline replacement approved; deployment pending. Exactly the two reviewed CI homepage baselines are adopted.
 - [ ] About/contact and accurate owner-reviewed policy information.
 - [ ] Two real-product walkthrough videos and consented first-use stories.
 
