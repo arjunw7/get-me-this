@@ -115,6 +115,45 @@ afterEach(() => {
 });
 
 describe("requestCodeAction", () => {
+  it("sends from the production domain and carries the sign-in flow", async () => {
+    requestHeaders.host = "getmethis.fun";
+    requestHeaders["x-forwarded-proto"] = "https";
+    signInWithOtp.mockResolvedValue({ data: {}, error: null });
+
+    await expect(
+      requestCodeAction(
+        IDLE,
+        formData({ email: "you@example.com", intent: "wishlist" }),
+      ),
+    ).rejects.toMatchObject({ to: "/auth/verify" });
+    expect(signInWithOtp).toHaveBeenCalledExactlyOnceWith({
+      email: "you@example.com",
+      options: { emailRedirectTo: "https://getmethis.fun/auth/confirm" },
+    });
+    expect(cookieStore.get(CARRY_COOKIE_NAME)?.value).toContain("wishlist");
+  });
+
+  it.each([
+    ["getmethis.fun", "http"],
+    ["getmethis.fun.evil.example", "https"],
+    ["evil.getmethis.fun", "https"],
+    ["getmethis.fun:444", "https"],
+  ])(
+    "does not send from untrusted production lookalike %s (%s)",
+    async (host, proto) => {
+      requestHeaders.host = host;
+      requestHeaders["x-forwarded-proto"] = proto;
+      expect(
+        await requestCodeAction(
+          IDLE,
+          formData({ email: "you@example.com", intent: "home" }),
+        ),
+      ).toEqual({ status: "error", failure: "unavailable" });
+      expect(signInWithOtp).not.toHaveBeenCalled();
+      expect(cookieStore.has(CARRY_COOKIE_NAME)).toBe(false);
+    },
+  );
+
   it("requests a code with the allowlisted redirect and carries the email and intent", async () => {
     signInWithOtp.mockResolvedValue({ data: {}, error: null });
 
@@ -355,6 +394,26 @@ describe("verifyCodeAction", () => {
 });
 
 describe("resendCodeAction", () => {
+  it("resends on the production domain using the production confirmation URL", async () => {
+    requestHeaders.host = "getmethis.fun";
+    requestHeaders["x-forwarded-proto"] = "https";
+    cookieStore.set(CARRY_COOKIE_NAME, {
+      name: CARRY_COOKIE_NAME,
+      value: JSON.stringify({
+        email: "you@example.com",
+        intent: "home",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }),
+    });
+    signInWithOtp.mockResolvedValue({ data: {}, error: null });
+
+    expect(await resendCodeAction(IDLE)).toEqual({ status: "resent" });
+    expect(signInWithOtp).toHaveBeenCalledExactlyOnceWith({
+      email: "you@example.com",
+      options: { emailRedirectTo: "https://getmethis.fun/auth/confirm" },
+    });
+  });
+
   it("resends to the carried email with the allowlisted redirect", async () => {
     const exp = Math.floor(Date.now() / 1000) + 3600;
     cookieStore.set(CARRY_COOKIE_NAME, {
