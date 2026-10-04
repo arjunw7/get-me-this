@@ -1,0 +1,91 @@
+{
+  "base": "0f96db999feeea5ddaffcdc48999fa5f63d3982f",
+  "reviewed_code_head": "00540e0",
+  "mode": "production opt-in on local built server, no provider",
+  "responses": [
+    {
+      "host": "getmethis.fun",
+      "path": "/?loggedOut=1",
+      "status": 200,
+      "robots_header": null,
+      "location": null
+    },
+    {
+      "host": "getmethis.fun",
+      "path": "/auth",
+      "status": 200,
+      "robots_header": "noindex, nofollow",
+      "location": null
+    },
+    {
+      "host": "getmethis.fun",
+      "path": "/auth/confirm?bad=query",
+      "status": 302,
+      "robots_header": "noindex, nofollow",
+      "location": "/auth/confirm"
+    },
+    {
+      "host": "getmethis.fun",
+      "path": "/invite/unavailable",
+      "status": 200,
+      "robots_header": "noindex, nofollow",
+      "location": null
+    },
+    {
+      "host": "getmethis.fun",
+      "path": "/s/invalid",
+      "status": 404,
+      "robots_header": "noindex, nofollow",
+      "location": null
+    },
+    {
+      "host": "getmethis.fun",
+      "path": "/design-foundation",
+      "status": 200,
+      "robots_header": "noindex, nofollow",
+      "location": null
+    },
+    {
+      "host": "preview.up.railway.app",
+      "path": "/",
+      "status": 200,
+      "robots_header": "noindex, nofollow",
+      "location": null
+    },
+    {
+      "host": "www.getmethis.fun",
+      "path": "/",
+      "status": 308,
+      "robots_header": "noindex, nofollow",
+      "location": "https://getmethis.fun/"
+    },
+    {
+      "host": "www.getmethis.fun",
+      "path": "/auth/confirm?token_hash=fixture-only&type=email",
+      "status": 308,
+      "robots_header": "noindex, nofollow",
+      "location": "https://getmethis.fun/auth/confirm?token_hash=fixture-only&type=email"
+    },
+    {
+      "host": "www.getmethis.fun",
+      "path": "/s/fixture-share?from=friend&from=whatsapp",
+      "status": 308,
+      "robots_header": "noindex, nofollow",
+      "location": "https://getmethis.fun/s/fixture-share?from=friend&from=whatsapp"
+    },
+    {
+      "host": "getmethis.fun",
+      "path": "/robots.txt",
+      "status": 200,
+      "robots_header": "noindex, nofollow",
+      "location": null
+    },
+    {
+      "host": "getmethis.fun",
+      "path": "/sitemap.xml",
+      "status": 200,
+      "robots_header": "noindex, nofollow",
+      "location": null
+    }
+  ]
+}

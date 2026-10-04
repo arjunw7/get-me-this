@@ -1,12 +1,10 @@
-import type { Metadata } from "next";
+import { homepageMetadata, websiteStructuredData } from "@/src/seo/policy";
 import { LandingPage } from "@/src/landing/landing-page";
 import { getSessionUser } from "@/src/profile/session";
 
-export const metadata: Metadata = {
-  title: "Get Me This | Your shareable gift wishlist",
-  description:
-    "Good gifts start with a wishlist. Save gift ideas from different stores in one wishlist. Share one link with friends. No group needed; private groups help you plan gifts together.",
-};
+export function generateMetadata() {
+  return homepageMetadata();
+}
 
 /**
  * The public landing page. The `loggedOut` flag (004e) renders the
@@ -29,9 +27,20 @@ export default async function Page({
   // no security impact) and is trivially spoofable; pending an owner
   // decision on a cookie-based approach it stays query-driven.
   return (
-    <LandingPage
-      loggedOut={params.loggedOut === "1"}
-      signedIn={user !== null}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(websiteStructuredData()).replace(
+            /</g,
+            "\\u003c",
+          ),
+        }}
+      />
+      <LandingPage
+        loggedOut={params.loggedOut === "1"}
+        signedIn={user !== null}
+      />
+    </>
   );
 }
