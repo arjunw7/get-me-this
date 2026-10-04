@@ -37,6 +37,39 @@ describe("OnboardingForm", () => {
     expect(screen.queryByText(previewNotice)).toBeNull();
   });
 
+  it("offers four labeled Vibes, defaults to Marigold, and includes the choice in the profile form", async () => {
+    const user = userEvent.setup();
+    render(<OnboardingForm variant="default" />);
+    expect(
+      screen.getByRole("group", { name: "Choose your Vibe" }),
+    ).toBeVisible();
+    expect(screen.getAllByRole("radio")).toHaveLength(4);
+    expect(screen.getByRole("radio", { name: "Marigold" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "Electric" }));
+    expect(screen.getByRole("radio", { name: "Electric" })).toBeChecked();
+    const form = screen
+      .getByRole("button", { name: /let’s go/i })
+      .closest("form")!;
+    expect(new FormData(form).get("vibe")).toBe("electric");
+    expect(screen.queryByText(/theme/i)).not.toBeInTheDocument();
+  });
+  it("carries only the public return identifier and never a pending reaction", () => {
+    const shareToken = "A".repeat(43);
+    render(<OnboardingForm shareToken={shareToken} />);
+    const form = screen
+      .getByRole("button", { name: /let’s go/i })
+      .closest("form")!;
+    expect(new FormData(form).get("share")).toBe(shareToken);
+    expect(new FormData(form).get("reaction")).toBeNull();
+  });
+  it("does not mix a public wishlist return into invitation onboarding", () => {
+    render(<OnboardingForm shareToken={"A".repeat(43)} flowId="invite-flow" />);
+    const form = screen
+      .getByRole("button", { name: /let’s go/i })
+      .closest("form")!;
+    expect(new FormData(form).get("share")).toBeNull();
+    expect(new FormData(form).get("flowId")).toBe("invite-flow");
+  });
   it("renders the validation fixture directly: touched, empty name, designed error", () => {
     render(<OnboardingForm variant="validation" />);
 

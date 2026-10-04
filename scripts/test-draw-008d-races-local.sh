@@ -65,7 +65,7 @@ cleanup_sql() {
     echo "commit;"
   } | "${psql_base[@]}" >/dev/null 2>&1 || true
 }
-trap cleanup_sql EXIT
+trap 'cleanup_sql; cleanup' EXIT
 
 # Fixtures: A organizer of a secret_draw group; B and C joined participants.
 {
@@ -135,87 +135,97 @@ echo "draw-008d-races: scenario (a) passed"
 
 run_redraw_vs_leave() {
   local order="$1"
-  local redraw_sql leave_sql
+  local redraw_sql leave_sql starting_version expected_count
+  # Give each ordering a fresh eligible roster, retaining prior draw history.
+  # Fixture-only rejoining advances the generation just as a real rejoin does.
+  "${psql_base[@]}" -c "update public.group_members
+    set status = 'joined', participating = true, left_at = null,
+        membership_generation = membership_generation + 1
+    where group_id = '$GROUP_ID'::uuid and user_id = '$UID_C'::uuid;" >/dev/null
+  starting_version="$("${psql_base[@]}" -c "select current_draw_version from public.groups where id = '$GROUP_ID'::uuid;")"
   redraw_sql=$(cat <<EOF
-set statement_timeout = '20s';
-set lock_timeout = '15s';
+set statement_timeout = '30s';
+set lock_timeout = '25s';
 begin;
 select set_config('request.jwt.claim.sub', '$UID_A', true);
 select set_config('request.jwt.claims', '{"sub":"$UID_A","role":"authenticated"}', true);
 select 'redraw:' || result || ':' || coalesce(draw_version::text, 'null')
-from public.run_secret_draw('$GROUP_ID'::uuid, 1);
-commit;
+from public.run_secret_draw('$GROUP_ID'::uuid, $starting_version);
 EOF
 )
   leave_sql=$(cat <<EOF
-set statement_timeout = '20s';
-set lock_timeout = '15s';
+set statement_timeout = '30s';
+set lock_timeout = '25s';
 begin;
-select set_config('request.jwt.claim.sub', '$UID_A', true);
-select set_config('request.jwt.claims', '{"sub":"$UID_A","role":"authenticated"}', true);
-insert into public.audit_events (actor_id, group_id, event_type, subject_user_id, metadata)
-values ('$UID_A'::uuid, '$GROUP_ID'::uuid, 'member_left'::public.group_audit_event_type, '$UID_C'::uuid, '{}'::jsonb);
-update public.group_members
-set status = 'left', participating = false, membership_generation = membership_generation + 1
-where group_id = '$GROUP_ID'::uuid and user_id = '$UID_C'::uuid;
-select 'leave:done';
-commit;
+select set_config('request.jwt.claim.sub', '$UID_C', true);
+select set_config('request.jwt.claims', '{"sub":"$UID_C","role":"authenticated"}', true);
+select 'leave:' || result from public.leave_group('$GROUP_ID'::uuid);
 EOF
 )
 
   if [ "$order" = "leave-first" ]; then
-    echo "$leave_sql" > "$tmpdir/x1.sql"
-    echo "$redraw_sql" > "$tmpdir/x2.sql"
+    printf '%s\n' "$leave_sql" > "$tmpdir/x1.sql"
+    printf '%s\n' "$redraw_sql" > "$tmpdir/x2.sql"
+    expected_count=2
   else
-    echo "$redraw_sql" > "$tmpdir/x1.sql"
-    echo "$leave_sql" > "$tmpdir/x2.sql"
+    printf '%s\n' "$redraw_sql" > "$tmpdir/x1.sql"
+    printf '%s\n' "$leave_sql" > "$tmpdir/x2.sql"
+    expected_count=3
   fi
-
+  # The first operation has completed but remains uncommitted while the
+  # independent second session contends on its group lock. Observe both
+  # barriers rather than assuming shell launch order establishes DB order.
+  printf "set application_name = 'draw-008d-holder';\nselect pg_sleep(10);\ncommit;\n" >> "$tmpdir/x1.sql"
+  printf 'commit;\n' >> "$tmpdir/x2.sql"
   "${psql_base[@]}" < "$tmpdir/x1.sql" > "$tmpdir/x1.out" 2>&1 &
   X1_PID=$!
+  local ready=0
+  for _ in {1..50}; do
+    ready="$("${psql_base[@]}" -c "select count(*) from pg_stat_activity where application_name = 'draw-008d-holder' and wait_event = 'PgSleep';")"
+    [ "$ready" = "1" ] && break
+    sleep 0.1
+  done
+  [ "$ready" = "1" ] || die "scenario (b) [$order]: first operation did not reach the uncommitted barrier"
   "${psql_base[@]}" < "$tmpdir/x2.sql" > "$tmpdir/x2.out" 2>&1 &
   X2_PID=$!
-  wait "$X1_PID" 2>/dev/null || true
-  wait "$X2_PID" 2>/dev/null || true
+  # Identify the waiting RPC while the holder is explicitly named above.
+  local blocked=0
+  for _ in {1..50}; do
+    blocked="$("${psql_base[@]}" -c "select count(*) from pg_stat_activity where wait_event_type = 'Lock' and query like '%$GROUP_ID%' and (query like '%public.run_secret_draw(%' or query like '%public.leave_group(%');")"
+    [ "$blocked" = "1" ] && break
+    sleep 0.1
+  done
+  [ "$blocked" = "1" ] || die "scenario (b) [$order]: second operation did not contend on the first transaction"
+  wait "$X1_PID" || die "scenario (b) [$order]: first transaction failed"
+  wait "$X2_PID" || die "scenario (b) [$order]: second transaction failed"
+  cat "$tmpdir/x1.out" "$tmpdir/x2.out" > "$tmpdir/ordered.out"
+  grep -q "redraw:drawn:$((starting_version + 1))" "$tmpdir/ordered.out" || die "scenario (b) [$order]: redraw did not commit the next version"
+  grep -q '^leave:left$' "$tmpdir/ordered.out" || die "scenario (b) [$order]: member leave did not commit"
 
-  # Invariant: the current version is either absent, or complete over its
-  # bound roster with unique givers and recipients — never half-redrawn.
-  "${psql_base[@]}" -t -c "
-  select
-    coalesce(g.current_draw_version, 0) || ':' ||
-    (select count(*) from public.group_assignments a
-      where a.group_id = g.id and a.draw_version = g.current_draw_version)::text || ':' ||
-    (select count(*) from public.group_assignments a
-      where a.group_id = g.id and a.draw_version = g.current_draw_version
-        and (a.giver_id = a.recipient_id))::text
-  from public.\"groups\" g where g.id = '$GROUP_ID'::uuid;" > "$tmpdir/state.out"
+  # Exact roster size plus distinct giver/recipient counts and zero fixed
+  # points prove a complete bijection, not merely a plausible row count.
   local state
-  state="$(tr -d '[:space:]' < "$tmpdir/state.out")"
-  local version count fixed
-  version="${state%%:*}"
-  local rest="${state#*:}"
-  count="${rest%%:*}"
-  fixed="${rest##*:}"
-  [ "$fixed" = "0" ] || die "scenario (b) [$order]: a half-redrawn state contained a fixed point"
-  # 3 participants assigned completely (leave lost) or a tombstoned /
-  # re-derived state is not half: the count is either 0 or 3.
-  case "$count" in
-    0|3) ;;
-    *) die "scenario (b) [$order]: half-redrawn state (version $version has $count assignments)" ;;
-  esac
-
-  # Every current-version assignment binds each side to a member row that
-  # still matches its bound generation, unless the member left after.
+  state="$("${psql_base[@]}" -c "select count(*) || ':' || count(distinct giver_id) || ':' || count(distinct recipient_id) || ':' || count(*) filter (where giver_id = recipient_id)
+    from public.group_assignments where group_id = '$GROUP_ID'::uuid
+      and draw_version = $((starting_version + 1));")"
+  [ "$state" = "$expected_count:$expected_count:$expected_count:0" ] || die "scenario (b) [$order]: incomplete or non-bijective draw ($state)"
+  local departed_bindings
+  departed_bindings="$("${psql_base[@]}" -c "select count(*) from public.group_assignments
+    where group_id = '$GROUP_ID'::uuid and draw_version = $((starting_version + 1))
+      and (giver_id = '$UID_C'::uuid or recipient_id = '$UID_C'::uuid);")"
+  if [ "$order" = "leave-first" ]; then
+    [ "$departed_bindings" = "0" ] || die "scenario (b) [$order]: redraw included a departed member"
+  else
+    [ "$departed_bindings" = "2" ] || die "scenario (b) [$order]: committed draw did not bind the original roster"
+  fi
   local bad
-  bad="$("${psql_base[@]}" -t -c "
-  select count(*)
-  from public.group_assignments a
-  join public.group_members m on m.group_id = a.group_id and m.user_id = a.giver_id
-  where a.group_id = '$GROUP_ID'::uuid
-    and a.draw_version = (select current_draw_version from public.\"groups\" where id = '$GROUP_ID'::uuid)
-    and m.status = 'left'
-    and m.membership_generation = a.giver_membership_generation;")"
-  [ "$bad" = "0" ] || die "scenario (b) [$order]: a left member stayed bound as the current giver"
+  bad="$("${psql_base[@]}" -c "select count(*) from public.group_assignments a
+    join public.group_members m on m.group_id = a.group_id
+      and (m.user_id = a.giver_id or m.user_id = a.recipient_id)
+    where a.group_id = '$GROUP_ID'::uuid and a.draw_version = $((starting_version + 1))
+      and ((m.status = 'left' and m.membership_generation = case when m.user_id = a.giver_id then a.giver_membership_generation else a.recipient_membership_generation end)
+        or (m.status = 'joined' and m.membership_generation <> case when m.user_id = a.giver_id then a.giver_membership_generation else a.recipient_membership_generation end));")"
+  [ "$bad" = "0" ] || die "scenario (b) [$order]: assignment generation did not match its roster state"
 }
 
 run_redraw_vs_leave "redraw-first"
@@ -228,10 +238,11 @@ echo "draw-008d-races: scenario (b) passed (both orders)"
 # version; the redraw either loses the CAS or commits first and is then
 # tombstoned; the email projection is silent for the tombstoned versions.
 # ---------------------------------------------------------------------------
+current_version="$("${psql_base[@]}" -c "select current_draw_version from public.groups where id = '$GROUP_ID'::uuid;")"
 as_organizer > "$tmpdir/t1.sql"
 cat >> "$tmpdir/t1.sql" <<EOF
 select 'redraw:' || result || ':' || coalesce(draw_version::text, 'null')
-from public.run_secret_draw('$GROUP_ID'::uuid, 2);
+from public.run_secret_draw('$GROUP_ID'::uuid, $current_version);
 commit;
 EOF
 

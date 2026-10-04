@@ -39,6 +39,7 @@ import {
  */
 
 export interface OrganizerToolsProps {
+  readonly presentation?: "default" | "room";
   readonly groupId: string;
   readonly groupName: string;
   readonly organizerId: string;
@@ -116,6 +117,7 @@ const CONFIRM_COPY: Record<
 };
 
 export function OrganizerTools({
+  presentation = "default",
   groupId,
   groupName,
   organizerId,
@@ -234,15 +236,26 @@ export function OrganizerTools({
   }
 
   return (
-    <section className="mt-10" data-testid="organizer-tools">
+    <section
+      className={presentation === "room" ? "contents" : "mt-10"}
+      data-testid="organizer-tools"
+    >
       <button
         type="button"
         aria-expanded={open}
         aria-controls="organizer-tools-panel"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex min-h-touch-min items-center gap-2 font-display text-heading font-bold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-outline-strong"
+        className={
+          presentation === "room"
+            ? "inline-flex min-h-11 items-center gap-2 rounded-control border-2 border-outline-strong bg-surface-page px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+            : "inline-flex min-h-touch-min items-center gap-2 font-display text-heading font-bold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-outline-strong"
+        }
       >
-        {open ? "Hide member tools" : "Member tools"}
+        {presentation === "room"
+          ? "Organizer tools"
+          : open
+            ? "Hide member tools"
+            : "Member tools"}
         <span aria-hidden="true">{open ? "–" : "+"}</span>
       </button>
 
@@ -250,7 +263,7 @@ export function OrganizerTools({
         <div
           id="organizer-tools-panel"
           data-testid="organizer-tools-panel"
-          className="mt-4 rounded-surface-2xl border-2 border-outline-strong bg-surface-raised p-5 shadow-chunk-sm"
+          className="mt-4 w-full basis-full rounded-surface-2xl border-2 border-outline-strong bg-surface-raised p-5 shadow-chunk-sm"
         >
           {stale ? (
             <p

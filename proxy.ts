@@ -1,3 +1,4 @@
+import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { createServerClient } from "@supabase/ssr";
@@ -138,7 +139,14 @@ export async function proxy(request: NextRequest) {
     // configured, this whole block is skipped and the server-side gate
     // remains the control.
     if (user === null && isProtectedRoutePath(pathname)) {
-      const signedOutResponse = NextResponse.redirect(`${origin}/auth`, 302);
+      const share =
+        pathname === "/onboarding"
+          ? parsePublicShareToken(request.nextUrl.searchParams.get("share"))
+          : null;
+      const signedOutResponse = NextResponse.redirect(
+        `${origin}/auth${share ? `?intent=public-wishlist&share=${share}` : ""}`,
+        302,
+      );
       // The redirect bounces an unauthenticated request away from
       // authenticated data access; it sets no cookies but must never be
       // cached as a signed-in-page response.
@@ -185,6 +193,14 @@ export async function proxy(request: NextRequest) {
     response.headers.set("Cache-Control", NO_STORE);
   }
 
+  const shareContinuation =
+    (pathname === "/auth" || pathname === "/onboarding") &&
+    request.nextUrl.searchParams.has("share");
+  if (pathname === "/s" || pathname.startsWith("/s/") || shareContinuation) {
+    response.headers.set("Cache-Control", NO_STORE);
+    response.headers.set("Referrer-Policy", NO_REFERRER);
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
   return response;
 }
 

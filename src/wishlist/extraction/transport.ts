@@ -55,6 +55,8 @@ export type GuardedResponse = {
   readonly contentType: string;
   readonly charset: string | null;
   readonly body: Uint8Array;
+  /** Only an explicitly requested, byte-bounded HTML prefix. */
+  readonly truncated?: true;
 };
 
 type ParsedHeaders = {
@@ -289,7 +291,11 @@ function concat(chunks: readonly Uint8Array[], length: number): Uint8Array {
   return output;
 }
 
-function decodeChunked(input: Uint8Array, maximum: number): Uint8Array | null {
+function decodeChunked(
+  input: Uint8Array,
+  maximum: number,
+  allowPrefix = false,
+): Uint8Array | null {
   const output: Uint8Array[] = [];
   let outputLength = 0;
   let offset = 0;
@@ -315,6 +321,14 @@ function decodeChunked(input: Uint8Array, maximum: number): Uint8Array | null {
       if (input.length < offset + 2) return null;
       return concat(output, outputLength);
     }
+    if (allowPrefix && outputLength + size >= maximum) {
+      const remainingBytes = maximum - outputLength;
+      if (input.length < offset + remainingBytes) return null;
+      return concat(
+        [...output, input.slice(offset, offset + remainingBytes)],
+        maximum,
+      );
+    }
     if (outputLength + size > maximum) throw new ExtractionError("too_large");
     if (input.length < offset + size + 2) return null;
     if (input[offset + size] !== 13 || input[offset + size + 1] !== 10) {
@@ -335,10 +349,12 @@ async function readResponse(
   signal: AbortSignal,
   deadline: number,
   now: () => number,
+  allowPrefix = false,
 ): Promise<{
   headers: ParsedHeaders;
   body: Uint8Array;
   contentType: { type: string; charset: string | null } | null;
+  truncated?: true;
 }> {
   connection.write(requestBytes(url, consumer));
   const iterator = connection[Symbol.asyncIterator]();
@@ -353,6 +369,15 @@ async function readResponse(
 
   const appendBody = (chunk: Uint8Array) => {
     if (chunk.length === 0) return;
+    if (
+      !chunked &&
+      expectedLength !== null &&
+      bodyLength + chunk.length > expectedLength
+    ) {
+      throw new ExtractionError("unavailable");
+    }
+    if (allowPrefix)
+      chunk = chunk.subarray(0, Math.max(0, maximumWireBytes - bodyLength));
     bodyLength += chunk.length;
     if (bodyLength > maximumWireBytes) {
       throw new ExtractionError("too_large");
@@ -414,7 +439,7 @@ async function readResponse(
         expectedLength = Number(lengthHeader);
         if (
           !Number.isSafeInteger(expectedLength) ||
-          expectedLength > maximumBodyBytes
+          (!allowPrefix && expectedLength > maximumBodyBytes)
         ) {
           throw new ExtractionError("too_large");
         }
@@ -437,6 +462,19 @@ async function readResponse(
       appendBody(buffered.slice(headerEnd));
     } else {
       appendBody(chunk);
+    }
+
+    if (allowPrefix) {
+      const prefix = chunked
+        ? decodeChunked(concat(bodyChunks, bodyLength), maximumBodyBytes, true)
+        : bodyLength === maximumBodyBytes
+          ? concat(bodyChunks, bodyLength)
+          : null;
+      if (prefix?.length === maximumBodyBytes) {
+        return { headers, body: prefix, contentType, truncated: true };
+      }
+      if (bodyLength === maximumWireBytes)
+        throw new ExtractionError("too_large");
     }
 
     if (!chunked && expectedLength !== null && bodyLength === expectedLength) {
@@ -464,7 +502,11 @@ export async function guardedRequest(
   input: string,
   consumer: TransportConsumer,
   dependencies: TransportDependencies = {},
-  options: { readonly signal?: AbortSignal; readonly deadline?: number } = {},
+  options: {
+    readonly signal?: AbortSignal;
+    readonly deadline?: number;
+    readonly allowHtmlPrefix?: (destination: URL) => boolean;
+  } = {},
 ): Promise<GuardedResponse> {
   const now = dependencies.now ?? Date.now;
   const deadline = options.deadline ?? now() + TOTAL_TIMEOUT_MS;
@@ -521,6 +563,7 @@ export async function guardedRequest(
           controller.signal,
           deadline,
           now,
+          consumer === "html" && options.allowHtmlPrefix?.(current) === true,
         );
         if (response.headers.status >= 300 && response.headers.status < 400) {
           if (redirects >= MAX_REDIRECTS) {
@@ -548,6 +591,7 @@ export async function guardedRequest(
           contentType: response.contentType.type,
           charset: response.contentType.charset,
           body: response.body,
+          ...(response.truncated ? { truncated: true as const } : {}),
         };
       } catch (error) {
         dialController.abort();

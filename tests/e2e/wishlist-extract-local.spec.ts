@@ -1,3 +1,4 @@
+import { selectCurrency } from "../helpers/select-currency";
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 import {
@@ -94,8 +95,7 @@ async function fillManualForm(
 ) {
   await page.getByLabel("Item name").fill(item.title);
   if (item.amount) await page.getByLabel("Price").fill(item.amount);
-  if (item.currency)
-    await page.getByLabel("Currency").selectOption(item.currency);
+  if (item.currency) await selectCurrency(page, item.currency);
   if (item.sourceUrl)
     await page.getByLabel("Link (optional)").fill(item.sourceUrl);
   if (item.retailer)
@@ -274,7 +274,7 @@ test("partial extraction renders the generic notice with placeholder gaps and sa
     await expect(page.getByLabel("Shop (optional)")).toHaveValue("");
     await expect(page.getByLabel("Price")).toHaveValue("");
     await expect(
-      page.getByText("Photo preview — adding photos isn’t available yet."),
+      page.getByText("Adding photos isn’t available yet."),
     ).toBeVisible();
 
     await page.getByLabel("Shop (optional)").fill("Filled In Shop");

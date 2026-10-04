@@ -621,3 +621,89 @@ describe("verifyMagicLinkAction", () => {
     expect(signOut).not.toHaveBeenCalled();
   });
 });
+
+describe("public wishlist sign-in continuation", () => {
+  const shareToken = "A".repeat(43);
+  it("carries the validated target without putting it in the email callback URL", async () => {
+    signInWithOtp.mockResolvedValue({ error: null });
+    await expect(
+      requestCodeAction(
+        IDLE,
+        formData({
+          email: "you@example.com",
+          intent: "public-wishlist",
+          share: shareToken,
+        }),
+      ),
+    ).rejects.toThrow(new RedirectSignal("/auth/verify"));
+    expect(JSON.parse(cookieStore.get(CARRY_COOKIE_NAME)!.value)).toMatchObject(
+      { intent: "public-wishlist", shareToken },
+    );
+    expect(signInWithOtp).toHaveBeenCalledWith({
+      email: "you@example.com",
+      options: { emailRedirectTo: "http://127.0.0.1:3100/auth/confirm" },
+    });
+  });
+  it.each(["//evil.example", "A".repeat(42) + "B"])(
+    "discards malformed public destinations during the request",
+    async (share) => {
+      signInWithOtp.mockResolvedValue({ error: null });
+      await expect(
+        requestCodeAction(
+          IDLE,
+          formData({
+            email: "you@example.com",
+            intent: "public-wishlist",
+            share,
+          }),
+        ),
+      ).rejects.toThrow(new RedirectSignal("/auth/verify"));
+      const payload = JSON.parse(cookieStore.get(CARRY_COOKIE_NAME)!.value);
+      expect(payload.intent).toBe("home");
+      expect(payload).not.toHaveProperty("shareToken");
+    },
+  );
+  it.each([
+    ["code", true],
+    ["code", false],
+    ["link", true],
+    ["link", false],
+  ] as const)(
+    "returns through %s verification with complete=%s",
+    async (method, complete) => {
+      cookieStore.set(CARRY_COOKIE_NAME, {
+        name: CARRY_COOKIE_NAME,
+        value: JSON.stringify({
+          email: "you@example.com",
+          intent: "public-wishlist",
+          shareToken,
+          exp: Date.now() / 1000 + 3600,
+        }),
+      });
+      verifyOtp.mockResolvedValue({ data: {}, error: null });
+      getUser.mockResolvedValue({ data: { user: { id: "viewer" } } });
+      mockProfileRow({ display_name: complete ? "Ada" : null });
+      if (method === "link")
+        cookieStore.set(LINK_COOKIE_NAME, {
+          name: LINK_COOKIE_NAME,
+          value: await encodeLinkEnvelope(
+            "hash",
+            "email",
+            Date.now(),
+            "test-secret",
+          ),
+        });
+      const action =
+        method === "code"
+          ? verifyCodeAction(IDLE, formData({ code: "123456" }))
+          : verifyMagicLinkAction(IDLE);
+      await expect(action).rejects.toThrow(
+        new RedirectSignal(
+          complete ? `/s/${shareToken}` : `/onboarding?share=${shareToken}`,
+        ),
+      );
+      expect(cookieStore.get(CARRY_COOKIE_NAME)?.options?.maxAge).toBe(0);
+      expect(profilesFrom).toHaveBeenCalledWith("profiles");
+    },
+  );
+});

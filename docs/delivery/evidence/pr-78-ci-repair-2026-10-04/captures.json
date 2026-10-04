@@ -1,0 +1,71 @@
+{
+  "platform": "macOS local review; not replacement Linux goldens",
+  "baseHead": "02b1557745f2571788bda840c8b45ac536ac2e28",
+  "fixture": "Ada; empty or four deterministic products; closed overlays; initial scroll",
+  "viewports": {
+    "mobile": "390x844 DPR1",
+    "desktop": "1440x1000 DPR1"
+  },
+  "files": [
+    {
+      "file": "wishlist-empty-desktop-before.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "3d4ebb0f1821697ce13e5db3631599509807e6ca23cf6e97a7b4c24bb8c12bd8"
+    },
+    {
+      "file": "wishlist-empty-desktop-after.png",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "3d4ebb0f1821697ce13e5db3631599509807e6ca23cf6e97a7b4c24bb8c12bd8"
+    },
+    {
+      "file": "wishlist-empty-mobile-before.png",
+      "width": 390,
+      "height": 1113,
+      "sha256": "b9e9580018e00794a155a159653f8e3053bb9128ad63123722fcff75f15d5f24"
+    },
+    {
+      "file": "wishlist-empty-mobile-after.png",
+      "width": 390,
+      "height": 1113,
+      "sha256": "bf23a484997c5a4e61fb17f37aa9c079af2a3494e6b2a97929938b3697c1c14c"
+    },
+    {
+      "file": "wishlist-filled-desktop-before.png",
+      "width": 1440,
+      "height": 1449,
+      "sha256": "6054a7052a6f1d3cb69bbcccb5b6711d4fd980e259d69385ebdda904b882daea"
+    },
+    {
+      "file": "wishlist-filled-desktop-after.png",
+      "width": 1440,
+      "height": 1449,
+      "sha256": "b35366810e959cfdc6a2fc07da905460e132ca035af06d68df1bb312597ec0ba"
+    },
+    {
+      "file": "wishlist-filled-mobile-before.png",
+      "width": 390,
+      "height": 2943,
+      "sha256": "1ce376d647813a58987b591d319fab8ac536e6c2ae20b272b1be99df88a113b9"
+    },
+    {
+      "file": "wishlist-filled-mobile-after.png",
+      "width": 390,
+      "height": 2943,
+      "sha256": "ec05760b92d58503eda3febc1f2d64122d5ea14f86a4cc21ece370d969aeb6da"
+    },
+    {
+      "file": "wishlist-empty-mobile-before-viewport.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "4955b6ad0d4ffc9b228158eebffa31f2494cd1a47c348ea9d93b2161f62887d3"
+    },
+    {
+      "file": "wishlist-empty-mobile-after-viewport.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "623fbe9396078104a2ccacf7005145d2b1b1dd1ef40e3776b4b99c69270e311b"
+    }
+  ]
+}

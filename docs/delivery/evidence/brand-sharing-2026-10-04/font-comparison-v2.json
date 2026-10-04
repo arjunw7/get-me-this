@@ -1,0 +1,180 @@
+{
+  "method": "Equal text at equal font size, line height and tracking; actual app CSS versus banner CSS. Chromium platform font API verifies actual custom font faces. Glyph crops compared byte-for-byte.",
+  "application": "http://127.0.0.1:3100/",
+  "rows": [
+    {
+      "name": "wordmark",
+      "text": "Get Me This",
+      "normalizedSize": 48,
+      "normalizedLineHeight": 48,
+      "normalizedTracking": -1.2,
+      "app": {
+        "original": {
+          "fontFamily": "displayFont, \"displayFont Fallback\", system-ui, -apple-system, \"Segoe UI\", sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "fontWeight": "800",
+          "fontSize": "30px",
+          "fontStretch": "100%",
+          "fontStyle": "normal",
+          "fontVariationSettings": "normal",
+          "fontOpticalSizing": "auto",
+          "fontFeatureSettings": "normal",
+          "letterSpacing": "-0.75px",
+          "lineHeight": "30px",
+          "fontKerning": "auto",
+          "webkitFontSmoothing": "antialiased",
+          "color": "rgb(23, 20, 15)"
+        },
+        "actualFonts": [
+          {
+            "familyName": "Bricolage Grotesque 96pt ExtraBold",
+            "postScriptName": "BricolageGrotesque-96ptExtraBold_opsz300000_wght_wdth",
+            "isCustomFont": true,
+            "glyphCount": 11
+          }
+        ]
+      },
+      "banner": {
+        "original": {
+          "fontFamily": "BrandDisplay",
+          "fontWeight": "800",
+          "fontSize": "48px",
+          "fontStretch": "100%",
+          "fontStyle": "normal",
+          "fontVariationSettings": "normal",
+          "fontOpticalSizing": "auto",
+          "fontFeatureSettings": "normal",
+          "letterSpacing": "-1.2px",
+          "lineHeight": "48px",
+          "fontKerning": "auto",
+          "webkitFontSmoothing": "antialiased",
+          "color": "rgb(23, 20, 15)"
+        },
+        "actualFonts": [
+          {
+            "familyName": "Bricolage Grotesque 96pt ExtraBold",
+            "postScriptName": "BricolageGrotesque-96ptExtraBold_opsz300000_wght_wdth",
+            "isCustomFont": true,
+            "glyphCount": 11
+          }
+        ]
+      },
+      "differentColorChannels": 0
+    },
+    {
+      "name": "headline",
+      "text": "Good gifts",
+      "normalizedSize": 72,
+      "normalizedLineHeight": 72,
+      "normalizedTracking": -1.8,
+      "app": {
+        "original": {
+          "fontFamily": "displayFont, \"displayFont Fallback\", system-ui, -apple-system, \"Segoe UI\", sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "fontWeight": "800",
+          "fontSize": "72px",
+          "fontStretch": "100%",
+          "fontStyle": "normal",
+          "fontVariationSettings": "normal",
+          "fontOpticalSizing": "auto",
+          "fontFeatureSettings": "normal",
+          "letterSpacing": "-1.8px",
+          "lineHeight": "72px",
+          "fontKerning": "auto",
+          "webkitFontSmoothing": "antialiased",
+          "color": "rgb(23, 20, 15)"
+        },
+        "actualFonts": [
+          {
+            "familyName": "Bricolage Grotesque 96pt ExtraBold",
+            "postScriptName": "BricolageGrotesque-96ptExtraBold_opsz480000_wght_wdth",
+            "isCustomFont": true,
+            "glyphCount": 10
+          }
+        ]
+      },
+      "banner": {
+        "original": {
+          "fontFamily": "BrandDisplay",
+          "fontWeight": "800",
+          "fontSize": "72px",
+          "fontStretch": "100%",
+          "fontStyle": "normal",
+          "fontVariationSettings": "normal",
+          "fontOpticalSizing": "auto",
+          "fontFeatureSettings": "normal",
+          "letterSpacing": "-1.8px",
+          "lineHeight": "72px",
+          "fontKerning": "auto",
+          "webkitFontSmoothing": "antialiased",
+          "color": "rgb(23, 20, 15)"
+        },
+        "actualFonts": [
+          {
+            "familyName": "Bricolage Grotesque 96pt ExtraBold",
+            "postScriptName": "BricolageGrotesque-96ptExtraBold_opsz480000_wght_wdth",
+            "isCustomFont": true,
+            "glyphCount": 10
+          }
+        ]
+      },
+      "differentColorChannels": 0
+    },
+    {
+      "name": "body",
+      "text": "Save your wishes.",
+      "normalizedSize": 27,
+      "normalizedLineHeight": 43.875,
+      "normalizedTracking": "normal",
+      "app": {
+        "original": {
+          "fontFamily": "bodyFont, \"bodyFont Fallback\", system-ui, -apple-system, \"Segoe UI\", sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "fontWeight": "400",
+          "fontSize": "18px",
+          "fontStretch": "100%",
+          "fontStyle": "normal",
+          "fontVariationSettings": "normal",
+          "fontOpticalSizing": "auto",
+          "fontFeatureSettings": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "29.25px",
+          "fontKerning": "auto",
+          "webkitFontSmoothing": "antialiased",
+          "color": "rgb(79, 72, 63)"
+        },
+        "actualFonts": [
+          {
+            "familyName": "DM Sans 9pt",
+            "postScriptName": "DMSans-9ptRegular_opsz1B0000_wght",
+            "isCustomFont": true,
+            "glyphCount": 17
+          }
+        ]
+      },
+      "banner": {
+        "original": {
+          "fontFamily": "BrandBody",
+          "fontWeight": "400",
+          "fontSize": "27px",
+          "fontStretch": "100%",
+          "fontStyle": "normal",
+          "fontVariationSettings": "normal",
+          "fontOpticalSizing": "auto",
+          "fontFeatureSettings": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "27px",
+          "fontKerning": "auto",
+          "webkitFontSmoothing": "antialiased",
+          "color": "rgb(79, 72, 63)"
+        },
+        "actualFonts": [
+          {
+            "familyName": "DM Sans 9pt",
+            "postScriptName": "DMSans-9ptRegular_opsz1B0000_wght",
+            "isCustomFont": true,
+            "glyphCount": 17
+          }
+        ]
+      },
+      "differentColorChannels": 0
+    }
+  ]
+}

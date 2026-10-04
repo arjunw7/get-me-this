@@ -8,6 +8,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
+// Action tests have no Next request/cookie scope. Keep storage signing isolated
+// even when the verification runner has a configured local Supabase stack.
+vi.mock("@/src/supabase/server", () => ({
+  createSupabaseServerClient: vi.fn().mockResolvedValue(null),
+}));
 vi.mock("@/src/profile/session", () => ({
   requireCompleteProfile: mocks.gate,
 }));

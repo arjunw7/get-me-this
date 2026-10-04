@@ -1,3 +1,7 @@
+import { loadGroupMemberVibes } from "@/src/groups/member-vibes-data";
+import Link from "next/link";
+import { WishlistShellHeader } from "@/src/wishlist/wishlist-shell-header";
+import { RoomMemberWishlists } from "@/src/groups/room-wishlists";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -42,12 +46,11 @@ const GROUP_ID_PATTERN =
  * sign-in by the proxy's protected-route policy (safe `home` intent) and the
  * server-side gate repeats the session and completed-profile checks here.
  *
- * All page data comes from the one room projection
- * (`public.group_room_snapshot`); no direct profile, member, invitation, or
- * wishlist query exists. The single server-captured clock drives the
- * countdown so the server and any hydrated state cannot disagree at
- * midnight. Every response is no-store through the proxy's protected-route
- * policy, and the page emits no analytics event.
+ * The room gate uses `group_room_snapshot`. Each member wishlist and
+ * interaction row then comes from its reviewed, independently authorized
+ * projection; owner rows never load gifting state. There are no direct
+ * profile/member/item joins. A single server-captured clock drives the
+ * countdown. The protected-route policy makes every response no-store.
  */
 export default async function GroupRoomPage({
   params,
@@ -59,10 +62,11 @@ export default async function GroupRoomPage({
   const { groupId } = await params;
   if (!GROUP_ID_PATTERN.test(groupId)) notFound();
 
-  const { userId } = await requireCompleteProfile();
+  const { userId, email, profile } = await requireCompleteProfile();
 
   const room = await loadGroupRoomSnapshot(groupId, userId);
   if (!room) notFound();
+  const memberVibes = await loadGroupMemberVibes(groupId);
 
   // Brief 007d: the authorized activity page loads through its single
   // projection; the one server-emitted event fires exactly once per
@@ -112,6 +116,7 @@ export default async function GroupRoomPage({
       : null;
   const organizerTools = adminState ? (
     <OrganizerTools
+      presentation="room"
       groupId={adminState.groupId}
       groupName={room.name}
       organizerId={room.organizerId}
@@ -127,30 +132,93 @@ export default async function GroupRoomPage({
   ) : null;
 
   return (
-    <main className="min-h-screen w-full bg-surface-page text-content-primary">
+    <main className="min-h-screen w-full bg-surface-page pb-40 text-content-primary lg:pb-16 lg:pl-64">
+      <WishlistShellHeader
+        email={email}
+        displayName={profile.displayName ?? "You"}
+        tasteLine={profile.tasteLine}
+        vibe={profile.vibe}
+      />
       <GroupRoomScreen
+        memberVibes={memberVibes}
         room={room}
         callerId={userId}
         today={today}
         activity={activity}
         organizerTools={organizerTools}
+        modeStatus={
+          <section className="mt-6 flex flex-col gap-4 rounded-surface-2xl border-2 border-outline-strong bg-surface-raised p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-display text-xl font-extrabold">
+                {room.mode === "wishlist_only"
+                  ? "No assignments, no pressure."
+                  : room.mode === "gift_everyone"
+                    ? `${Math.max(0, room.joinedMemberCount - 1)} people on your list.`
+                    : assignment?.isValid
+                      ? "Names have been drawn."
+                      : assignment
+                        ? "The group has changed."
+                        : "The draw is still ahead."}
+              </h2>
+              <p className="mt-1 text-[15px] text-content-secondary">
+                {room.mode === "wishlist_only"
+                  ? "Scroll, react, and reserve anything. Recipients never see it."
+                  : room.mode === "gift_everyone"
+                    ? "Pick something for everyone. Your checklist is private."
+                    : assignment?.isValid
+                      ? "Only you know who you got. Keep that poker face."
+                      : assignment
+                        ? "Your organizer can run a fresh draw."
+                        : "Once names are drawn, your private gift plan will be here."}
+              </p>
+            </div>
+            {room.mode !== "wishlist_only" ? (
+              <Link
+                href={`/groups/${groupId}/gifting`}
+                className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-surface-lg border-2 border-outline-strong bg-accent-highlight px-5 font-bold shadow-chunk-sm"
+              >
+                {room.mode === "gift_everyone"
+                  ? "Open my checklist"
+                  : "Open my gift plan"}
+                <span aria-hidden="true"> →</span>
+              </Link>
+            ) : null}
+          </section>
+        }
+        memberWishlists={
+          <RoomMemberWishlists
+            memberVibes={memberVibes}
+            room={room}
+            callerId={userId}
+            assignmentRecipientId={
+              assignment?.isValid ? assignment.recipientId : null
+            }
+          />
+        }
+        drawControls={
+          room.mode === "secret_draw" ? (
+            <details
+              open={drawNotice !== null}
+              className="mt-8 rounded-surface-lg border-2 border-outline-subtle bg-surface-raised p-5"
+              data-ph-no-capture
+            >
+              <summary className="cursor-pointer font-bold">
+                Your draw details
+                {userId === room.organizerId ? " and draw controls" : ""}
+              </summary>
+              <AssignmentView assignment={assignment} />
+              {userId === room.organizerId ? (
+                <RedrawSection
+                  groupId={groupId}
+                  drawState={drawState}
+                  drawNotice={drawNotice}
+                  drawAction={runDrawAction}
+                />
+              ) : null}
+            </details>
+          ) : null
+        }
       />
-      {room.mode === "secret_draw" ? (
-        <div
-          className="mx-auto w-full max-w-2xl px-gutter pb-10 sm:pb-14"
-          data-ph-no-capture
-        >
-          <AssignmentView assignment={assignment} />
-          {userId === room.organizerId ? (
-            <RedrawSection
-              groupId={groupId}
-              drawState={drawState}
-              drawNotice={drawNotice}
-              drawAction={runDrawAction}
-            />
-          ) : null}
-        </div>
-      ) : null}
     </main>
   );
 }

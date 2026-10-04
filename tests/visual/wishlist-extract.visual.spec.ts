@@ -29,9 +29,9 @@ test.skip(
 const COMPLETE_RESULT = {
   sourceUrl: "https://shop.example/product/lamp",
   title: "Mushroom ceramic table lamp",
-  retailer: "Fixture Shop",
-  originalAmountMinor: "2499",
-  originalCurrency: "INR",
+  retailer: "Etsy",
+  originalAmountMinor: "6400",
+  originalCurrency: "USD",
   candidateImageUrls: [
     "https://img.example/lamp-1.webp",
     "https://img.example/lamp-2.webp",
@@ -50,6 +50,14 @@ test("the extraction-review states yield matched responsive candidates and clean
   const viewport = testInfo.project.name;
   const axeStates: Array<{ state: string; violationIds: string[] }> = [];
   const capture = async (state: string) => {
+    const addItem = page.getByRole("button", { name: "Add item", exact: true });
+    if (viewport === "mobile" && (await addItem.count()) > 0) {
+      const actionBar = await addItem.evaluate((button) => ({
+        bottom: button.parentElement!.getBoundingClientRect().bottom,
+        viewport: innerHeight,
+      }));
+      expect(actionBar.bottom).toBeCloseTo(actionBar.viewport, 0);
+    }
     const file = `arj31-${state}-${viewport}.png`;
     await page.screenshot({
       path: join(CANDIDATE_DIR, file),
@@ -94,6 +102,18 @@ test("the extraction-review states yield matched responsive candidates and clean
       "arj31-visual",
       { displayName: "Ada", tasteLine: "currently in my tiny-luxuries era" },
       scope,
+    );
+
+    // Test-only approved V18 lamp image: real product photography rather
+    // than failed remote thumbnails. No design fixtures enter production.
+    await page.route("https://img.example/lamp-*.webp", (route) =>
+      route.fulfill({
+        contentType: "image/jpeg",
+        path: join(
+          process.cwd(),
+          "tests/fixtures/design-reference/add-lamp.jpg",
+        ),
+      }),
     );
 
     // A mutable extract fixture with a hold phase for the loading capture.
@@ -161,6 +181,14 @@ test("the extraction-review states yield matched responsive candidates and clean
     await expect(
       page.getByRole("heading", { name: "Found it. Look right?" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("img", { name: "Selected product photo" }),
+    ).toBeVisible();
+    await page
+      .getByRole("img", { name: "Selected product photo" })
+      .evaluate(async (image: HTMLImageElement) => {
+        await image.decode();
+      });
     await capture("add-extracted-review");
 
     // Validation-error state with retained values.

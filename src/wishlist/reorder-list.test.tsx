@@ -90,7 +90,7 @@ describe("WishlistItemsPanel", () => {
     expect(done).toHaveAttribute("aria-pressed", "true");
     expect(
       screen.getByText(
-        "Drag or use the arrows. Top of the list is what friends see first.",
+        "Drag items into place. Top of the list is what friends see first.",
       ),
     ).toBeVisible();
     expect(screen.queryAllByRole("article")).toHaveLength(0);
@@ -100,28 +100,21 @@ describe("WishlistItemsPanel", () => {
     ).not.toBeNull();
   });
 
-  it("names every move and drag control and disables only boundaries", async () => {
+  it("uses one named handle per item without visible arrow controls", async () => {
     const user = userEvent.setup();
     setup();
     await user.click(screen.getByRole("button", { name: "Reorder" }));
-
     expect(
       screen.getByRole("button", {
         name: "Drag to reorder Ceramic matcha set",
       }),
     ).toBeEnabled();
     expect(
-      screen.getByRole("button", { name: "Move Ceramic matcha set up" }),
-    ).toBeDisabled();
+      screen.getByRole("button", { name: "Drag to reorder Tiny gold hoops" }),
+    ).toHaveAccessibleDescription(/Space or Enter to pick up/);
     expect(
-      screen.getByRole("button", { name: "Move Ceramic matcha set down" }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole("button", { name: "Move Tiny gold hoops up" }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole("button", { name: "Move Tiny gold hoops down" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: /^Move .* (up|down)$/ }),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: "Remove Tiny gold hoops" }),
     ).toBeEnabled();
@@ -133,9 +126,10 @@ describe("WishlistItemsPanel", () => {
     const move = vi.fn().mockReturnValue(pending.promise);
     setup(move);
     await user.click(screen.getByRole("button", { name: "Reorder" }));
-    await user.click(
-      screen.getByRole("button", { name: "Move Tiny gold hoops up" }),
-    );
+    screen
+      .getByRole("button", { name: "Drag to reorder Tiny gold hoops" })
+      .focus();
+    await user.keyboard(" {ArrowUp} ");
 
     expect(move).toHaveBeenCalledWith({
       expectedIds: [first.id, second.id],
@@ -144,7 +138,7 @@ describe("WishlistItemsPanel", () => {
     });
     expect(screen.getByRole("status")).toHaveTextContent("Saving order…");
     expect(
-      screen.getByRole("button", { name: "Move Tiny gold hoops down" }),
+      screen.getByRole("button", { name: "Drag to reorder Tiny gold hoops" }),
     ).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "Done" }));
@@ -158,6 +152,7 @@ describe("WishlistItemsPanel", () => {
     expect(screen.queryByRole("button", { name: "Done" })).toBeNull();
     expect(screen.getAllByRole("article")).toHaveLength(2);
     expect(screen.getByRole("status")).toHaveTextContent("Order saved.");
+    expect(screen.getByRole("button", { name: "Reorder" })).toHaveFocus();
   });
 
   it("commits the dragged item ID after the preview has reordered the array", async () => {
@@ -180,9 +175,9 @@ describe("WishlistItemsPanel", () => {
       value: vi.fn().mockReturnValue(targetRow),
     });
 
-    fireEvent.pointerDown(handle, { pointerId: 7 });
-    fireEvent.pointerMove(handle, { pointerId: 7, clientX: 1, clientY: 1 });
-    fireEvent.pointerUp(handle, { pointerId: 7 });
+    fireEvent.pointerDown(handle, { pointerId: 7, button: 0, isPrimary: true });
+    fireEvent.pointerMove(handle, { pointerId: 7, clientX: 100, clientY: 100 });
+    fireEvent.pointerUp(document, { pointerId: 7 });
 
     await waitFor(() =>
       expect(move).toHaveBeenCalledWith({
@@ -191,6 +186,94 @@ describe("WishlistItemsPanel", () => {
         targetIndex: 1,
       }),
     );
+  });
+
+  it("previews keyboard movement without writing until drop, and Escape cancels", async () => {
+    const user = userEvent.setup();
+    const { move } = setup();
+    await user.click(screen.getByRole("button", { name: "Reorder" }));
+    const handle = screen.getByRole("button", {
+      name: "Drag to reorder Ceramic matcha set",
+    });
+    handle.focus();
+    await user.keyboard("{Enter}{ArrowUp}");
+    expect(handle).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("status")).toHaveClass("sr-only");
+    expect(
+      within(screen.getAllByRole("listitem")[0]).getByText(first.title),
+    ).toBeVisible();
+    await user.keyboard("{ArrowDown}");
+    expect(
+      within(screen.getAllByRole("listitem")[1]).getByText(first.title),
+    ).toBeVisible();
+    expect(handle).toHaveFocus();
+    expect(move).not.toHaveBeenCalled();
+    await user.tab();
+    expect(handle).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(handle).toHaveAttribute("aria-pressed", "false");
+    expect(handle).toHaveFocus();
+    expect(
+      within(screen.getAllByRole("listitem")[0]).getByText(first.title),
+    ).toBeVisible();
+    expect(move).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toHaveTextContent("Move cancelled");
+  });
+
+  it("drops keyboard previews with Enter and submits the confirmed sequence", async () => {
+    const user = userEvent.setup();
+    const move = vi
+      .fn()
+      .mockResolvedValue({ status: "saved", items: [second, first] });
+    setup(move);
+    await user.click(screen.getByRole("button", { name: "Reorder" }));
+    screen
+      .getByRole("button", { name: "Drag to reorder Ceramic matcha set" })
+      .focus();
+    await user.keyboard("{Enter}{End}{Enter}");
+    expect(move).toHaveBeenCalledExactlyOnceWith({
+      expectedIds: [first.id, second.id],
+      movedItemId: first.id,
+      targetIndex: 1,
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("Order saved");
+    expect(
+      screen.getByRole("button", {
+        name: "Drag to reorder Ceramic matcha set",
+      }),
+    ).toHaveFocus();
+  });
+
+  it("cancels a pointer preview without persisting", async () => {
+    const user = userEvent.setup();
+    const { move } = setup();
+    await user.click(screen.getByRole("button", { name: "Reorder" }));
+    const handle = screen.getByRole("button", {
+      name: "Drag to reorder Ceramic matcha set",
+    });
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi
+        .fn()
+        .mockReturnValue(
+          screen.getByText(second.title).closest("[data-reorder-id]"),
+        ),
+    });
+    fireEvent.pointerDown(handle, {
+      pointerId: 8,
+      pointerType: "touch",
+      isPrimary: true,
+      button: 0,
+    });
+    fireEvent.pointerMove(handle, { pointerId: 8, clientX: 100, clientY: 100 });
+    expect(
+      within(screen.getAllByRole("listitem")[1]).getByText(first.title),
+    ).toBeVisible();
+    fireEvent.pointerCancel(document, { pointerId: 8 });
+    expect(
+      within(screen.getAllByRole("listitem")[0]).getByText(first.title),
+    ).toBeVisible();
+    expect(move).not.toHaveBeenCalled();
   });
 
   it("restores the confirmed order and keeps Done open until recovery succeeds", async () => {
@@ -202,13 +285,15 @@ describe("WishlistItemsPanel", () => {
     });
     setup(move, refresh);
     await user.click(screen.getByRole("button", { name: "Reorder" }));
-    await user.click(
-      screen.getByRole("button", { name: "Move Tiny gold hoops up" }),
-    );
+    screen
+      .getByRole("button", { name: "Drag to reorder Tiny gold hoops" })
+      .focus();
+    await user.keyboard(" {ArrowUp} ");
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "We couldn’t confirm the saved order.",
     );
+    expect(screen.getByRole("button", { name: "Retry refresh" })).toHaveFocus();
     const rows = screen.getAllByRole("listitem");
     expect(within(rows[0]).getByText(first.title)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Done" }));
@@ -225,9 +310,10 @@ describe("WishlistItemsPanel", () => {
     const move = vi.fn().mockRejectedValue(new Error("connection lost"));
     setup(move);
     await user.click(screen.getByRole("button", { name: "Reorder" }));
-    await user.click(
-      screen.getByRole("button", { name: "Move Tiny gold hoops up" }),
-    );
+    screen
+      .getByRole("button", { name: "Drag to reorder Tiny gold hoops" })
+      .focus();
+    await user.keyboard(" {ArrowUp} ");
 
     expect(move).toHaveBeenCalledTimes(1);
     expect(await screen.findByRole("alert")).toHaveTextContent(

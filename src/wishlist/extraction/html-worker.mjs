@@ -1,4 +1,10 @@
 import { parentPort, workerData } from "node:worker_threads";
+import { amazonProductMetadata } from "./amazon-markup.mjs";
+import {
+  decodeHtmlEntities,
+  isChallengePage,
+  selectIdentifiedRecord,
+} from "./metadata-selection.mjs";
 
 const MAX_NODES = 50_000;
 const MAX_HTML_DEPTH = 64;
@@ -23,7 +29,7 @@ function attrs(source) {
     const name = (match[1] || "").toLowerCase();
     const value = match[2] ?? match[3] ?? match[4] ?? "";
     if (byteLength(value) > MAX_VALUE) fail();
-    if (!(name in result)) result[name] = value;
+    if (!(name in result)) result[name] = decodeHtmlEntities(value);
   }
   return result;
 }
@@ -137,8 +143,22 @@ function parse() {
     }
   }
   const titleMatch = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i.exec(html);
-  const fallbackTitle = titleMatch?.[1] ?? null;
+  if (titleMatch && byteLength(titleMatch[1]) > MAX_VALUE) fail();
+  const fallbackTitle = titleMatch ? decodeHtmlEntities(titleMatch[1]) : null;
   if (fallbackTitle && byteLength(fallbackTitle) > MAX_VALUE) fail();
+  if (isChallengePage(html, fallbackTitle)) fail();
+  let canonicalUrl;
+  for (const match of html.matchAll(/<link\b([^>]*)>/gi)) {
+    const attributes = attrs(match[1] || "");
+    if (
+      (attributes.rel || "").toLowerCase().split(/\s+/).includes("canonical")
+    ) {
+      // Conflicting declarations are ambiguous rather than first-wins.
+      if (canonicalUrl !== undefined && canonicalUrl !== attributes.href)
+        fail();
+      canonicalUrl = attributes.href;
+    }
+  }
 
   const jsonBlocks = [];
   let aggregate = 0;
@@ -165,23 +185,63 @@ function parse() {
       if (error?.message === "bounded-parse-failure") throw error;
     }
   }
-  const product = products[0] || null;
-  const offer = product
+  const product = selectIdentifiedRecord(
+    products,
+    workerData.finalUrl,
+    canonicalUrl,
+  );
+  if (products.length && !product) fail();
+  const offers = product?.offers
     ? Array.isArray(product.offers)
-      ? product.offers[0]
-      : product.offers
-    : null;
+      ? product.offers
+      : [product.offers]
+    : [];
+  const offer = selectIdentifiedRecord(
+    offers,
+    workerData.finalUrl,
+    canonicalUrl,
+  );
+  const ambiguousOffers = offers.length > 0 && !offer;
+  // Global Open Graph fields cannot establish which of several products they
+  // describe. Once identity matters, keep fields bound to the selected record.
+  const usePageMetadata = products.length <= 1;
   const images = [];
   const totals = { count: 0, text: 0 };
-  if (metadata["og:image"]) addImage(images, metadata["og:image"], totals);
+  if (usePageMetadata && metadata["og:image"])
+    addImage(images, metadata["og:image"], totals);
   if (product?.image) addImage(images, product.image, totals);
+  const amazon = workerData.amazonProduct
+    ? amazonProductMetadata(html, attrs, MAX_VALUE)
+    : {};
+  if (amazon.image && images.length === 0)
+    addImage(images, amazon.image, totals);
+  // Amount and currency must come from the same complete source.
+  const money = ambiguousOffers
+    ? {}
+    : usePageMetadata &&
+        offers.length <= 1 &&
+        metadata["product:price:amount"] != null &&
+        metadata["product:price:currency"] != null
+      ? {
+          price: metadata["product:price:amount"],
+          currency: metadata["product:price:currency"],
+        }
+      : offer?.price != null && offer?.priceCurrency != null
+        ? { price: offer.price, currency: offer.priceCurrency }
+        : usePageMetadata
+          ? amazon
+          : {};
 
   parentPort.postMessage({
-    title: metadata["og:title"] ?? product?.name ?? fallbackTitle,
+    title:
+      (usePageMetadata ? metadata["og:title"] : null) ??
+      product?.name ??
+      (amazon.title ? decodeHtmlEntities(amazon.title) : null) ??
+      fallbackTitle,
     retailer:
-      metadata["og:site_name"] ?? product?.brand?.name ?? product?.brand,
-    price: metadata["product:price:amount"] ?? offer?.price,
-    currency: metadata["product:price:currency"] ?? offer?.priceCurrency,
+      metadata["og:site_name"] ?? amazon.retailer ?? offer?.seller?.name,
+    price: money.price,
+    currency: money.currency,
     images,
   });
 }

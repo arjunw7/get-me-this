@@ -1,3 +1,4 @@
+import { selectCurrency } from "../helpers/select-currency";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -118,7 +119,7 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
     await page.getByLabel("Item name").fill("ARJ-28 candidate lamp");
     await page.getByLabel("Shop (optional)").fill("Candidate Shop");
     await page.getByLabel("Price").fill("24.99");
-    await page.getByLabel("Currency").selectOption("INR");
+    await selectCurrency(page, "INR");
     await page
       .getByLabel("Link (optional)")
       .fill("https://arj28-candidate.invalid/lamp");
@@ -181,7 +182,7 @@ test("manual wishlist create/edit/delete states yield matched responsive candida
       .click();
     await page.getByLabel("Item name").fill("ARJ-28 candidate lamp");
     await page.getByLabel("Price").fill("24.99");
-    await page.getByLabel("Currency").selectOption("INR");
+    await selectCurrency(page, "INR");
     await page
       .getByLabel("Link (optional)")
       .fill("https://arj28-candidate.invalid/lamp");

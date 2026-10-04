@@ -82,7 +82,7 @@ test("a signed-in user's landing visit offers Dashboard instead of Log in (ARJ-5
     await dashboard.click();
     await page.waitForURL("**/home");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Welcome, Landing Ina." }),
+      page.getByRole("heading", { level: 1, name: "Welcome in, Landing." }),
     ).toBeVisible();
   });
 });
@@ -109,15 +109,11 @@ test("a signed-in user with groups sees them and can navigate onward", async ({
 
     await page.goto("/home");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Welcome, Home Ona." }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { level: 2, name: "My groups" }),
+      page.getByRole("heading", { level: 1, name: "Hey Home." }),
     ).toBeVisible();
     await expect(page.getByTestId("my-group-card")).toHaveCount(1);
-    await expect(page.getByText(GROUP_NAME)).toBeVisible();
-    await expect(page.getByText("You organize")).toBeVisible();
-    await expect(page.getByText("1 member")).toBeVisible();
+    await expect(page.getByRole("heading", { name: GROUP_NAME })).toBeVisible();
+    await expect(page.getByText("1 in", { exact: true })).toBeVisible();
 
     // The group card navigates to the real group room.
     await page.getByTestId("my-group-card").click();
@@ -152,23 +148,43 @@ test("a signed-in user with no groups sees the branded empty state", async ({
 
     await page.goto("/home");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Welcome, Empty Eno." }),
+      page.getByRole("heading", { level: 1, name: "Welcome in, Empty." }),
     ).toBeVisible();
-    await expect(page.getByText("No groups yet.")).toBeVisible();
+    await expect(page.getByText("Step 2 · Your people")).toBeVisible();
     await expect(page.getByTestId("my-group-card")).toHaveCount(0);
 
     // The empty state's Create a group entry goes to the real creation flow.
     await page.getByRole("link", { name: "Create a group" }).last().click();
-    await page.waitForURL("**/groups/new");
+    await page.waitForURL("**/groups");
 
-    // The wishlist block is present even with no groups.
+    // First-use Home offers the wishlist step even with no groups or items.
     await page.goto("/home");
     await expect(
-      page.getByRole("heading", { level: 2, name: "My wishlist" }),
+      page.getByRole("heading", {
+        level: 2,
+        name: "Add something you’d love to get",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Paste a product link from any shop" }),
     ).toBeVisible();
 
     // Nothing about the empty home leaks another user's group content.
     expect(await page.getByTestId("my-group-card").count()).toBe(0);
     expect(userId).toBeTruthy();
+
+    // The step's wishlist entry reaches this user's real empty wishlist.
+    await page
+      .getByRole("navigation", { name: "Main" })
+      .filter({ visible: true })
+      .getByRole("link", { name: "My wishlist", exact: true })
+      .click();
+    await page.waitForURL("**/wishlist");
+    const profile = page.getByRole("region", {
+      name: "Empty Eno",
+      exact: true,
+    });
+    await expect(profile).toBeVisible();
+    await expect(profile.getByText("0 things", { exact: true })).toBeVisible();
   });
 });

@@ -94,7 +94,7 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
     await page.goto("/groups/new");
     await page.getByLabel("Group name").fill(GROUP_NAME);
     await page
-      .getByLabel("Date")
+      .getByLabel("Date", { exact: true })
       .fill(new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10));
     await page.getByRole("button", { name: "Create group" }).click();
     await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
@@ -182,7 +182,9 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
       page.getByRole("heading", { level: 1, name: GROUP_NAME }),
     ).toBeVisible();
     await expect(page.getByText("Draw names privately")).toBeVisible();
-    await expect(page.getByText("2500.00 INR per person")).toBeVisible();
+    await expect(
+      page.getByRole("definition").filter({ hasText: "₹2,500" }),
+    ).toHaveText(/₹2,500\s*per person/);
     await expect(
       page.getByRole("heading", { level: 2, name: "Who's in" }),
     ).toBeVisible();
@@ -193,8 +195,10 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
     await expect(page.getByTestId("pending-row")).toHaveCount(1);
     await expect(page.getByTestId("joined-row")).toHaveCount(4);
     await expect(page.getByText("You · Organizer")).toBeVisible();
-    await expect(page.getByText(MEMBER_NAMES[1])).toBeVisible();
-    await expect(page.getByText("Joined Nia")).toBeVisible();
+    await expect(
+      page.getByText(MEMBER_NAMES[1], { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Joined Nia", { exact: true })).toBeVisible();
     await expect(page.getByText("Member", { exact: true })).toBeVisible();
     await expect(page.getByText("Invited", { exact: true })).toBeVisible();
     await expect(page.getByText("Generic Only Gale")).toHaveCount(0);
@@ -207,7 +211,10 @@ test("the private group room: honest header, safe roster, denial matrix, and ent
     ).not.toBeNull();
 
     // The in-room Home action is a real link to the existing /home.
-    await page.getByRole("link", { name: "Home" }).click();
+    await page
+      .getByTestId("group-room")
+      .getByRole("link", { name: "Home", exact: true })
+      .click();
     await page.waitForURL("**/home");
 
     // --- a joined non-organizer sees the same safe roster ------------------

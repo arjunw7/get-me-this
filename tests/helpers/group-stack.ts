@@ -82,7 +82,7 @@ export function deleteFixtureGroupsSql(
     values.length > 0 ? `${column} in (${list(values)})` : null;
   const where = (...clauses: Array<string | null>): string => {
     const parts = clauses.filter((clause) => clause !== null);
-    return parts.length > 0 ? ` where ${parts.join(" or ")}` : "";
+    return parts.length > 0 ? ` where ${parts.join(" or ")}` : " where false";
   };
   // Never an unfiltered subselect: with no group ids the invitation clause
   // must match nothing, not every invitation row.
@@ -114,6 +114,11 @@ export function deleteFixtureGroupsSql(
     `delete from public.group_creation_receipts${where(matches("group_id", groupIds), matches("actor_id", userIds))};`,
     // The 008c/008d assignment history and viewed markers restrict into
     // group_members, so they go before the membership rows.
+    // Reactions and durable reservation history restrict group/user deletion.
+    // These are synthetic fixture rows only, scoped to the supplied identifiers.
+    `delete from public.group_item_reactions${where(matches("group_id", groupIds), matches("user_id", userIds))};`,
+    `delete from public.group_item_reservations${where(matches("group_id", groupIds), matches("reserver_id", userIds))};`,
+    `delete from public.gift_checklist_entries${where(matches("group_id", groupIds), matches("giver_id", userIds), matches("recipient_id", userIds))};`,
     `delete from public.group_assignment_views${where(matches("group_id", groupIds), matches("giver_id", userIds))};`,
     `delete from public.group_assignments${where(matches("group_id", groupIds), matches("giver_id", userIds), matches("recipient_id", userIds))};`,
     `delete from public.group_members${where(matches("group_id", groupIds), matches("user_id", userIds))};`,
@@ -256,6 +261,7 @@ export function deleteInvitationContinuationRowsSql(
   groupIds: string[],
   userIds: string[],
 ): void {
+  if (groupIds.length === 0 && userIds.length === 0) return;
   const list = (values: string[]) =>
     values.map((v) => `'${v}'::uuid`).join(",");
   const matches = (column: string, values: string[]) =>
@@ -273,7 +279,9 @@ export function deleteInvitationContinuationRowsSql(
       index === 0 ? ` where ${clause}` : ` or ${clause}`,
     )
     .join("");
-  const pendingWhere = invitationMatch ? ` where ${invitationMatch}` : "";
+  const pendingWhere = invitationMatch
+    ? ` where ${invitationMatch}`
+    : " where false";
   const sql = [
     `delete from private.invitation_continuations${continuationWhere};`,
     `delete from private.invitation_pending_starts${pendingWhere};`,

@@ -64,11 +64,13 @@ export default async function EditWishlistItemPage({
     }
   }
   return (
-    <div className="min-h-screen bg-surface-page text-content-primary">
+    <div className="min-h-screen bg-surface-page pb-40 text-content-primary lg:pb-16 lg:pl-64">
       <AnalyticsIdentity userId={userId} />
       <WishlistShellHeader
         email={email}
         displayName={profile.displayName as string}
+        tasteLine={profile.tasteLine}
+        vibe={profile.vibe}
       />
       <main className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
         {item === undefined ? (

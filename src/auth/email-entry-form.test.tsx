@@ -172,3 +172,18 @@ describe("EmailEntryForm copy honesty", () => {
     }
   });
 });
+
+it("carries a public wishlist token only in the protected form, with no pending reaction", () => {
+  const shareToken = "A".repeat(43);
+  render(
+    <EmailEntryForm
+      intent="public-wishlist"
+      intentNote={INTENT_NOTES["public-wishlist"]}
+      shareToken={shareToken}
+    />,
+  );
+  const form = screen.getByRole("textbox", { name: "Email" }).closest("form")!;
+  expect(new FormData(form).get("share")).toBe(shareToken);
+  expect(new FormData(form).get("reaction")).toBeNull();
+  expect(form).toHaveAttribute("data-ph-no-capture", "true");
+});

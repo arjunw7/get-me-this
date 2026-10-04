@@ -43,6 +43,48 @@ function fixtureRoom(
 }
 
 describe("GroupRoomScreen", () => {
+  it("offers the joined organizer an invitation dialog", () => {
+    render(
+      <GroupRoomScreen
+        room={fixtureRoom([member(ORGANIZER, "Riya", "joined", true)])}
+        callerId={ORGANIZER}
+        today="2026-11-07"
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Invite people" }),
+    ).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.queryByText("Copy invite link")).not.toBeInTheDocument();
+  });
+
+  it("does not offer invitation management to ordinary joined members", () => {
+    render(
+      <GroupRoomScreen
+        room={fixtureRoom([
+          member(ORGANIZER, "Riya", "joined", true),
+          member(CALLER, "Arjun", "joined", false),
+        ])}
+        callerId={CALLER}
+        today="2026-11-07"
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Invite people" }),
+    ).not.toBeInTheDocument();
+  });
+  it("renders the browse fragment target before asynchronous wishlist rows arrive", () => {
+    const { container } = render(
+      <GroupRoomScreen
+        room={fixtureRoom([member(CALLER, "Riya", "joined", true)])}
+        callerId={CALLER}
+        today="2026-11-07"
+        memberWishlists={<span>Wishlist loading placeholder</span>}
+      />,
+    );
+    expect(container.querySelector("#wishlists")).toContainElement(
+      screen.getByText("Wishlist loading placeholder"),
+    );
+  });
   it("renders the honest header hierarchy from authoritative values", () => {
     render(
       <GroupRoomScreen
@@ -58,7 +100,7 @@ describe("GroupRoomScreen", () => {
     expect(screen.getByText("Draw names privately")).toBeInTheDocument();
     expect(screen.getByText("Diwali · Sat, 7 Nov, 2026")).toBeInTheDocument();
     expect(screen.getByText("Today")).toBeInTheDocument();
-    expect(screen.getByText("2500.00 INR per person")).toBeInTheDocument();
+    expect(screen.getByText("₹2,500")).toHaveTextContent("₹2,500 per person");
     expect(screen.getByText("Dehradun")).toBeInTheDocument();
     expect(
       screen.getByText("Lights, snacks, and one very chaotic gift exchange."),
@@ -239,4 +281,24 @@ describe("GroupRoomScreen", () => {
       within(screen.getByTestId("pending-row")).queryByRole("link"),
     ).not.toBeInTheDocument();
   });
+});
+
+it("uses persisted joined-member Vibes and keeps invited avatars neutral", () => {
+  render(
+    <GroupRoomScreen
+      room={fixtureRoom([
+        member(CALLER, "Joined Caller", "joined", true),
+        member(PENDING, "Pending Invite", "invited", false),
+      ])}
+      callerId={CALLER}
+      today="2026-11-07"
+      memberVibes={{ [CALLER]: "electric", [PENDING]: "tomato" }}
+    />,
+  );
+  expect(screen.getByText("JC")).toHaveClass(
+    "bg-accent-info",
+    "text-surface-raised",
+  );
+  expect(screen.getByText("PI")).toHaveClass("bg-surface-page");
+  expect(screen.getByText("PI")).not.toHaveClass("bg-action-primary");
 });

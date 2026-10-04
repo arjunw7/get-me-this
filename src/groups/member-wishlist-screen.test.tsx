@@ -48,7 +48,7 @@ describe("MemberWishlistScreen", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Wishlists are shared only with joined group members."),
+      screen.getByText("You’re viewing this wishlist through your group."),
     ).toBeInTheDocument();
     const back = screen.getByRole("link", { name: /Back to Diwali Room/ });
     expect(back).toHaveAttribute("href", `/groups/${GROUP_ID}`);
@@ -180,4 +180,25 @@ describe("MemberWishlistScreen", () => {
       "data-ph-no-capture",
     );
   });
+});
+
+it("renders the member's persisted Vibe on the header and avatar", () => {
+  render(
+    <MemberWishlistScreen
+      groupId={GROUP_ID}
+      groupName="Friends"
+      memberUserId={MEMBER_ID}
+      memberDisplayName="Kabir Kaul"
+      vibe="electric"
+      items={[]}
+    />,
+  );
+  const header = screen
+    .getByRole("heading", { name: "Kabir Kaul's wishlist" })
+    .closest("header")!;
+  expect(header).toHaveClass("bg-accent-info", "text-surface-raised");
+  expect(within(header).getByText("KK")).toHaveClass(
+    "bg-accent-info",
+    "text-surface-raised",
+  );
 });

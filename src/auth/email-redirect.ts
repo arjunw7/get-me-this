@@ -19,6 +19,9 @@ const EMAIL_REDIRECT_TARGETS: Readonly<Record<string, string>> = {
   // The production-build end-to-end server (playwright.config.ts, port 3100).
   "http://localhost:3100": "http://localhost:3100/auth/confirm",
   "http://127.0.0.1:3100": "http://127.0.0.1:3100/auth/confirm",
+  // Isolated local verification while the review server stays on 3100.
+  "http://localhost:3200": "http://localhost:3200/auth/confirm",
+  "http://127.0.0.1:3200": "http://127.0.0.1:3200/auth/confirm",
   // Staging service; this origin backs the provider's `uri_allow_list`.
   "https://get-me-this-staging.up.railway.app":
     "https://get-me-this-staging.up.railway.app/auth/confirm",

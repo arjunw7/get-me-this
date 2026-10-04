@@ -100,6 +100,114 @@ describe("guarded outbound transport", () => {
     dependencies = { resolve, dial };
   });
 
+  it.each([false, true])(
+    "can stop an opted-in HTML prefix at 1 MiB (chunked: %s)",
+    async (chunked) => {
+      const prefix = "x".repeat(1_048_576);
+      const connection = new StallingConnection(
+        "8.8.8.8",
+        response(
+          200,
+          {
+            "Content-Type": "text/html",
+            ...(chunked
+              ? { "Transfer-Encoding": "chunked" }
+              : { "Content-Length": "3000000" }),
+          },
+          chunked ? `2dc6c0\r\n${prefix}` : prefix,
+        ),
+      );
+      dial.mockResolvedValue(connection);
+      const result = await guardedRequest(
+        "https://www.amazon.in/dp/B0D7SM71WK",
+        "html",
+        dependencies,
+        { allowHtmlPrefix: () => true },
+      );
+      expect(result.body.length).toBe(1_048_576);
+      expect(result.truncated).toBe(true);
+      expect(connection.destroyed).toBe(true);
+    },
+  );
+
+  it("does not permit prefix mode for images", async () => {
+    dial.mockResolvedValue(
+      new FakeConnection("8.8.8.8", [
+        response(200, {
+          "Content-Type": "image/jpeg",
+          "Content-Length": "6000000",
+        }),
+      ]),
+    );
+    await expect(
+      guardedRequest("https://images.example/a.jpg", "image", dependencies, {
+        allowHtmlPrefix: () => true,
+      }),
+    ).rejects.toSatisfy((error: unknown) => code(error) === "too_large");
+  });
+
+  it("rechecks prefix eligibility after a redirect", async () => {
+    dial.mockResolvedValueOnce(
+      new FakeConnection("8.8.8.8", [
+        response(302, {
+          Location: "https://shop.example/product",
+          "Content-Length": "0",
+        }),
+      ]),
+    );
+    dial.mockResolvedValueOnce(
+      new FakeConnection("8.8.8.8", [
+        response(200, {
+          "Content-Type": "text/html",
+          "Content-Length": "2000000",
+        }),
+      ]),
+    );
+    await expect(
+      guardedRequest(
+        "https://www.amazon.in/dp/B0D7SM71WK",
+        "html",
+        dependencies,
+        {
+          allowHtmlPrefix: (destination) =>
+            destination.hostname === "www.amazon.in",
+        },
+      ),
+    ).rejects.toSatisfy((error: unknown) => code(error) === "too_large");
+    expect(dial).toHaveBeenCalledTimes(2);
+  });
+
+  it("retains private-address and compressed-response denials in prefix mode", async () => {
+    resolve.mockResolvedValueOnce([{ address: "127.0.0.1", family: 4 }]);
+    await expect(
+      guardedRequest(
+        "https://www.amazon.in/dp/B0D7SM71WK",
+        "html",
+        dependencies,
+        { allowHtmlPrefix: () => true },
+      ),
+    ).rejects.toSatisfy((error: unknown) => code(error) === "blocked_url");
+    expect(dial).not.toHaveBeenCalled();
+    dial.mockResolvedValue(
+      new FakeConnection("8.8.8.8", [
+        response(200, {
+          "Content-Type": "text/html",
+          "Content-Encoding": "gzip",
+        }),
+      ]),
+    );
+    await expect(
+      guardedRequest(
+        "https://www.amazon.in/dp/B0D7SM71WK",
+        "html",
+        dependencies,
+        { allowHtmlPrefix: () => true },
+      ),
+    ).rejects.toSatisfy(
+      (error: unknown) => code(error) === "unsupported_content",
+    );
+  });
+
   it("resolves every answer, sorts deterministically, and pins the selected peer", async () => {
     resolve.mockResolvedValue([
       { address: "2606:4700:4700::1111", family: 6 },

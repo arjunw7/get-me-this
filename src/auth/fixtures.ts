@@ -15,11 +15,17 @@
  *   nouns.
  */
 
-export type AuthIntent = "home" | "wishlist" | "create-group";
+export type AuthIntent =
+  "home" | "wishlist" | "create-group" | "public-wishlist";
 export type VerifyVariant = "default" | "error" | "expired";
 export type OnboardingVariant = "default" | "validation";
 
-const INTENTS: readonly AuthIntent[] = ["home", "wishlist", "create-group"];
+const INTENTS: readonly AuthIntent[] = [
+  "home",
+  "wishlist",
+  "create-group",
+  "public-wishlist",
+];
 const VERIFY_VARIANTS: readonly VerifyVariant[] = [
   "default",
   "error",
@@ -57,6 +63,7 @@ export const INTENT_NOTES: Readonly<Record<AuthIntent, string | null>> = {
   home: null,
   wishlist: "First, a quick sign-in. Then you’ll add your first item.",
   "create-group": "First, a quick sign-in. Then you’ll set up your group.",
+  "public-wishlist": "Sign in to react. Then you’ll return to this wishlist.",
 };
 
 /** Demo code shown in the inbox preview and prefilled into error states. */

@@ -1,3 +1,9 @@
+import { loadGroupMemberVibes } from "@/src/groups/member-vibes-data";
+import { WishlistShellHeader } from "@/src/wishlist/wishlist-shell-header";
+import { getGroupItemReactionSnapshot } from "@/src/groups/reactions/reaction-write";
+import { MemberItemReactions } from "@/src/groups/member-item-reactions";
+import { loadGiftingItemStates } from "@/src/groups/gifting-items-data";
+import { GiftingReserveControl } from "@/src/groups/gifting-reserve-control";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
@@ -69,10 +75,10 @@ async function loadJoinedGroupFacts(
  * proxy's protected-route policy; the server-side gate repeats the session
  * and completed-profile checks here.
  *
- * All wishlist data comes from the one member-wishlist projection
- * (`public.member_wishlist_snapshot`); no direct profile, item, or
- * wishlist query exists, and the page assembles nothing through separate
- * browser calls. When the authorized target is the viewer themselves, the
+ * Wishlist data comes from `member_wishlist_snapshot`; friend reaction and
+ * reservation projections load only after authorization and the owner
+ * redirect. No direct profile, item, or wishlist query exists, and the page
+ * assembles nothing through separate browser calls. When the target is the viewer themselves, the
  * route performs exactly one server-side redirect to the owner wishlist —
  * no member-wishlist region ever renders for the owner. The single
  * `member_wishlist_viewed` event is emitted exactly once per authorized
@@ -88,7 +94,7 @@ export default async function MemberWishlistPage({
   const { groupId, memberId } = await params;
   if (!UUID_PATTERN.test(groupId) || !UUID_PATTERN.test(memberId)) notFound();
 
-  const { userId } = await requireCompleteProfile();
+  const { userId, email, profile } = await requireCompleteProfile();
 
   const [snapshot, groupFacts] = await Promise.all([
     loadMemberWishlistSnapshot(groupId, memberId),
@@ -117,15 +123,52 @@ export default async function MemberWishlistPage({
     redirect("/wishlist");
   }
 
+  const [reactions, reservations, memberVibes] = await Promise.all([
+    getGroupItemReactionSnapshot(groupId, memberId),
+    loadGiftingItemStates(groupId, memberId, userId),
+    loadGroupMemberVibes(groupId),
+  ]);
+
   return (
-    <main className="min-h-screen w-full bg-surface-page text-content-primary">
+    <main className="min-h-screen w-full bg-surface-page pb-40 text-content-primary lg:pb-16 lg:pl-64">
       <AnalyticsIdentity userId={userId} />
+      <WishlistShellHeader
+        email={email}
+        displayName={profile.displayName ?? "You"}
+        tasteLine={profile.tasteLine}
+        vibe={profile.vibe}
+      />
       <MemberWishlistScreen
         groupId={groupId}
         groupName={groupFacts?.name ?? ""}
         memberUserId={memberId}
+        vibe={memberVibes[memberId]}
         memberDisplayName={decision.memberDisplayName}
         items={decision.items}
+        itemControls={Object.fromEntries(
+          decision.items.map((item) => {
+            const summary = reactions.find((row) => row.itemId === item.itemId);
+            const reservation = reservations[item.itemId];
+            return [
+              item.itemId,
+              <div key={item.itemId}>
+                {reservation ? (
+                  <GiftingReserveControl
+                    groupId={groupId}
+                    itemId={item.itemId}
+                    viewerState={reservation}
+                  />
+                ) : null}
+                {summary ? (
+                  <MemberItemReactions
+                    groupId={groupId}
+                    initialSummary={summary}
+                  />
+                ) : null}
+              </div>,
+            ];
+          }),
+        )}
       />
     </main>
   );

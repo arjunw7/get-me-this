@@ -19,8 +19,10 @@ import type { ReactionKind, ReactionSummaryRow } from "./types";
 export function ReactionRow({
   summary,
   onReact,
+  compact = false,
 }: {
   summary: ReactionSummaryRow;
+  compact?: boolean;
   onReact: (reaction: ReactionKind | null) => Promise<void>;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -37,7 +39,9 @@ export function ReactionRow({
 
   return (
     <div
-      className="mt-3 flex flex-wrap items-center gap-2"
+      className={
+        compact ? "mt-2 space-y-2" : "mt-3 flex flex-wrap items-center gap-2"
+      }
       role="group"
       aria-labelledby={labelId}
       aria-busy={isPending}
@@ -54,11 +58,18 @@ export function ReactionRow({
           className="text-sm font-semibold text-content-secondary"
           role="status"
         >
-          {summary.counts.veryYou} Very you · {summary.counts.questionable}{" "}
-          Questionable · {summary.counts.wantItToo} Want it too
+          {compact
+            ? `${total} ${total === 1 ? "reaction" : "reactions"}`
+            : `${summary.counts.veryYou} Very you · ${summary.counts.questionable} Questionable · ${summary.counts.wantItToo} Want it too`}
         </span>
       )}
-      <div className="flex flex-wrap gap-2">
+      <div
+        className={
+          compact
+            ? "grid grid-cols-3 gap-1 border-t-2 border-outline-subtle pt-2"
+            : "flex flex-wrap gap-2"
+        }
+      >
         {REACTION_KINDS.map((kind) => {
           const active = summary.viewerReaction === kind;
           return (
@@ -68,12 +79,23 @@ export function ReactionRow({
               aria-pressed={active}
               disabled={isPending}
               onClick={() => pick(kind)}
-              className={`min-h-11 rounded-pill border-2 px-4 text-sm font-bold transition-transform duration-100 motion-reduce:transition-none disabled:opacity-60 ${
+              className={`${compact ? "flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1 rounded-surface border-2 px-1 text-[11px]" : "min-h-11 rounded-pill border-2 px-4 text-sm"} font-bold transition-transform duration-100 motion-reduce:transition-none disabled:opacity-60 ${
                 active
-                  ? "border-outline-strong bg-action-primary text-content-primary"
-                  : "border-outline-strong bg-surface-raised text-content-primary hover:bg-accent-fresh-soft"
+                  ? "border-outline-strong bg-accent-highlight text-content-primary"
+                  : compact
+                    ? "border-transparent text-content-primary hover:bg-surface-sunken"
+                    : "border-outline-strong bg-surface-raised text-content-primary hover:bg-accent-fresh-soft"
               }`}
             >
+              {compact ? (
+                <span aria-hidden="true" className="text-2xl leading-none">
+                  {kind === "very_you"
+                    ? "✧"
+                    : kind === "questionable"
+                      ? "?"
+                      : "♡"}
+                </span>
+              ) : null}
               {REACTION_LABELS[kind]}
               {kind === "questionable" ? (
                 <span className="sr-only">, but supported</span>

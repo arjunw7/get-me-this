@@ -1,5 +1,7 @@
 "use server";
 
+import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
+
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -62,9 +64,15 @@ export async function requestCodeAction(
   const email = rawEmail.trim();
   // The approved intent enum, parsed exactly as before; unknown values
   // resolve to home both on the page and here.
-  const intent = parseIntent(
+  const parsedIntent = parseIntent(
     typeof rawIntent === "string" ? rawIntent : undefined,
   );
+  const shareToken =
+    parsedIntent === "public-wishlist"
+      ? parsePublicShareToken(formData.get("share"))
+      : null;
+  const intent =
+    parsedIntent === "public-wishlist" && !shareToken ? "home" : parsedIntent;
 
   const supabase = await createSupabaseServerClient();
   const emailRedirectTo = await trustedEmailRedirectUrl();
@@ -87,7 +95,8 @@ export async function requestCodeAction(
     return { status: "error", failure: mapRequestCodeFailure(error) };
   }
 
-  await setAuthCarry(email, intent);
+  if (shareToken) await setAuthCarry(email, intent, shareToken);
+  else await setAuthCarry(email, intent);
   redirect("/auth/verify");
 }
 
@@ -154,7 +163,7 @@ export async function verifyCodeAction(
     const delivered = await deliverMutationPending(lease, userId, "deliver");
     if (!delivered) await releaseMutationLease(lease);
   }
-  redirect(await postAuthRouteForUser(userId, carry.intent));
+  redirect(await postAuthRouteForUser(userId, carry.intent, carry.shareToken));
 }
 
 /** Resends the code to the carried email. */
@@ -272,7 +281,13 @@ export async function verifyMagicLinkAction(
     );
     if (!delivered) await releaseMutationLease(magicLease);
   }
-  redirect(await postAuthRouteForUser(userId, authCarry?.intent));
+  redirect(
+    await postAuthRouteForUser(
+      userId,
+      authCarry?.intent,
+      authCarry?.shareToken,
+    ),
+  );
 }
 
 /**

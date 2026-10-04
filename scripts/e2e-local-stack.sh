@@ -165,6 +165,9 @@ pnpm exec supabase db query --local \
 pnpm exec playwright test \
   tests/e2e/auth-otp.spec.ts \
   tests/e2e/home-local.spec.ts \
+  tests/e2e/home-groups-matrix-local.spec.ts \
+  tests/e2e/app-navigation-local.spec.ts \
+  tests/e2e/profile-vibe-local.spec.ts \
   tests/e2e/wishlist.spec.ts \
   tests/e2e/wishlist-local.spec.ts \
   tests/e2e/wishlist-items-local.spec.ts \
@@ -188,4 +191,6 @@ pnpm exec playwright test \
   tests/visual/groups-created.visual.spec.ts \
   tests/visual/group-room.visual.spec.ts \
   tests/visual/group-wishlist.visual.spec.ts \
-  tests/visual/home.visual.spec.ts
+  tests/visual/home.visual.spec.ts \
+  tests/visual/account-menu-review.visual.spec.ts \
+  tests/visual/populated-parity.visual.spec.ts

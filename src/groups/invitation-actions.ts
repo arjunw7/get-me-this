@@ -4,18 +4,20 @@ import { requireCompleteProfile } from "@/src/profile/session";
 
 import type {
   InvitationStateActionResult,
+  GetGroupInviteLinkResult,
   IssueLinkActionResult,
 } from "./action-state";
 import {
   issueGroupInviteLink,
+  getGroupInviteLink,
   loadOrganizerInvitationState,
 } from "./group-write";
 
 /**
  * The explicit shareable-invitation Server Actions (brief 006b). Issuance is
- * never automatic: it happens only on the organizer's click, with the
- * expected version from the projected state. The raw token is returned only
- * to the initiating page's component state — these actions set no cookie and
+ * explicit replacement requires the organizer's click and expected version.
+ * Opening Invite people recovers a stored link, or issues one only when no
+ * usable link exists. Raw tokens enter only component state — these actions set no cookie and
  * write no cache, storage, log, or analytics containing the token or the
  * complete invite URL.
  */
@@ -71,4 +73,27 @@ export async function refreshInvitationStateAction(
     state: state.state,
     expiresAt: state.expiresAt,
   };
+}
+
+/** Opening Invite people recovers an active link without replacing it. */
+export async function getGroupInviteLinkAction(
+  groupId: string,
+): Promise<GetGroupInviteLinkResult> {
+  await requireCompleteProfile();
+  if (!UUID_PATTERN.test(groupId)) return { ok: false, reason: "unavailable" };
+  const outcome = await getGroupInviteLink(groupId);
+  if (outcome.kind === "ready")
+    return {
+      ok: true,
+      token: outcome.token,
+      version: outcome.version,
+      expiresAt: outcome.expiresAt,
+    };
+  if (outcome.kind === "replacement_required")
+    return {
+      ok: false,
+      reason: "replacement_required",
+      version: outcome.version,
+    };
+  return { ok: false, reason: outcome.kind };
 }

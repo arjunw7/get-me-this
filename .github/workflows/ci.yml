@@ -438,6 +438,17 @@ jobs:
       - name: Prove dotenv cannot reintroduce provider configuration
         timeout-minutes: 2
         run: pnpm exec vitest run tests/helpers/no-provider-env.test.ts
-      - name: Build without provider configuration and test signed-out actions
+      - name: Build without provider configuration and test landing and signed-out actions
         timeout-minutes: 8
         run: bash scripts/e2e-no-provider-actions.sh
+      - name: Collect public landing visual evidence
+        if: failure()
+        run: node scripts/collect-landing-visual-evidence.mjs
+      - name: Upload public landing visual evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: landing-visual-evidence
+          path: landing-visual-evidence/
+          if-no-files-found: ignore
+          retention-days: 3

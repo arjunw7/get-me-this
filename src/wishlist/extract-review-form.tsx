@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useEffect } from "react";
 
+import { ReviewPhotoPicker } from "./review-photo-picker";
+
 import type { ItemActionState } from "./item-actions";
 import type { CreateDraft, ItemFields } from "./item-input";
-import { SUPPORTED_CURRENCY_CODES } from "./currency-metadata";
+import { CurrencySelect } from "./currency-select";
 
 /**
  * The 005f review/fallback form composition (V18 `ItemForm` ported to the
@@ -19,15 +21,14 @@ import { SUPPORTED_CURRENCY_CODES } from "./currency-metadata";
  * placeholder. Nothing here saves until the explicit submit.
  */
 
-const QUICK_CURRENCIES = ["INR", "USD", "GBP", "EUR"];
 const DESIRE_CHOICES = [
-  ["really_want", "Really want"],
-  ["would_love", "Would love"],
-  ["just_an_idea", "Just an idea"],
+  ["really_want", "Really want", "Top of the list"],
+  ["would_love", "Would love", "Solid yes"],
+  ["just_an_idea", "Just an idea", "No pressure"],
 ] as const;
 
 const fieldClass =
-  "mt-1 min-h-touch-min w-full rounded-surface border-2 border-outline-strong bg-surface-raised px-3 text-content-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action-primary-strong";
+  "mt-2 min-h-control-md w-full min-w-0 rounded-control border-2 border-outline-strong bg-surface-raised py-2.5 text-base font-normal text-content-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action-primary-strong";
 const labelClass = "block text-sm font-bold text-content-primary";
 
 /** Error display order for "focus moves to the first error". */
@@ -91,8 +92,11 @@ export function ExtractReviewForm({
     const first = FIELD_ORDER.find((field) => fieldErrors[field]);
     if (first) {
       const element = document.getElementById(FIELD_IDS[first]);
-      if (element) element.focus();
-      else document.getElementById("review-desire-error")?.focus();
+      if (element) {
+        const disclosure = element.closest("details");
+        if (disclosure) disclosure.open = true;
+        element.focus();
+      } else document.getElementById("review-desire-error")?.focus();
     }
   }, [actionState]);
 
@@ -106,13 +110,12 @@ export function ExtractReviewForm({
           : null;
 
   const desireError = errors.desireLevel;
-  const showChooser = reviewPhase === "extracted" && candidates.length > 0;
 
   return (
     <form
       action={formAction}
       noValidate
-      className="mx-auto w-full max-w-2xl space-y-6 pb-28 sm:pb-12"
+      className="flex w-full flex-col gap-7 pb-28 lg:pb-12"
     >
       {failed ? (
         <div
@@ -143,102 +146,63 @@ export function ExtractReviewForm({
         </p>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_1fr] lg:gap-10">
-        {/* Photo column */}
-        <div>
-          {showChooser ? (
-            <fieldset aria-describedby="photo-choice-help">
-              <legend className={labelClass}>
-                Pick the photo friends will see
-              </legend>
-              <div className="mt-2 flex flex-wrap gap-2.5">
-                {candidates.map((src, index) => {
-                  const active = selectedImage === src;
-                  return (
-                    <label
-                      key={src}
-                      className="relative inline-flex min-h-touch-min min-w-touch-min cursor-pointer items-center justify-center"
-                    >
-                      <input
-                        type="radio"
-                        name="photo-choice"
-                        className="peer sr-only"
-                        checked={active}
-                        onChange={() => onSelectImage(src)}
-                      />
-                      {/* Remote candidate thumbnails render as images
-                          under no-referrer; the page itself is never
-                          fetched client-side. */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={src}
-                        alt={`Photo option ${index + 1}`}
-                        referrerPolicy="no-referrer"
-                        className={`h-16 w-16 rounded-surface-sm border-2 object-cover transition-opacity duration-150 motion-reduce:transition-none peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-action-primary-strong ${
-                          active
-                            ? "border-outline-strong opacity-100"
-                            : "border-transparent opacity-70 hover:opacity-100"
-                        }`}
-                      />
-                      {active ? (
-                        <span
-                          aria-hidden="true"
-                          className="pointer-events-none absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-outline-strong bg-action-primary"
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            className="h-3 w-3"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M20 6 9 17l-5-5" />
-                          </svg>
-                        </span>
-                      ) : null}
-                    </label>
-                  );
-                })}
-                <label className="relative inline-flex min-h-touch-min cursor-pointer items-center gap-2 rounded-surface-sm border-2 border-dashed border-outline-strong/40 px-3 text-sm font-bold">
-                  <input
-                    type="radio"
-                    name="photo-choice"
-                    className="peer sr-only"
-                    checked={selectedImage === null}
-                    onChange={() => onSelectImage(null)}
-                  />
-                  No photo
-                </label>
-              </div>
-              <p
-                id="photo-choice-help"
-                className="mt-2 text-sm text-content-muted"
-              >
-                Choosing a photo uploads a private copy friends can see.
-              </p>
-            </fieldset>
-          ) : (
-            <div>
-              <span className={labelClass}>Photo (optional)</span>
-              <div
-                aria-hidden="true"
-                className="mt-1 rounded-surface border-2 border-dashed border-outline-strong/35 bg-surface-sunken p-5 text-center text-content-muted"
-              >
-                Photo preview — adding photos isn’t available yet.
-              </div>
-            </div>
-          )}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:gap-10">
+        <div className="min-w-0">
+          <ReviewPhotoPicker
+            candidates={candidates}
+            selectedImage={selectedImage}
+            onSelectImage={onSelectImage}
+          />
+          {reviewPhase === "extracted" ? (
+            <details className="mt-4 text-sm">
+              <summary className="flex min-h-touch-min cursor-pointer items-center font-bold underline underline-offset-4">
+                Edit product link
+              </summary>
+              <label className={labelClass}>
+                Link (optional)
+                <input
+                  id={FIELD_IDS.sourceUrl}
+                  className={`${fieldClass} px-3`}
+                  name="sourceUrl"
+                  type="url"
+                  value={draft.sourceUrl}
+                  onChange={(event) =>
+                    onFieldChange("sourceUrl", event.target.value)
+                  }
+                  aria-invalid={Boolean(errors.sourceUrl)}
+                  aria-describedby={
+                    errors.sourceUrl ? "sourceUrl-error" : undefined
+                  }
+                />
+              </label>
+              {errors.sourceUrl ? (
+                <p
+                  id="sourceUrl-error"
+                  className="mt-2 text-sm text-feedback-error"
+                >
+                  {errors.sourceUrl}
+                </p>
+              ) : null}
+              {onRetryExtract ? (
+                <button
+                  type="button"
+                  onClick={onRetryExtract}
+                  className="mt-2 inline-flex min-h-touch-min items-center font-bold underline underline-offset-4"
+                >
+                  Try the link again
+                </button>
+              ) : null}
+            </details>
+          ) : null}
         </div>
 
         {/* Fields column */}
-        <div className="flex flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-5">
           <label className={labelClass}>
             Item name
             <input
               id={FIELD_IDS.title}
-              className={fieldClass}
+              className={`${fieldClass} px-3`}
               name="title"
               value={draft.title}
               onChange={(event) => onFieldChange("title", event.target.value)}
@@ -252,104 +216,104 @@ export function ExtractReviewForm({
             </p>
           ) : null}
 
-          <label className={labelClass}>
-            Shop (optional)
-            <input
-              id={FIELD_IDS.retailer}
-              className={fieldClass}
-              name="retailer"
-              value={draft.retailer}
-              onChange={(event) =>
-                onFieldChange("retailer", event.target.value)
-              }
-              aria-invalid={Boolean(errors.retailer)}
-              aria-describedby={errors.retailer ? "retailer-error" : undefined}
-            />
-          </label>
-          {errors.retailer ? (
-            <p id="retailer-error" className="text-sm text-feedback-error">
-              {errors.retailer}
-            </p>
-          ) : null}
-
-          <fieldset
-            className="space-y-2"
-            aria-invalid={Boolean(errors.amount)}
-            aria-describedby={errors.amount ? "amount-error" : undefined}
-          >
-            <legend className={labelClass}>Price (optional)</legend>
-            <div className="grid grid-cols-[1fr_8rem] gap-3">
-              <label className="sr-only" htmlFor={FIELD_IDS.amount}>
-                Price
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label className={labelClass}>
+                Shop (optional)
+                <input
+                  id={FIELD_IDS.retailer}
+                  className={`${fieldClass} px-3`}
+                  name="retailer"
+                  value={draft.retailer}
+                  onChange={(event) =>
+                    onFieldChange("retailer", event.target.value)
+                  }
+                  aria-invalid={Boolean(errors.retailer)}
+                  aria-describedby={
+                    errors.retailer ? "retailer-error" : undefined
+                  }
+                />
               </label>
-              <input
-                id={FIELD_IDS.amount}
-                className={fieldClass}
-                name="amount"
-                inputMode="decimal"
-                value={draft.amount}
-                onChange={(event) =>
-                  onFieldChange("amount", event.target.value)
-                }
-                aria-invalid={Boolean(errors.amount)}
-                aria-describedby={errors.amount ? "amount-error" : undefined}
-              />
-              <label className="sr-only" htmlFor={FIELD_IDS.currency}>
-                Currency
-              </label>
-              <select
-                id={FIELD_IDS.currency}
-                className={fieldClass}
-                name="currency"
-                value={draft.currency}
-                onChange={(event) =>
-                  onFieldChange("currency", event.target.value)
-                }
-              >
-                {Array.from(
-                  new Set([...QUICK_CURRENCIES, ...SUPPORTED_CURRENCY_CODES]),
-                ).map((code) => (
-                  <option key={code} value={code}>
-                    {code}
-                  </option>
-                ))}
-              </select>
+              {errors.retailer ? (
+                <p id="retailer-error" className="text-sm text-feedback-error">
+                  {errors.retailer}
+                </p>
+              ) : null}
             </div>
-            {errors.amount ? (
-              <p id="amount-error" className="text-sm text-feedback-error">
-                {errors.amount}
-              </p>
-            ) : null}
-          </fieldset>
+            <fieldset
+              className="min-w-0"
+              aria-invalid={Boolean(errors.amount)}
+              aria-describedby={errors.amount ? "amount-error" : undefined}
+            >
+              <legend className={labelClass}>Price (optional)</legend>
+              <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-2">
+                <label className="sr-only" htmlFor={FIELD_IDS.currency}>
+                  Currency
+                </label>
+                <CurrencySelect
+                  id={FIELD_IDS.currency}
+                  className="mt-2"
+                  name="currency"
+                  value={draft.currency}
+                  onChange={(code) => onFieldChange("currency", code)}
+                />
+                <label className="sr-only" htmlFor={FIELD_IDS.amount}>
+                  Price
+                </label>
+                <input
+                  id={FIELD_IDS.amount}
+                  className={`${fieldClass} px-3`}
+                  name="amount"
+                  inputMode="decimal"
+                  value={draft.amount}
+                  onChange={(event) =>
+                    onFieldChange("amount", event.target.value)
+                  }
+                  aria-invalid={Boolean(errors.amount)}
+                  aria-describedby={errors.amount ? "amount-error" : undefined}
+                />
+              </div>
+              {errors.amount ? (
+                <p id="amount-error" className="text-sm text-feedback-error">
+                  {errors.amount}
+                </p>
+              ) : null}
+            </fieldset>
+          </div>
 
-          <label className={labelClass}>
-            Link (optional)
-            <input
-              id={FIELD_IDS.sourceUrl}
-              className={fieldClass}
-              name="sourceUrl"
-              type="url"
-              value={draft.sourceUrl}
-              onChange={(event) =>
-                onFieldChange("sourceUrl", event.target.value)
-              }
-              aria-invalid={Boolean(errors.sourceUrl)}
-              aria-describedby={
-                errors.sourceUrl ? "sourceUrl-error" : undefined
-              }
-            />
-          </label>
-          {errors.sourceUrl ? (
-            <p id="sourceUrl-error" className="text-sm text-feedback-error">
-              {errors.sourceUrl}
-            </p>
+          {reviewPhase === "manual" ? (
+            <div>
+              <label className={labelClass}>
+                Link (optional)
+                <input
+                  id={FIELD_IDS.sourceUrl}
+                  className={`${fieldClass} px-3`}
+                  name="sourceUrl"
+                  type="url"
+                  value={draft.sourceUrl}
+                  onChange={(event) =>
+                    onFieldChange("sourceUrl", event.target.value)
+                  }
+                  aria-invalid={Boolean(errors.sourceUrl)}
+                  aria-describedby={
+                    errors.sourceUrl ? "sourceUrl-error" : undefined
+                  }
+                />
+              </label>
+              {errors.sourceUrl ? (
+                <p id="sourceUrl-error" className="text-sm text-feedback-error">
+                  {errors.sourceUrl}
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           <label className={labelClass}>
             Note (optional)
             <textarea
               id={FIELD_IDS.note}
-              className={`${fieldClass} min-h-28 py-2`}
+              className={`${fieldClass} h-25 resize-y px-3 py-3`}
+              placeholder="Size, colour, or just vibes. “The cream one, not the sage.”"
               name="note"
               value={draft.note}
               onChange={(event) => onFieldChange("note", event.target.value)}
@@ -368,14 +332,16 @@ export function ExtractReviewForm({
             aria-describedby={desireError ? "review-desire-error" : undefined}
           >
             <legend className={labelClass}>How much do you want it?</legend>
-            <div className="mt-2 flex flex-wrap gap-3">
-              {DESIRE_CHOICES.map(([value, label], index) => (
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {DESIRE_CHOICES.map(([value, label, description], index) => (
                 <label
                   key={value}
-                  className="inline-flex min-h-touch-min items-center gap-2 rounded-surface border-2 border-outline-strong px-3"
+                  className="relative flex min-w-0 cursor-pointer"
                 >
                   <input
                     type="radio"
+                    className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                    aria-label={label}
                     name="desireLevel"
                     value={value}
                     id={index === 0 ? FIELD_IDS.desireLevel : undefined}
@@ -384,7 +350,12 @@ export function ExtractReviewForm({
                       onFieldChange("desireLevel", event.target.value)
                     }
                   />
-                  {label}
+                  <span className="flex min-h-16 w-full flex-col items-center justify-center rounded-surface border-2 border-outline-strong/20 bg-surface-raised px-1 py-2 text-center peer-checked:border-outline-strong peer-checked:bg-accent-highlight-soft peer-checked:shadow-chunk-sm peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus-ring">
+                    <span className="text-sm font-bold lowercase">{label}</span>
+                    <span className="mt-0.5 text-xs text-content-secondary">
+                      {description}
+                    </span>
+                  </span>
                 </label>
               ))}
             </div>
@@ -409,25 +380,25 @@ export function ExtractReviewForm({
         value={selectedImage ?? ""}
       />
 
-      <div className="fixed inset-x-0 bottom-0 z-20 flex gap-3 border-t-2 border-outline-strong bg-surface-page/95 p-4 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+      <div className="fixed inset-x-0 bottom-0 z-20 flex flex-col-reverse gap-2 border-t-2 border-outline-strong bg-surface-page px-5 pt-4 pb-3 lg:static lg:flex-row lg:justify-end lg:gap-6 lg:border-0 lg:bg-transparent lg:p-0 lg:pt-3">
         <button
           type="button"
           onClick={onStartOver}
-          className="min-h-touch-min flex-1 rounded-surface border-2 border-outline-strong bg-surface-raised px-4 font-bold"
+          className="min-h-touch-min px-2 font-bold"
         >
           Start over
         </button>
         <button
           type="submit"
           disabled={pending}
-          className="min-h-touch-min flex-1 rounded-surface border-2 border-outline-strong bg-action-primary px-4 font-bold shadow-chunk disabled:opacity-60"
+          className="h-control-lg min-h-touch-min rounded-surface border-2 border-outline-strong bg-action-primary px-8 text-lg font-bold shadow-chunk disabled:opacity-60"
         >
           {pending ? "Saving…" : "Add item"}
         </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
-        {onRetryExtract ? (
+        {reviewPhase === "manual" && onRetryExtract ? (
           <button
             type="button"
             onClick={onRetryExtract}

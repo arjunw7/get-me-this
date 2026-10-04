@@ -61,7 +61,9 @@ test("the signed-in empty wishlist matches the pinned V18 empty composition", as
       page.getByRole("heading", { name: "Very minimalist of you." }),
     ).toBeVisible();
     await expect(page.getByText("0 things")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Add an item" })).toBeVisible();
+    await expect(
+      page.getByRole("main").getByRole("link", { name: "Add an item" }),
+    ).toBeVisible();
 
     await expect(page).toHaveScreenshot(
       `wishlist-empty-${testInfo.project.name}.png`,

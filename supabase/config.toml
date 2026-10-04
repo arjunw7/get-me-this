@@ -164,6 +164,8 @@ site_url = "http://127.0.0.1:3000"
 # allow-listed here: 3000 (plain local dev) and 3100 (the stack-gated e2e
 # web server). The ** wildcard covers the per-flow id path segments.
 additional_redirect_urls = [
+  "http://localhost:3200/auth/confirm",
+  "http://127.0.0.1:3200/auth/confirm",
   "https://127.0.0.1:3000",
   "http://127.0.0.1:3000/**",
   "http://127.0.0.1:3100/**",

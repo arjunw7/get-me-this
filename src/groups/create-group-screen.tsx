@@ -11,6 +11,8 @@ import Link from "next/link";
 
 import { Button } from "@/src/ui/button";
 import { TextField } from "@/src/ui/text-field";
+import { DateField } from "@/src/ui/date-field";
+import { CurrencySelect } from "@/src/wishlist/currency-select";
 
 import type { CreateGroupActionState } from "./action-state";
 import { canonicalPayloadDigest } from "./canonical";
@@ -59,18 +61,24 @@ const modeActive =
   "border-outline-strong bg-accent-highlight-soft shadow-chunk-sm";
 
 export interface CreateGroupScreenProps {
+  readonly initialName?: string;
+  readonly initialOccasion?: OccasionType;
   readonly action: (
     previous: CreateGroupActionState,
     data: FormData,
   ) => Promise<CreateGroupActionState>;
 }
 
-export function CreateGroupScreen({ action }: CreateGroupScreenProps) {
+export function CreateGroupScreen({
+  action,
+  initialName = "",
+  initialOccasion = "birthday",
+}: CreateGroupScreenProps) {
   const [state, formAction, isPending] = useActionState(action, {
     status: "idle",
   } satisfies CreateGroupActionState);
-  const [name, setName] = useState("");
-  const [occasion, setOccasion] = useState<OccasionType>("birthday");
+  const [name, setName] = useState(initialName);
+  const [occasion, setOccasion] = useState<OccasionType>(initialOccasion);
   const [date, setDate] = useState("");
   const [budget, setBudget] = useState("2500");
   const [currency, setCurrency] = useState<SelectableCurrency>("INR");
@@ -267,13 +275,12 @@ export function CreateGroupScreen({ action }: CreateGroupScreenProps) {
           </fieldset>
 
           <div className="grid gap-5 sm:grid-cols-2">
-            <TextField
+            <DateField
               id="group-date"
               label="Date"
               name="occasionDate"
-              type="date"
               value={date}
-              onChange={(event) => setDate(event.target.value)}
+              onChange={setDate}
               error={errors.date}
             />
             <div className="flex flex-col gap-1.5">
@@ -288,21 +295,14 @@ export function CreateGroupScreen({ action }: CreateGroupScreenProps) {
                 role="group"
                 aria-labelledby="budget-label"
               >
-                <select
-                  aria-label="Currency"
+                <CurrencySelect
+                  id="group-currency"
                   name="budgetCurrency"
                   value={currency}
-                  onChange={(event) =>
-                    setCurrency(event.target.value as SelectableCurrency)
-                  }
-                  className="h-control-md rounded-control border-2 border-outline-strong bg-surface-raised px-2 font-bold outline-none focus:shadow-chunk-sm"
-                >
-                  {SELECTABLE_CURRENCIES.map((code) => (
-                    <option key={code} value={code}>
-                      {code}
-                    </option>
-                  ))}
-                </select>
+                  codes={SELECTABLE_CURRENCIES}
+                  onChange={(code) => setCurrency(code as SelectableCurrency)}
+                  className="w-28 shrink-0"
+                />
                 <input
                   name="budgetAmount"
                   inputMode="decimal"

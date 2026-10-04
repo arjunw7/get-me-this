@@ -1,10 +1,17 @@
+import type { Metadata } from "next";
 import { LandingPage } from "@/src/landing/landing-page";
 import { getSessionUser } from "@/src/profile/session";
+
+export const metadata: Metadata = {
+  title: "Get Me This | Your shareable gift wishlist",
+  description:
+    "Good gifts start with a wishlist. Save gift ideas from different stores in one wishlist. Share one link with friends. No group needed; private groups help you plan gifts together.",
+};
 
 /**
  * The public landing page. The `loggedOut` flag (004e) renders the
  * approved logged-out confirmation after a confirmed sign-out; the normal
- * visit is byte-identical to the committed baseline.
+ * visit shows the approved wishlist-first landing page.
  *
  * ARJ-54: a live session swaps the header's Log in anchor for the
  * Dashboard link. The check is display-only — it renders no protected

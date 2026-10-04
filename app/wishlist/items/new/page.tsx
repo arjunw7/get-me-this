@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 
 import { AnalyticsIdentity } from "@/src/auth/analytics-identity";
 import { requireCompleteProfile } from "@/src/profile/session";
-import { WishlistShellHeader } from "@/src/wishlist/wishlist-shell-header";
+import { AddItemHeader } from "@/src/wishlist/add-item-header";
+import { getStarterIdea } from "@/src/home/starter-ideas";
 import { AddItemFlow } from "@/src/wishlist/add-item-flow";
 
 export const metadata: Metadata = {
@@ -16,16 +17,16 @@ export const dynamic = "force-dynamic";
  * extraction, explicit review, and the manual fallback, replacing 005c's
  * interim manual page. All remote page fetching is server-side behind the
  * 005e extract route; the pasted URL is carried in the route as `?url=`
- * (the V18 starter-pick `?pick=` handoff is an omitted feature and is not
- * honoured here).
+ * and allowlisted starter prompts in `?pick=` seed an editable note only.
  */
 export default async function NewWishlistItemPage({
   searchParams,
 }: {
-  searchParams: Promise<{ url?: string }>;
+  searchParams: Promise<{ url?: string; pick?: string }>;
 }) {
-  const { userId, email, profile } = await requireCompleteProfile();
-  const { url } = await searchParams;
+  const { userId } = await requireCompleteProfile();
+  const { url, pick } = await searchParams;
+  const starterIdea = getStarterIdea(pick);
   // Only a bounded, non-blank value seeds the field: blankness and the
   // 2048-character bound are checked here — not the URL's shape, which is
   // the flow's own validation job. Anything else is treated as absent and
@@ -33,20 +34,18 @@ export default async function NewWishlistItemPage({
   // value, never as HTML.
   const initialUrl =
     url && url.trim().length > 0 && url.length <= 2048 ? url : undefined;
-  // requireCompleteProfile guarantees a non-blank display name.
-  const displayName = profile.displayName as string;
 
   return (
-    <div className="min-h-screen w-full bg-surface-page text-content-primary">
+    <div className="min-h-screen w-full bg-surface-page pb-32 text-content-primary sm:pb-16">
       <AnalyticsIdentity userId={userId} />
-      <WishlistShellHeader email={email} displayName={displayName} />
+      <AddItemHeader />
       {/* ARJ-62: the column width follows the flow's client-side step, not
           the server-known ?url= param. Pinning the width here crushed the
           005f review/manual form into the 520px entry column on the
           paste-into-empty-page path (sliver inputs, overlapping fields);
           add-item-flow.tsx now owns the per-step width. */}
-      <main className="mx-auto w-full px-5 pt-10 pb-16 sm:px-8">
-        <AddItemFlow initialUrl={initialUrl ?? ""} />
+      <main className="mx-auto w-full px-5 pt-8 pb-16 sm:px-8 sm:pt-12">
+        <AddItemFlow initialUrl={initialUrl ?? ""} starterIdea={starterIdea} />
       </main>
     </div>
   );

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { parseVibe } from "@/src/profile/vibe";
 
 import { createSupabaseServerClient } from "@/src/supabase/server";
 import { validateOnboardingInput } from "@/src/profile/onboarding";
@@ -45,11 +46,19 @@ export async function completeOnboardingForInvitationAction(
     return { status: "error", errors: validated.errors };
   }
 
+  const rawVibe = formData.get("vibe");
+  const vibe = parseVibe(rawVibe);
+  if (rawVibe !== null && vibe === null) {
+    return { status: "error", errors: { vibe: "invalid" } };
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update({
       display_name: validated.displayName,
       taste_line: validated.tasteLine,
+      // Legacy submissions omit this column, retaining the database default or saved choice.
+      ...(vibe !== null ? { vibe } : {}),
     })
     .eq("id", user.id);
   if (error) {

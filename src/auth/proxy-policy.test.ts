@@ -45,6 +45,7 @@ describe("proxy policy", () => {
 describe("protected routes (004e)", () => {
   it("protects the authenticated routes", () => {
     expect(isProtectedRoutePath("/home")).toBe(true);
+    expect(isProtectedRoutePath("/groups")).toBe(true);
     expect(isProtectedRoutePath("/onboarding")).toBe(true);
   });
 

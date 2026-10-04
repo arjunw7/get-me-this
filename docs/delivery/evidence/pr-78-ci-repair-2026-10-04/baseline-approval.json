@@ -1,0 +1,60 @@
+{
+  "approvedBy": "repository owner",
+  "approvedDate": "2026-10-04",
+  "authorization": "Explicit approval in the task: \"i approve. you can replace them. these were changed based on my feedback only, right?\"",
+  "scope": "Exactly four reviewed wishlist baselines; no tolerance changes. The two separately reviewed landing baselines belong to stacked PR79.",
+  "files": [
+    {
+      "baseline": "tests/visual/baselines/wishlist-empty-desktop.png",
+      "candidate": "wishlist-empty-desktop-actual.png",
+      "sha256": "38c836bb430db979bd3904cd4536908973be52b191a4da5f6de2636ddda05bfd",
+      "width": 1440,
+      "height": 1000,
+      "source": {
+        "head": "6745d5268b5bcb929d21c0a2a3c1483181d63407",
+        "runUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237",
+        "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237/artifacts/11294678418",
+        "platform": "ubuntu-24.04 GitHub Actions, pinned Playwright Chromium"
+      }
+    },
+    {
+      "baseline": "tests/visual/baselines/wishlist-empty-mobile.png",
+      "candidate": "wishlist-empty-mobile-actual.png",
+      "sha256": "cc515ff538475c64b9fc51181e7936c46d88eb6813e5829761339dfca3fbcb8c",
+      "width": 390,
+      "height": 1113,
+      "source": {
+        "head": "6745d5268b5bcb929d21c0a2a3c1483181d63407",
+        "runUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237",
+        "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237/artifacts/11294678418",
+        "platform": "ubuntu-24.04 GitHub Actions, pinned Playwright Chromium"
+      }
+    },
+    {
+      "baseline": "tests/visual/baselines/wishlist-filled-desktop.png",
+      "candidate": "wishlist-filled-desktop-actual.png",
+      "sha256": "1e8d7c306f03d089684060bc47bb53a98ab15a0787983a23583115d4f6fa944b",
+      "width": 1440,
+      "height": 1449,
+      "source": {
+        "head": "6745d5268b5bcb929d21c0a2a3c1483181d63407",
+        "runUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237",
+        "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237/artifacts/11294678418",
+        "platform": "ubuntu-24.04 GitHub Actions, pinned Playwright Chromium"
+      }
+    },
+    {
+      "baseline": "tests/visual/baselines/wishlist-filled-mobile.png",
+      "candidate": "wishlist-filled-mobile-actual.png",
+      "sha256": "461d0d7f2c6c91340b3058ffd89fe939c1ec74db12e321cc68e6feaba2d177f2",
+      "width": 390,
+      "height": 2943,
+      "source": {
+        "head": "6745d5268b5bcb929d21c0a2a3c1483181d63407",
+        "runUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237",
+        "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237/artifacts/11294678418",
+        "platform": "ubuntu-24.04 GitHub Actions, pinned Playwright Chromium"
+      }
+    }
+  ]
+}

@@ -30,7 +30,7 @@ describe("OwnerReactionSummaryRow", () => {
 
     expect(screen.getByText("Very you")).toBeTruthy();
     expect(screen.getByText("2")).toBeTruthy();
-    expect(screen.getByText("Questionable")).toBeTruthy();
+    expect(screen.getByText("Questionable, but supported")).toBeTruthy();
     expect(screen.getByText("1")).toBeTruthy();
     expect(screen.getByText("Want it too")).toBeTruthy();
     expect(screen.getByText("3")).toBeTruthy();

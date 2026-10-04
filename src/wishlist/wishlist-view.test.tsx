@@ -10,6 +10,7 @@ import {
   toWishlistItemSnapshot,
   toItemView,
 } from "./display";
+import { VIBE_OPTIONS, vibeClasses } from "@/src/profile/vibe";
 import { WishlistView } from "./wishlist-view";
 
 const reorderAction = async () => ({ status: "recovery" as const });
@@ -67,6 +68,15 @@ function viewProps(wishlist: OwnWishlistView | null) {
 }
 
 describe("WishlistView state selection", () => {
+  it.each(VIBE_OPTIONS)("renders the saved $label Vibe", ({ value, label }) => {
+    const { container } = render(
+      <WishlistView {...viewProps(EMPTY_WISHLIST)} vibe={value} />,
+    );
+    expect(container.querySelector(`[data-vibe="${value}"]`)).toHaveClass(
+      ...vibeClasses(value).split(" "),
+    );
+    expect(screen.getByText(new RegExp(`${label} vibe`))).toBeVisible();
+  });
   it("renders the V18 empty composition for zero items", () => {
     render(<WishlistView {...viewProps(EMPTY_WISHLIST)} />);
 
