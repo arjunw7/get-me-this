@@ -557,3 +557,47 @@ test("the real verify screens stay accessible", async ({ page }) => {
     .analyze();
   expect(onboarding.violations).toEqual([]);
 });
+
+test("onboarding shows a busy disabled CTA until the real profile save completes", async ({
+  page,
+}, testInfo) => {
+  const email = newEmail();
+  await requestCode(page, email);
+  const { code } = await readMailFor(email);
+  await verifyCode(page, code);
+  await page.waitForURL("**/onboarding");
+  await page.getByLabel("What should friends call you?").fill("Arjun");
+
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/onboarding", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST" && request.headers()["next-action"]) {
+      await held;
+    }
+    await route.continue();
+  });
+  try {
+    await page.getByRole("button", { name: /Let’s go/i }).click();
+    const pending = page.getByRole("button", { name: "Saving…" });
+    await expect(pending).toBeVisible();
+    await expect(pending).toBeDisabled();
+    await expect(pending).toHaveAttribute("aria-busy", "true");
+    if (process.env.ONBOARDING_REVIEW_CAPTURE) {
+      await page.screenshot({
+        path: `docs/delivery/evidence/onboarding-feedback/pending-${testInfo.project.name}.png`,
+        fullPage: true,
+        animations: "disabled",
+        caret: "hide",
+      });
+    }
+  } finally {
+    release();
+  }
+  await page.waitForURL("**/home");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Welcome in, Arjun.",
+  );
+});
