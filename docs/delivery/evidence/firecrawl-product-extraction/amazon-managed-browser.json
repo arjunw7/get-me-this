@@ -1,0 +1,26 @@
+[
+  {
+    "title": "boAt Rockerz 480, RGB LEDs,6 Light Modes, 40mm Drivers,Beast Mode, 60H Battery, ENx Tech, App Support, Bluetooth Headphones, Wireless Over Ear Headphone with Mic (Black Sabre)",
+    "asin": "B0DGTSRX3R",
+    "image": "https://m.media-amazon.com/images/I/711l4y8aNlL._SX522_.jpg",
+    "prices": [
+      "₹1,699.00"
+    ],
+    "currency": "INR",
+    "unavailable": false,
+    "blocked": false,
+    "status": 200,
+    "finalUrl": "https://www.amazon.in/dp/B0DGTSRX3R?th=1"
+  },
+  {
+    "title": "boAt Rockerz 450/450R, 15 HRS Battery, 40mm Drivers, Padded Ear Cushions, Integrated Controls, Dual Modes, Bluetooth Headphones, Wireless Headphone with Mic (Luscious Black)",
+    "asin": "B07PR1CL3S",
+    "image": "https://m.media-amazon.com/images/I/61ihz46SLOL._SX522_.jpg",
+    "prices": [],
+    "currency": null,
+    "unavailable": true,
+    "blocked": false,
+    "status": 200,
+    "finalUrl": "https://www.amazon.in/dp/B07PR1CL3S?th=1"
+  }
+]

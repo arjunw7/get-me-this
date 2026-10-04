@@ -1,0 +1,17 @@
+{
+  "name": "get-me-this-amazon-worker",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=24.21.0 <25"
+  },
+  "dependencies": {
+    "playwright-core": "1.63.0",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "@types/node": "24.19.0"
+  }
+}

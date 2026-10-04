@@ -1,0 +1,51 @@
+{
+  "runtime": "Native production client with sandboxed Chromium, JS disabled, redirects refused",
+  "results": [
+    {
+      "asin": "B0DGTSRX3R",
+      "success": true,
+      "durationMs": 6081,
+      "title": true,
+      "images": 1
+    },
+    {
+      "asin": "B09MTQ23X4",
+      "success": true,
+      "durationMs": 5825,
+      "title": true,
+      "images": 1,
+      "amountMinor": "279900",
+      "currency": "INR"
+    },
+    {
+      "asin": "B07PR1CL3S",
+      "success": true,
+      "durationMs": 5259,
+      "title": true,
+      "images": 1
+    }
+  ],
+  "project": "get-me-this-amazon-browser",
+  "environment": "staging",
+  "resourceCap": {
+    "vCPUs": 1,
+    "memoryGB": 1
+  },
+  "deployedCommit": "3011d5fe9aefe238d58c356a31b2b396fa70daa3",
+  "deploymentId": "f558c4a5-d796-4780-a377-eedec50260c3",
+  "negativeChecks": {
+    "invalidAuthStatus": 401,
+    "arbitraryHostStatus": 422
+  },
+  "lifecycleChecks": {
+    "concurrentStatus": 503,
+    "cancelled": "AbortError",
+    "nextStatus": 200
+  },
+  "limitations": [
+    "Three Amazon India products only; images discovered, not saved through app storage",
+    "Initial deployed revision returned safe extraction failures; after adding safe stage diagnostics and redeploying, these three checks and lifecycle checks passed; initial failure cause was not established",
+    "No host-level deny-direct-egress; decoded HTML memory bounded by container, not a response byte cap",
+    "Production settings staged only; activation requires independent review, exact-head CI and human approval"
+  ]
+}

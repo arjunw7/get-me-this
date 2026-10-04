@@ -53,3 +53,26 @@ describe("single-process extraction admission", () => {
     expect(limiter.acquire("recovered", 0).ok).toBe(true);
   });
 });
+
+it("keeps production admission within the initial Firecrawl free-plan rate and concurrency", async () => {
+  const { extractionLimiter } = await import("./limiter");
+  const first = extractionLimiter.acquire("firecrawl-1", 100);
+  const second = extractionLimiter.acquire("firecrawl-2", 100);
+  expect(first.ok).toBe(true);
+  expect(second.ok).toBe(true);
+  expect(extractionLimiter.acquire("firecrawl-3", 100)).toEqual({
+    ok: false,
+    reason: "concurrency",
+  });
+  if (first.ok) first.permit.release();
+  if (second.ok) second.permit.release();
+  for (let i = 0; i < 8; i++) {
+    const admission = extractionLimiter.acquire(`firecrawl-rate-${i}`, 100);
+    expect(admission.ok).toBe(true);
+    if (admission.ok) admission.permit.release();
+  }
+  expect(extractionLimiter.acquire("firecrawl-over-budget", 100)).toEqual({
+    ok: false,
+    reason: "rate",
+  });
+});

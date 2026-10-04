@@ -202,7 +202,7 @@ describe("extracting", () => {
     );
   });
 
-  it("the 12-second client wait expires into the failed state with the URL preserved", async () => {
+  it("the managed-scrape client wait expires into the failed state with the URL preserved", async () => {
     // fireEvent keeps this test free of userEvent's own timer usage while
     // the suite runs under fake timers.
     vi.useFakeTimers();
@@ -222,7 +222,7 @@ describe("extracting", () => {
     expect(screen.getByText("Being nosy…")).toBeVisible();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(12_001);
+      await vi.advanceTimersByTimeAsync(37_001);
     });
 
     // The expiry resolves to the failed/manual state with the URL kept.

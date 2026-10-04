@@ -84,4 +84,7 @@ export class ExtractionLimiter {
   }
 }
 
-export const extractionLimiter = new ExtractionLimiter();
+export const extractionLimiter = new ExtractionLimiter({
+  processRate: 10,
+  processConcurrency: 2,
+});

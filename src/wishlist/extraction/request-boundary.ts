@@ -4,7 +4,7 @@ import { isProfileComplete } from "@/src/profile/profile";
 import { getOwnProfile, getSessionUser } from "@/src/profile/session";
 
 import { ExtractionError, extractionErrorResponse } from "./errors";
-import { extractProductLink } from "./extractor";
+import { extractProductLink } from "./product-link";
 import {
   extractionLimiter,
   type AdmissionResult,
@@ -15,7 +15,7 @@ import { durableExtractionLimit } from "./durable-limit";
 
 const BODY_LIMIT_BYTES = 8 * 1_024;
 const BODY_TIMEOUT_MS = 2_000;
-const TOTAL_TIMEOUT_MS = 10_000;
+const TOTAL_TIMEOUT_MS = 35_000;
 const RESPONSE_HEADERS = {
   "Cache-Control": "no-store",
   "Referrer-Policy": "no-referrer",
