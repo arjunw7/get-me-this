@@ -1,7 +1,8 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 /**
- * End-to-end coverage for the static fidelity landing slice (ARJ-16).
+ * End-to-end coverage for the approved wishlist-first landing revision.
  *
  * The suites run under both approved projects (mobile 390x844 and desktop
  * 1440x1000). Landing CTAs are verified by CLICK-THROUGH: each control is
@@ -12,22 +13,21 @@ import { expect, test } from "@playwright/test";
 test("renders the approved landing hierarchy", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page).toHaveTitle(
-    "Get Me This | Group wishlists for every occasion",
-  );
+  await expect(page).toHaveTitle("Get Me This | Your shareable gift wishlist");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
   const heading = page.getByRole("heading", { level: 1 });
-  await expect(heading).toHaveText(
-    /Make a wishlist\. Share it with your\s+people\./,
-  );
+  await expect(heading).toHaveText("Good gifts start with a wishlist.");
 
-  for (const section of ["How it works", "Any excuse to gift."]) {
+  for (const section of [
+    "Your wishlist. One link. Happy friends.",
+    "A few good questions.",
+  ]) {
     await expect(page.getByRole("heading", { name: section })).toBeVisible();
   }
   await expect(
     page.getByRole("heading", {
-      name: "Everyone’s wishlist in one place. No double gifts.",
+      name: "Gifting together? Start a group.",
     }),
   ).toBeVisible();
 
@@ -37,7 +37,7 @@ test("renders the approved landing hierarchy", async ({ page }) => {
 
   // The demo group figure's accessible name matches its visible name.
   await expect(
-    page.getByRole("figure", { name: "Santa Party 🎉" }),
+    page.getByRole("figure", { name: "Example private group: Birthday crew" }),
   ).toBeVisible();
 });
 
@@ -51,13 +51,15 @@ test("anchor navigation scrolls to its section", async ({ page }, testInfo) => {
   await page.goto("/");
   await page.getByRole("link", { name: "How it works" }).click();
   await expect(
-    page.getByRole("heading", { name: "How it works" }),
+    page.getByRole("heading", {
+      name: "Your wishlist. One link. Happy friends.",
+    }),
   ).toBeInViewport();
 });
 
 test.describe("landing CTA click-through", () => {
   for (const cta of [
-    { name: "Start my wishlist", intent: "wishlist" },
+    { name: "Create my wishlist", intent: "wishlist" },
     { name: "Create a group", intent: "create-group" },
   ]) {
     test(`"${cta.name}" lands on the rendered email-entry destination`, async ({
@@ -161,12 +163,12 @@ test("every interactive control is keyboard reachable with a visible focus ring"
   }
 
   const focused = focusedLabels.join("\n");
-  // Controls visible at every viewport: wordmark (home), Log in, and both
-  // hero CTAs must be keyboard reachable with the focus ring.
+  // Controls visible at every viewport: wordmark (home), Log in, and the
+  // primary and example hero CTAs must be keyboard reachable with the focus ring.
   expect(focused).toMatch(/Get Me\s*This\|solid/);
   expect(focused).toContain("Log in|solid");
-  expect(focused).toContain("Start my wishlist|solid");
-  expect(focused).toContain("Create a group|solid");
+  expect(focused).toContain("Create my wishlist|solid");
+  expect(focused).toContain("See an example|solid");
   // The anchor nav is hidden below md in the approved design; desktop only.
   if (isDesktop) {
     expect(focused).toContain("How it works|solid");
@@ -182,7 +184,7 @@ test("every interactive control is keyboard reachable with a visible focus ring"
       name: "Get Me This home",
       start: "/auth",
       destinationUrl: /\/$/,
-      destinationHeading: "How it works",
+      destinationHeading: "Your wishlist. One link. Happy friends.",
     },
     {
       name: "Log in",
@@ -191,7 +193,7 @@ test("every interactive control is keyboard reachable with a visible focus ring"
       destinationHeading: "Welcome to Get Me This.",
     },
     {
-      name: "Start my wishlist",
+      name: "Create my wishlist",
       start: "/",
       destinationUrl: /\/auth\?intent=wishlist$/,
       destinationHeading: "Welcome to Get Me This.",
@@ -222,30 +224,58 @@ test("every interactive control is keyboard reachable with a visible focus ring"
   }
 });
 
-test("the hero collage is static under reduced motion", async ({
+test("the example works without an account and preserves edits in the public preview", async ({
   page,
-  browserName,
 }) => {
-  test.skip(
-    browserName !== "chromium",
-    "prefers-reduced-motion emulation is asserted in Chromium",
-  );
+  await page.goto("/");
+  await page.getByRole("link", { name: "See an example" }).click();
+  const example = page.getByRole("region", { name: "Try an example" });
+  await expect(example).toBeInViewport();
+  await example.getByRole("button", { name: "Add an idea" }).click();
+  await example.getByLabel("Item name").fill("Blue espresso cups");
+  await example.getByLabel("Your note").fill("A pair for slow Sundays.");
+  await example.getByRole("button", { name: "Save example item" }).click();
+  await expect(
+    example.getByRole("heading", { name: "Aanya’s wishlist" }),
+  ).toBeFocused();
+  await example
+    .getByRole("button", { name: "Preview shared wishlist" })
+    .click();
+  await expect(
+    example.getByText("Blue espresso cups", { exact: true }),
+  ).toBeVisible();
+  await expect(example.getByText("A pair for slow Sundays.")).toBeVisible();
+  await expect(
+    example.getByText("One link. No account needed to browse."),
+  ).toBeVisible();
+  await expect(example).not.toContainText(/reserved|reservation|group/i);
+  await expect(page).toHaveURL(/\/#example$/);
+});
 
+test("example controls and FAQs support keyboard navigation", async ({
+  page,
+}) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-
-  const reveal = page.locator(".landing-reveal").first();
-  await expect(reveal).toBeVisible();
-  // The global reduced-motion block pins every animation to 0.01ms, so no
-  // entrance motion can play regardless of the resolved animation name.
-  const duration = await reveal.evaluate(
-    (element) => getComputedStyle(element).animationDuration,
-  );
-  // Chromium serialises 0.01ms as "1e-05s"; compare numerically.
-  const durationMs = duration.endsWith("ms")
-    ? parseFloat(duration)
-    : parseFloat(duration) * 1000;
-  expect(durationMs).toBeLessThanOrEqual(0.02);
+  const example = page.getByRole("region", { name: "Try an example" });
+  const add = example.getByRole("button", { name: "Add an idea" });
+  await add.focus();
+  await page.keyboard.press("Enter");
+  await expect(add).toHaveAttribute("aria-pressed", "true");
+  await example.getByLabel("Item name").fill("   ");
+  await expect(
+    example.getByRole("button", { name: "Save example item" }),
+  ).toBeDisabled();
+  const question = page
+    .locator("summary")
+    .filter({ hasText: "Do I need a group" });
+  await question.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText("No. Create your wishlist and share its link.", {
+      exact: false,
+    }),
+  ).toBeVisible();
 });
 
 test("the landing CTAs pop on hover with the approved press motion", async ({
@@ -258,7 +288,7 @@ test("the landing CTAs pop on hover with the approved press motion", async ({
   );
 
   await page.goto("/");
-  const cta = page.getByRole("link", { name: "Start my wishlist" }).first();
+  const cta = page.getByRole("link", { name: "Create my wishlist" }).first();
   await cta.waitFor({ state: "visible" });
 
   // Sample the computed translate through the 150ms press transition while
@@ -298,4 +328,23 @@ test("the landing CTAs pop on hover with the approved press motion", async ({
     .map(liftOf)
     .filter((lift) => lift > 0.05 && lift < 1.9);
   expect(intermediates.length).toBeGreaterThanOrEqual(1);
+});
+
+test("all example states remain accessible and fit the viewport", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const example = page.getByRole("region", { name: "Try an example" });
+  for (const label of ["Add an idea", "Your wishlist", "Friend’s view"]) {
+    await example.getByRole("button", { name: label }).click();
+    const result = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(result.violations).toEqual([]);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
 });

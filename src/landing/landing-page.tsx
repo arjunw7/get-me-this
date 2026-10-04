@@ -2,11 +2,10 @@ import Link from "next/link";
 
 import { ArrowRightIcon } from "./icons";
 import { Wordmark } from "./wordmark";
-import { HeroCollage } from "./hero-collage";
+import { WishlistExample } from "./wishlist-example";
 import { GroupDemoSection } from "./group-demo";
 import { CtaLink } from "./cta-link";
 import {
-  createGroupHref,
   dashboardHref,
   dashboardLabel,
   finalCta,
@@ -15,24 +14,12 @@ import {
   howItWorks,
   landingNav,
   loginHref,
-  occasionTilts,
-  occasions,
+  faqs,
   startWishlistHref,
 } from "./content";
 import { loggedOutConfirmation } from "@/src/auth/flow-copy";
 
-/**
- * The landing page, ported from the frozen V18 reference
- * (pages/Landing.tsx). Server component: no client JS.
- *
- * ARJ-54: a live session swaps the header's Log in anchor for a Dashboard
- * link to /home — the persisted session is reflected on return visits to
- * the home screen instead of inviting a redundant login. The signed-out
- * render is unchanged from the committed baseline.
- *
- * Layout geometry (max-w-6xl sections, px-5/sm:px-8 gutters) follows the
- * reference; colours, type, radii, and shadows are semantic tokens.
- */
+/** Public wishlist-first introduction; authentication remains intent-preserving. */
 export function LandingPage({
   loggedOut = false,
   signedIn = false,
@@ -78,8 +65,7 @@ export function LandingPage({
 
       <main>
         {/* The confirmed-logout confirmation (004e): rendered only for the
-            `?loggedOut=1` return after sign-out; the normal visit — the
-            committed baseline — renders nothing here. */}
+            `?loggedOut=1` return after sign-out; a normal visit renders nothing here. */}
         {loggedOut ? (
           <p
             role="status"
@@ -89,7 +75,7 @@ export function LandingPage({
           </p>
         ) : null}
         {/* Hero */}
-        <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 pt-6 pb-16 sm:px-8 lg:grid-cols-[1.05fr_1fr] lg:pt-14">
+        <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 pt-6 pb-16 sm:px-8 lg:grid-cols-[1fr_1fr] lg:gap-16 lg:pt-12">
           <div>
             <p className="text-base font-bold text-action-primary-strong">
               {hero.eyebrow}
@@ -105,7 +91,7 @@ export function LandingPage({
                 {hero.primaryCta}
                 <ArrowRightIcon className="h-5 w-5" />
               </CtaLink>
-              <CtaLink href={createGroupHref} variant="subtle" size="lg">
+              <CtaLink href="#example" variant="subtle" size="lg">
                 {hero.secondaryCta}
               </CtaLink>
             </div>
@@ -113,7 +99,7 @@ export function LandingPage({
               {hero.privacyNote}
             </p>
           </div>
-          <HeroCollage />
+          <WishlistExample />
         </section>
 
         {/* How it works */}
@@ -123,6 +109,9 @@ export function LandingPage({
           className="border-y-2 border-outline-strong bg-surface-raised"
         >
           <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
+            <p className="mb-3 text-sm font-bold uppercase tracking-wider text-action-primary-strong">
+              How it works · no group needed
+            </p>
             <h2
               id="how-title"
               className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl"
@@ -152,50 +141,40 @@ export function LandingPage({
 
         <GroupDemoSection />
 
-        {/* Occasions */}
         <section
-          id="occasions"
-          aria-labelledby="occasions-title"
-          className="mx-auto max-w-6xl px-5 pt-20 pb-30 sm:px-8"
+          aria-labelledby="questions-title"
+          className="border-t-2 border-outline-strong bg-surface-raised"
         >
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:items-center">
+          <div className="mx-auto grid max-w-6xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
             <div>
               <h2
-                id="occasions-title"
-                className="font-display text-4xl leading-[1.02] font-extrabold tracking-tight sm:text-5xl"
+                id="questions-title"
+                className="font-display text-4xl font-extrabold tracking-tight"
               >
-                Any excuse to gift.
+                A few good questions.
               </h2>
               <p className="mt-4 text-lg text-content-secondary">
-                One wishlist, as many groups as you like. Use the same list for
-                Eid, Diwali or someone’s chaotic housewarming.
+                Your wishlist works on its own. Groups are for planning gifts
+                together.
               </p>
             </div>
-            <ul className="flex flex-wrap gap-3">
-              {occasions.map((occasion, index) => (
-                <li
-                  key={occasion.label}
-                  className={`rounded-surface border-2 border-outline-strong px-4 py-3 shadow-chunk-sm ${TONE_CLASS[occasion.tone]} ${occasionTilts[index % occasionTilts.length]}`}
-                >
-                  <p className="font-display text-lg leading-tight font-extrabold">
-                    {occasion.label}
+            <div className="divide-y-2 divide-outline-subtle">
+              {faqs.map((faq) => (
+                <details key={faq.question} className="group py-4">
+                  <summary className="min-h-11 cursor-pointer content-center pr-2 font-bold">
+                    {faq.question}
+                  </summary>
+                  <p className="pt-3 pb-2 leading-relaxed text-content-secondary">
+                    {faq.answer}
                   </p>
-                  {/* V18 renders the electric tile's example at white/85 and
-                      the others at ink-soft; both fail WCAG AA on their tile
-                      fills, so the approved full-contrast tones are used. */}
-                  <p
-                    className={`text-sm ${occasion.tone === "electric" ? "text-surface-page" : "text-content-primary"}`}
-                  >
-                    &ldquo;{occasion.example}&rdquo;
-                  </p>
-                </li>
+                </details>
               ))}
-            </ul>
+            </div>
           </div>
         </section>
 
         {/* Final CTA */}
-        <section className="px-5 pb-20 sm:px-8">
+        <section className="px-5 py-16 sm:px-8 sm:py-20">
           <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 rounded-surface-2xl border-2 border-outline-strong bg-action-primary p-8 shadow-chunk-lg sm:p-12 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">
               <h2 className="font-display text-3xl leading-[1.05] font-extrabold tracking-tight sm:text-5xl">
@@ -225,11 +204,3 @@ export function LandingPage({
     </div>
   );
 }
-
-const TONE_CLASS = {
-  marigold: "bg-accent-highlight",
-  lime: "bg-accent-fresh",
-  coral: "bg-action-primary",
-  electric: "bg-accent-info text-surface-page",
-  paper: "bg-surface-raised",
-} as const;

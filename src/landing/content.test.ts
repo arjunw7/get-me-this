@@ -12,10 +12,9 @@ import {
   howItWorks,
   landingNav,
   loginHref,
-  occasionTilts,
-  occasions,
+  faqs,
   startWishlistHref,
-  whyItWorks,
+  groupCopy,
 } from "./content";
 import { demoGroup, demoPeople, demoProducts, heroBubbles } from "./demo-data";
 
@@ -29,12 +28,10 @@ const BANNED_TERMS = /shelfie|circle/i;
 
 describe("landing content", () => {
   it("carries the approved hero copy and CTA destinations", () => {
-    expect(hero.eyebrow).toBe("Group wishlists for every occasion.");
-    expect(hero.title).toMatch(
-      /^Make a wishlist\. Share it with your.+people\.$/,
-    );
-    expect(hero.primaryCta).toBe("Start my wishlist");
-    expect(hero.secondaryCta).toBe("Create a group");
+    expect(hero.eyebrow).toBe("Your shareable gift wishlist");
+    expect(hero.title).toBe("Good gifts start with a wishlist.");
+    expect(hero.primaryCta).toBe("Create my wishlist");
+    expect(hero.secondaryCta).toBe("See an example");
     expect(startWishlistHref).toBe("/auth?intent=wishlist");
     expect(createGroupHref).toBe("/auth?intent=create-group");
     expect(loginHref).toBe("/auth?intent=home");
@@ -44,29 +41,27 @@ describe("landing content", () => {
     expect(dashboardLabel).toBe("Dashboard");
   });
 
-  it("exposes the three anchor-nav destinations from the reference", () => {
-    expect(landingNav.map((item) => item.href)).toEqual([
-      "#how",
-      "#why",
-      "#occasions",
-    ]);
+  it("exposes the two explanatory navigation destinations", () => {
+    expect(landingNav.map((item) => item.href)).toEqual(["#how", "#groups"]);
   });
 
-  it("keeps the reference's section structure", () => {
+  it("separates standalone wishlist steps from optional group coordination", () => {
     expect(howItWorks.steps).toHaveLength(3);
-    expect(whyItWorks.benefits).toHaveLength(4);
-    expect(occasions).toHaveLength(7);
-    expect(occasionTilts).toHaveLength(7);
-    expect(finalCta.cta).toBe("Start my wishlist");
-    expect(footer.tagline).toContain("No public feeds");
+    expect(groupCopy.benefits).toHaveLength(3);
+    expect(faqs).toHaveLength(4);
+    expect(howItWorks.steps.map((step) => step.title).join(" ")).not.toMatch(
+      /group/i,
+    );
+    expect(finalCta.cta).toBe("Create my wishlist");
+    expect(hero.privacyNote).toContain("No group needed");
   });
 
   it("never uses the prototype's internal product nouns", () => {
     const allText = JSON.stringify({
       hero,
       howItWorks,
-      whyItWorks,
-      occasions,
+      groupCopy,
+      faqs,
       finalCta,
       footer,
       demoGroup,
