@@ -244,6 +244,17 @@ SECURITY DEFINER with empty search path and explicit grants.
 Full lifecycle, concurrency proof, image responsibilities, rollout, and
 non-destructive disabling notes: [Public wishlist links](public-wishlists.md).
 
+## Invitation banners
+
+Holders of a valid generic invitation may share a read-only SHA-256 preview
+capability with chat applications. `group_invitation_share_preview(text)` returns
+only current organizer display name, group name and the occasion wall clock in
+the group time zone. The capability cannot join, recover the invitation bearer,
+read members/wishlists, or expose gifting activity. Anonymous and authenticated
+callers receive the same projection; targeted, inactive, expired, exhausted and
+revoked invitations return no rows. Every image request rechecks this boundary.
+No table grants are added. See [rollout and rollback](../ops/invitation-sharing-rollout.md).
+
 ## Recoverable generic invitation links
 
 Migration `20261024000000_recoverable_group_invite_links.sql` retains newly issued

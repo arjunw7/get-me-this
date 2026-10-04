@@ -6,7 +6,11 @@ import sitemap from "../../app/sitemap";
 import { createBrandMetadata } from "@/src/brand/metadata";
 import {
   crawlerPolicy,
+  guideMetadata,
+  guideStructuredData,
   homepageMetadata,
+  howItWorksMetadata,
+  howItWorksStructuredData,
   indexingEnabled,
   LAUNCH_ORIGIN,
   mayIndexRequest,
@@ -62,7 +66,16 @@ describe("search indexing boundary", () => {
 
   it("indexes only reviewed marketing pages on the canonical host", () => {
     expect(indexingEnabled(production)).toBe(true);
-    for (const path of ["/", "/?loggedOut=1", "/?utm_source=chatgpt.com"])
+    for (const path of [
+      "/",
+      "/?loggedOut=1",
+      "/?utm_source=chatgpt.com",
+      "/how-it-works",
+      "/how-it-works?utm_source=chatgpt.com",
+      "/birthday-wishlist",
+      "/wishlist-from-different-stores",
+      "/secret-santa?utm_source=friend",
+    ])
       expect(
         mayIndexRequest(new URL(path, LAUNCH_ORIGIN), "GET", production),
       ).toBe(true);
@@ -203,7 +216,13 @@ describe("search indexing boundary", () => {
 
   it("serves only approved public canonical URLs, without fabricated freshness", () => {
     configure(production);
-    expect(sitemap()).toEqual([{ url: `${LAUNCH_ORIGIN}/` }]);
+    expect(sitemap()).toEqual([
+      { url: `${LAUNCH_ORIGIN}/` },
+      { url: `${LAUNCH_ORIGIN}/how-it-works` },
+      { url: `${LAUNCH_ORIGIN}/birthday-wishlist` },
+      { url: `${LAUNCH_ORIGIN}/wishlist-from-different-stores` },
+      { url: `${LAUNCH_ORIGIN}/secret-santa` },
+    ]);
     expect(robots().sitemap).toBe(`${LAUNCH_ORIGIN}/sitemap.xml`);
     configure({});
     expect(sitemap()).toEqual([]);
@@ -213,7 +232,17 @@ describe("search indexing boundary", () => {
     expect(crawlerPolicy(production).rules).toEqual([
       { userAgent: "*", allow: "/" },
       { userAgent: ["GPTBot", "ClaudeBot"], disallow: "/" },
-      { userAgent: "Google-Extended", disallow: "/", allow: ["/$"] },
+      {
+        userAgent: "Google-Extended",
+        disallow: "/",
+        allow: [
+          "/$",
+          "/how-it-works$",
+          "/birthday-wishlist$",
+          "/wishlist-from-different-stores$",
+          "/secret-santa$",
+        ],
+      },
     ]);
     expect(crawlerPolicy({}).rules).toContainEqual({
       userAgent: "Google-Extended",
@@ -234,4 +263,152 @@ describe("search indexing boundary", () => {
       data["@graph"].every((entity) => entity.url === `${LAUNCH_ORIGIN}/`),
     ).toBe(true);
   });
+});
+
+describe("public guide identity and indexing", () => {
+  it("gives the guide its own canonical and social metadata", () => {
+    const metadata = howItWorksMetadata(production);
+    expect(metadata.title).toBe(
+      "How Get Me This works: wishlists and private gift groups",
+    );
+    expect(metadata.alternates?.canonical).toBe(
+      `${LAUNCH_ORIGIN}/how-it-works`,
+    );
+    expect(metadata.openGraph).toMatchObject({
+      url: `${LAUNCH_ORIGIN}/how-it-works`,
+      title: metadata.title,
+      description: metadata.description,
+    });
+    expect(metadata.twitter).toMatchObject({
+      title: metadata.title,
+      description: metadata.description,
+    });
+    expect(metadata.robots).toEqual({ index: true, follow: true });
+  });
+
+  it.each([
+    {},
+    { ...production, SEO_INDEXING_ENABLED: "false" },
+    { ...production, RAILWAY_PR_NUMBER: "83" },
+    { ...production, RAILWAY_ENVIRONMENT_NAME: "staging" },
+  ])(
+    "keeps the guide out of search outside an enabled launch: %j",
+    async (env) => {
+      configure(env);
+      expect(howItWorksMetadata(env).robots).toEqual({
+        index: false,
+        follow: false,
+      });
+      expect(
+        (
+          await proxy(new NextRequest(`${LAUNCH_ORIGIN}/how-it-works`))
+        ).headers.get("X-Robots-Tag"),
+      ).toBe("noindex, nofollow");
+      expect(publicSitemap(env)).toEqual([]);
+    },
+  );
+
+  it("indexes the exact guide route without admitting similar utility paths", async () => {
+    configure(production);
+    expect(
+      (
+        await proxy(new NextRequest(`${LAUNCH_ORIGIN}/how-it-works`))
+      ).headers.has("X-Robots-Tag"),
+    ).toBe(false);
+    for (const path of [
+      "/how-it-works/private",
+      "/how-it-works-other",
+      "/birthday-wishlist/private",
+      "/s/guide-demo",
+    ]) {
+      expect(
+        mayIndexRequest(new URL(path, LAUNCH_ORIGIN), "GET", production),
+      ).toBe(false);
+    }
+  });
+
+  it("describes the visible guide and breadcrumb without fake ratings or offers", () => {
+    const data = howItWorksStructuredData();
+    expect(data["@graph"].map((entity) => entity["@type"])).toEqual([
+      "WebPage",
+      "BreadcrumbList",
+    ]);
+    expect(JSON.stringify(data)).toContain(`${LAUNCH_ORIGIN}/how-it-works`);
+    expect(JSON.stringify(data)).not.toMatch(
+      /aggregateRating|offers|reviewCount|Product|FAQPage/,
+    );
+  });
+});
+
+describe("topic guides", () => {
+  it.each([
+    "/birthday-wishlist",
+    "/wishlist-from-different-stores",
+    "/secret-santa",
+  ] as const)(
+    "gives %s a unique public identity while excluding previews and similar private routes",
+    async (path) => {
+      configure(production);
+      const metadata = guideMetadata(path, production);
+      expect(metadata.alternates?.canonical).toBe(`${LAUNCH_ORIGIN}${path}`);
+      expect(metadata.openGraph).toMatchObject({
+        url: `${LAUNCH_ORIGIN}${path}`,
+        title: metadata.title,
+        description: metadata.description,
+      });
+      expect(metadata.twitter).toMatchObject({
+        title: metadata.title,
+        description: metadata.description,
+      });
+      expect(metadata.robots).toEqual({ index: true, follow: true });
+      expect(
+        guideStructuredData(path)["@graph"].map((entity) => entity["@type"]),
+      ).toEqual(["WebPage", "BreadcrumbList"]);
+      expect(JSON.stringify(guideStructuredData(path))).not.toMatch(
+        /aggregateRating|offers|reviewCount|Product|FAQPage/,
+      );
+      expect(
+        (await proxy(new NextRequest(`${LAUNCH_ORIGIN}${path}`))).headers.has(
+          "X-Robots-Tag",
+        ),
+      ).toBe(false);
+      for (const env of [
+        {},
+        { ...production, RAILWAY_PR_NUMBER: "83" },
+        { ...production, SEO_INDEXING_ENABLED: "false" },
+      ]) {
+        expect(guideMetadata(path, env).robots).toEqual({
+          index: false,
+          follow: false,
+        });
+        expect(mayIndexRequest(new URL(path, LAUNCH_ORIGIN), "GET", env)).toBe(
+          false,
+        );
+      }
+      expect(
+        mayIndexRequest(
+          new URL(`${path}/private`, LAUNCH_ORIGIN),
+          "GET",
+          production,
+        ),
+      ).toBe(false);
+      expect(
+        mayIndexRequest(
+          new URL(`${path}-other`, LAUNCH_ORIGIN),
+          "GET",
+          production,
+        ),
+      ).toBe(false);
+      expect(
+        mayIndexRequest(
+          new URL(path, "https://preview.up.railway.app"),
+          "GET",
+          production,
+        ),
+      ).toBe(false);
+      expect(
+        mayIndexRequest(new URL(path, LAUNCH_ORIGIN), "POST", production),
+      ).toBe(false);
+    },
+  );
 });

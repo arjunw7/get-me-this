@@ -1,7 +1,7 @@
 # Vendored typefaces
 
 Both families are loaded locally with `next/font/local` in `app/layout.tsx`. The
-application makes no runtime request to `fonts.googleapis.com` or
+browser application makes no runtime request to `fonts.googleapis.com` or
 `fonts.gstatic.com`.
 
 Each file is the official Latin-subset **variable** WOFF2 build, which covers the
@@ -35,6 +35,21 @@ texts are committed beside the fonts:
   (SHA-256 `9af36190332437f5ecd09974de43c1f7c77a310a996cdd8ceb25628b458840e1`)
 
 ## Verifying
+
+Invitation PNGs embed static TTF instances derived from these exact same WOFF2
+sources with FontTools (ImageResponse does not accept WOFF2). The font names and
+OFL licences are unchanged:
+
+- `bricolage-grotesque-share-bold.ttf`: weight 800, optical size 48, width 100.
+- `dm-sans-share-regular.ttf`: weight 400, optical size 24.
+
+To regenerate, load the corresponding source with `fontTools.ttLib.TTFont`,
+instantiate the listed axes using `fontTools.varLib.instancer.instantiateVariableFont`,
+set `font.flavor = None`, and save to the matching TTF filename. No font tooling
+is required at application build or runtime. Tests pin source and output hashes
+so updating browser fonts also requires reviewing the image font instances.
+ImageResponse can use its standard glyph fallback for characters outside the
+vendored Latin subset; supported text always uses the embedded app fonts.
 
 ```bash
 shasum -a 256 app/fonts/*.woff2 app/fonts/OFL-*.txt

@@ -124,18 +124,18 @@
       "approvedDate": "2026-10-02"
     },
     "landing-desktop.png": {
-      "approvedBy": "repository owner (explicit 2026-10-04 approval of the six-image PR78/PR79 review; this file is one of the two landing captures)",
+      "approvedBy": "repository owner (explicit 2026-10-04 PR83 desktop/mobile homepage screenshot approval)",
       "approvedDate": "2026-10-04",
-      "approvalManifestSha256": "f0120afeecf25423e27f8baada29c3adbb125b2b7855510dda707b85c4aaac6b",
-      "sourceHead": "67f1042cbe7f5f522df371af778d9f253b506fbc",
-      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37180956007/artifacts/11295301062"
+      "approvalManifestSha256": "659a0159f93d6a5606848d7c995d86c1bc978f8801b3e694121adbbec83900f6",
+      "sourceHead": "1c94a8a170c60f0fd7a059d4e0c32b5a9f0b9d26",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37191840250/artifacts/11298689389"
     },
     "landing-mobile.png": {
-      "approvedBy": "repository owner (explicit 2026-10-04 approval of the six-image PR78/PR79 review; this file is one of the two landing captures)",
+      "approvedBy": "repository owner (explicit 2026-10-04 PR83 desktop/mobile homepage screenshot approval)",
       "approvedDate": "2026-10-04",
-      "approvalManifestSha256": "f0120afeecf25423e27f8baada29c3adbb125b2b7855510dda707b85c4aaac6b",
-      "sourceHead": "67f1042cbe7f5f522df371af778d9f253b506fbc",
-      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37180956007/artifacts/11295301062"
+      "approvalManifestSha256": "659a0159f93d6a5606848d7c995d86c1bc978f8801b3e694121adbbec83900f6",
+      "sourceHead": "1c94a8a170c60f0fd7a059d4e0c32b5a9f0b9d26",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37191840250/artifacts/11298689389"
     }
   },
   "files": {
@@ -151,8 +151,8 @@
     "confirm-valid-mobile.png": "29dc098ebc02a2ceed3f52be9aec76c44ab948f8f661fa872219de0c0380d9c8",
     "fixture-desktop.png": "0a2b6a2ec57b54f1a1ac29a3b1fdc69089d13b96a8239a5bd212d01d30285820",
     "fixture-mobile.png": "2e54737bf7e9ed5e5973ab417b55830fa76d792404993fea43a1df83e6323cdd",
-    "landing-desktop.png": "82615196e04089de3621c18baf45a20f87529cef4acb2127e176bf6b373cd024",
-    "landing-mobile.png": "f4143f6d9c3ec330c5fb79304de1f9a7b587f0061d257f8fb9c8da1aba5f9ed4",
+    "landing-desktop.png": "9eca535222d6096dc69b9429f612d4fd98f79bef5faed0a077cd60f8fb3c6a44",
+    "landing-mobile.png": "15b7d4910ffa3eaadb0da80f078228da1976b5238145c8db9772d135e596694c",
     "onboarding-desktop.png": "3ea5af3c30b681b83952503f19035f74937e4244f1138630747d9fd64dcb8fd3",
     "onboarding-mobile.png": "2709d9084883503e36bbe480a569a27f6da7fa84dc824baa130d017daf954d90",
     "onboarding-validation-desktop.png": "f559d352d0641e8923b75d1f96794991bb6706fc18266fe0b86b23326285e041",

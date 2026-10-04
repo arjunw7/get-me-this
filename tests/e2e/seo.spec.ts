@@ -25,6 +25,10 @@ test("preview and utility responses stay out of search", async ({
   for (const path of [
     "/",
     "/auth",
+    "/how-it-works",
+    "/birthday-wishlist",
+    "/wishlist-from-different-stores",
+    "/secret-santa",
     "/invite/unavailable",
     "/design-foundation",
     "/s/invalid",
