@@ -1,4 +1,5 @@
 import { canonicalHostRedirect } from "@/src/auth/canonical-redirect";
+import { isSharePreviewAgent } from "@/src/invite/share-preview-agent";
 import { mayIndexRequest } from "@/src/seo/policy";
 import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import { NextResponse, type NextRequest } from "next/server";
@@ -64,6 +65,22 @@ export async function proxy(request: NextRequest) {
   // Canonicalize before token parking, session refresh or any page/action runs.
   const canonicalRedirect = canonicalHostRedirect(request);
   if (canonicalRedirect) return withIndexingPolicy(canonicalRedirect);
+
+  // Preview fetches never refresh auth, set cookies, or begin a join flow.
+  // The handlers still authorize each capability through the database.
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    (/^\/invite\/preview\/[a-f0-9]{64}\/image$/.test(pathname) ||
+      (/^\/invite\/[^/]+$/.test(pathname) &&
+        isSharePreviewAgent(request.headers.get("user-agent"))))
+  ) {
+    const previewResponse = NextResponse.next();
+    previewResponse.headers.set("Cache-Control", NO_STORE);
+    previewResponse.headers.set("Referrer-Policy", NO_REFERRER);
+    previewResponse.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    previewResponse.headers.set("Vary", "User-Agent");
+    return previewResponse;
+  }
 
   // 1. /auth/confirm with any query: discard the query (it may carry the
   // one-time token hash) before substantive rendering or analytics, with

@@ -177,6 +177,7 @@ pnpm exec playwright test \
   tests/e2e/wishlist-extract-local.spec.ts \
   tests/e2e/groups-local.spec.ts \
   tests/e2e/invitations-local.spec.ts \
+  tests/e2e/invitation-share-local.spec.ts \
   tests/e2e/group-room-local.spec.ts \
   tests/e2e/group-activity-local.spec.ts \
   tests/e2e/group-wishlist-local.spec.ts \

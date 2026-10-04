@@ -19,10 +19,15 @@ import {
 } from "@/src/invite/token";
 import { enforceInviteLandingLimit } from "@/src/invite/landing-guard";
 import { unavailableLandingResponse } from "@/src/invite/unavailable-response";
+import {
+  invitationShareResponse,
+  isSharePreviewAgent,
+} from "@/src/invite/share-preview-response";
 
 /**
- * The raw-token landing handler (brief 006c): a GET-only bounded redirect,
- * never a page. It never renders application content, runs client code,
+ * Browser requests use the 006c bounded redirect. Sharing crawlers receive
+ * a read-only three-field HTML preview with a non-joining image capability.
+ * Neither representation runs client code,
  * loads analytics, or verifies authentication.
  *
  * - With an established coordinator cookie: a fresh 32-byte browser secret
@@ -67,6 +72,13 @@ export async function GET(
   context: { params: Promise<{ opaqueToken: string }> },
 ) {
   const origin = requestOrigin(request);
+
+  if (isSharePreviewAgent(request.headers.get("user-agent"))) {
+    const { opaqueToken } = await context.params;
+    return invitationShareResponse(
+      (await enforceInviteLandingLimit()) ? opaqueToken : "",
+    );
+  }
 
   const secret = getInvitationCookieSecret();
   if (!secret) return unavailable(origin);

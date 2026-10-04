@@ -13,6 +13,13 @@ The organizer supplies:
 
 After creation, the organizer receives a shareable invitation link and email/share actions, including a WhatsApp-friendly share path.
 
+Sharing a generic invitation link provides a dynamic banner containing the group
+name, current organizer's display name, and the occasion date in the group's own
+time zone. The banner uses the app wordmark, Bricolage Grotesque and DM Sans,
+and the existing colorful visual language. Reading a chat preview never joins a
+group or consumes an invitation use. Invalid or no-longer-live links return a
+generic preview; messaging apps may retain previously cached previews.
+
 ## Invitation
 
 A signed-out visitor with a valid invitation sees a limited preview: host, group name, occasion date, budget, gifting mode, and joined member count. The visitor selects **Join the group**, authenticates, completes onboarding if needed, and returns to the invitation before membership is created.
