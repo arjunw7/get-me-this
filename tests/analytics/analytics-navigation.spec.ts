@@ -383,7 +383,9 @@ test.describe("client analytics lane: behavioral navigation", () => {
     await expect
       .poll(() => sent.filter((e) => e.event === "$pageview").length)
       .toBe(1);
+    await expect(page.locator(".analytics-consent")).toHaveCount(0);
     await page.reload();
+    await expect(page.locator(".analytics-consent")).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "Cookie preferences", exact: true }),
     ).toBeVisible();
@@ -391,6 +393,7 @@ test.describe("client analytics lane: behavioral navigation", () => {
       .getByRole("button", { name: "Cookie preferences", exact: true })
       .click();
     await page.getByRole("button", { name: "Reject", exact: true }).click();
+    await expect(page.locator(".analytics-consent")).toHaveCount(0);
     await page.waitForTimeout(3000);
     const count = sent.length;
     await page.goto("/how-it-works");
