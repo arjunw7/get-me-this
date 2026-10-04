@@ -24,6 +24,16 @@
 import "server-only";
 
 import { PostHog } from "posthog-node";
+import { cookies } from "next/headers";
+import { ANALYTICS_CONSENT_COOKIE } from "./consent";
+
+async function hasRequestConsent(): Promise<boolean> {
+  try {
+    return (await cookies()).get(ANALYTICS_CONSENT_COOKIE)?.value === "granted";
+  } catch {
+    return false;
+  } // No request context (jobs/build) never implies consent.
+}
 
 import { isUuid, validateAnalyticsEvent } from "./validation";
 import type {
@@ -129,11 +139,12 @@ function createConfiguredServerAnalytics(
         logRejection(validated.failure);
         return validated.failure;
       }
+      if (!(await hasRequestConsent())) return { ok: true, delivered: false };
       try {
         client.capture({
           distinctId: context.distinctId,
           event,
-          properties: properties as Record<string, string | boolean>,
+          properties: { ...properties, $ip: null, $geoip_disable: true },
           groups: context.group ? { group: context.group.id } : undefined,
         });
         await client.flush();

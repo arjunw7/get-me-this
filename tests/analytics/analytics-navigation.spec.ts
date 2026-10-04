@@ -200,7 +200,8 @@ test.describe("client analytics lane: behavioral navigation", () => {
         }),
         configurable: true,
       });
-      window.localStorage.setItem("gmt:analytics:consent", "granted");
+      document.cookie =
+        "gmt_analytics_consent=granted; Path=/; Max-Age=15552000; SameSite=Lax";
     });
 
     // 1. Initial load of a nonexistent route (the app's not-found page):
@@ -270,11 +271,22 @@ test.describe("client analytics lane: behavioral navigation", () => {
 
     // 5. Privacy shape of every transported pageview.
     for (const captured of pageviewEvents.map(pageviewOf)) {
-      expect(captured.propertyKeys, "pageview property allowlist").toEqual([
-        "$current_url",
-        "$pathname",
-        "token",
-      ]);
+      expect(captured.propertyKeys).toContain("distinct_id");
+      expect(captured.propertyKeys).toContain("token");
+      expect(
+        captured.propertyKeys.every((key) =>
+          [
+            "$current_url",
+            "$pathname",
+            "token",
+            "distinct_id",
+            "$anon_distinct_id",
+            "$session_id",
+            "$window_id",
+            "$process_person_profile",
+          ].includes(key),
+        ),
+      ).toBe(true);
       expect(captured.currentUrl, "no query strings may leave").not.toContain(
         "?",
       );
@@ -285,11 +297,19 @@ test.describe("client analytics lane: behavioral navigation", () => {
     // nothing else.
     expect(consentEvents.length).toBeGreaterThanOrEqual(1);
     for (const consent of consentEvents) {
-      expect(consent.properties, `${consent.event} property allowlist`).toEqual(
-        {
-          token: FIXTURE_TOKEN,
-        },
-      );
+      expect(consent.properties.token).toBe(FIXTURE_TOKEN);
+      expect(
+        Object.keys(consent.properties).every((key) =>
+          [
+            "token",
+            "distinct_id",
+            "$anon_distinct_id",
+            "$session_id",
+            "$window_id",
+            "$process_person_profile",
+          ].includes(key),
+        ),
+      ).toBe(true);
     }
 
     // 6. Nothing ever left the machine except to the app and its fixture.
@@ -300,5 +320,76 @@ test.describe("client analytics lane: behavioral navigation", () => {
     const serialized = JSON.stringify(pageviewEvents);
     expect(serialized).not.toContain("SECRETTOKEN123");
     expect(serialized).not.toContain("otp=");
+  });
+  test("consent is optional, persists, and withdrawal stops browser events", async ({
+    page,
+  }) => {
+    const sent: Record<string, unknown>[] = [];
+    await page.route("**/*", async (route) => {
+      const url = new URL(route.request().url());
+      if (url.origin !== APP_ORIGIN) return route.abort();
+      if (url.pathname.includes(FIXTURE_HOST_MARKER)) {
+        if (route.request().method() === "POST")
+          sent.push(...decodeBatchEvents(route.request().postDataBuffer()));
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: "{}",
+        });
+      }
+      return route.continue();
+    });
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, "webdriver", {
+        get: () => undefined,
+      });
+      Object.defineProperty(Navigator.prototype, "userAgentData", {
+        get: () => ({
+          brands: [{ brand: "Chromium", version: "131" }],
+          mobile: false,
+        }),
+      });
+    });
+    await page.goto("/");
+    await expect(
+      page.getByRole("button", { name: "No thanks", exact: true }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: "/tmp/gmt-posthog-consent-desktop.png",
+      fullPage: false,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: "/tmp/gmt-posthog-consent-mobile.png",
+      fullPage: false,
+    });
+    await page.waitForTimeout(3000);
+    expect(sent).toEqual([]);
+    await page
+      .getByRole("button", { name: "Allow analytics", exact: true })
+      .click();
+    await expect
+      .poll(() => sent.filter((e) => e.event === "$pageview").length)
+      .toBe(1);
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Analytics preferences", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Analytics preferences", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Stop analytics", exact: true })
+      .click();
+    await page.waitForTimeout(3000);
+    const count = sent.length;
+    await page.goto("/how-it-works");
+    await page.waitForTimeout(3000);
+    expect(sent).toHaveLength(count);
+    expect(
+      (await page.context().cookies()).find(
+        (c) => c.name === "gmt_analytics_consent",
+      )?.value,
+    ).toBe("denied");
   });
 });

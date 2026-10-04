@@ -8,10 +8,9 @@
  * (src/analytics/server.ts) owns them exclusively, so the browser never
  * duplicates a business event.
  *
- * Inertness contract: when the public configuration is absent — or consent
- * has not been granted — the SDK is never initialized, so no transport
- * (fetch, XHR, sendBeacon, image beacon) is ever constructed. The SDK is
- * loaded through a dynamic import only after configuration exists.
+ * Inertness contract: without public configuration the SDK is never loaded.
+ * With configuration it initializes opted out; no events pass the send
+ * boundary until the expiring consent cookie grants permission.
  *
  * Identity contract (approved plan):
  * - the SDK's anonymous identifier is used before authentication;
@@ -36,6 +35,14 @@ import type { AutocaptureConfig, PostHog, PostHogConfig } from "posthog-js";
 
 import { isUuid } from "./validation";
 import {
+  ANALYTICS_CONSENT_COOKIE,
+  ANALYTICS_CONSENT_MAX_AGE,
+  ANALYTICS_CONSENT_CHANGED,
+  readConsentCookie,
+  type AnalyticsConsentChoice,
+} from "./consent";
+export type { AnalyticsConsentChoice } from "./consent";
+import {
   SENSITIVE_BLOCK_CLASS,
   SENSITIVE_MASK_CLASS,
   sanitizeClientEventForSend,
@@ -46,8 +53,6 @@ import {
 /** Persistence key for the user's analytics consent choice. */
 export const CLIENT_ANALYTICS_CONSENT_STORAGE_KEY = "gmt:analytics:consent";
 
-export type AnalyticsConsentChoice = "granted" | "denied";
-
 interface ClientAnalyticsConfig {
   readonly token: string;
   readonly host: string;
@@ -56,6 +61,7 @@ interface ClientAnalyticsConfig {
 let posthog: PostHog | undefined;
 let initialized = false;
 let identifiedThisSession = false;
+let pendingUserId: string | undefined;
 let lastPageviewPath: string | undefined;
 
 /** Reads the public client-lane configuration. Only NEXT_PUBLIC_* values. */
@@ -81,10 +87,7 @@ export function getAnalyticsConsent(): AnalyticsConsentChoice | "pending" {
   if (typeof window === "undefined") {
     return "pending";
   }
-  const stored = window.localStorage.getItem(
-    CLIENT_ANALYTICS_CONSENT_STORAGE_KEY,
-  );
-  return stored === "granted" || stored === "denied" ? stored : "pending";
+  return readConsentCookie(document.cookie);
 }
 
 /**
@@ -99,19 +102,39 @@ export function getAnalyticsConsent(): AnalyticsConsentChoice | "pending" {
  */
 export function setAnalyticsConsent(choice: AnalyticsConsentChoice): void {
   if (typeof window !== "undefined") {
-    window.localStorage.setItem(CLIENT_ANALYTICS_CONSENT_STORAGE_KEY, choice);
+    document.cookie = `${ANALYTICS_CONSENT_COOKIE}=${choice}; Path=/; Max-Age=${ANALYTICS_CONSENT_MAX_AGE}; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
+    // Storage is only a cross-tab notification; the expiring cookie is authoritative.
+    try {
+      window.localStorage.setItem(
+        CLIENT_ANALYTICS_CONSENT_STORAGE_KEY,
+        `${choice}:${Date.now()}`,
+      );
+    } catch {
+      /* Restricted storage must not break the app. */
+    }
   }
+  applyAnalyticsConsent();
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new Event(ANALYTICS_CONSENT_CHANGED));
+}
+
+/** Applies current cookie choice without extending its lifetime. */
+export function applyAnalyticsConsent(): void {
+  const choice = getAnalyticsConsent();
   if (posthog && initialized) {
     if (choice === "granted") {
       posthog.opt_in_capturing();
+      if (pendingUserId) identifyAuthenticatedUser(pendingUserId);
       captureSanitizedPageview(window.location.pathname);
     } else {
       posthog.opt_out_capturing();
       if (identifiedThisSession) {
         posthog.reset();
+        posthog.opt_out_capturing();
         identifiedThisSession = false;
         lastPageviewPath = undefined;
       }
+      lastPageviewPath = undefined;
     }
   }
 }
@@ -123,6 +146,7 @@ export function setAnalyticsConsent(choice: AnalyticsConsentChoice): void {
  * consent is pending or denied. Returns whether an identify was emitted.
  */
 export function identifyAuthenticatedUser(userId: string): boolean {
+  if (isUuid(userId)) pendingUserId = userId;
   if (!posthog || !initialized || identifiedThisSession) {
     return false;
   }
@@ -152,6 +176,7 @@ export function resetAnalyticsOnLogout(): void {
     posthog.reset();
   }
   identifiedThisSession = false;
+  pendingUserId = undefined;
   lastPageviewPath = undefined;
   const consent = getAnalyticsConsent();
   if (consent === "granted") {
@@ -217,6 +242,14 @@ export async function initClientAnalytics(): Promise<boolean> {
 
   const initOptions: Partial<PostHogConfig> = {
     api_host: config.host,
+    ui_host: "https://us.posthog.com",
+    ip: false,
+    advanced_disable_feature_flags: true,
+    advanced_disable_flags: true,
+    save_referrer: false,
+    save_campaign_params: false,
+    disable_surveys: true,
+    capture_exceptions: false,
 
     // Consent-gated: nothing is captured or recorded until explicit
     // opt-in. No consent UI ships in this issue, so production capture
@@ -249,7 +282,12 @@ export async function initClientAnalytics(): Promise<boolean> {
     autocapture,
 
     // Route templates are the only URLs that may ever leave the browser.
-    before_send: [sanitizeClientEventForSend],
+    before_send: [
+      (event) =>
+        getAnalyticsConsent() === "granted"
+          ? sanitizeClientEventForSend(event)
+          : null,
+    ],
 
     // The pinned SDK completes its initialization asynchronously after
     // init() returns: `capture` silently drops events until the request
@@ -260,6 +298,8 @@ export async function initClientAnalytics(): Promise<boolean> {
       initialized = true;
       if (getAnalyticsConsent() === "granted") {
         instance.opt_in_capturing();
+        if (pendingUserId) identifyAuthenticatedUser(pendingUserId);
+        window.dispatchEvent(new Event(ANALYTICS_CONSENT_CHANGED));
         // Initial pageview: emitted exactly once, after asynchronous
         // initialization completes, for the route the browser is on.
         captureSanitizedPageview(window.location.pathname);

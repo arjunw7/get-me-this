@@ -353,6 +353,19 @@ export async function verifyInvitationCodeAction(
   // the delivered user and advances the epoch. If the lease cannot move,
   // the lease is released and the real session still reconciles — the
   // provider verification already happened.
+  const verifiedUser = await supabase.auth.getUser();
+  if (verifiedUser.data.user) {
+    const profile = await getOwnProfile(verifiedUser.data.user.id);
+    await getServerAnalytics().capture(
+      "auth_completed",
+      {
+        method: "email",
+        is_new_user: !isProfileComplete(profile?.displayName ?? null),
+      },
+      { distinctId: verifiedUser.data.user.id },
+    );
+  }
+
   if (lease) {
     const verified = await supabase.auth.getUser();
     const delivered = await deliverMutationPending(
@@ -459,6 +472,19 @@ export async function verifyInvitationLinkAction(
   if (error) {
     if (lease) await releaseMutationLease(lease);
     return { status: "provider" };
+  }
+
+  const verifiedUser = await supabase.auth.getUser();
+  if (verifiedUser.data.user) {
+    const profile = await getOwnProfile(verifiedUser.data.user.id);
+    await getServerAnalytics().capture(
+      "auth_completed",
+      {
+        method: "email",
+        is_new_user: !isProfileComplete(profile?.displayName ?? null),
+      },
+      { distinctId: verifiedUser.data.user.id },
+    );
   }
 
   if (lease) {

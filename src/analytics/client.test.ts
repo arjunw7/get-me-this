@@ -86,6 +86,7 @@ describe("client analytics lane", () => {
       delete process.env[key];
     }
     window.localStorage.clear();
+    document.cookie = "gmt_analytics_consent=; Path=/; Max-Age=0";
     vi.resetModules();
     posthogMock.init.mockClear();
     // Mirror the real SDK: the `loaded` config callback runs when (async)
@@ -290,7 +291,8 @@ describe("client analytics lane", () => {
 
       client.setAnalyticsConsent("granted");
       expect(posthogMock.opt_in_capturing).toHaveBeenCalledTimes(1);
-      expect(window.localStorage.getItem(CONSENT_KEY)).toBe("granted");
+      expect(window.localStorage.getItem(CONSENT_KEY)).toMatch(/^granted:/);
+      expect(document.cookie).toContain("gmt_analytics_consent=granted");
 
       // Exactly one pageview: the current route at grant time ("/").
       expect(posthogMock.capture).toHaveBeenCalledTimes(1);
@@ -364,7 +366,8 @@ describe("client analytics lane", () => {
 
       // Granted: identify exactly once.
       client.setAnalyticsConsent("granted");
-      expect(client.identifyAuthenticatedUser(USER_UUID)).toBe(true);
+      // Consent immediately links the identity that mounted before consent.
+      expect(client.identifyAuthenticatedUser(USER_UUID)).toBe(false);
       expect(posthogMock.identify).toHaveBeenCalledTimes(1);
       expect(posthogMock.identify).toHaveBeenCalledWith(USER_UUID);
 
@@ -384,7 +387,7 @@ describe("client analytics lane", () => {
       client.setAnalyticsConsent("denied");
       // Withdrawal stops capture via the supported API and resets the
       // authenticated identity.
-      expect(posthogMock.opt_out_capturing).toHaveBeenCalledTimes(1);
+      expect(posthogMock.opt_out_capturing).toHaveBeenCalledTimes(2);
       expect(posthogMock.reset).toHaveBeenCalledTimes(1);
 
       // A later identify in the withdrawn state is refused.

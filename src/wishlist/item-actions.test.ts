@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   gate: vi.fn(),
+  capture: vi.fn(),
   save: vi.fn(),
   load: vi.fn(),
   remove: vi.fn(),
@@ -10,6 +11,9 @@ const mocks = vi.hoisted(() => ({
   redirect: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/src/analytics/server", () => ({
+  getServerAnalytics: () => ({ capture: mocks.capture }),
+}));
 vi.mock("@/src/profile/session", () => ({
   requireCompleteProfile: mocks.gate,
 }));
@@ -77,6 +81,38 @@ beforeEach(() => {
 });
 
 describe("wishlist item actions", () => {
+  it("tracks only newly committed manual saves and excludes product content", async () => {
+    mocks.save.mockResolvedValueOnce({
+      kind: "saved",
+      itemId,
+      replayed: false,
+    });
+    await createItemAction({ status: "idle" }, formData());
+    expect(mocks.capture).toHaveBeenCalledExactlyOnceWith(
+      "wishlist_item_added",
+      { entry_method: "manual", has_price: false, has_image: false },
+      { distinctId: userId },
+    );
+    mocks.capture.mockClear();
+    mocks.save.mockResolvedValueOnce({ kind: "saved", itemId, replayed: true });
+    await createItemAction({ status: "idle" }, formData());
+    expect(mocks.capture).not.toHaveBeenCalled();
+    mocks.save.mockResolvedValueOnce({ kind: "unavailable" });
+    await createItemAction({ status: "idle" }, formData());
+    expect(mocks.capture).not.toHaveBeenCalled();
+  });
+
+  it("analytics failure cannot fail a committed manual save", async () => {
+    mocks.save.mockResolvedValueOnce({
+      kind: "saved",
+      itemId,
+      replayed: false,
+    });
+    mocks.capture.mockRejectedValueOnce(new Error("transport unavailable"));
+    await createItemAction({ status: "idle" }, formData());
+    expect(mocks.redirect).toHaveBeenCalledWith("/wishlist?item=added");
+  });
+
   it("runs the fresh profile gate before create persistence and ignores forged metadata", async () => {
     const redirectSignal = new Error("NEXT_REDIRECT:/onboarding");
     mocks.gate.mockRejectedValueOnce(redirectSignal);

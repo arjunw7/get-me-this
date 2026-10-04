@@ -29,6 +29,21 @@ const PostHogConstructor = vi.hoisted(() =>
   }),
 );
 
+const consentStore = vi.hoisted(() => ({
+  value: "granted" as string | undefined,
+  fail: false,
+}));
+vi.mock("next/headers", () => ({
+  cookies: async () => {
+    if (consentStore.fail) throw new Error("no request");
+    return {
+      get: () =>
+        consentStore.value === undefined
+          ? undefined
+          : { value: consentStore.value },
+    };
+  },
+}));
 vi.mock("server-only", () => ({}));
 vi.mock("posthog-node", () => ({ PostHog: PostHogConstructor }));
 
@@ -59,6 +74,8 @@ describe("server analytics lane", () => {
       savedEnv[key] = process.env[key];
       delete process.env[key];
     }
+    consentStore.value = "granted";
+    consentStore.fail = false;
     vi.resetModules();
     callOrder.length = 0;
     posthogNodeInstance.capture.mockClear();
@@ -196,6 +213,38 @@ describe("server analytics lane", () => {
       });
     });
 
+    it.each([undefined, "denied", "invalid"])(
+      "captures nothing without granted consent (%s)",
+      async (value) => {
+        const analytics = (await importServer()).getServerAnalytics();
+        consentStore.value = value;
+        expect(
+          await analytics.capture("auth_completed", VALID_PAYLOAD, {
+            distinctId: DISTINCT_ID,
+          }),
+        ).toEqual({ ok: true, delivered: false });
+        expect(posthogNodeInstance.capture).not.toHaveBeenCalled();
+        expect(posthogNodeInstance.flush).not.toHaveBeenCalled();
+      },
+    );
+
+    it("rechecks consent per request with a shared adapter and fails closed outside a request", async () => {
+      const analytics = (await importServer()).getServerAnalytics();
+      await analytics.capture("auth_completed", VALID_PAYLOAD, {
+        distinctId: DISTINCT_ID,
+      });
+      consentStore.value = "denied";
+      await analytics.capture("auth_completed", VALID_PAYLOAD, {
+        distinctId: DISTINCT_ID,
+      });
+      consentStore.value = "granted";
+      consentStore.fail = true;
+      await analytics.capture("auth_completed", VALID_PAYLOAD, {
+        distinctId: DISTINCT_ID,
+      });
+      expect(posthogNodeInstance.capture).toHaveBeenCalledTimes(1);
+    });
+
     it("captures the validated payload and awaits flush after every capture", async () => {
       const { getServerAnalytics } = await importServer();
       const analytics = getServerAnalytics();
@@ -210,7 +259,7 @@ describe("server analytics lane", () => {
       expect(posthogNodeInstance.capture).toHaveBeenCalledWith({
         distinctId: DISTINCT_ID,
         event: "auth_completed",
-        properties: VALID_PAYLOAD,
+        properties: { ...VALID_PAYLOAD, $ip: null, $geoip_disable: true },
         groups: { group: GROUP_ID },
       });
       expect(posthogNodeInstance.flush).toHaveBeenCalledTimes(1);
