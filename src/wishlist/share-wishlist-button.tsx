@@ -243,13 +243,23 @@ function ShareSheet({
                 </svg>
               </a>
             </div>
-            <button
-              type="button"
-              onClick={() => void copy()}
-              className="min-h-12 w-full cursor-pointer rounded-control border-2 border-outline-strong bg-action-primary px-4 font-bold transition-colors hover:bg-action-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-info"
-            >
-              Copy link
-            </button>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => void copy()}
+                className="min-h-12 cursor-pointer rounded-control border-2 border-outline-strong bg-content-primary px-4 py-3 font-bold text-surface-raised hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-info"
+              >
+                Copy link
+              </button>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`Here's my wishlist on Get Me This: ${url}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-h-12 items-center justify-center rounded-control border-2 border-outline-strong bg-surface-raised px-4 py-3 text-center font-bold shadow-chunk-sm hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-info"
+              >
+                Share on WhatsApp
+              </a>
+            </div>
             {copyState !== "idle" ? (
               <p role="status" className="text-sm">
                 {copyState === "copied"
