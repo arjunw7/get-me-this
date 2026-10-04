@@ -34,7 +34,10 @@ export function amazonAsin(url: URL): string | null {
 }
 export function isAmazonUrl(raw: string): boolean {
   try {
-    return hosts.has(parseDestinationUrl(raw).hostname.replace(/^www\./u, ""));
+    const hostname = parseDestinationUrl(raw).hostname.replace(/^www\./u, "");
+    return (
+      hosts.has(hostname) || ["amzn.to", "amzn.eu", "a.co"].includes(hostname)
+    );
   } catch {
     return false;
   }

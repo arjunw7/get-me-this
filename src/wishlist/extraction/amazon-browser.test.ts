@@ -63,14 +63,17 @@ describe("Independent Amazon Playwright", () => {
       isAmazonProductUrl("https://amazon.in.attacker.example/dp/B0DGTSRX3R"),
     ).toBe(false);
   });
-  it("does not send unsupported Amazon paths to Firecrawl", async () => {
+  it.each([
+    "https://www.amazon.in/s?k=headphones",
+    "https://amzn.to/test-only-short-link",
+  ])("does not send unsupported Amazon links to Firecrawl: %s", async (url) => {
     vi.stubEnv("FIRECRAWL_API_KEY", "test-only-provider-key");
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
     const { extractProductLink } = await import("./product-link");
-    await expect(
-      extractProductLink("https://www.amazon.in/s?k=headphones"),
-    ).rejects.toMatchObject({ code: "unsupported_content" });
+    await expect(extractProductLink(url)).rejects.toMatchObject({
+      code: "unsupported_content",
+    });
     expect(fetch).not.toHaveBeenCalled();
   });
   it("preserves the receiver when using the production Playwright connector", async () => {

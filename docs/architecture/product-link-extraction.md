@@ -9,7 +9,7 @@ or emit analytics.
 
 Amazon marketplace URLs bypass Firecrawl entirely. Recognized `dp`/`gp/product`
 ASIN links use a separately hosted, authenticated Playwright worker; unsupported
-Amazon paths fail into editable manual entry without spending Firecrawl credits.
+Amazon paths and short links fail into editable manual entry without spending Firecrawl credits.
 Missing worker configuration, blocked/deleted pages and timeouts also fail safely.
 Only Amazon India has live benchmark evidence; universal extraction is not claimed.
 

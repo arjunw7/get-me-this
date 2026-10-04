@@ -1,6 +1,6 @@
 # Firecrawl product extraction — review evidence
 
-Branch: `codex/firecrawl-product-extraction`, started at main commit `c18b7b6` and updated to `f9393ea` via a non-rewriting merge. The only conflict was `.env.example`; both server-only settings were preserved.
+Branch: `codex/firecrawl-product-extraction`, started at main commit `c18b7b6` and updated through `8798d1b` via non-rewriting merges. The only conflict was `.env.example`; both server-only settings were preserved.
 Issue: [Firecrawl product import and Amazon browser extraction](../../issues/firecrawl-product-extraction.md).
 Architecture: [Product-link extraction boundary](../../../architecture/product-link-extraction.md).
 
@@ -11,7 +11,7 @@ Architecture: [Product-link extraction boundary](../../../architecture/product-l
    requests remain fixed. `playwright-core` is a production remote client; the
    Chromium binary is isolated in the separate worker image. Unsupported Amazon
    paths do not fall through to Firecrawl.
-2. **Conservative product fields:** 28 scraper tests, 17 Amazon tests and 10 egress tests cover
+2. **Conservative product fields:** 28 scraper tests, 18 Amazon tests and 10 egress tests cover
    original source, exact minor units, safe images, explicit product mismatches,
    currency conflicts, ambiguous prices, CAPTCHA/non-2xx pages and partial
    proposals. A DOM fixture proves MRP/recommendations and blank price nodes
@@ -32,7 +32,7 @@ Architecture: [Product-link extraction boundary](../../../architecture/product-l
    tests cover private/mixed DNS, invalid authorities and actual-peer mismatch.
    No credentials or browser endpoint identifiers are committed.
 5. **Verification:** `VITEST_MAX_WORKERS=2 pnpm verify` passed on Node 24.21.0:
-   167 files, 1,653 tests, formatting, lint, typecheck and production build.
+   170 files, 1,676 tests, formatting, lint, typecheck and production build.
    Two existing unrelated lint warnings remain. Generated Playwright HTML/trace diagnostics were archived outside the source tree before final verification: the existing broad ESLint command otherwise traverses bundled third-party trace assets. The first parallel run hit
    three existing HTML/image subprocess deadlines; the complete two-worker
    rerun passed without changing any safety deadline. Local database suites
@@ -46,6 +46,19 @@ mobile group-creation states) reproduced on unchanged main. Two additional
 failures were a transient home journey and an image fixture reaching a different
 worktree's port-3100 server. With the isolated test port and matching fixture,
 all four viewport rechecks passed. No baseline was updated.
+
+The final independent-worker iteration merged main `8798d1b`. Its local database
+rerun passed 28 files/1,881 checks after resetting only the dedicated disposable
+fixture stack. The first smoke run encountered leftover test users; the clean
+rerun passed. Latest-main full stack E2E could not be completed: trusted local
+app ports 3000/3100/3200 were occupied by other work. A port-3179 attempt was
+aborted when authentication correctly rejected that untrusted origin. Automatic
+approval review rejected a temporary application auth-allowlist change; no such
+change was made. Those setup failures are not reported as product regressions.
+The earlier valid 34/34 extraction flow proof remains historical evidence; CI
+and an available trusted local origin must confirm the final integrated suite.
+All temporary fixture/configuration changes were restored and only this task's
+Supabase/browser/app-test containers were stopped. Other local servers remain.
 
 After the Amazon implementation, the standard-port extraction E2E/visual suite
 passed **34/34**, including axe and target-size checks. Ports and the temporary
