@@ -40,7 +40,9 @@ existing durable per-user budget. A multi-instance rollout needs shared account
 quota coordination before increasing capacity. Firecrawl code execution consumes
 browser credits (currently two credits per minute with a one-minute minimum);
 use a dedicated free account/key with automatic top-ups disabled. No paid plan or
-production browser infrastructure is provisioned by this change.
+production browser infrastructure is provisioned by this change. Both browser
+execution and scraping use Firecrawl credits. Exhaustion leads to manual entry;
+there is no independently hosted Chromium fallback.
 
 Coverage is not universal: deleted products, location-dependent offers, missing
 variants, layout changes, blockers and short-link redirects can still need edits.
@@ -56,7 +58,7 @@ The old direct HTML extractor remains available for regression tests and
 rollback, but is not an automatic production fallback.
 
 Each admitted non-Amazon import makes one authenticated request to the fixed Firecrawl v2
-scrape endpoint, requesting deterministic `product` output plus rendered markdown evidence. Firecrawl handles
+scrape endpoint, requesting native `product` output plus rendered markdown evidence. Firecrawl handles
 retailer rendering and proxy selection. Requests use automatic proxy selection,
 certificate verification, fresh acquisition, no provider cache storage, and an
 India/English location. Location is a price context, never a currency inference.

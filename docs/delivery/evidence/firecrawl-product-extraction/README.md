@@ -1,6 +1,6 @@
 # Firecrawl product extraction — review evidence
 
-Branch: `codex/firecrawl-product-extraction`, based on main commit `c18b7b6`.
+Branch: `codex/firecrawl-product-extraction`, started at main commit `c18b7b6` and updated to `f9393ea` via a non-rewriting merge. The only conflict was `.env.example`; both server-only settings were preserved.
 Issue: [Firecrawl product import and Amazon browser extraction](../../issues/firecrawl-product-extraction.md).
 Architecture: [Product-link extraction boundary](../../../architecture/product-link-extraction.md).
 
@@ -29,15 +29,15 @@ Architecture: [Product-link extraction boundary](../../../architecture/product-l
    have a 256-KiB decoded ceiling. No credentials/session-viewer URLs are in
    committed evidence.
 5. **Verification:** `VITEST_MAX_WORKERS=2 pnpm verify` passed on Node 24.21.0:
-   161 files, 1,613 tests, formatting, lint, typecheck and production build.
-   Two existing unrelated lint warnings remain. The first parallel run hit
+   166 files, 1,638 tests, formatting, lint, typecheck and production build.
+   Two existing unrelated lint warnings remain. Generated Playwright HTML/trace diagnostics were archived outside the source tree before final verification: the existing broad ESLint command otherwise traverses bundled third-party trace assets. The first parallel run hit
    three existing HTML/image subprocess deadlines; the complete two-worker
    rerun passed without changing any safety deadline. Local database suites
-   passed: 27 files/1,861 tests.
+   passed: 28 files/1,881 tests.
 
 ## Local-stack and visual results
 
-The full stack runner passed 238 checks, skipped six and failed ten. Eight
+The initial full stack runner passed 238 checks, skipped six and failed ten. After merging current main and rebuilding the isolated local fixture stack, the full runner passed **242**, skipped **six** and failed only the same **eight** visual golden comparisons. Eight
 visual golden comparisons (wishlist empty/filled at both viewports and four
 mobile group-creation states) reproduced on unchanged main. Two additional
 failures were a transient home journey and an image fixture reaching a different
@@ -93,9 +93,9 @@ follow-up. No paid plan, auto-top-up or infrastructure was enabled.
 
 ## Deployment and rollback
 
-Draft proposal only; independent review is required before merge. No Railway
-preview URL is available yet and no production resources were modified. Configure
-a preview server-only `FIRECRAWL_API_KEY` to validate the real application-to-API
+Draft proposal only; independent review is required before merge. The automatic [Railway preview](https://get-me-this-get-me-this-pr-87.up.railway.app/)
+returned HTTP 200 on its public landing page. No production resources were
+modified. Validate its server-only `FIRECRAWL_API_KEY` to validate the real application-to-API
 path, provider trust boundary and free-account limits. No schema migration is
 required. Revert this slice to restore the original HTML extractor/timeouts and
 admission settings. No Magic Patterns mock data/editor artifacts were added to
