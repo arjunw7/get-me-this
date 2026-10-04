@@ -81,7 +81,7 @@ export function OnboardingForm({
   const [vibe, setVibe] = useState<Vibe>(DEFAULT_VIBE);
   const [touched, setTouched] = useState(parsed === "validation");
   const [preview, setPreview] = useState(false);
-  const [submitState, submitFormAction] = useActionState(
+  const [submitState, submitFormAction, pending] = useActionState(
     completeAction ?? completeOnboardingAction,
     { status: "idle" } as OnboardingSubmitState,
   );
@@ -99,6 +99,10 @@ export function OnboardingForm({
     (!clientValidation.ok ? clientValidation.errors.displayName : undefined);
 
   function submit(event: FormEvent<HTMLFormElement>) {
+    if (pending) {
+      event.preventDefault();
+      return;
+    }
     setTouched(true);
     if (!clientValidation.ok) {
       event.preventDefault();
@@ -163,12 +167,10 @@ export function OnboardingForm({
               aria-describedby={
                 nameError || serverErrors?.displayName ? nameErrorId : undefined
               }
-              className={cx(
-                authInputClassName({
-                  invalid: Boolean(nameError || serverErrors?.displayName),
-                }),
-                "pl-4",
-              )}
+              className={authInputClassName({
+                invalid: Boolean(nameError || serverErrors?.displayName),
+                withIcon: false,
+              })}
             />
             {nameError || serverErrors?.displayName ? (
               <span
@@ -202,7 +204,10 @@ export function OnboardingForm({
               maxLength={TASTE_LINE_MAX}
               aria-invalid={serverErrors?.tasteLine ? true : undefined}
               aria-describedby={lineHelpId}
-              className={cx(authInputClassName({ invalid: false }), "pl-4")}
+              className={authInputClassName({
+                invalid: false,
+                withIcon: false,
+              })}
             />
             {serverErrors?.tasteLine ? (
               <span
@@ -266,12 +271,15 @@ export function OnboardingForm({
 
           <button
             type="submit"
+            disabled={pending}
+            aria-busy={pending}
             className={cx(
               buttonClassName({ variant: "primary", size: "lg" }),
               "w-full",
             )}
           >
-            Let’s go <ArrowRightIcon className="h-5 w-5" />
+            {pending ? "Saving…" : "Let’s go"}
+            {pending ? null : <ArrowRightIcon className="h-5 w-5" />}
           </button>
         </form>
       </div>

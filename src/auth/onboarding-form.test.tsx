@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -13,6 +13,7 @@ vi.mock("@/src/profile/onboarding-actions", () => ({
 import { OnboardingForm } from "./onboarding-form";
 import { previewNotice } from "./copy";
 import { TASTE_LINE_MAX } from "./fixtures";
+import type { OnboardingSubmitState } from "@/src/profile/onboarding-state";
 
 /**
  * The static onboarding form: display name required (designed validation),
@@ -164,5 +165,58 @@ describe("OnboardingForm", () => {
       "href",
       "/",
     );
+  });
+});
+
+describe("OnboardingForm live submission feedback", () => {
+  it.each([undefined, "invite-flow"])(
+    "shows pending feedback, blocks repeat submits, and recovers after a save error (flow %s)",
+    async (flowId) => {
+      let finish!: (state: OnboardingSubmitState) => void;
+      const action = vi.fn(
+        () =>
+          new Promise<OnboardingSubmitState>((resolve) => {
+            finish = resolve;
+          }),
+      );
+      const user = userEvent.setup();
+      render(<OnboardingForm live completeAction={action} flowId={flowId} />);
+      const name = screen.getByLabelText("What should friends call you?");
+      await user.type(name, "Arjun");
+      await user.click(screen.getByRole("button", { name: /let’s go/i }));
+
+      const pending = await screen.findByRole("button", { name: "Saving…" });
+      expect(pending).toBeDisabled();
+      expect(pending).toHaveAttribute("aria-busy", "true");
+      await user.click(pending);
+      expect(action).toHaveBeenCalledTimes(1);
+
+      await act(async () =>
+        finish({ status: "error", failure: "update-failed" }),
+      );
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: /let’s go/i })).toBeEnabled(),
+      );
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "We couldn’t save that just now.",
+      );
+      expect(name).toHaveValue("Arjun");
+      expect(screen.getByRole("button", { name: /let’s go/i })).toHaveAttribute(
+        "aria-busy",
+        "false",
+      );
+    },
+  );
+
+  it("rejects invalid input without starting a pending submission", async () => {
+    const action = vi.fn();
+    render(<OnboardingForm live completeAction={action} />);
+    await userEvent.click(screen.getByRole("button", { name: /let’s go/i }));
+    expect(action).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Friends need something to call you.",
+    );
+    expect(screen.getByRole("button", { name: /let’s go/i })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Saving…" })).toBeNull();
   });
 });

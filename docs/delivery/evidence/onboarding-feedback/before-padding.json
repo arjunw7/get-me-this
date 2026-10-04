@@ -1,0 +1,10 @@
+{
+  "desktop": {
+    "left": "48px",
+    "right": "16px"
+  },
+  "mobile": {
+    "left": "48px",
+    "right": "16px"
+  }
+}

@@ -93,9 +93,14 @@ export const authCardClassName =
  * shortcuts. Valid/invalid tones are mutually exclusive, mirroring
  * `controlClassName` in src/ui/styles.ts.
  */
-export function authInputClassName(options: { invalid: boolean }) {
+export function authInputClassName(options: {
+  invalid: boolean;
+  /** Reserve space for the email icon; plain profile fields omit it. */
+  withIcon?: boolean;
+}) {
   return cx(
-    "mt-1.5 block h-control-lg w-full rounded-surface pl-12 pr-4",
+    "mt-1.5 block h-control-lg w-full rounded-surface pr-4",
+    options.withIcon === false ? "pl-4" : "pl-12",
     OUTLINE_WIDTH,
     "text-body text-content-primary placeholder:text-content-muted",
     "transition-[box-shadow] duration-[var(--duration-press)] ease-snap focus:shadow-chunk-sm",
