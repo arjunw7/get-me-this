@@ -1,0 +1,15 @@
+{
+  "testedAt": "2026-10-04T05:06:20.180Z",
+  "origin": "http://127.0.0.1:3500",
+  "crawler": "WhatsApp-style anonymous request; no cookies",
+  "checks": [
+    "Home serves generic Open Graph and Twitter large-image metadata",
+    "Approved headline and alt text present",
+    "Absolute PNG image URL returns HTTP 200 without sign-in",
+    "Image decodes at 1200 × 630",
+    "ICO, PNG and Apple touch icon URLs return200",
+    "No inherited root og:url",
+    "Invalid public wishlist returns HTTP 404 and retains noindex, nofollow, no-referrer"
+  ],
+  "bannerBytes": 74596
+}
