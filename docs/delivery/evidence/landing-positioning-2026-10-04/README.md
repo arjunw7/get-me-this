@@ -40,7 +40,7 @@ Route `/`, anonymous session, fixed demo content, no overlays, desktop **1440×1
 
 Intermediate interactive-demo screenshots have been removed from the final evidence tree. The original before captures and current after/section captures remain; superseded iterations are recoverable in Git history.
 
-These are review evidence, **not approved replacement golden screenshots**. No baseline files or manifest were changed. The landing still differs from the old group-first goldens, so a separate explicit baseline approval is required after human review.
+These local images document the design review. Golden replacement uses the separately captured Ubuntu CI images explicitly approved by the owner on 4 October; see the approval record below.
 
 ## Final integrated verification
 
@@ -55,7 +55,7 @@ Final screenshots use the integrated landing branch based on **ad2dfd7**, plus t
 - Independent rendered-page checks at both sizes confirmed markers **1,2,3**, three original hero product images, no hero reservation sticker, original **Santa Party 🎉** group illustration, seven occasion tiles, occasions before FAQ, and absence of the condensed occasion line. No horizontal overflow:1440/1440 desktop and390/390 mobile.
 - Final border/column checks passed on the latest running build: occasions and FAQ each span the full viewport (1440px desktop /390px mobile), occasions has a 0px top /2px bottom border, FAQ has a 2px top /0px bottom border, and their shared edge overlaps by2px to remain a single line. Cards are left of text on desktop; text precedes cards vertically on mobile. Screenshots were visually inspected; no broad test rerun was needed for this styling-only refinement.
 - Anonymous page metadata renders `/assets/brand/share-banner-v2.png` for both Open Graph and Twitter images. Favicon, PNG icon and Apple icon links are present. Asset correctness was checked separately in the integrated brand work.
-- Existing golden files are untouched. The last comparison before restoring the occasion section reported two expected landing differences from the old group-first design. New final screenshots require explicit review and baseline approval; they were not adopted automatically.
+- The earlier comparison reported two expected landing differences from the old group-first design. Following explicit owner review, exactly the final desktop/mobile Ubuntu candidates are now the goldens, with hashes and provenance recorded below.
 - This public-only revision does not mutate data. Database suites were handled separately by the CI-fix work.
 
 ## Boundaries and rollback
@@ -72,4 +72,4 @@ The final follow-up restores the original V18 occasion section immediately befor
 
 The owner reviewed the consolidated six-image old/candidate/diff gallery and explicitly approved replacement. This PR replaces exactly the desktop/mobile landing goldens using the reviewed Ubuntu CI captures from `67f1042`. [Approval and exact hashes](baseline-approval.json). The four approved wishlist goldens are inherited from base PR78; no other golden or comparison tolerance changed.
 
-The landing functional and visual specs are now included in the no-provider CI job. Before approval, exact-head Linux proof was23passed/1intentional mobile-navigation skip, with only the two approved screenshot differences failing. Full isolated verify passed155files/1513tests plus production build; clean CI DB1815assertions/all8race harnesses passed. New exact-head CI must complete after replacement before merge.
+The landing functional and visual specs are now included in the no-provider CI job. Before approval, exact-head Linux proof was 23 passed / one intentional mobile-navigation skip, with only the two approved screenshot differences failing. Full isolated verify passed 155 files / 1,513 tests plus production build; clean CI database proof passed 1,815 assertions and all eight race harnesses. New exact-head CI must complete after replacement before merge.
