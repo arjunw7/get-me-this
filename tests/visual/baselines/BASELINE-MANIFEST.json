@@ -8,24 +8,32 @@
   },
   "fileProvenanceOverrides": {
     "wishlist-empty-desktop.png": {
-      "approvedBy": "independent AI visual reviewer /root/arj28_final_visual_review",
-      "approvedDate": "2026-10-01",
-      "approvalManifestSha256": "25c87ae6dfa5cec565dd460b904f1bea71d91143d5e138d5b6903dbc4d26440a"
+      "approvedBy": "repository owner (explicit 2026-10-04 approval of the six-image PR78/PR79 review; this file is one of the four wishlist captures)",
+      "approvedDate": "2026-10-04",
+      "approvalManifestSha256": "13b8b01a9fb0b67b202f3d3c54b3887739f8e872344e578a83e8ea303fdf8904",
+      "sourceHead": "6745d5268b5bcb929d21c0a2a3c1483181d63407",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237/artifacts/11294678418"
     },
     "wishlist-empty-mobile.png": {
-      "approvedBy": "independent AI visual reviewer /root/arj28_final_visual_review",
-      "approvedDate": "2026-10-01",
-      "approvalManifestSha256": "25c87ae6dfa5cec565dd460b904f1bea71d91143d5e138d5b6903dbc4d26440a"
+      "approvedBy": "repository owner (explicit 2026-10-04 approval of the six-image PR78/PR79 review; this file is one of the four wishlist captures)",
+      "approvedDate": "2026-10-04",
+      "approvalManifestSha256": "13b8b01a9fb0b67b202f3d3c54b3887739f8e872344e578a83e8ea303fdf8904",
+      "sourceHead": "6745d5268b5bcb929d21c0a2a3c1483181d63407",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237/artifacts/11294678418"
     },
     "wishlist-filled-desktop.png": {
-      "approvedBy": "repository owner (explicit approval of the ARJ-29 diff: V18 privacy line + Reorder toolbar restored by PR #39)",
-      "approvedDate": "2026-10-01",
-      "approvalManifestSha256": "25c87ae6dfa5cec565dd460b904f1bea71d91143d5e138d5b6903dbc4d26440a"
+      "approvedBy": "repository owner (explicit 2026-10-04 approval of the six-image PR78/PR79 review; this file is one of the four wishlist captures)",
+      "approvedDate": "2026-10-04",
+      "approvalManifestSha256": "13b8b01a9fb0b67b202f3d3c54b3887739f8e872344e578a83e8ea303fdf8904",
+      "sourceHead": "6745d5268b5bcb929d21c0a2a3c1483181d63407",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237/artifacts/11294678418"
     },
     "wishlist-filled-mobile.png": {
-      "approvedBy": "repository owner (explicit approval of the ARJ-29 diff: V18 privacy line + Reorder toolbar restored by PR #39)",
-      "approvedDate": "2026-10-01",
-      "approvalManifestSha256": "25c87ae6dfa5cec565dd460b904f1bea71d91143d5e138d5b6903dbc4d26440a"
+      "approvedBy": "repository owner (explicit 2026-10-04 approval of the six-image PR78/PR79 review; this file is one of the four wishlist captures)",
+      "approvedDate": "2026-10-04",
+      "approvalManifestSha256": "13b8b01a9fb0b67b202f3d3c54b3887739f8e872344e578a83e8ea303fdf8904",
+      "sourceHead": "6745d5268b5bcb929d21c0a2a3c1483181d63407",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37179426237/artifacts/11294678418"
     },
     "groups-created-active-link-lost-desktop.png": {
       "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
@@ -141,10 +149,10 @@
     "verify-error-mobile.png": "7cd248e399ae8f327399e036cffe6cbf507bd9dad45ee6b4860bff3141b115da",
     "verify-expired-desktop.png": "8806b860c1514bade0bad1a5e76dd705a3fc9e250d3589d4c6c8c4262f056a26",
     "verify-expired-mobile.png": "493caff115ed1a969208c75369166cd37081c88f051039ca8dfd8e681ea77077",
-    "wishlist-empty-desktop.png": "92eb523e95288ad878af6713ab88f1cac6fe97357645c7535a9d294367536b2e",
-    "wishlist-empty-mobile.png": "d6be52365b2de8001f53eb91e6545ea82ed8564e2f8eef513d5e413ea5e79ba0",
-    "wishlist-filled-desktop.png": "2ea009c13897e8d797b6ebea58fc92971395b3eb7b6cead1dd760fe8b0297da9",
-    "wishlist-filled-mobile.png": "c9e0586b6859b417ed622d50d41e707fffe136388892a5b81a76f341afb5ad30",
+    "wishlist-empty-desktop.png": "38c836bb430db979bd3904cd4536908973be52b191a4da5f6de2636ddda05bfd",
+    "wishlist-empty-mobile.png": "cc515ff538475c64b9fc51181e7936c46d88eb6813e5829761339dfca3fbcb8c",
+    "wishlist-filled-desktop.png": "1e8d7c306f03d089684060bc47bb53a98ab15a0787983a23583115d4f6fa944b",
+    "wishlist-filled-mobile.png": "461d0d7f2c6c91340b3058ffd89fe939c1ec74db12e321cc68e6feaba2d177f2",
     "groups-created-active-link-lost-desktop.png": "2cf78017ebf20892ae2d78656d771832a00969fce1319e6ff848c8adfb118bd4",
     "groups-created-active-link-lost-mobile.png": "ff8ece37fcb37895816fd85d8fd80638e3a802ab6902aa3f9e9fe89220acd23a",
     "groups-created-issued-expired-desktop.png": "7746a67ef51df9a1a5d0ed87da9f97572ad155170b930cf2c8e8257d4c59058c",

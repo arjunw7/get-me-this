@@ -48,3 +48,9 @@ The four additional local mobile create-group mismatches are **not proposed base
 - [ ] Exact-head clean-stack/Linux CI confirmation and human approval for any required wishlist golden replacement remain pending.
 
 No migration or rollback is needed for these application/test-only fixes. Reverting this scoped commit restores the prior behavior. The PR Railway status was green at base head; no new preview was published by this subtask.
+
+## Explicit owner approval — 4 October 2026
+
+The owner reviewed the consolidated six-image old/candidate/diff gallery and explicitly approved replacement. This PR replaces only the four wishlist goldens using the reviewed Ubuntu CI captures from source `6745d52`; subsequent `4881266` changed only the database race harness. [Approval and exact hashes](baseline-approval.json). No tolerances or group-creation goldens changed. The two landing candidates are applied separately in stacked PR79.
+
+Current pre-replacement CI on `4881266`:26database files/1815assertions and all8configured race harnesses passed; fullstack242passed/6skipped, with only the four now-approved wishlist comparisons failing. All8group-creation screenshot states passed. New exact-head CI must complete after replacement before merge.
