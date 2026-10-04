@@ -117,6 +117,19 @@ async function emitGroupCreated(
       },
       { distinctId: userId, group: { id: groupId } },
     );
+    await getServerAnalytics().capture(
+      "gifting_mode_selected",
+      {
+        gifting_mode:
+          payload.mode === "secret_draw"
+            ? "draw_names"
+            : payload.mode === "gift_everyone"
+              ? "gift_everyone"
+              : "share_wishlists_only",
+        changed_from_existing: false,
+      },
+      { distinctId: userId, group: { id: groupId } },
+    );
   } catch {
     // Analytics failure cannot turn a committed creation into a failure.
   }

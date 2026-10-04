@@ -86,6 +86,7 @@ describe("client analytics lane", () => {
       delete process.env[key];
     }
     window.localStorage.clear();
+    document.cookie = "gmt_analytics_consent=; Path=/; Max-Age=0";
     vi.resetModules();
     posthogMock.init.mockClear();
     // Mirror the real SDK: the `loaded` config callback runs when (async)
@@ -290,7 +291,8 @@ describe("client analytics lane", () => {
 
       client.setAnalyticsConsent("granted");
       expect(posthogMock.opt_in_capturing).toHaveBeenCalledTimes(1);
-      expect(window.localStorage.getItem(CONSENT_KEY)).toBe("granted");
+      expect(window.localStorage.getItem(CONSENT_KEY)).toMatch(/^granted:/);
+      expect(document.cookie).toContain("gmt_analytics_consent=granted");
 
       // Exactly one pageview: the current route at grant time ("/").
       expect(posthogMock.capture).toHaveBeenCalledTimes(1);
@@ -364,7 +366,8 @@ describe("client analytics lane", () => {
 
       // Granted: identify exactly once.
       client.setAnalyticsConsent("granted");
-      expect(client.identifyAuthenticatedUser(USER_UUID)).toBe(true);
+      // Consent immediately links the identity that mounted before consent.
+      expect(client.identifyAuthenticatedUser(USER_UUID)).toBe(false);
       expect(posthogMock.identify).toHaveBeenCalledTimes(1);
       expect(posthogMock.identify).toHaveBeenCalledWith(USER_UUID);
 
@@ -384,13 +387,42 @@ describe("client analytics lane", () => {
       client.setAnalyticsConsent("denied");
       // Withdrawal stops capture via the supported API and resets the
       // authenticated identity.
-      expect(posthogMock.opt_out_capturing).toHaveBeenCalledTimes(1);
+      expect(posthogMock.opt_out_capturing).toHaveBeenCalledTimes(2);
       expect(posthogMock.reset).toHaveBeenCalledTimes(1);
 
       // A later identify in the withdrawn state is refused.
       const SECOND_USER = "22222222-2222-4222-8222-222222222222";
       expect(client.identifyAuthenticatedUser(SECOND_USER)).toBe(false);
       expect(posthogMock.identify).toHaveBeenCalledTimes(1);
+    });
+
+    it("resets before identifying a changed authenticated account", async () => {
+      const client = await importClient();
+      await client.initClientAnalytics();
+      client.setAnalyticsConsent("granted");
+      client.identifyAuthenticatedUser(USER_UUID);
+      const secondUser = "22222222-2222-4222-8222-222222222222";
+      expect(client.identifyAuthenticatedUser(secondUser)).toBe(true);
+      expect(posthogMock.reset).toHaveBeenCalledTimes(1);
+      expect(posthogMock.identify.mock.calls).toEqual([
+        [USER_UUID],
+        [secondUser],
+      ]);
+      expect(client.identifyAuthenticatedUser(secondUser)).toBe(false);
+      expect(posthogMock.alias).not.toHaveBeenCalled();
+    });
+
+    it("links the authenticated projection after asynchronous SDK loading", async () => {
+      let loaded: ((instance: unknown) => void) | undefined;
+      posthogMock.init.mockImplementation((_token, config) => {
+        loaded = config.loaded;
+      });
+      const client = await importClient();
+      client.setAnalyticsConsent("granted");
+      await client.initClientAnalytics();
+      expect(client.identifyAuthenticatedUser(USER_UUID)).toBe(false);
+      loaded?.(posthogMock);
+      expect(posthogMock.identify).toHaveBeenCalledExactlyOnceWith(USER_UUID);
     });
 
     it("refuses non-UUID identifiers such as emails and display names", async () => {

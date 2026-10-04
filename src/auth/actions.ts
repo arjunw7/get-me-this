@@ -4,6 +4,7 @@ import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getServerAnalytics } from "@/src/analytics/server";
 
 import { createSupabaseServerClient } from "@/src/supabase/server";
 import { postAuthRouteForUser } from "@/src/profile/session";
@@ -163,7 +164,20 @@ export async function verifyCodeAction(
     const delivered = await deliverMutationPending(lease, userId, "deliver");
     if (!delivered) await releaseMutationLease(lease);
   }
-  redirect(await postAuthRouteForUser(userId, carry.intent, carry.shareToken));
+  const destination = await postAuthRouteForUser(
+    userId,
+    carry.intent,
+    carry.shareToken,
+  );
+  await getServerAnalytics().capture(
+    "auth_completed",
+    {
+      method: "email",
+      is_new_user: destination.startsWith("/onboarding"),
+    },
+    { distinctId: userId },
+  );
+  redirect(destination);
 }
 
 /** Resends the code to the carried email. */
@@ -281,13 +295,20 @@ export async function verifyMagicLinkAction(
     );
     if (!delivered) await releaseMutationLease(magicLease);
   }
-  redirect(
-    await postAuthRouteForUser(
-      userId,
-      authCarry?.intent,
-      authCarry?.shareToken,
-    ),
+  const destination = await postAuthRouteForUser(
+    userId,
+    authCarry?.intent,
+    authCarry?.shareToken,
   );
+  await getServerAnalytics().capture(
+    "auth_completed",
+    {
+      method: "email",
+      is_new_user: destination.startsWith("/onboarding"),
+    },
+    { distinctId: userId },
+  );
+  redirect(destination);
 }
 
 /**

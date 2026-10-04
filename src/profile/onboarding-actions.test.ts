@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
+const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
+vi.mock("@/src/analytics/server", () => ({
+  getServerAnalytics: () => analytics,
+}));
 
 class RedirectSignal extends Error {
   constructor(readonly to: string) {
@@ -42,6 +46,7 @@ function formData(entries: Record<string, string>): FormData {
 }
 
 beforeEach(() => {
+  analytics.capture.mockReset();
   mockClient = {
     auth: { getUser: vi.fn() },
     from: vi.fn(),
@@ -74,6 +79,11 @@ describe("completeOnboardingAction", () => {
     ).rejects.toThrow(new RedirectSignal("/home"));
 
     expect(mockClient!.from).toHaveBeenCalledWith("profiles");
+    expect(analytics.capture).toHaveBeenCalledExactlyOnceWith(
+      "onboarding_completed",
+      { avatar_selected: false },
+      { distinctId: "user-1" },
+    );
   });
 
   it.each(["tomato", "marigold", "electric", "acid_lime"])(

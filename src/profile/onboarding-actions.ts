@@ -3,6 +3,7 @@
 import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import { resolveSafeRedirectTarget } from "@/src/auth/link-intents";
 import { redirect } from "next/navigation";
+import { getServerAnalytics } from "@/src/analytics/server";
 import { parseVibe } from "@/src/profile/vibe";
 
 import { createSupabaseServerClient } from "@/src/supabase/server";
@@ -73,6 +74,12 @@ export async function completeOnboardingAction(
     // the form for correction.
     return { status: "error", failure: "update-failed" };
   }
+
+  await getServerAnalytics().capture(
+    "onboarding_completed",
+    { avatar_selected: false },
+    { distinctId: user.id },
+  );
 
   redirect(
     resolveSafeRedirectTarget(

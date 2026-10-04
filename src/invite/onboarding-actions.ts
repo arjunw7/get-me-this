@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getServerAnalytics } from "@/src/analytics/server";
 import { parseVibe } from "@/src/profile/vibe";
 
 import { createSupabaseServerClient } from "@/src/supabase/server";
@@ -72,6 +73,12 @@ export async function completeOnboardingForInvitationAction(
   if (!isProfileComplete(profile?.displayName ?? null)) {
     return { status: "error", failure: "update-failed" };
   }
+
+  await getServerAnalytics().capture(
+    "onboarding_completed",
+    { avatar_selected: false },
+    { distinctId: user.id },
+  );
 
   if (flow.joinRequested === true) await resumeInvitationJoinAction(formData);
   redirect(`/invite/continue/${flowId}`);

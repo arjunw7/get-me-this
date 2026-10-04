@@ -92,7 +92,12 @@ describe("createGroupAction", () => {
     } catch {
       // The redirect throw is expected.
     }
-    expect(mocks.capture).toHaveBeenCalledTimes(1);
+    expect(mocks.capture).toHaveBeenCalledTimes(2);
+    expect(mocks.capture).toHaveBeenCalledWith(
+      "gifting_mode_selected",
+      { gifting_mode: "draw_names", changed_from_existing: false },
+      { distinctId: USER_ID, group: { id: GROUP_ID } },
+    );
     expect(mocks.capture).toHaveBeenCalledWith(
       "group_created",
       {

@@ -11,9 +11,11 @@ An **activated group** has:
 - at least three accepted members; and
 - at least two distinct members who have each published at least one wishlist item.
 
-The server emits `group_activated` once per group when this threshold is first crossed. This is the primary activation event for v1.
+`group_activated` is a planned event and is not emitted yet. Correct once-per-group
+measurement requires a persisted threshold-crossing receipt; page visits and
+member counts must never masquerade as activation.
 
-## Initial funnel
+## Planned group journey
 
 1. `auth_completed`
 2. `group_created`
@@ -22,7 +24,19 @@ The server emits `group_activated` once per group when this threshold is first c
 5. `wishlist_item_added`
 6. `group_activated`
 
-Secondary quality signals are extraction reliability and gifting-mode completion.
+This is a cross-person journey, not a same-user PostHog funnel: organizers
+create groups while other members accept invitations. `invite_sent` remains
+reserved for confirmed delivery; copying or generating a link cannot prove
+delivery. The current application has link sharing only, so this event is not
+emitted. The production dashboard reports creation and acceptance separately.
+
+Implemented quality signals include extraction outcomes, initial gifting-mode
+selection on committed group creation, draw completion, checklist progression,
+reactions, copying, reservations, and browsing. Successful provider authentication
+and onboarding completion are now instrumented, along with both manual and
+link-based wishlist saves. `auth_completed.is_new_user` means the verified
+account still requires profile onboarding, rather than a guaranteed first-ever
+authentication. No avatar selector is shipped; `avatar_selected` is false.
 
 ## Event catalog
 
