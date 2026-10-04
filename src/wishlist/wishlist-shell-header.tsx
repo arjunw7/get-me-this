@@ -8,11 +8,13 @@ export async function WishlistShellHeader({
   displayName,
   tasteLine,
   vibe,
+  showMobileAdd,
 }: {
   email: string | null;
   displayName: string;
   tasteLine?: string | null;
   vibe?: Vibe;
+  showMobileAdd?: boolean;
 }) {
   const coordinator = await readCoordinatorCookie();
   return (
@@ -21,6 +23,7 @@ export async function WishlistShellHeader({
       displayName={displayName}
       tasteLine={tasteLine}
       vibe={vibe}
+      showMobileAdd={showMobileAdd}
       brokered={coordinator !== null}
     />
   );

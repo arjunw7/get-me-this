@@ -79,9 +79,10 @@ export function SearchableSelect({
           filtered.length;
         setActiveValue(filtered[next].value);
       }
-    } else if (open && event.key === "Enter") {
+    } else if (event.key === "Enter") {
       event.preventDefault();
-      if (activeOption) choose(activeOption);
+      if (!open) show();
+      else if (activeOption) choose(activeOption);
     } else if (open && event.key === "Tab") close(false);
   }
   return (

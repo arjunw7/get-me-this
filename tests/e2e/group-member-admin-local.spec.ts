@@ -60,7 +60,7 @@ test("the organizer member tools: action matrix, stale recovery, and denials", a
     await page.goto("/groups/new");
     await page.getByLabel("Group name").fill(GROUP_NAME);
     await page
-      .getByLabel("Date")
+      .getByLabel("Date", { exact: true })
       .fill(new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10));
     await page.getByRole("button", { name: "Create group" }).click();
     await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);

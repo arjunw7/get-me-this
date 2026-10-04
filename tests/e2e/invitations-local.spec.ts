@@ -153,7 +153,7 @@ async function createGroupAndToken(
   const date = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
-  await page.getByLabel("Date").fill(date);
+  await page.getByLabel("Date", { exact: true }).fill(date);
   await page.getByRole("button", { name: "Create group" }).click();
   await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
   const groupId = new URL(page.url()).pathname.split("/")[2] ?? "";
@@ -598,8 +598,12 @@ test.describe("invitation preview and acceptance", () => {
         });
         await second.goto("/home");
         await second.getByRole("button", { name: /account/i }).click();
-        await second.getByRole("button", { name: "Log out" }).click();
-        await second.getByRole("button", { name: "Log out" }).click();
+        await second
+          .getByRole("button", { name: "Log out", exact: true })
+          .click();
+        await second
+          .getByRole("button", { name: "Log out", exact: true })
+          .click();
         await second
           .waitForURL(/\/home\?logoutBlocked=1$/, { timeout: 20_000 })
           .catch(async () => {
@@ -629,8 +633,12 @@ test.describe("invitation preview and acceptance", () => {
           if (/\/\?loggedOut=1$/.test(second.url())) return;
           await second.reload();
           await second.getByRole("button", { name: /account/i }).click();
-          await second.getByRole("button", { name: "Log out" }).click();
-          await second.getByRole("button", { name: "Log out" }).click();
+          await second
+            .getByRole("button", { name: "Log out", exact: true })
+            .click();
+          await second
+            .getByRole("button", { name: "Log out", exact: true })
+            .click();
           await second.waitForURL(/\/\?loggedOut=1$/, { timeout: 15_000 });
         }).toPass({ timeout: 150_000 });
       } finally {

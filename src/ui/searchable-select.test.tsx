@@ -19,10 +19,22 @@ const options = [
   { value: "USD", label: "USD", description: "US Dollar" },
   { value: "EUR", label: "EUR", description: "Euro" },
 ];
-function Fixture({ disabled = false }: { disabled?: boolean }) {
+function Fixture({
+  disabled = false,
+  onSubmit,
+}: {
+  disabled?: boolean;
+  onSubmit?: () => void;
+}) {
   const [value, setValue] = useState("INR");
   return (
-    <form aria-label="Prices">
+    <form
+      aria-label="Prices"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit?.();
+      }}
+    >
       <SearchableSelect
         id="currency"
         name="currency"
@@ -33,11 +45,29 @@ function Fixture({ disabled = false }: { disabled?: boolean }) {
         disabled={disabled}
       />
       <button type="button">Outside</button>
+      <button type="submit">Save item</button>
     </form>
   );
 }
 
 describe("SearchableSelect", () => {
+  it("uses closed-selector Enter to open choices without implicitly submitting a valid form", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<Fixture onSubmit={onSubmit} />);
+    await user.tab();
+    const input = screen.getByRole("combobox", { name: "Currency" });
+    expect(input).toHaveValue("INR");
+    await user.keyboard("{Enter}");
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole("listbox")).toBeVisible();
+    await user.keyboard("{Enter}");
+    expect(input).toHaveValue("INR");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Save item" }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
   it("searches full names and submits only the explicitly selected supported value", async () => {
     const user = userEvent.setup();
     render(<Fixture />);
