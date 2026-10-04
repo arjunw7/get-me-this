@@ -17,6 +17,7 @@ export function AppNavigation({
   vibe,
   brokered,
   showMobileAdd = true,
+  loading = false,
 }: {
   email: string | null;
   displayName: string;
@@ -24,6 +25,7 @@ export function AppNavigation({
   vibe?: Vibe;
   brokered: boolean;
   showMobileAdd?: boolean;
+  loading?: boolean;
 }) {
   const pathname = usePathname();
   const editing = pathname.startsWith("/wishlist/items/");
@@ -59,7 +61,14 @@ export function AppNavigation({
           Add an item
         </Link>
         <div className="mt-auto pt-8">
-          <AccountMenu {...account} variant="sidebar" />
+          {loading ? (
+            <div
+              aria-hidden="true"
+              className="h-12 animate-pulse rounded-surface bg-surface-sunken motion-reduce:animate-none"
+            />
+          ) : (
+            <AccountMenu {...account} variant="sidebar" />
+          )}
         </div>
       </aside>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b-2 border-outline-strong bg-surface-page px-4 lg:hidden">
@@ -70,7 +79,14 @@ export function AppNavigation({
         >
           <Wordmark className="text-xl" />
         </Link>
-        <AccountMenu {...account} variant="topbar" />
+        {loading ? (
+          <div
+            aria-hidden="true"
+            className="h-8 w-8 animate-pulse rounded-full bg-surface-sunken motion-reduce:animate-none"
+          />
+        ) : (
+          <AccountMenu {...account} variant="topbar" />
+        )}
       </header>
       {!editing && showMobileAdd && (
         <Link

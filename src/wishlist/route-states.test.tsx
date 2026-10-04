@@ -3,6 +3,11 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import WishlistErrorBoundary from "@/app/wishlist/error";
+vi.mock("@/src/home/account-menu", () => ({ AccountMenu: () => null }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/wishlist",
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 import WishlistLoading from "@/app/wishlist/loading";
 
 afterEach(() => vi.restoreAllMocks());
