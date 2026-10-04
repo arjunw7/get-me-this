@@ -210,6 +210,8 @@ describe("server analytics lane", () => {
       expect(PostHogConstructor).toHaveBeenCalledTimes(1);
       expect(PostHogConstructor).toHaveBeenCalledWith("phc-test-token", {
         host: "https://eu.i.posthog.test",
+        requestTimeout: 2000,
+        fetchRetryCount: 0,
       });
     });
 

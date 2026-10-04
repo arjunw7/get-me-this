@@ -20,25 +20,21 @@ describe("analytics preferences", () => {
   it("starts pending, allows, persists across remount, and withdraws", () => {
     const view = render(<AnalyticsConsentControl />);
     expect(getAnalyticsConsent()).toBe("pending");
-    fireEvent.click(screen.getByRole("button", { name: "Allow analytics" }));
+    fireEvent.click(screen.getByRole("button", { name: "Allow cookies" }));
     expect(getAnalyticsConsent()).toBe("granted");
     view.unmount();
     render(<AnalyticsConsentControl />);
-    expect(
-      screen.queryByRole("button", { name: "Allow analytics" }),
-    ).toBeNull();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Analytics preferences" }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Stop analytics" }));
+    expect(screen.queryByRole("button", { name: "Allow cookies" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Cookie preferences" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
     expect(getAnalyticsConsent()).toBe("denied");
   });
   it("denies without requiring consent to use the app", () => {
     render(<AnalyticsConsentControl />);
-    fireEvent.click(screen.getByRole("button", { name: "No thanks" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
     expect(getAnalyticsConsent()).toBe("denied");
     expect(
-      screen.getByRole("button", { name: "Analytics preferences" }),
+      screen.getByRole("button", { name: "Cookie preferences" }),
     ).toBeVisible();
   });
   it("survives unavailable local storage", () => {
@@ -48,14 +44,14 @@ describe("analytics preferences", () => {
         throw new Error("blocked");
       });
     render(<AnalyticsConsentControl />);
-    fireEvent.click(screen.getByRole("button", { name: "Allow analytics" }));
+    fireEvent.click(screen.getByRole("button", { name: "Allow cookies" }));
     expect(getAnalyticsConsent()).toBe("granted");
     spy.mockRestore();
   });
   it("does not show when configuration is missing", () => {
     vi.stubEnv("NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN", "");
     render(<AnalyticsConsentControl />);
-    expect(screen.queryByLabelText("Analytics preferences")).toBeNull();
+    expect(screen.queryByLabelText("Cookie preferences")).toBeNull();
   });
   it("only reads exact consent cookie values; stale local storage grants nothing", () => {
     expect(readConsentCookie("a=b; gmt_analytics_consent=granted")).toBe(

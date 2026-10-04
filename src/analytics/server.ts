@@ -120,7 +120,11 @@ function createConfiguredServerAnalytics(
 ): ServerAnalytics {
   // One safely managed client for the whole server process. Every capture is
   // followed by an awaited flush, so no queued event outlives its request.
-  const client = new PostHog(token, { host });
+  const client = new PostHog(token, {
+    host,
+    requestTimeout: 2000,
+    fetchRetryCount: 0,
+  });
   let shutdownPromise: Promise<void> | undefined;
 
   return {

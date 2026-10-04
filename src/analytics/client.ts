@@ -252,8 +252,8 @@ export async function initClientAnalytics(): Promise<boolean> {
     capture_exceptions: false,
 
     // Consent-gated: nothing is captured or recorded until explicit
-    // opt-in. No consent UI ships in this issue, so production capture
-    // cannot begin yet (see docs/analytics/enabling-posthog.md).
+    // opt-in through the shipped cookie-preferences control. The send
+    // boundary checks the current expiring cookie for every event.
     opt_out_capturing_by_default: true,
     person_profiles: "identified_only",
 
@@ -283,10 +283,16 @@ export async function initClientAnalytics(): Promise<boolean> {
 
     // Route templates are the only URLs that may ever leave the browser.
     before_send: [
-      (event) =>
-        getAnalyticsConsent() === "granted"
-          ? sanitizeClientEventForSend(event)
-          : null,
+      (event) => {
+        if (getAnalyticsConsent() !== "granted") return null;
+        const safe = sanitizeClientEventForSend(event);
+        return safe
+          ? {
+              ...safe,
+              properties: { ...safe.properties, $geoip_disable: true },
+            }
+          : null;
+      },
     ],
 
     // The pinned SDK completes its initialization asynchronously after

@@ -284,6 +284,7 @@ test.describe("client analytics lane: behavioral navigation", () => {
             "$session_id",
             "$window_id",
             "$process_person_profile",
+            "$geoip_disable",
           ].includes(key),
         ),
       ).toBe(true);
@@ -307,9 +308,16 @@ test.describe("client analytics lane: behavioral navigation", () => {
             "$session_id",
             "$window_id",
             "$process_person_profile",
+            "$geoip_disable",
           ].includes(key),
         ),
       ).toBe(true);
+    }
+
+    for (const event of pageviewEvents) {
+      expect((event.properties as Record<string, unknown>).$geoip_disable).toBe(
+        true,
+      );
     }
 
     // 6. Nothing ever left the machine except to the app and its fixture.
@@ -352,13 +360,17 @@ test.describe("client analytics lane: behavioral navigation", () => {
     });
     await page.goto("/");
     await expect(
-      page.getByRole("button", { name: "No thanks", exact: true }),
+      page.getByRole("button", { name: "Reject", exact: true }),
     ).toBeVisible();
     await page.screenshot({
       path: "/tmp/gmt-posthog-consent-desktop.png",
       fullPage: false,
     });
     await page.setViewportSize({ width: 390, height: 844 });
+    const mobileBar = await page.locator(".analytics-consent").boundingBox();
+    expect(mobileBar?.x).toBe(0);
+    expect(mobileBar?.width).toBe(390);
+    expect((mobileBar?.y ?? 0) + (mobileBar?.height ?? 0)).toBe(844);
     await page.screenshot({
       path: "/tmp/gmt-posthog-consent-mobile.png",
       fullPage: false,
@@ -366,21 +378,19 @@ test.describe("client analytics lane: behavioral navigation", () => {
     await page.waitForTimeout(3000);
     expect(sent).toEqual([]);
     await page
-      .getByRole("button", { name: "Allow analytics", exact: true })
+      .getByRole("button", { name: "Allow cookies", exact: true })
       .click();
     await expect
       .poll(() => sent.filter((e) => e.event === "$pageview").length)
       .toBe(1);
     await page.reload();
     await expect(
-      page.getByRole("button", { name: "Analytics preferences", exact: true }),
+      page.getByRole("button", { name: "Cookie preferences", exact: true }),
     ).toBeVisible();
     await page
-      .getByRole("button", { name: "Analytics preferences", exact: true })
+      .getByRole("button", { name: "Cookie preferences", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Stop analytics", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Reject", exact: true }).click();
     await page.waitForTimeout(3000);
     const count = sent.length;
     await page.goto("/how-it-works");

@@ -31,23 +31,18 @@ export function AnalyticsConsentControl() {
   const choice = useSyncExternalStore(
     subscribe,
     getAnalyticsConsent,
-    () => "pending",
-  );
-  const hydrated = useSyncExternalStore(
-    subscribe,
-    () => true,
-    () => false,
+    () => undefined,
   );
   const [open, setOpen] = useState(false);
-  if (!hydrated || !isClientAnalyticsConfigured()) return null;
+  if (choice === undefined || !isClientAnalyticsConfigured()) return null;
   const choose = (value: "granted" | "denied") => {
     setAnalyticsConsent(value);
     setOpen(false);
   };
   return (
     <aside
-      aria-label="Analytics preferences"
-      className="ph-no-capture analytics-consent"
+      aria-label="Cookie preferences"
+      className={`ph-no-capture analytics-consent${choice !== "pending" && !open ? " analytics-consent-collapsed" : ""}`}
     >
       {choice === "pending" || open ? (
         <div
@@ -55,17 +50,16 @@ export function AnalyticsConsentControl() {
           role="region"
           aria-labelledby="analytics-consent-title"
         >
-          <h2 id="analytics-consent-title">Help make Get Me This better?</h2>
+          <h2 id="analytics-consent-title">Allow cookies?</h2>
           <p>
-            Allow optional usage analytics with PostHog. We keep your wishlist
-            content and private gifting details out. Your choice lasts 180 days
-            on this browser.
+            We use optional analytics cookies to understand how our site is used
+            and improve your experience.
           </p>
           <div className="analytics-consent-actions">
             <Button variant="secondary" onClick={() => choose("denied")}>
-              {choice === "granted" ? "Stop analytics" : "No thanks"}
+              Reject
             </Button>
-            <Button onClick={() => choose("granted")}>Allow analytics</Button>
+            <Button onClick={() => choose("granted")}>Allow cookies</Button>
           </div>
         </div>
       ) : (
@@ -73,7 +67,7 @@ export function AnalyticsConsentControl() {
           className="analytics-consent-trigger"
           onClick={() => setOpen(true)}
         >
-          Analytics preferences
+          Cookie preferences
         </button>
       )}
     </aside>

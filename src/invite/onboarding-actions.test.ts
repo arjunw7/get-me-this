@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const mocks = vi.hoisted(() => ({
   flow: vi.fn(),
+  capture: vi.fn(),
   client: vi.fn(),
   user: vi.fn(),
   from: vi.fn(),
@@ -9,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   eq: vi.fn(),
   profile: vi.fn(),
   resume: vi.fn(),
+}));
+vi.mock("@/src/analytics/server", () => ({
+  getServerAnalytics: () => ({ capture: mocks.capture }),
 }));
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => {
@@ -69,6 +73,7 @@ describe("invitation onboarding Vibe", () => {
       ),
     ).toEqual({ status: "error", errors: { vibe: "invalid" } });
     expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.capture).not.toHaveBeenCalled();
   });
   it("keeps a saved Vibe unchanged for legacy forms", async () => {
     await expect(
@@ -88,6 +93,7 @@ describe("invitation onboarding Vibe", () => {
       ),
     ).rejects.toThrow(`redirect:/auth/invite/${flowId}`);
     expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.capture).not.toHaveBeenCalled();
   });
   it("cannot write when the invitation continuation is unavailable", async () => {
     mocks.flow.mockResolvedValue(null);
@@ -98,6 +104,7 @@ describe("invitation onboarding Vibe", () => {
       ),
     ).rejects.toThrow("redirect:/invite/unavailable");
     expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.capture).not.toHaveBeenCalled();
   });
 });
 
