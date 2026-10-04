@@ -23,11 +23,11 @@ Primary landing language:
 - Category: **Your shareable gift wishlist**
 - Hero: **Good gifts start with a wishlist.**
 - Primary action: **Create my wishlist** (preserves wishlist authentication intent)
-- Secondary action: **See an example** (anonymous, clearly illustrative)
+- Secondary action: **How it works** (scrolls to the standalone wishlist explanation)
 - Supporting line: **No group needed. Friends can view your list without signing up.**
 - Optional next step: **Gifting together? Start a group.**
 
-Teach adding, sharing and shopping from the original store before introducing groups. A group brings existing individual wishlists together; it is not a prerequisite or a new shared wishlist. Public examples show no reservation information. Group examples explain that other joined members can see reservations while recipients cannot. Never imply in-app checkout, pooled payments, guaranteed extraction or duplicate prevention.
+Teach adding, sharing and shopping from the original store before introducing groups. A group brings existing individual wishlists together; it is not a prerequisite or a new shared wishlist. The hero uses the original V18 overlapping product-card collage, tape, reaction bubbles and reduced-motion-aware entrance. The user explicitly restored this illustration after reviewing interactive alternatives. Its “Reserved secretly” sticker is omitted so the public-sharing hero does not imply public reservation visibility. The groups section retains the original Santa Party member/product illustration, including its private reservation badges and recipient-visibility explanation. Groups remain an optional next step in the surrounding new copy. Never imply in-app checkout, pooled payments, guaranteed extraction or duplicate prevention.
 
 Keep the V18 visual language, typography and semantic tokens. This approved landing hierarchy supersedes V18's group-first marketing copy only; it does not change authenticated screens or authorize automatic visual baseline replacement. New desktop/mobile review evidence lives in `docs/delivery/evidence/landing-positioning-2026-10-04/`.
 

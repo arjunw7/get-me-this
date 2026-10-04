@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 /**
@@ -37,8 +36,14 @@ test("renders the approved landing hierarchy", async ({ page }) => {
 
   // The demo group figure's accessible name matches its visible name.
   await expect(
-    page.getByRole("figure", { name: "Example private group: Birthday crew" }),
+    page.getByRole("figure", { name: "Santa Party 🎉" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("figure", { name: "Santa Party 🎉" }),
+  ).toContainText("Reserved by you");
+  await expect(
+    page.getByRole("figure", { name: "Santa Party 🎉" }),
+  ).toContainText("Kabir sees his list, but none of the reservations");
 });
 
 test("anchor navigation scrolls to its section", async ({ page }, testInfo) => {
@@ -49,7 +54,7 @@ test("anchor navigation scrolls to its section", async ({ page }, testInfo) => {
     "anchor nav is hidden on mobile in the approved design",
   );
   await page.goto("/");
-  await page.getByRole("link", { name: "How it works" }).click();
+  await page.getByRole("link", { name: "How it works" }).first().click();
   await expect(
     page.getByRole("heading", {
       name: "Your wishlist. One link. Happy friends.",
@@ -168,7 +173,7 @@ test("every interactive control is keyboard reachable with a visible focus ring"
   expect(focused).toMatch(/Get Me\s*This\|solid/);
   expect(focused).toContain("Log in|solid");
   expect(focused).toContain("Create my wishlist|solid");
-  expect(focused).toContain("See an example|solid");
+  expect(focused).toContain("How it works|solid");
   // The anchor nav is hidden below md in the approved design; desktop only.
   if (isDesktop) {
     expect(focused).toContain("How it works|solid");
@@ -224,41 +229,19 @@ test("every interactive control is keyboard reachable with a visible focus ring"
   }
 });
 
-test("the example shares the same two gifts in one click without an account", async ({
+test("the hero explanation action works with a keyboard at both sizes", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "See an example" }).click();
-  const example = page.getByRole("region", { name: "Example wishlist" });
-  await expect(example).toBeInViewport();
-  await expect(example.getByRole("listitem")).toHaveCount(2);
-  const gifts = await example.getByRole("listitem").allTextContents();
-  await example.getByRole("button", { name: "Share this example" }).click();
-  await expect(example.getByText("Friend’s view")).toBeVisible();
-  await expect(
-    example.getByText("They can browse. No sign-up needed."),
-  ).toBeVisible();
-  await expect(example.getByRole("listitem")).toHaveText(gifts);
-  await expect(example).not.toContainText(/reserved|reservation|group/i);
-  await expect(page).toHaveURL(/\/#example$/);
-});
-
-test("the example supports keyboard sharing and replay with reduced motion", async ({
-  page,
-}) => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
-  const example = page.getByRole("region", { name: "Example wishlist" });
-  await example.getByRole("button", { name: "Share this example" }).focus();
+  const action = page.getByRole("link", { name: "How it works" }).last();
+  await action.focus();
   await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/#how$/);
   await expect(
-    example.getByRole("button", { name: "Try again" }),
-  ).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(
-    example.getByRole("button", { name: "Share this example" }),
-  ).toBeFocused();
-  await expect(example.getByText("Your view")).toBeVisible();
+    page.getByRole("heading", {
+      name: "Your wishlist. One link. Happy friends.",
+    }),
+  ).toBeInViewport();
   const question = page
     .locator("summary")
     .filter({ hasText: "Do I need a group" });
@@ -269,6 +252,30 @@ test("the example supports keyboard sharing and replay with reduced motion", asy
       exact: false,
     }),
   ).toBeVisible();
+});
+
+test("the original decorative collage respects reduced motion and shows no public reservations", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const hero = page.locator("main > section").first();
+  await expect(hero.locator("img")).toHaveCount(3);
+  await expect(hero).not.toContainText(/reserved|reservation/i);
+  const reveal = hero.locator(".landing-reveal").first();
+  await expect(reveal).toBeVisible();
+  const duration = await reveal.evaluate(
+    (element) => getComputedStyle(element).animationDuration,
+  );
+  const durationMs = duration.endsWith("ms")
+    ? parseFloat(duration)
+    : parseFloat(duration) * 1000;
+  expect(durationMs).toBeLessThanOrEqual(0.02);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 });
 
 test("the landing CTAs pop on hover with the approved press motion", async ({
@@ -321,23 +328,4 @@ test("the landing CTAs pop on hover with the approved press motion", async ({
     .map(liftOf)
     .filter((lift) => lift > 0.05 && lift < 1.9);
   expect(intermediates.length).toBeGreaterThanOrEqual(1);
-});
-
-test("all example states remain accessible and fit the viewport", async ({
-  page,
-}) => {
-  await page.goto("/");
-  const example = page.getByRole("region", { name: "Example wishlist" });
-  for (const label of ["Share this example", "Try again"]) {
-    await example.getByRole("button", { name: label }).click();
-    const result = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
-      .analyze();
-    expect(result.violations).toEqual([]);
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth,
-      ),
-    ).toBe(true);
-  }
 });

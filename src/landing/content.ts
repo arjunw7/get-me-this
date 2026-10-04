@@ -13,7 +13,7 @@ export const hero = {
   title: "Good gifts start with a wishlist.",
   body: "Save gift ideas from different stores in one wishlist. Share it with friends so they know what you’d love to get.",
   primaryCta: "Create my wishlist",
-  secondaryCta: "See an example",
+  secondaryCta: "How it works",
   privacyNote:
     "No group needed. Friends can view your list without signing up.",
 } as const;

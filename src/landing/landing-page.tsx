@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { ArrowRightIcon } from "./icons";
 import { Wordmark } from "./wordmark";
-import { WishlistExample } from "./wishlist-example";
+import { HeroCollage } from "./hero-collage";
 import { GroupDemoSection } from "./group-demo";
 import { CtaLink } from "./cta-link";
 import {
@@ -91,7 +91,7 @@ export function LandingPage({
                 {hero.primaryCta}
                 <ArrowRightIcon className="h-5 w-5" />
               </CtaLink>
-              <CtaLink href="#example" variant="subtle" size="lg">
+              <CtaLink href="#how" variant="subtle" size="lg">
                 {hero.secondaryCta}
               </CtaLink>
             </div>
@@ -99,7 +99,7 @@ export function LandingPage({
               {hero.privacyNote}
             </p>
           </div>
-          <WishlistExample />
+          <HeroCollage />
         </section>
 
         {/* How it works */}
