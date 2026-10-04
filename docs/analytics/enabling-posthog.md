@@ -60,7 +60,8 @@ loss or cleanup is required; both lanes degrade to full inertness.
 2. Because the staging gate below has not passed, session replay stays
    disabled (`disable_session_recording: true`). The optional consent panel
    grants or denies capture for 180 days. Analytics preferences remain
-   available to withdraw permission. The cookie governs both lanes; local
+   available in the landing-page footer to withdraw permission. The floating
+   panel disappears after either choice. The cookie governs both lanes; local
    storage only signals changes to other tabs.
 3. Verify first with **synthetic accounts only**: synthetic email, OTP,
    invitation, wishlist, extraction, assignment, and reservation values.

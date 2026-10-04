@@ -26,8 +26,12 @@ function subscribe(onChange: () => void) {
   };
 }
 
-/** Always reachable; no consent means neither browser nor server capture. */
-export function AnalyticsConsentControl() {
+/** The banner disappears after a choice; footer preferences remain available. */
+export function AnalyticsConsentControl({
+  placement = "banner",
+}: {
+  placement?: "banner" | "footer";
+}) {
   const choice = useSyncExternalStore(
     subscribe,
     getAnalyticsConsent,
@@ -35,6 +39,18 @@ export function AnalyticsConsentControl() {
   );
   const [open, setOpen] = useState(false);
   if (choice === undefined || !isClientAnalyticsConfigured()) return null;
+  if (placement === "footer" && choice === "pending") return null;
+  if (choice !== "pending" && !open) {
+    return placement === "footer" ? (
+      <button
+        type="button"
+        className="ph-no-capture inline-flex min-h-11 cursor-pointer items-center text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+        onClick={() => setOpen(true)}
+      >
+        Cookie preferences
+      </button>
+    ) : null;
+  }
   const choose = (value: "granted" | "denied") => {
     setAnalyticsConsent(value);
     setOpen(false);
@@ -42,34 +58,25 @@ export function AnalyticsConsentControl() {
   return (
     <aside
       aria-label="Cookie preferences"
-      className={`ph-no-capture analytics-consent${choice !== "pending" && !open ? " analytics-consent-collapsed" : ""}`}
+      className="ph-no-capture analytics-consent"
     >
-      {choice === "pending" || open ? (
-        <div
-          className="analytics-consent-panel"
-          role="region"
-          aria-labelledby="analytics-consent-title"
-        >
-          <h2 id="analytics-consent-title">Allow cookies?</h2>
-          <p>
-            We use optional analytics cookies to understand how our site is used
-            and improve your experience.
-          </p>
-          <div className="analytics-consent-actions">
-            <Button variant="secondary" onClick={() => choose("denied")}>
-              Reject
-            </Button>
-            <Button onClick={() => choose("granted")}>Allow cookies</Button>
-          </div>
+      <div
+        className="analytics-consent-panel"
+        role="region"
+        aria-labelledby="analytics-consent-title"
+      >
+        <h2 id="analytics-consent-title">Allow cookies?</h2>
+        <p>
+          We use optional analytics cookies to understand how our site is used
+          and improve your experience.
+        </p>
+        <div className="analytics-consent-actions">
+          <Button variant="secondary" onClick={() => choose("denied")}>
+            Reject
+          </Button>
+          <Button onClick={() => choose("granted")}>Allow cookies</Button>
         </div>
-      ) : (
-        <button
-          className="analytics-consent-trigger"
-          onClick={() => setOpen(true)}
-        >
-          Cookie preferences
-        </button>
-      )}
+      </div>
     </aside>
   );
 }

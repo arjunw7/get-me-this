@@ -1,3 +1,4 @@
+import { AnalyticsConsentControl } from "@/src/analytics/consent-control";
 import { GuideLinks } from "@/src/marketing/guide-links";
 import Link from "next/link";
 
@@ -244,6 +245,7 @@ export function LandingPage({
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 text-sm text-content-secondary sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <Wordmark className="text-xl text-content-primary" />
           <p>{footer.tagline}</p>
+          <AnalyticsConsentControl placement="footer" />
         </div>
       </footer>
     </div>
