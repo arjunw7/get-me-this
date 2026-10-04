@@ -16,7 +16,7 @@ describe("public brand previews", () => {
     expect(metadata.metadataBase?.toString()).toBe("https://gifts.example/");
     expect(metadata.openGraph?.images).toEqual([
       {
-        url: "https://gifts.example/assets/brand/share-banner.png",
+        url: "https://gifts.example/assets/brand/share-banner-v2.png",
         width: 1200,
         height: 630,
         type: "image/png",
@@ -72,11 +72,11 @@ describe("public brand previews", () => {
 
   it("ships a crawler-readable 1200×630 PNG and browser/touch icons", async () => {
     const banner = await sharp(
-      resolve("public/assets/brand/share-banner.png"),
+      resolve("public/assets/brand/share-banner-v2.png"),
     ).metadata();
     expect(banner).toMatchObject({ format: "png", width: 1200, height: 630 });
     expect(
-      readFileSync(resolve("public/assets/brand/share-banner.png")).length,
+      readFileSync(resolve("public/assets/brand/share-banner-v2.png")).length,
     ).toBeLessThan(300_000);
     expect(await sharp(resolve("app/icon.png")).metadata()).toMatchObject({
       width: 512,

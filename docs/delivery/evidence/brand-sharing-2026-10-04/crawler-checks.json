@@ -1,5 +1,5 @@
 {
-  "testedAt": "2026-10-04T05:06:20.180Z",
+  "testedAt": "2026-10-04T05:12:43.331Z",
   "origin": "http://127.0.0.1:3500",
   "crawler": "WhatsApp-style anonymous request; no cookies",
   "checks": [
@@ -11,5 +11,6 @@
     "No inherited root og:url",
     "Invalid public wishlist returns HTTP 404 and retains noindex, nofollow, no-referrer"
   ],
-  "bannerBytes": 74596
+  "bannerUrl": "http://127.0.0.1:3500/assets/brand/share-banner-v2.png",
+  "bannerBytes": 75130
 }

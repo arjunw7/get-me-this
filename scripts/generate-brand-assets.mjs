@@ -107,12 +107,12 @@ try {
   await page.setContent(`<!doctype html><html><head><style>
     @font-face{font-family:BrandDisplay;src:url(data:font/woff2;base64,${displayFont}) format('woff2');font-weight:200 800;font-style:normal;font-display:block}
     @font-face{font-family:BrandBody;src:url(data:font/woff2;base64,${bodyFont}) format('woff2');font-weight:100 1000;font-style:normal;font-display:block}
-    *{box-sizing:border-box}body{margin:0;width:1200px;height:630px;overflow:hidden;background:${paper};color:${ink};font-family:BrandBody}
+    *{box-sizing:border-box}body{margin:0;width:1200px;height:630px;overflow:hidden;background:${paper};color:${ink};font-family:BrandBody;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
     .art{position:absolute;inset:0}.text{position:absolute;margin:0;line-height:1}
     .wordmark{left:62px;top:47px;font-family:BrandDisplay;font-weight:800;font-size:48px;letter-spacing:-.025em;display:flex;align-items:baseline}
     .wordmark span{margin-left:.22em;position:relative}.wordmark svg{position:absolute;bottom:-.22em;left:0;width:100%;height:.28em}
     .eyebrow{left:64px;top:163px;font-size:21px;font-weight:700;letter-spacing:.025em}
-    h1{left:60px;top:213px;font-family:BrandDisplay;font-weight:800;font-size:80px;letter-spacing:-.025em;line-height:1.06!important}
+    h1{left:60px;top:213px;font-family:BrandDisplay;font-weight:800;font-size:72px;letter-spacing:-.025em;line-height:1!important}
     .subline{left:64px;top:515px;font-size:27px;color:${muted}}
     .card-title{left:762px;top:192px;font-family:BrandDisplay;font-size:35px;font-weight:800}
     .item{left:838px;font-size:23px;font-weight:700}.one{top:302px}.two{top:378px}
@@ -145,8 +145,11 @@ try {
       "Brand font failed to load; refusing to render fallback typography.",
     );
   }
+  if (process.env.BRAND_SPECIMEN_HTML) {
+    await writeFile(process.env.BRAND_SPECIMEN_HTML, await page.content());
+  }
   await page.screenshot({
-    path: join(out, "share-banner.png"),
+    path: join(out, "share-banner-v2.png"),
     animations: "disabled",
   });
   console.log("Verified loaded font faces:", JSON.stringify(fonts));

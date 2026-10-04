@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const BRAND_TITLE = "Get Me This | Your shareable gift wishlist";
 export const BRAND_DESCRIPTION =
   "Save gift ideas from different stores in one wishlist. Share one link with friends. No group needed.";
-export const SHARE_IMAGE_PATH = "/assets/brand/share-banner.png";
+export const SHARE_IMAGE_PATH = "/assets/brand/share-banner-v2.png";
 export const SHARE_IMAGE_ALT =
   "Get Me This — Good gifts start with a wishlist. Your shareable gift wishlist.";
 
