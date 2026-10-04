@@ -172,7 +172,7 @@ test("a fresh user signs in, completes onboarding, lands on /home, and confirmed
     await page.goto(authPath);
     await expect(page).toHaveURL(/\/home$/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      "Welcome, Ada.",
+      "Welcome in, Ada.",
     );
     await expect(page.getByLabel("Email", { exact: true })).toHaveCount(0);
   }
