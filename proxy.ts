@@ -1,3 +1,4 @@
+import { canonicalHostRedirect } from "@/src/auth/canonical-redirect";
 import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -42,6 +43,10 @@ import {
  */
 
 export async function proxy(request: NextRequest) {
+  // Canonicalize before token parking, session refresh or any page/action runs.
+  const canonicalRedirect = canonicalHostRedirect(request);
+  if (canonicalRedirect) return canonicalRedirect;
+
   const { pathname, search, origin } = request.nextUrl;
 
   // 1. /auth/confirm with any query: discard the query (it may carry the
@@ -212,5 +217,11 @@ export const config = {
   // headers on action responses are proven end-to-end (tests/e2e).
   matcher: [
     "/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // Include assets only on www so every link canonicalizes, without adding
+    // session maintenance to ordinary static requests. Host values are regexes.
+    {
+      source: "/:path*",
+      has: [{ type: "host", value: "www\\.getmethis\\.fun" }],
+    },
   ],
 };
