@@ -27,6 +27,7 @@ const shutdownController = new AbortController();
 let terminateActive: (() => Promise<void>) | undefined;
 const server = createAmazonWorker(secret, async (target, requestSignal) => {
   const signal = AbortSignal.any([requestSignal, shutdownController.signal]);
+  let phase = "launch";
   let owner: BrowserServer | undefined;
   let browser: Browser | undefined;
   let closing: Promise<void> | undefined;
@@ -73,7 +74,9 @@ const server = createAmazonWorker(secret, async (target, requestSignal) => {
       await owner.kill();
       throw new ExtractionError("timeout");
     }
+    phase = "connect";
     browser = await chromium.connect(owner.wsEndpoint(), { timeout: 2000 });
+    phase = "context";
     const context = await browser.newContext({
       javaScriptEnabled: false,
       locale: "en-IN",
@@ -109,6 +112,7 @@ const server = createAmazonWorker(secret, async (target, requestSignal) => {
       "console",
       `return(async()=>{${amazonBrowserCode(target.href)}})()`,
     );
+    phase = "acquire";
     await program(page, {
       log: (text: unknown) => {
         if (typeof text !== "string" || Buffer.byteLength(text) > 16384)
@@ -117,8 +121,30 @@ const server = createAmazonWorker(secret, async (target, requestSignal) => {
       },
     });
     if (signal.aborted) throw new ExtractionError("timeout");
+    phase = "validate";
     amazonProposal(target, output);
     return output;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const category = [
+      ["namespace", /operation not permitted|namespace|no usable sandbox/i],
+      ["proxy", /ERR_PROXY|ERR_TUNNEL/i],
+      ["dns", /ERR_NAME_NOT_RESOLVED/i],
+      ["tls", /ERR_CERT|certificate/i],
+      ["timeout", /timeout|timed out/i],
+      ["closed", /has been closed|Target closed/i],
+    ] as const;
+    // Fixed identifiers only: never browser messages, URLs, session IDs or keys.
+    console.warn(
+      JSON.stringify({
+        event: "amazon-worker-failed",
+        phase,
+        category:
+          category.find(([, pattern]) => pattern.test(message))?.[0] ??
+          "unknown",
+      }),
+    );
+    throw error;
   } finally {
     signal.removeEventListener("abort", abort);
     // Failure to terminate must stop this container rather than admit another job.
