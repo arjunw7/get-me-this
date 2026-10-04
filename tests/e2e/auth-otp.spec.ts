@@ -166,6 +166,17 @@ test("a fresh user signs in, completes onboarding, lands on /home, and confirmed
   // The 004e post-auth gate: a fresh profile is incomplete → onboarding.
   await completeOnboarding(page, "Ada", "currently in my tiny-luxuries era");
 
+  // Opening the sign-in route with a valid session goes straight home,
+  // including entry links carrying an intent. The form never renders.
+  for (const authPath of ["/auth", "/auth?intent=wishlist"]) {
+    await page.goto(authPath);
+    await expect(page).toHaveURL(/\/home$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Welcome in, Ada.",
+    );
+    await expect(page.getByLabel("Email", { exact: true })).toHaveCount(0);
+  }
+
   // The persisted profile: a refresh keeps the session AND skips
   // onboarding (complete profiles never repeat it).
   await page.reload();

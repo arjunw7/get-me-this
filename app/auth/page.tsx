@@ -1,8 +1,10 @@
 import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { EmailEntryForm } from "@/src/auth/email-entry-form";
 import { INTENT_NOTES, parseIntent } from "@/src/auth/fixtures";
+import { getSessionUser } from "@/src/profile/session";
 
 export const metadata: Metadata = {
   title: "Get Me This | Sign in",
@@ -22,6 +24,10 @@ export default async function AuthPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Validate with the provider before rendering sign-in. Home retains its
+  // existing profile gate for users who still need to finish onboarding.
+  if (await getSessionUser()) redirect("/home");
+
   const params = await searchParams;
   const raw = params.intent;
   const parsedIntent = parseIntent(Array.isArray(raw) ? raw[0] : raw);

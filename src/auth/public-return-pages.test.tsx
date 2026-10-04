@@ -36,6 +36,7 @@ beforeEach(() => {
 });
 describe("bounded public wishlist return pages", () => {
   it("passes only a canonical token for the public auth intent", async () => {
+    mocks.user.mockResolvedValue(null);
     render(
       await AuthPage({
         searchParams: Promise.resolve({
@@ -53,6 +54,7 @@ describe("bounded public wishlist return pages", () => {
   it.each(["//evil.example", [token, token]])(
     "rejects invalid or repeated public share query parameters",
     async (share) => {
+      mocks.user.mockResolvedValue(null);
       render(
         await AuthPage({
           searchParams: Promise.resolve({ intent: "public-wishlist", share }),
@@ -65,6 +67,16 @@ describe("bounded public wishlist return pages", () => {
       expect(screen.getByTestId("email")).not.toHaveAttribute("data-share");
     },
   );
+  it("redirects a signed-in auth visitor home even with a public wishlist intent", async () => {
+    await expect(
+      AuthPage({
+        searchParams: Promise.resolve({
+          intent: "public-wishlist",
+          share: token,
+        }),
+      }),
+    ).rejects.toThrow("redirect:/home");
+  });
   it("preserves the validated identifier in the new-account form", async () => {
     render(
       await OnboardingPage({ searchParams: Promise.resolve({ share: token }) }),
