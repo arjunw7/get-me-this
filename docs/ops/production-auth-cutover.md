@@ -51,6 +51,27 @@ Retiring a staging web hostname does not require changing a working email sender
 at the root domain. Retiring staging infrastructure/keys requires a separate
 inventory of live dependencies before removal.
 
+## Canonical www redirect
+
+The application redirects requests whose Host is exactly www.getmethis.fun to
+https://getmethis.fun, using a permanent 308 redirect at the start of the request
+proxy. Paths and query parameters survive, including invitation, public wishlist,
+and email-confirmation links. The redirect sets no cookies, and uses no-store and
+no-referrer headers because those links can contain private identifiers. Local,
+staging, preview, apex and lookalike hosts do not match. Forwarded host headers
+cannot trigger this rule. Browser fragments are not sent to the server.
+
+Before deploying this behavior, add www.getmethis.fun to the same Railway service
+and replace Namecheap's www URL Redirect record with the exact CNAME and ownership
+TXT records Railway supplies. Wait for ownership verification and HTTPS certificate
+issuance. The app cannot redirect HTTPS traffic that never reaches Railway.
+Keep the apex domain and existing email-verification records intact.
+
+Verify a www link redirects once to the apex with its path and query intact, then
+continues through the ordinary authentication or sharing flow. Production hosting
+and DNS configuration remain owner-managed. Reverting the canonical-host proxy change removes the
+www redirect without changing DNS.
+
 ## Validation and rollout boundaries
 
 Regression tests exercise the real request/resend server actions with an external
@@ -69,3 +90,6 @@ code revert. Production SMTP/DNS changes and live delivery remain owner-managed.
 - https://supabase.com/docs/guides/auth/auth-smtp
 - https://resend.com/docs/send-with-supabase-smtp
 - https://resend.com/docs/dashboard/domains/introduction
+
+- https://nextjs.org/docs/app/api-reference/config/next-config-js/redirects
+- https://docs.railway.com/networking/domains/working-with-domains
