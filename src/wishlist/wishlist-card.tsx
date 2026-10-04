@@ -1,20 +1,39 @@
+import { OwnerReactionSummaryRow } from "@/src/groups/reactions/owner-reaction-summary";
+import type { OwnerReactionSummary } from "@/src/groups/reactions/reaction-write";
+import { AppIcon } from "@/src/home/app-icon";
 import Link from "next/link";
 
 import { CardImage, PlaceholderArt } from "./card-image";
-import type { WishlistItemSnapshot } from "./display";
-import { DESIRE_LEVELS, formatMoneyMinor } from "./display";
+import type { WishlistItemView } from "./display";
+import {
+  DESIRE_LEVELS,
+  currencyMinorDigits,
+  formatMoneyMinor,
+  approximateConversionView,
+} from "./display";
 import { Tape } from "./tape";
+import typography from "./wishlist-typography.module.css";
+
+function sourceLabel(sourceUrl: string, retailer: string | null): string {
+  if (retailer) return retailer;
+  try {
+    return new URL(sourceUrl).hostname || "Source link";
+  } catch {
+    return "Source link";
+  }
+}
 
 /**
  * One wishlist card (005b), ported from the frozen V18 reference
  * (components/ShelfieCard.tsx) with semantic tokens: the image field with
  * the desire chip overlay, title, retailer, original amount with currency,
- * and the note speech-bubble when a note exists. Display preference when
- * both image fields are set: `imageUrl` wins over `imageSnapshotPath` in
- * this slice — a documented supersession of 005a resolution 7's stated
- * preference order, because Storage resolution for snapshot paths does not
- * exist until 005e/005f, so a snapshot-path-only item renders the
- * placeholder rather than a broken image.
+ * and the note speech-bubble when a note exists.
+ *
+ * Image preference (005f, per 005a resolution 7): the card renders the
+ * server-resolved `imageSrc` — the short-expiry signed snapshot URL when
+ * the row references a private snapshot object, else the remote
+ * `image_url`, else the branded placeholder. Raw storage paths never
+ * reach the client: the server strips them into `imageSrc` (005f).
  */
 
 /** The V18 masonry variety: cycling aspect ratios, tilts, and tape. */
@@ -26,22 +45,21 @@ const ASPECTS = [
 ] as const;
 const TILTS = ["", "lg:rotate-[0.6deg]", "", "lg:-rotate-[0.6deg]"] as const;
 
-const DESIRE_CHIP_STYLES: Record<WishlistItemSnapshot["desireLevel"], string> =
-  {
-    really_want: "border-outline-strong bg-action-primary text-content-primary",
-    would_love:
-      "border-outline-strong bg-accent-highlight-soft text-content-primary",
-    just_an_idea:
-      "border-outline-strong/40 border-dashed bg-surface-raised text-content-secondary",
-  };
+const DESIRE_CHIP_STYLES: Record<WishlistItemView["desireLevel"], string> = {
+  really_want: "border-outline-strong bg-action-primary text-content-primary",
+  would_love:
+    "border-outline-strong bg-accent-highlight-soft text-content-primary",
+  just_an_idea:
+    "border-outline-strong/40 border-dashed bg-surface-raised text-content-secondary",
+};
 
-const DESIRE_DOT_STYLES: Record<WishlistItemSnapshot["desireLevel"], string> = {
+const DESIRE_DOT_STYLES: Record<WishlistItemView["desireLevel"], string> = {
   really_want: "bg-content-primary",
   would_love: "bg-accent-highlight-strong",
   just_an_idea: "bg-content-primary/30",
 };
 
-function DesireChip({ level }: { level: WishlistItemSnapshot["desireLevel"] }) {
+function DesireChip({ level }: { level: WishlistItemView["desireLevel"] }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border-2 px-2.5 py-1 text-caption font-bold ${DESIRE_CHIP_STYLES[level]}`}
@@ -58,26 +76,45 @@ function DesireChip({ level }: { level: WishlistItemSnapshot["desireLevel"] }) {
 export function WishlistCard({
   item,
   index,
+  reactionSummary,
 }: {
-  item: WishlistItemSnapshot;
+  item: WishlistItemView;
   index: number;
+  reactionSummary?: OwnerReactionSummary;
 }) {
   const aspect = ASPECTS[index % ASPECTS.length];
   const tilt = TILTS[index % TILTS.length];
   const showTape = index % 3 === 1;
+  // The approximate-converted line (005g, dormant conversion): null for
+  // every organically created item in V1 — no provider exists, so no
+  // conversion is inferred from locale, language, or symbol. Staleness
+  // was evaluated at server read time; a stale tuple renders the
+  // identical line with its captured date.
+  const approximate = approximateConversionView(item);
 
   return (
     <div className={`relative ${tilt}`}>
       {showTape ? (
-        <Tape className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 -rotate-3" />
+        <Tape className="absolute top-0 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2 -rotate-3" />
       ) : null}
       <article className="flex h-full flex-col overflow-hidden rounded-surface-lg border-2 border-outline-strong bg-surface-raised shadow-chunk">
         <div className={`relative overflow-hidden bg-surface-sunken ${aspect}`}>
-          {item.imageUrl !== null ? (
-            <CardImage src={item.imageUrl} title={item.title} />
+          {item.imageSrc !== null ? (
+            <CardImage
+              key={item.imageSrc}
+              src={item.imageSrc}
+              title={item.title}
+            />
           ) : (
             <PlaceholderArt title={item.title} />
           )}
+          <Link
+            href={`/wishlist/items/${item.id}/edit`}
+            aria-label={`Edit ${item.title}`}
+            className="absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-outline-strong bg-surface-raised text-content-primary shadow-chunk-sm transition-transform hover:-translate-y-0.5"
+          >
+            <AppIcon name="edit" />
+          </Link>
           <div className="absolute left-3 top-3">
             <DesireChip level={item.desireLevel} />
           </div>
@@ -88,22 +125,24 @@ export function WishlistCard({
               {item.title}
             </h3>
             <p className="mt-1 text-sm text-content-secondary">
-              {item.retailer !== null ? (
-                item.sourceUrl !== null ? (
-                  <a
-                    href={item.sourceUrl}
-                    rel="noreferrer"
-                    className="font-semibold text-content-primary underline decoration-2 underline-offset-4 hover:text-action-primary-strong"
-                  >
-                    {item.retailer}
-                  </a>
-                ) : (
-                  <span className="font-semibold text-content-primary">
-                    {item.retailer}
-                  </span>
-                )
+              {item.sourceUrl !== null ? (
+                <a
+                  href={item.sourceUrl}
+                  rel="noreferrer"
+                  // The 44px touch target (DESIGN.md) without a layout
+                  // shift: vertical padding on an inline element does not
+                  // change the line box, and the negative margins keep the
+                  // rule holding if the display ever becomes atomic.
+                  className="py-4 -my-4 font-semibold text-content-primary underline decoration-2 underline-offset-4 hover:text-action-primary-strong"
+                >
+                  {sourceLabel(item.sourceUrl, item.retailer)}
+                </a>
+              ) : item.retailer !== null ? (
+                <span className="font-semibold text-content-primary">
+                  {item.retailer}
+                </span>
               ) : null}
-              {item.retailer !== null &&
+              {(item.sourceUrl !== null || item.retailer !== null) &&
               item.originalAmountMinor !== null &&
               item.originalCurrency !== null ? (
                 <span aria-hidden="true"> · </span>
@@ -111,18 +150,36 @@ export function WishlistCard({
               {item.originalAmountMinor !== null &&
               item.originalCurrency !== null ? (
                 <span className="font-bold tabular-nums text-content-primary">
-                  {formatMoneyMinor(
-                    item.originalAmountMinor,
-                    item.originalCurrency,
-                  )}
+                  {currencyMinorDigits(item.originalCurrency) === null
+                    ? `${item.originalAmountMinor} ${item.originalCurrency} — price display unavailable`
+                    : formatMoneyMinor(
+                        item.originalAmountMinor,
+                        item.originalCurrency,
+                      )}
                 </span>
               ) : null}
             </p>
           </div>
+          {approximate !== null ? (
+            <p
+              className="text-sm text-content-secondary tabular-nums"
+              data-testid="approximate-price-line"
+            >
+              {/* The ≈ glyph is not announced: the accessible text carries
+                  "approximately", the amount and code, the rate source, and
+                  the captured UTC date. The marker is textual, never
+                  color-only, and never replaces the original line. */}
+              <span aria-hidden="true">{approximate.visible}</span>
+              <span className="sr-only">{approximate.accessible}</span>
+            </p>
+          ) : null}
           {item.note !== null ? (
             <p className="relative rounded-surface rounded-tl-sm bg-surface-sunken px-3 py-2 text-sm leading-snug text-content-primary">
               {item.note}
             </p>
+          ) : null}
+          {reactionSummary?.itemId === item.id ? (
+            <OwnerReactionSummaryRow summary={reactionSummary} />
           ) : null}
         </div>
       </article>
@@ -133,14 +190,20 @@ export function WishlistCard({
 /** The wishlist card grid: the V18 masonry composition, in read order. */
 export function WishlistCardGrid({
   items,
+  reactionSummaries,
 }: {
-  items: readonly WishlistItemSnapshot[];
+  items: readonly WishlistItemView[];
+  reactionSummaries?: Readonly<Record<string, OwnerReactionSummary>>;
 }) {
   return (
     <div className="columns-1 gap-6 min-[480px]:columns-2 lg:columns-3">
       {items.map((item, index) => (
         <div key={item.id} className="mb-7 break-inside-avoid">
-          <WishlistCard item={item} index={index} />
+          <WishlistCard
+            item={item}
+            index={index}
+            reactionSummary={reactionSummaries?.[item.id]}
+          />
         </div>
       ))}
     </div>
@@ -169,12 +232,15 @@ export function WishlistEmpty() {
           </span>
         </div>
       </div>
-      <h2 className="mt-8 font-display text-display-sm font-extrabold tracking-tight sm:text-display-md">
+      <h2
+        className={`mt-8 font-display font-extrabold tracking-tight ${typography.emptyHeading}`}
+      >
         Very minimalist of you.
       </h2>
       <p className="mt-2 max-w-md text-content-secondary">
-        Add the first thing you’d secretly love to unwrap. A candle, a camera,
-        the hoodie you keep looking at. Your friends will take it from there.
+        {
+          "Add the first thing you'd secretly love to unwrap. A candle, a camera, the hoodie you keep looking at."
+        }
       </p>
       <Link
         href="/wishlist/items/new"

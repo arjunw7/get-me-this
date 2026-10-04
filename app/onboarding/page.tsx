@@ -1,3 +1,4 @@
+import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -39,12 +40,21 @@ export default async function OnboardingPage({
     return <OnboardingForm variant={variant} />;
   }
 
+  const shareToken = parsePublicShareToken(params.share);
   const user = await getSessionUser();
-  if (!user) redirect("/auth");
+  if (!user)
+    redirect(
+      shareToken ? `/auth?intent=public-wishlist&share=${shareToken}` : "/auth",
+    );
   const profile = await getOwnProfile(user.id);
   if (isProfileComplete(profile?.displayName ?? null)) {
-    redirect(resolveSafeRedirectTarget(undefined));
+    redirect(
+      resolveSafeRedirectTarget(
+        shareToken ? "public-wishlist" : undefined,
+        shareToken,
+      ),
+    );
   }
 
-  return <OnboardingForm live />;
+  return <OnboardingForm live shareToken={shareToken ?? undefined} />;
 }

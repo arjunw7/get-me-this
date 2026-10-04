@@ -1,13 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
+import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import {
-  createFixtureUser,
-  deleteFixtureUser,
-  fixtureEmail,
+  FixtureScope,
+  createSignedInFixture,
   fixtureWishlistId,
+  requireStackEnv,
   seedWishlistItems,
   signInFixtureUser,
   stackAdminClient,
@@ -61,6 +62,137 @@ const PROFILE = {
 const REACHABLE_IMAGE = "http://127.0.0.1:3100/assets/landing/k-kettle.jpg";
 const UNREACHABLE_IMAGE = "http://127.0.0.1:59999/broken.jpg";
 
+async function assertProfileGeometry(
+  page: Page,
+  empty: boolean,
+  profile = PROFILE,
+): Promise<void> {
+  const region = page.getByRole("region", { name: profile.displayName });
+  const band = await region.locator(":scope > div:first-child").boundingBox();
+  const heading = page.getByRole("heading", { name: profile.displayName });
+  const name = await heading.boundingBox();
+  const taste = await region.getByText(profile.tasteLine).boundingBox();
+  expect(band).not.toBeNull();
+  expect(name).not.toBeNull();
+  expect(taste).not.toBeNull();
+  expect(taste!.y).toBeGreaterThanOrEqual(band!.y + band!.height + 4);
+  const avatar = region.locator("span").first();
+  const avatarPaint = await avatar.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const topmost = document.elementFromPoint(
+      box.left + box.width / 2,
+      box.top + 10,
+    );
+    return {
+      color: getComputedStyle(element).backgroundColor,
+      isTopmost: topmost === element || element.contains(topmost),
+    };
+  });
+  expect(avatarPaint.color).toBe("rgb(255, 179, 32)");
+  expect(
+    avatarPaint.isTopmost,
+    `${profile.displayName} avatar is covered within its band overlap`,
+  ).toBe(true);
+  const desktop = page.viewportSize()?.width !== 390;
+  if (desktop) {
+    expect(
+      name!.y,
+      `${profile.displayName} clips above the desktop band`,
+    ).toBeGreaterThanOrEqual(band!.y + 8);
+    expect(
+      name!.y + name!.height,
+      `${profile.displayName} touches the desktop band divider`,
+    ).toBeLessThanOrEqual(band!.y + band!.height - 10);
+  }
+  await expect(heading).toHaveCSS("font-size", desktop ? "36px" : "30px");
+  if (empty) {
+    await expect(
+      page.getByRole("heading", { name: "Very minimalist of you." }),
+    ).toHaveCSS("font-size", "30px");
+  }
+}
+
+async function assertNameTextContained(page: Page, displayName: string) {
+  const heading = page.getByRole("heading", { name: displayName });
+  const bounds = await heading.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const text = range.getBoundingClientRect();
+    const region = element.closest("section");
+    if (region === null) throw new Error("Profile card is missing");
+    const cardBounds = region.getBoundingClientRect();
+    return {
+      text: {
+        left: text.left,
+        right: text.right,
+        top: text.top,
+        bottom: text.bottom,
+      },
+      card: {
+        left: cardBounds.left,
+        right: cardBounds.right,
+        top: cardBounds.top,
+        bottom: cardBounds.bottom,
+      },
+    };
+  });
+  expect(bounds.text.left).toBeGreaterThanOrEqual(bounds.card.left);
+  expect(bounds.text.right).toBeLessThanOrEqual(bounds.card.right);
+  expect(bounds.text.top).toBeGreaterThanOrEqual(bounds.card.top);
+  expect(bounds.text.bottom).toBeLessThanOrEqual(bounds.card.bottom);
+}
+
+async function navigateWithDocumentAndFlight(page: Page, path: string) {
+  const response = await page.goto(path);
+  if (response === null) {
+    throw new Error("Expected a document navigation response");
+  }
+  await page.waitForLoadState("load");
+  const target = new URL(path, page.url());
+  expect(new URL(response.url()).pathname).toBe(target.pathname);
+  expect(response.headers()["content-type"] ?? "").toMatch(
+    /^text\/html(?:;|$)/i,
+  );
+  const documentBody = await response.text();
+  expect(documentBody.trim().length).toBeGreaterThan(0);
+
+  // BrowserContext.request shares this page's cookies, so this is a fresh
+  // authenticated Flight request for the same target, not an HTML navigation
+  // or a response opportunistically emitted by page.goto(). Next may first
+  // redirect to its cache-busting _rsc URL; the request client follows it.
+  const flightResponse = await page.context().request.get(target.toString(), {
+    headers: { RSC: "1", Accept: "text/x-component" },
+  });
+  expect(new URL(flightResponse.url()).pathname).toBe(target.pathname);
+  expect(flightResponse.headers()["content-type"] ?? "").toMatch(
+    /^text\/x-component(?:;|$)/i,
+  );
+  const flightBody = await flightResponse.text();
+  expect(flightBody.trim().length).toBeGreaterThan(0);
+
+  return { response, documentBody, flightBody };
+}
+
+async function tabTo(
+  page: Page,
+  target: Locator,
+  label: string,
+): Promise<void> {
+  for (let step = 0; step < 32; step += 1) {
+    await page.keyboard.press("Tab");
+    if (await target.evaluate((node) => node === document.activeElement)) {
+      const outline = await target.evaluate(
+        (node) => getComputedStyle(node).outlineStyle,
+      );
+      expect(outline, `${label} has no visible keyboard focus`).not.toBe(
+        "none",
+      );
+      return;
+    }
+  }
+  throw new Error(`Tab did not reach ${label}`);
+}
+
 /** The seeded items for the populated state, in fixture sort order.
  *  Item ids are per-run random UUIDs: parallel projects each seed their own
  *  fixture wishlist, and wishlist_items' primary key is globally unique
@@ -76,7 +208,7 @@ function populatedFixtures(): ItemFixture[] {
       note: "The matte one, not the glossy one.",
       desire_level: "really_want",
       sort_position: 1,
-      original_amount_minor: 249900,
+      original_amount_minor: "249900",
       original_currency: "INR",
       image_url: REACHABLE_IMAGE,
     },
@@ -88,7 +220,7 @@ function populatedFixtures(): ItemFixture[] {
       note: null,
       desire_level: "would_love",
       sort_position: 2,
-      original_amount_minor: 132000,
+      original_amount_minor: "132000",
       original_currency: "JPY",
     },
     {
@@ -104,26 +236,58 @@ function populatedFixtures(): ItemFixture[] {
       id: randomUUID(),
       title: "Film for the half-frame camera",
       source_url: "https://example.invalid/products/film",
-      retailer: "Fixture Photo",
+      retailer: null,
       note: null,
       desire_level: "would_love",
       sort_position: 4,
-      original_amount_minor: 120000,
+      original_amount_minor: "120000",
       original_currency: "INR",
       image_url: UNREACHABLE_IMAGE,
     },
   ];
 }
 
+function privateItemMarkers(wishlistId: string): string[] {
+  return [
+    "Ceramic pour-over coffee set",
+    "The Overstory paperback",
+    "Mechanical keyboard keycaps",
+    "Film for the half-frame camera",
+    "Fixture Roasters",
+    "Fixture Books",
+    "The matte one, not the glossy one.",
+    "Just an idea for now, no link yet.",
+    "249900",
+    "2499.00 INR",
+    "132000",
+    "120000",
+    "1200.00 INR",
+    "4 things",
+    wishlistId,
+    REACHABLE_IMAGE,
+    UNREACHABLE_IMAGE,
+  ];
+}
+
 /** Creates a signed-in fixture user on the page and returns its ids. */
 async function signedInFixture(
   page: Page,
-): Promise<{ admin: ReturnType<typeof stackAdminClient>; userId: string }> {
+  profile = PROFILE,
+): Promise<{
+  admin: ReturnType<typeof stackAdminClient>;
+  userId: string;
+  scope: FixtureScope;
+}> {
   const admin = stackAdminClient();
-  const email = fixtureEmail("wishlist-e2e");
-  const userId = await createFixtureUser(admin, email);
-  await signInFixtureUser(page, admin, email, PROFILE);
-  return { admin, userId };
+  const scope = new FixtureScope();
+  const userId = await createSignedInFixture(
+    page,
+    admin,
+    "wishlist-e2e",
+    profile,
+    scope,
+  );
+  return { admin, userId, scope };
 }
 
 test("the signed-out proxy envelope for the wishlist routes is 302 with no-store and no-referrer", async ({
@@ -154,21 +318,19 @@ test("a signed-out POST to /wishlist is redirected by the proxy, never executed"
 test("the signed-in rendered /wishlist document is non-cacheable", async ({
   page,
 }) => {
-  const { admin, userId } = await signedInFixture(page);
-  try {
+  const { scope } = await signedInFixture(page);
+  await scope.run(async () => {
     const response = await page.goto("/wishlist");
     expect(response?.status()).toBe(200);
     expect(response?.headers()["cache-control"]).toContain("no-store");
-  } finally {
-    await deleteFixtureUser(admin, userId);
-  }
+  });
 });
 
 test("a fresh owner with zero items sees the V18 empty composition and its CTA navigates honestly", async ({
   page,
 }) => {
-  const { admin, userId } = await signedInFixture(page);
-  try {
+  const { scope } = await signedInFixture(page);
+  await scope.run(async () => {
     await page.goto("/wishlist");
     await expect(page).toHaveURL(/\/wishlist$/);
 
@@ -179,14 +341,21 @@ test("a fresh owner with zero items sees the V18 empty composition and its CTA n
       page.getByRole("heading", { name: "Very minimalist of you." }),
     ).toBeVisible();
     await expect(
-      page.getByText(/Add the first thing you’d secretly love to unwrap/),
+      page.getByText(
+        "Add the first thing you'd secretly love to unwrap. A candle, a camera, the hoodie you keep looking at.",
+      ),
     ).toBeVisible();
-    const cta = page.getByRole("link", { name: "Add an item" });
+    await expect(
+      page.getByText(/Your friends will take it from there/),
+    ).toHaveCount(0);
+    const cta = page
+      .getByRole("main")
+      .getByRole("link", { name: "Add an item" });
     await expect(cta).toBeVisible();
 
     // No fake items, no loading residue, no public-visibility language.
     await expect(page.getByRole("article")).toHaveCount(0);
-    const body = (await page.locator("body").innerText()).toLowerCase();
+    const body = (await page.getByRole("main").innerText()).toLowerCase();
     for (const phrase of ["share", "visible to", "group"]) {
       expect(body, `empty state says "${phrase}"`).not.toContain(phrase);
     }
@@ -194,42 +363,115 @@ test("a fresh owner with zero items sees the V18 empty composition and its CTA n
     // The profile header: display name, taste line, "0 things".
     await expect(page.getByRole("heading", { name: "Ada" })).toBeVisible();
     await expect(
-      page.getByText("currently in my tiny-luxuries era"),
+      page
+        .getByRole("region", { name: "Ada", exact: true })
+        .getByText("currently in my tiny-luxuries era"),
     ).toBeVisible();
     await expect(page.getByText("0 things")).toBeVisible();
+    await assertProfileGeometry(page, true);
 
-    // The CTA navigates to the designed interim add state — never a 404.
+    // The CTA opens the functional 005f add-item flow — never a 404.
     await cta.click();
     await expect(page).toHaveURL(/\/wishlist\/items\/new$/);
     await expect(
-      page.getByRole("heading", { name: "Add an item" }),
+      page.getByRole("heading", {
+        name: "Drop the link. We’ll do the nosy part.",
+      }),
     ).toBeVisible();
-    await expect(
-      page.getByText(/adding items will live|arriving with the next update/i),
-    ).toBeVisible();
+    await expect(page.getByLabel("Product link")).toBeVisible();
     await expect(page.getByText("Page not found")).toHaveCount(0);
 
     // And a visible way back.
-    await page.getByRole("link", { name: "Back to your wishlist" }).click();
+    await page
+      .getByRole("link", { name: "Close and return to your wishlist" })
+      .click();
     await expect(page).toHaveURL(/\/wishlist$/);
     await expect(
       page.getByRole("heading", { name: "Very minimalist of you." }),
     ).toBeVisible();
-  } finally {
-    await deleteFixtureUser(admin, userId);
-  }
+  });
+});
+
+test("an owner name with descenders clears the desktop divider while the taste line stays below", async ({
+  page,
+}) => {
+  const profile = {
+    displayName: "Jaya",
+    tasteLine: PROFILE.tasteLine,
+  };
+  const { scope } = await signedInFixture(page, profile);
+  await scope.run(async () => {
+    await page.goto("/wishlist");
+    await expect(
+      page.getByRole("heading", { name: profile.displayName }),
+    ).toBeVisible();
+    await assertProfileGeometry(page, true, profile);
+  });
+});
+
+test("a valid three-line owner name stays fully inside the band at the desktop breakpoint", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "desktop breakpoint probe");
+  await page.setViewportSize({ width: 640, height: 844 });
+  const profile = {
+    displayName: "CHRISTOPHER MAXIMILIAN MONTGOMERY",
+    tasteLine: PROFILE.tasteLine,
+  };
+  const { scope } = await signedInFixture(page, profile);
+  await scope.run(async () => {
+    await page.goto("/wishlist");
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
+    const name = await page
+      .getByRole("heading", { name: profile.displayName })
+      .boundingBox();
+    expect(name).not.toBeNull();
+    expect(
+      name!.height,
+      "the breakpoint fixture must wrap to three lines",
+    ).toBeGreaterThan(100);
+    await assertProfileGeometry(page, true, profile);
+  });
+});
+
+test("a valid unbroken 40-character owner name fits at mobile, breakpoint, and desktop widths", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "three-width probe");
+  const profile = {
+    displayName: "W".repeat(40),
+    tasteLine: PROFILE.tasteLine,
+  };
+  const { scope } = await signedInFixture(page, profile);
+  await scope.run(async () => {
+    await page.goto("/wishlist");
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
+    for (const width of [390, 640, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      await assertProfileGeometry(page, true, profile);
+      await assertNameTextContained(page, profile.displayName);
+    }
+  });
 });
 
 test("the populated view renders every snapshot field in the pinned read order, with the branded placeholder and runtime fallback", async ({
   page,
 }) => {
-  const { admin, userId } = await signedInFixture(page);
-  try {
+  await page.route(UNREACHABLE_IMAGE, async (route) => {
+    await route.abort("failed");
+  });
+  const { admin, userId, scope } = await signedInFixture(page);
+  await scope.run(async () => {
     await seedWishlistItems(admin, userId, populatedFixtures());
 
     await page.goto("/wishlist");
     await expect(page.getByRole("heading", { name: "Ada" })).toBeVisible();
     await expect(page.getByText("4 things")).toBeVisible();
+    await assertProfileGeometry(page, false);
 
     const cards = page.getByRole("article");
     await expect(cards).toHaveCount(4);
@@ -288,22 +530,30 @@ test("the populated view renders every snapshot field in the pinned read order, 
     // The unreachable image degrades to the branded placeholder — never a
     // broken-image icon or blank gap.
     const fourth = cards.nth(3);
+    const source = fourth.getByRole("link", { name: "example.invalid" });
+    await expect(source).toHaveAttribute(
+      "href",
+      "https://example.invalid/products/film",
+    );
+    await expect(source).toHaveAttribute("rel", "noreferrer");
+    // The image is lazy-loaded, so explicitly bring the final card into the
+    // load zone. The route above makes the runtime failure deterministic
+    // instead of depending on an unused localhost port and viewport timing.
+    await fourth.scrollIntoViewIfNeeded();
     await expect(
       fourth.getByTestId("wishlist-image-placeholder"),
     ).toBeVisible();
     await expect(
       fourth.getByTestId("wishlist-image-placeholder"),
     ).toContainText("Film for the half-frame camera");
-  } finally {
-    await deleteFixtureUser(admin, userId);
-  }
+  });
 });
 
 test("populated items persist across a full reload and a same-browser new tab", async ({
   page,
 }) => {
-  const { admin, userId } = await signedInFixture(page);
-  try {
+  const { admin, userId, scope } = await signedInFixture(page);
+  await scope.run(async () => {
     await seedWishlistItems(admin, userId, populatedFixtures());
 
     const assertPopulated = async (surface: Page) => {
@@ -328,41 +578,162 @@ test("populated items persist across a full reload and a same-browser new tab", 
     await expect(secondTab).toHaveURL(/\/wishlist$/);
     await assertPopulated(secondTab);
     await secondTab.close();
-  } finally {
-    await deleteFixtureUser(admin, userId);
-  }
+  });
+});
+
+test("1001 tied-boundary items are all present in the owner document", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const { admin, userId, scope } = await signedInFixture(page);
+  await scope.run(async () => {
+    const items: ItemFixture[] = Array.from({ length: 1001 }, (_, index) => ({
+      id: randomUUID(),
+      title: `Boundary item ${String(index).padStart(4, "0")}`,
+      sort_position: index === 500 ? 499 : index,
+    }));
+    await seedWishlistItems(admin, userId, items);
+    const response = await page.goto("/wishlist");
+    expect(response?.status()).toBe(200);
+    await expect(page.getByText("1001 things")).toBeVisible();
+    const document = await response!.text();
+    expect(document).toContain("Boundary item 0000");
+    expect(document).toContain("Boundary item 1000");
+  });
+});
+
+test("PostgREST transports full bigint originals as strings and the owner sees exact prices", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const { admin, userId, scope } = await signedInFixture(page);
+  await scope.run(async () => {
+    await seedWishlistItems(admin, userId, [
+      {
+        id: randomUUID(),
+        title: "Beyond-safe INR",
+        sort_position: 1,
+        original_amount_minor: "9007199254740993",
+        original_currency: "INR",
+      },
+      {
+        id: randomUUID(),
+        title: "Max-bigint INR",
+        sort_position: 2,
+        original_amount_minor: "9223372036854775807",
+        original_currency: "INR",
+      },
+      { id: randomUUID(), title: "No-price sentinel", sort_position: 3 },
+    ]);
+    const wishlistId = await fixtureWishlistId(admin, userId);
+    const rawBodies: string[] = [];
+    const trackedFetch: typeof fetch = async (input, init) => {
+      const response = await fetch(input, init);
+      if (
+        new URL(
+          input instanceof Request ? input.url : String(input),
+        ).pathname.endsWith("/rest/v1/wishlist_items")
+      ) {
+        rawBodies.push(await response.clone().text());
+      }
+      return response;
+    };
+    const ownerClient = createClient(
+      requireStackEnv("NEXT_PUBLIC_SUPABASE_URL"),
+      requireStackEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
+      {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { fetch: trackedFetch },
+      },
+    );
+    const { data: link, error: linkError } =
+      await admin.auth.admin.generateLink({
+        type: "magiclink",
+        email:
+          (await admin.auth.admin.getUserById(userId)).data.user?.email ?? "",
+      });
+    expect(linkError).toBeNull();
+    expect(link.properties?.hashed_token).toBeTruthy();
+    const { error: authError } = await ownerClient.auth.verifyOtp({
+      token_hash: link.properties!.hashed_token,
+      type: "email",
+    });
+    expect(authError).toBeNull();
+    const { data, error } = await ownerClient
+      .from("wishlist_items")
+      .select(
+        "id,title,source_url,retailer,image_url,image_snapshot_path,note,desire_level,sort_position,original_amount_minor::text,original_currency,created_at,updated_at",
+      )
+      .eq("wishlist_id", wishlistId)
+      .order("sort_position", { ascending: true })
+      .order("id", { ascending: true })
+      .range(0, 499);
+    expect(error).toBeNull();
+    expect(data?.map((row) => row.original_amount_minor)).toEqual([
+      "9007199254740993",
+      "9223372036854775807",
+      null,
+    ]);
+    expect(typeof data?.[0].original_amount_minor).toBe("string");
+    expect(
+      rawBodies.some(
+        (body) =>
+          body.includes('"original_amount_minor":"9007199254740993"') &&
+          body.includes('"original_amount_minor":"9223372036854775807"') &&
+          body.includes('"original_amount_minor":null'),
+      ),
+    ).toBe(true);
+
+    const document = await page.goto("/wishlist");
+    expect(document?.status()).toBe(200);
+    await expect(page.getByText("90071992547409.93 INR")).toBeVisible();
+    await expect(page.getByText("92233720368547758.07 INR")).toBeVisible();
+    const noPrice = page.getByRole("article").filter({
+      has: page.getByRole("heading", { name: "No-price sentinel" }),
+    });
+    await expect(noPrice).not.toContainText("INR");
+  });
 });
 
 test("a second user's wishlist reveals nothing about the first user's rows", async ({
   browser,
 }) => {
   const admin = stackAdminClient();
-  // User A: signed in, with known seeded items and a known wishlist id.
-  const contextA = await browser.newContext();
-  const pageA = await contextA.newPage();
-  const emailA = fixtureEmail("wishlist-e2e-a");
-  const userA = await createFixtureUser(admin, emailA);
-  await signInFixtureUser(pageA, admin, emailA, PROFILE);
-  await seedWishlistItems(admin, userA, populatedFixtures());
-  const wishlistIdA = await fixtureWishlistId(admin, userA);
-
-  // User B: a completely separate browser context (no cookie sharing).
-  const contextB = await browser.newContext();
-  const pageB = await contextB.newPage();
-  const emailB = fixtureEmail("wishlist-e2e-b");
-  const userB = await createFixtureUser(admin, emailB);
-  try {
-    await signInFixtureUser(pageB, admin, emailB, {
-      displayName: "Rohan",
-      tasteLine: "will travel for good coffee",
-    });
-
-    const documentResponse = pageB.waitForResponse((response) =>
-      response.url().replace(/\/$/, "").endsWith("/wishlist"),
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    // User A: signed in, with known seeded items and a known wishlist id.
+    const contextA = await browser.newContext();
+    scope.register("context A", () => contextA.close());
+    const pageA = await contextA.newPage();
+    const userA = await createSignedInFixture(
+      pageA,
+      admin,
+      "wishlist-e2e-a",
+      PROFILE,
+      scope,
     );
-    await pageB.goto("/wishlist");
-    const response = await documentResponse;
-    const payload = (await response.text()).toLowerCase();
+    await seedWishlistItems(admin, userA, populatedFixtures());
+    const wishlistIdA = await fixtureWishlistId(admin, userA);
+
+    // User B: a completely separate browser context (no cookie sharing).
+    const contextB = await browser.newContext();
+    scope.register("context B", () => contextB.close());
+    const pageB = await contextB.newPage();
+    await createSignedInFixture(
+      pageB,
+      admin,
+      "wishlist-e2e-b",
+      {
+        displayName: "Rohan",
+        tasteLine: "will travel for good coffee",
+      },
+      scope,
+    );
+
+    const { documentBody, flightBody } = await navigateWithDocumentAndFlight(
+      pageB,
+      "/wishlist",
+    );
 
     // B's own empty state renders; none of A's data — titles, notes,
     // retailers, amounts, item counts, or ids — appears in the DOM or the
@@ -371,31 +742,20 @@ test("a second user's wishlist reveals nothing about the first user's rows", asy
       pageB.getByRole("heading", { name: "Very minimalist of you." }),
     ).toBeVisible();
     await expect(pageB.getByRole("heading", { name: "Rohan" })).toBeVisible();
-    const dom = (await pageB.locator("body").innerText()).toLowerCase();
-    for (const secret of [
-      "ceramic pour-over",
-      "overstory",
-      "keycaps",
-      "fixture roasters",
-      "fixture books",
-      "the matte one",
-      "2499",
-      "132000",
-      "4 things",
-      wishlistIdA,
-    ]) {
-      expect(dom, `user B's DOM contains "${secret}"`).not.toContain(secret);
-      expect(
-        payload,
-        `user B's document payload contains "${secret}"`,
-      ).not.toContain(secret);
+    const surfaces = {
+      DOM: await pageB.locator("body").innerText(),
+      document: documentBody,
+      Flight: flightBody,
+    };
+    for (const [surface, body] of Object.entries(surfaces)) {
+      for (const [index, secret] of privateItemMarkers(wishlistIdA).entries()) {
+        expect(
+          body.toLowerCase().includes(secret.toLowerCase()),
+          `user B's ${surface} contains private fixture marker ${index}`,
+        ).toBe(false);
+      }
     }
-  } finally {
-    await deleteFixtureUser(admin, userA);
-    await deleteFixtureUser(admin, userB);
-    await contextA.close();
-    await contextB.close();
-  }
+  });
 });
 
 test("a stale session cookie recovers to the auth flow with no leak, and re-signing in restores the wishlist", async ({
@@ -404,8 +764,8 @@ test("a stale session cookie recovers to the auth flow with no leak, and re-sign
   // Two full sign-in UI flows plus seeding on a cold CI box: the default
   // 30s test timeout is too tight here.
   test.setTimeout(120_000);
-  const { admin, userId } = await signedInFixture(page);
-  try {
+  const { admin, userId, scope } = await signedInFixture(page);
+  await scope.run(async () => {
     await seedWishlistItems(admin, userId, populatedFixtures());
     await page.goto("/wishlist");
     await expect(page.getByRole("article")).toHaveCount(4);
@@ -442,16 +802,14 @@ test("a stale session cookie recovers to the auth flow with no leak, and re-sign
     await signInFixtureUser(page, admin, emailAgain as string, PROFILE);
     await page.goto("/wishlist");
     await expect(page.getByRole("article")).toHaveCount(4);
-  } finally {
-    await deleteFixtureUser(admin, userId);
-  }
+  });
 });
 
 test("every interactive element is keyboard-operable with visible focus, and both states axe clean", async ({
   page,
 }) => {
-  const { admin, userId } = await signedInFixture(page);
-  try {
+  const { admin, userId, scope } = await signedInFixture(page);
+  await scope.run(async () => {
     // Empty state first.
     await page.goto("/wishlist");
     await expect(
@@ -463,34 +821,99 @@ test("every interactive element is keyboard-operable with visible focus, and bot
       .analyze();
     expect(emptyScan.violations).toEqual([]);
 
-    // Tab to the CTA: keyboard-reachable with a visible focus indicator.
-    let sawWishlistCta = false;
-    for (let step = 0; step < 10; step += 1) {
-      await page.keyboard.press("Tab");
-      const cta = page.getByRole("link", { name: "Add an item" });
-      if (await cta.evaluate((node) => node === document.activeElement)) {
-        sawWishlistCta = true;
-        break;
-      }
-    }
-    expect(sawWishlistCta, "Tab never reached the empty-state CTA").toBe(true);
-    // The focus indicator is the global :focus-visible outline.
-    const outline = await page
-      .getByRole("link", { name: "Add an item" })
-      .evaluate((node) => getComputedStyle(node).outlineStyle);
-    expect(outline).not.toBe("none");
+    const wordmark = page.getByRole("link", { name: "Get Me This home" });
+    const account = page.getByRole("button", { name: "Account" });
+    await tabTo(page, wordmark, "wordmark");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/home$/);
 
-    // The CTA is operable by keyboard alone.
-    await page.getByRole("link", { name: "Add an item" }).focus();
+    await page.goto("/wishlist");
+    await tabTo(page, wordmark, "wordmark");
+    await tabTo(page, account, "account trigger");
+    await page.keyboard.press("Space");
+    await expect(account).toHaveAttribute("aria-expanded", "true");
+    await tabTo(
+      page,
+      page
+        .getByTestId("account-menu-content")
+        .getByRole("link", { name: "My wishlist" }),
+      "My wishlist menu entry",
+    );
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/wishlist$/);
+
+    await page.goto("/wishlist");
+    await tabTo(page, wordmark, "wordmark");
+    await tabTo(page, account, "account trigger");
+    await page.keyboard.press("Enter");
+    await tabTo(
+      page,
+      page
+        .getByTestId("account-menu-content")
+        .getByRole("link", { name: "My wishlist" }),
+      "My wishlist menu entry",
+    );
+    await tabTo(
+      page,
+      page.getByRole("button", { name: "Log out" }),
+      "Log out menu entry",
+    );
+    await page.keyboard.press("Space");
+    await expect(page.getByText("Log out of Get Me This?")).toBeVisible();
+    await tabTo(
+      page,
+      page.getByRole("button", { name: "Cancel" }),
+      "logout cancel",
+    );
+    await page.keyboard.press("Space");
+    await expect(page.getByText("Log out of Get Me This?")).toHaveCount(0);
+
+    await page.goto("/wishlist");
+    await tabTo(page, wordmark, "wordmark");
+    await tabTo(page, account, "account trigger");
+    await tabTo(
+      page,
+      page.getByRole("main").getByRole("link", { name: "Add an item" }),
+      "empty CTA",
+    );
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/wishlist\/items\/new$/);
     await expect(
-      page.getByRole("heading", { name: "Add an item" }),
+      page.getByRole("heading", {
+        name: "Drop the link. We’ll do the nosy part.",
+      }),
     ).toBeVisible();
-    // The interim page's way-back link is keyboard-reachable too.
-    await page.getByRole("link", { name: "Back to your wishlist" }).focus();
+    // V18 Add Item is standalone. Its keyboard exit is the header close
+    // link; application navigation and account controls are absent here.
+    await expect(page.getByRole("navigation", { name: "Main" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Account" })).toHaveCount(0);
+    await tabTo(
+      page,
+      page.getByRole("link", { name: "Close and return to your wishlist" }),
+      "add-flow close link",
+    );
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/wishlist$/);
+
+    const editProfile = page
+      .getByRole("main")
+      .getByRole("button", { name: "Edit profile" });
+    await tabTo(page, editProfile, "profile editor trigger");
+    await page.keyboard.press("Enter");
+    const profileDialog = page.getByRole("dialog", {
+      name: "Edit your profile",
+    });
+    await expect(profileDialog).toBeVisible();
+    await expect(
+      profileDialog.getByLabel("Name", { exact: true }),
+    ).toBeFocused();
+    const profileScan = await new AxeBuilder({ page })
+      .withTags([...WCAG_TAGS])
+      .analyze();
+    expect(profileScan.violations).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(profileDialog).toHaveCount(0);
+    await expect(editProfile).toBeFocused();
 
     // Populated state: retailer links, axe, and keyboard reachability.
     await seedWishlistItems(admin, userId, populatedFixtures());
@@ -502,46 +925,58 @@ test("every interactive element is keyboard-operable with visible focus, and bot
       .analyze();
     expect(populatedScan.violations).toEqual([]);
 
-    let sawRetailerLink = false;
-    for (let step = 0; step < 20; step += 1) {
-      await page.keyboard.press("Tab");
-      const link = page.getByRole("link", { name: "Fixture Roasters" });
-      if (
-        (await link.count()) > 0 &&
-        (await link.evaluate((node) => node === document.activeElement))
-      ) {
-        sawRetailerLink = true;
-        break;
-      }
-    }
-    expect(sawRetailerLink, "Tab never reached the retailer link").toBe(true);
-  } finally {
-    await deleteFixtureUser(admin, userId);
-  }
+    await page.route("https://example.invalid/products/film", (route) =>
+      route.fulfill({ status: 200, body: "source reached" }),
+    );
+    await tabTo(
+      page,
+      page.getByRole("link", { name: "Get Me This home" }),
+      "populated wordmark",
+    );
+    await tabTo(
+      page,
+      page.getByRole("button", { name: "Account" }),
+      "populated account",
+    );
+    await tabTo(
+      page,
+      page.getByRole("link", { name: "Fixture Roasters" }),
+      "retailer link",
+    );
+    await tabTo(
+      page,
+      page.getByRole("link", { name: "example.invalid" }),
+      "source link without retailer",
+    );
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL("https://example.invalid/products/film");
+  });
 });
 
 test("an unknown /wishlist child path renders not-found with no wishlist data", async ({
   page,
 }) => {
-  const { admin, userId } = await signedInFixture(page);
-  try {
+  const { admin, userId, scope } = await signedInFixture(page);
+  await scope.run(async () => {
     await seedWishlistItems(admin, userId, populatedFixtures());
+    const wishlistId = await fixtureWishlistId(admin, userId);
 
-    const response = await page.goto("/wishlist/not-a-real-item");
+    const { response, documentBody, flightBody } =
+      await navigateWithDocumentAndFlight(page, "/wishlist/not-a-real-item");
     expect(response?.status()).toBe(404);
     await expect(page.getByText("Page not found")).toBeVisible();
-    const body = (await page.locator("body").innerText()).toLowerCase();
-    for (const secret of [
-      "ceramic pour-over",
-      "overstory",
-      "keycaps",
-      "fixture roasters",
-      "2499",
-      "4 things",
-    ]) {
-      expect(body, `not-found body contains "${secret}"`).not.toContain(secret);
+    const surfaces = {
+      DOM: await page.locator("body").innerText(),
+      document: documentBody,
+      Flight: flightBody,
+    };
+    for (const [surface, body] of Object.entries(surfaces)) {
+      for (const [index, secret] of privateItemMarkers(wishlistId).entries()) {
+        expect(
+          body.toLowerCase().includes(secret.toLowerCase()),
+          `not-found ${surface} contains private fixture marker ${index}`,
+        ).toBe(false);
+      }
     }
-  } finally {
-    await deleteFixtureUser(admin, userId);
-  }
+  });
 });

@@ -1,6 +1,10 @@
 "use server";
 
+import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
+import { resolveSafeRedirectTarget } from "@/src/auth/link-intents";
 import { redirect } from "next/navigation";
+import { getServerAnalytics } from "@/src/analytics/server";
+import { parseVibe } from "@/src/profile/vibe";
 
 import { createSupabaseServerClient } from "@/src/supabase/server";
 import { validateOnboardingInput } from "./onboarding";
@@ -19,9 +23,9 @@ import type { OnboardingSubmitState } from "./onboarding-state";
  * normalization for direct writes).
  *
  * A complete profile can never be forced back into onboarding: the route
- * gate redirects complete profiles away, and this action's redirect target
- * is the fixed, server-defined `/home` — per the brief's intent decision,
- * every user lands on `/home` after onboarding completes.
+ * gate redirects complete profiles away. Ordinary completion returns to
+ * `/home`; the approved public-wishlist continuation accepts only a canonical
+ * token and resolves through the safe route helper. It never posts a reaction.
  */
 export async function completeOnboardingAction(
   _previous: OnboardingSubmitState,
@@ -33,7 +37,11 @@ export async function completeOnboardingAction(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/auth");
+  const shareToken = parsePublicShareToken(formData.get("share"));
+  if (!user)
+    redirect(
+      shareToken ? `/auth?intent=public-wishlist&share=${shareToken}` : "/auth",
+    );
 
   const rawName = formData.get("displayName");
   const rawLine = formData.get("tasteLine");
@@ -45,11 +53,19 @@ export async function completeOnboardingAction(
     return { status: "error", errors: validated.errors };
   }
 
+  const rawVibe = formData.get("vibe");
+  const vibe = parseVibe(rawVibe);
+  if (rawVibe !== null && vibe === null) {
+    return { status: "error", errors: { vibe: "invalid" } };
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update({
       display_name: validated.displayName,
       taste_line: validated.tasteLine,
+      // Legacy submissions omit this column, retaining the database default or saved choice.
+      ...(vibe !== null ? { vibe } : {}),
     })
     .eq("id", user.id);
   if (error) {
@@ -59,5 +75,16 @@ export async function completeOnboardingAction(
     return { status: "error", failure: "update-failed" };
   }
 
-  redirect("/home");
+  await getServerAnalytics().capture(
+    "onboarding_completed",
+    { avatar_selected: false },
+    { distinctId: user.id },
+  );
+
+  redirect(
+    resolveSafeRedirectTarget(
+      shareToken ? "public-wishlist" : undefined,
+      shareToken,
+    ),
+  );
 }

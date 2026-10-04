@@ -1,0 +1,60 @@
+[
+  {
+    "host": "getmethis.fun",
+    "path": "/?loggedOut=1",
+    "status": 200,
+    "xRobotsTag": null,
+    "canonical": [
+      "https://getmethis.fun"
+    ],
+    "robotsMeta": [
+      "index, follow"
+    ]
+  },
+  {
+    "host": "getmethis.fun",
+    "path": "/auth",
+    "status": 200,
+    "xRobotsTag": "noindex, nofollow",
+    "canonical": [],
+    "robotsMeta": [
+      "noindex, nofollow"
+    ]
+  },
+  {
+    "host": "www.getmethis.fun",
+    "path": "/",
+    "status": 200,
+    "xRobotsTag": "noindex, nofollow",
+    "canonical": [
+      "https://getmethis.fun"
+    ],
+    "robotsMeta": [
+      "index, follow"
+    ]
+  },
+  {
+    "host": "preview.up.railway.app",
+    "path": "/",
+    "status": 200,
+    "xRobotsTag": "noindex, nofollow",
+    "canonical": [
+      "https://getmethis.fun"
+    ],
+    "robotsMeta": [
+      "index, follow"
+    ]
+  },
+  {
+    "path": "/robots.txt",
+    "status": 200,
+    "contentType": "text/plain",
+    "body": "User-Agent: *\nAllow: /\n\nUser-Agent: GPTBot\nUser-Agent: ClaudeBot\nDisallow: /\n\nUser-Agent: Google-Extended\nAllow: /$\nDisallow: /\n\nSitemap: https://getmethis.fun/sitemap.xml\n"
+  },
+  {
+    "path": "/sitemap.xml",
+    "status": 200,
+    "contentType": "application/xml",
+    "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n<url>\n<loc>https://getmethis.fun/</loc>\n</url>\n</urlset>\n"
+  }
+]

@@ -14,7 +14,17 @@
 export type RequestCodeFailure = "invalid-email" | "over-limit" | "unavailable";
 
 export type VerifyCodeFailure =
-  "invalid-code" | "rejected-code" | "over-limit" | "unavailable";
+  | "invalid-code"
+  | "rejected-code"
+  | "over-limit"
+  | "unavailable"
+  /**
+   * The invitation auth-mutation broker holds the coordinator lease (brief
+   * 006c): another tab's verify, restart, logout, or refresh has an
+   * unacknowledged delivery. This attempt made no provider call and wrote
+   * no cookie; a retry after the other mutation settles succeeds.
+   */
+  | "blocked";
 
 type ProviderErrorShape = {
   status?: number;

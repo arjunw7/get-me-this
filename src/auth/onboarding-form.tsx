@@ -2,6 +2,8 @@
 
 import { useId, useState, useActionState, type FormEvent } from "react";
 
+import { VibePicker } from "@/src/profile/vibe-picker";
+import { DEFAULT_VIBE, type Vibe } from "@/src/profile/vibe";
 import { buttonClassName, cx } from "@/src/ui/styles";
 import { ArrowRightIcon } from "@/src/landing/icons";
 import {
@@ -26,8 +28,8 @@ import { completeOnboardingAction } from "@/src/profile/onboarding-actions";
 /**
  * First-time onboarding, ported from the frozen V18 reference
  * (pages/auth/Onboarding.tsx): display name (required) and the optional
- * one-line taste field with suggestion chips. No avatar-selection control
- * is invented — the frozen reference has none.
+ * one-line taste field with suggestion chips and the user-approved saved Vibe.
+ * No avatar-selection control is invented — the frozen reference has none.
  *
  * Two modes:
  * - FIXTURE (`variant` prop, `?state=` URLs): the static designed states
@@ -37,8 +39,9 @@ import { completeOnboardingAction } from "@/src/profile/onboarding-actions";
  *   `completeOnboardingAction` server action, which re-validates every
  *   rule server-side and persists through the owner-only RLS grant, then
  *   navigates to `/home`. The rendered states (empty form, validation
- *   errors) are identical to the fixture states — the committed onboarding
- *   baselines stay valid.
+ *   errors) are identical to the fixture states. The explicitly approved Vibe
+ *   extension changes the layout relative to the older onboarding baselines;
+ *   fresh desktop/mobile captures require review, not automatic adoption.
  *
  * The reference prefilled the name from the prototype's fake session email;
  * the form starts empty with the reference's placeholder (documented
@@ -54,18 +57,32 @@ const SAVE_FAILED_COPY =
 export function OnboardingForm({
   variant,
   live = false,
+  completeAction,
+  flowId,
+  shareToken,
 }: {
   variant?: OnboardingVariant;
   /** Live mode: the real server-action submission (004e). */
   live?: boolean;
+  /**
+   * Optional alternate completion action (brief 006c): the invitation
+   * onboarding passes its flow-specific action, which re-checks the
+   * session and flow on every submit and returns to the clean invitation
+   * preview instead of /home. Defaults to the 004e action.
+   */
+  completeAction?: typeof completeOnboardingAction;
+  /** The invitation flow id, carried as hidden input for the invite action. */
+  flowId?: string;
+  shareToken?: string;
 }) {
   const parsed = parseOnboardingVariant(variant);
   const [name, setName] = useState("");
   const [line, setLine] = useState("");
+  const [vibe, setVibe] = useState<Vibe>(DEFAULT_VIBE);
   const [touched, setTouched] = useState(parsed === "validation");
   const [preview, setPreview] = useState(false);
   const [submitState, submitFormAction] = useActionState(
-    completeOnboardingAction,
+    completeAction ?? completeOnboardingAction,
     { status: "idle" } as OnboardingSubmitState,
   );
   const nameErrorId = useId();
@@ -118,11 +135,16 @@ export function OnboardingForm({
         </p>
 
         <form
+          data-ph-no-capture={shareToken ? true : undefined}
           action={live ? submitFormAction : undefined}
           onSubmit={submit}
           noValidate
           className="mt-7 flex flex-col gap-6"
         >
+          {flowId ? <input type="hidden" name="flowId" value={flowId} /> : null}
+          {!flowId && shareToken ? (
+            <input type="hidden" name="share" value={shareToken} />
+          ) : null}
           <div className="block">
             <label htmlFor="display-name" className="block text-sm font-bold">
               What should friends call you?
@@ -223,6 +245,12 @@ export function OnboardingForm({
               ))}
             </div>
           </div>
+
+          <VibePicker
+            value={vibe}
+            onChange={setVibe}
+            invalid={!!serverErrors?.vibe}
+          />
 
           {saveFailed ? (
             <p

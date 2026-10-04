@@ -1,13 +1,14 @@
 # Enabling PostHog in staging and production
 
 This is the boundary document for enabling PostHog. ARJ-12 / 002f established
-the typed, privacy-safe analytics foundation only: no product flow is
-instrumented, no credentials exist, and nothing is captured anywhere yet.
+the typed analytics boundary. Product actions now emit validated events only
+when the current request grants consent. Production configuration uses the
+Get Me This US project; local tests use a synthetic ingestion fixture.
 
 ## Two lanes
 
 - **Server lane** (`src/analytics/server.ts`, `posthog-node` 5.54.1) owns the
-  ten catalog business events in `docs/analytics/tracking-plan.md`. Every
+  catalog business events in `docs/analytics/tracking-plan.md`. Every
   payload is validated against `src/analytics/event-definitions.ts` (unknown
   keys, missing keys, and invalid enum values are rejected before capture)
   and every capture is followed by an awaited `flush()`.
@@ -52,14 +53,16 @@ code, and the server module cannot be imported from client code at all (the
 **Rollback for either lane is to unset the environment variables.** No data
 loss or cleanup is required; both lanes degrade to full inertness.
 
-### Enabling in staging (the only permitted first step)
+### Consent and production enablement
 
-1. Set the two `NEXT_PUBLIC_*` variables on the staging deployment only.
+1. Set the two `NEXT_PUBLIC_*` variables on production only and rebuild the
+   application. The public host is `https://us.i.posthog.com`.
 2. Because the staging gate below has not passed, session replay stays
-   disabled (`disable_session_recording: true`) and consent-gated capture
-   stays off until a consent mechanism exists (see the follow-up issue,
-   `002g-analytics-consent-and-production-enablement.md`).
-3. Verify with **synthetic accounts only**: synthetic email, OTP,
+   disabled (`disable_session_recording: true`). The optional consent panel
+   grants or denies capture for 180 days. Analytics preferences remain
+   available to withdraw permission. The cookie governs both lanes; local
+   storage only signals changes to other tabs.
+3. Verify first with **synthetic accounts only**: synthetic email, OTP,
    invitation, wishlist, extraction, assignment, and reservation values.
    Confirm in the PostHog project that:
    - no prohibited data class from `docs/analytics/tracking-plan.md`
@@ -68,7 +71,7 @@ loss or cleanup is required; both lanes degrade to full inertness.
      (`/invite/:token`, `/groups/:groupId`, …, `/:unlisted`) — never a
      real token, query, or fragment;
    - autocapture events contain only the approved properties
-     (`$event_type`, `$el_tag_name`, `$el_classes`).
+     (`$event_type`, `$el_tag_name`) plus validated UUID transport identifiers.
 
 ### Staging gate for session replay (blocking)
 

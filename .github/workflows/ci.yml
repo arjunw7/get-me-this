@@ -1,29 +1,46 @@
 # Continuous integration for every pull request and direct push to main.
 #
-# Two jobs share one contract (005h). "Install and verify" installs with a
-# frozen lockfile and runs the single committed verification command (format,
-# lint, typecheck, unit tests, build). "Database and stack e2e" starts the
-# local Supabase stack with the repository's CLI devDependency, deliberately
-# resets it from the committed migrations and seed, runs the pgTAP suites
-# (pnpm test:db), then builds the production bundle and runs the
-# E2E_LOCAL_SUPABASE-gated Playwright suites through the committed
-# scripts/e2e-local-stack.sh (environment wiring mirrors
-# scripts/e2e-auth-local.sh; the local stack's fixture keys are parsed
-# silently and never echoed into logs). A failing sub-command exits non-zero
-# and fails its check; a red job blocks the merge gate exactly like a red
-# verify job.
+# Four independent checks share one contract (005h). "Install and verify"
+# installs with a frozen lockfile and runs the single committed verification
+# command (format, lint, typecheck, unit tests, build). The three
+# database-gated jobs each boot their own local Supabase stack on their own
+# runner so they run in parallel:
+#
+#   * "Database suites and races" starts and resets the stack from the
+#     committed migrations and seed, runs the pgTAP suites (pnpm test:db),
+#     then both two-session race harnesses (006a and 006b) through the
+#     committed scripts/test-group-races-*.sh.
+#   * "Stack e2e and visual" starts and resets the stack, then builds the
+#     production bundle and runs the E2E_LOCAL_SUPABASE-gated Playwright
+#     suites through scripts/e2e-local-stack.sh (environment wiring mirrors
+#     scripts/e2e-auth-local.sh; the local stack's fixture keys are parsed
+#     silently and never echoed into logs), plus the review-evidence
+#     collection and uploads.
+#   * "Populated-state group upgrade" runs the 006b populated-state upgrade
+#     harness (scripts/test-group-upgrade-local.sh), which always replays
+#     the committed migrations from scratch inside disposable local
+#     databases — it tests migration upgrades and never uses a cached or
+#     pre-migrated snapshot.
+#
+# A failing sub-command exits non-zero and fails its check; a red job blocks
+# the merge gate exactly like a red verify job.
 #
 # Merge gate: per the owner authorization of 2026-09-30 recorded in
 # docs/delivery/issues/005h-ci-database-test-gate.md, AI reviewer signoff plus
 # green checks authorizes merging Phase 4 pull requests; the earlier
 # "mandatory input to human review" wording is superseded for these slices.
-# Making the checks required needs branch protection, which this private
-# repository cannot currently configure (403).
+# All five job names are required status checks on main through branch
+# protection.
 #
 # Least privilege: read-only repository access, no persisted checkout
 # credentials, no secrets exposed to pull-request code, and a hard job
-# timeout. Superseded pull-request runs are canceled; main-branch runs are
-# never canceled by a newer push.
+# timeout. Superseded runs are canceled (the newest push to a pull request or
+# to main always runs). Docs-only changes (docs/**, **.md) are triaged by the
+# fast always-runs "triage" job, which detects them from the diff and skips
+# the five real jobs; GitHub treats the required checks' Skipped results as
+# satisfied, so docs-only pull requests stay mergeable with identical
+# behavior to the retired workflow-level paths-ignore. Workflow changes
+# under .github/ always run CI.
 name: CI
 
 on:
@@ -36,11 +53,57 @@ permissions:
 
 concurrency:
   group: ci-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
+  # Fast always-runs triage: detects docs-only changes (everything under
+  # docs/** or *.md) from the diff of the pull-request merge ref against its
+  # base (push-to-main runs diff the previous commit against HEAD) and skips
+  # the five real jobs for docs-only changes. Required status checks report
+  # Skipped, which GitHub counts as satisfied, so docs-only pull requests
+  # remain mergeable without running CI.
+  triage:
+    name: Triage docs-only changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.diff.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: diff
+        name: Detect docs-only changes
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="$BASE_SHA"
+            CHANGED="$(git diff --name-only "$BASE"...HEAD 2>/dev/null || git diff --name-only "$BASE" HEAD)"
+          else
+            BEFORE="$BEFORE_SHA"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
+              || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+              CHANGED="$(git diff --name-only HEAD~1 HEAD 2>/dev/null || true)"
+            else
+              CHANGED="$(git diff --name-only "$BEFORE" HEAD)"
+            fi
+          fi
+          echo "Changed paths:"
+          echo "$CHANGED"
+          if [ -n "$CHANGED" ] && [ -z "$(printf '%s\n' "$CHANGED" | grep -vE '(^docs/|\.md$)')" ]; then
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+
   verify:
     name: Install and verify
+    needs: triage
+    if: needs.triage.outputs.docs_only == 'false'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -59,14 +122,23 @@ jobs:
       - name: Verify
         run: pnpm verify
 
+  # The pgTAP suites and both two-session race harnesses run against one
+  # freshly migrated stack on a dedicated runner. No Playwright browser is
+  # installed here. `supabase start` applies the committed migrations and
+  # seed on a fresh runner; its output table includes the local fixture
+  # keys, so it is written to a file and never echoed; on failure only a
+  # key-filtered diagnostic excerpt is printed. The sanitized summary is
+  # read back from `supabase status -o json` (the same interface
+  # scripts/e2e-auth-local.sh parses) through a filter that drops
+  # key/secret material: the local publishable key is a development
+  # fixture, but the job treats it as secret anyway.
   database:
-    name: Database and stack e2e
+    name: Database suites and races
+    needs: triage
+    if: needs.triage.outputs.docs_only == 'false'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      # Same three SHA-pinned actions as the verify job; per-step timeouts cap
-      # hangs, the steps share this job's budget, and the workflow-level
-      # concurrency group cancels superseded pull-request runs.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -78,14 +150,6 @@ jobs:
       - name: Install dependencies (frozen lockfile)
         timeout-minutes: 5
         run: pnpm install --frozen-lockfile
-      # `supabase start` applies the committed migrations and seed on a fresh
-      # runner. Its output table includes the local fixture keys, so it is
-      # written to a file and never echoed; on failure only a key-filtered
-      # diagnostic excerpt is printed. The sanitized summary is read back from
-      # `supabase status -o json` (the same interface scripts/e2e-auth-local.sh
-      # parses) through a filter that drops key/secret material: the local
-      # publishable key is a development fixture, but the job treats it as
-      # secret anyway.
       - name: Start the local Supabase stack (applies committed migrations and seed)
         timeout-minutes: 10
         run: |
@@ -108,6 +172,123 @@ jobs:
       - name: Run pgTAP database suites
         timeout-minutes: 5
         run: pnpm test:db
+      # Brief 006a criterion 6: the pgTAP suites cannot prove real
+      # concurrency. This harness opens two independent psql sessions against
+      # the same local stack with barriers and finite timeouts; a green pgTAP
+      # step alone never satisfies the race criterion.
+      - name: Run group two-session races
+        timeout-minutes: 5
+        run: pnpm test:db:races
+      # Brief 006b criteria 4 and 8: the receipt-backed creation and the
+      # compare-and-swap shareable-link races (same-key create serialization,
+      # changed-payload conflict, rollback waiter success, same-version issue
+      # and issue/revoke contention) with two independent sessions.
+      - name: Run 006b group races
+        timeout-minutes: 5
+        run: pnpm test:db:races:006b
+      # Brief 006c criteria 10 and 12: the continuation-bound acceptance,
+      # binding, logout-invalidation, and eight-envelope-cap races (two
+      # independent sessions, finite timeouts, deterministic outcomes).
+      - name: Run 006c continuation races
+        timeout-minutes: 5
+        run: pnpm test:db:races:006c
+      # Brief 006d: the room snapshot's two-session read-isolation harness —
+      # a removal, an acceptance, and a targeted-invitation revoke are each
+      # held uncommitted while the other session reads, then released; every
+      # read must be wholly the pre- or post-commit state, and the function
+      # body is proven to be one SQL statement.
+      - name: Run 006d room snapshot races
+        timeout-minutes: 5
+        run: pnpm test:db:races:006d
+
+      # The 006e member-wishlist projection: the target's removal, the
+      # viewer's removal, and the viewer's leave are each held uncommitted
+      # while the other session reads, then released; every read must be
+      # wholly the pre- or post-commit state, and the function body is
+      # proven to be one SQL statement.
+      - name: Run 006e member wishlist snapshot races
+        timeout-minutes: 5
+        run: pnpm test:db:races:006e
+
+      # Brief 007b criteria 2: the copy's idempotency under real concurrency.
+      # The pgTAP suite cannot prove concurrent interleavings: two
+      # independent psql sessions race the copy against a duplicate copy,
+      # the source owner's hard delete (both commit orders), the copier's
+      # own manual append, and the organizer's removal of the copier.
+      - name: Run 007b copy races
+        timeout-minutes: 5
+        run: pnpm test:db:races:copy
+      # Brief 008d criterion 8: the draw-commit vs. redraw-commit, redraw
+      # vs. leave, and redraw vs. tombstone races — two independent psql
+      # sessions contending on the groups row lock, finite timeouts, and a
+      # strict no-half-redrawn, no-tombstoned-enqueue invariant set.
+      - name: Run 008d draw view races
+        timeout-minutes: 5
+        run: pnpm test:db:races:008d
+      # Brief 006f: the organizer membership controls' two-session harness —
+      # every conflicting pair (remove/remove, remove/transfer, transfer/
+      # transfer, reinvite/remove, revocation-first/reinvite, revoke/revoke,
+      # transfer/revoke, in both orders where applicable) yields exactly one
+      # committed winner and one stale loser with the deterministic PT409
+      # recovery state, no partial write, and no duplicate audit.
+      - name: Run 006f member admin races
+        timeout-minutes: 5
+        run: pnpm test:db:races:006f
+      - name: Run group deletion races
+        timeout-minutes: 2
+        run: python3 scripts/test-group-deletion-races.py
+
+  # The stack-gated Playwright suites (e2e, axe, visual) boot their own stack
+  # on a dedicated runner, in parallel with the database job above.
+  stack-e2e:
+    name: Stack e2e and visual
+    needs: triage
+    if: needs.triage.outputs.docs_only == 'false'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies (frozen lockfile)
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile
+      # Same sanitized stack boot as the database job: migrations and seed
+      # from the committed files on a fresh runner.
+      - name: Start the local Supabase stack (applies committed migrations and seed)
+        timeout-minutes: 10
+        run: |
+          pnpm exec supabase start > /tmp/gmt-supabase-start.txt 2>&1 \
+            || { echo "supabase start failed; sanitized diagnostics:"; grep -viE 'key|secret|password|token|eyJ' /tmp/gmt-supabase-start.txt | tail -40 >&2 || true; exit 1; }
+          pnpm exec supabase status -o json > /tmp/gmt-supabase-status.json
+          node -e '
+            const s = require("/tmp/gmt-supabase-status.json");
+            for (const [k, v] of Object.entries(s)) {
+              if (!/key|secret|password|token/i.test(k)) {
+                process.stdout.write(`${k}: ${v}\n`);
+              }
+            }
+          '
+      # Deliberate duplicate proof (brief 005h): the schema must rebuild from
+      # the committed migrations and seed alone.
+      - name: Reset the local stack from committed migrations and seed
+        timeout-minutes: 5
+        run: pnpm exec supabase db reset --local
+      # Cache the downloaded Chromium build (~/.cache/ms-playwright). The
+      # browser version is pinned transitively by pnpm-lock.yaml, so the
+      # lockfile hash keys the cache; --with-deps still installs the OS
+      # packages each run. Needed in every job that runs Playwright.
+      - name: Restore the Playwright Chromium cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: playwright-${{ runner.os }}-
       - name: Install the Playwright Chromium browser
         timeout-minutes: 5
         run: pnpm exec playwright install --with-deps chromium
@@ -118,13 +299,159 @@ jobs:
       - name: Build and run the stack-gated e2e suites
         timeout-minutes: 25
         run: bash scripts/e2e-local-stack.sh
-      # TEMPORARY (ARJ-27 diagnosis): upload the failing screenshots' actual
-      # and diff images so the mobile visual-candidate mismatch can be
-      # inspected. Remove once the capture is green.
-      - name: Upload failed screenshot evidence
+      - name: Collect ARJ-28/ARJ-31 candidates and axe evidence
+        if: always()
+        id: collect_arj28
+        env:
+          # The manifest pins the exact pushed head. For pull_request runs
+          # GITHUB_SHA and the checkout's HEAD are the server-side merge
+          # commit, so the event's PR head SHA is passed explicitly; push
+          # runs resolve github.sha. The collector falls back to
+          # `git rev-parse HEAD` when the variable is unset (local runs).
+          CANDIDATE_IMPLEMENTATION_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/collect-arj28-candidates.mjs test-results/arj28-candidates test-results/arj31-candidates arj28-candidate-evidence
+      - name: Upload ARJ-28 review candidates
+        if: always() && steps.collect_arj28.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: arj28-responsive-candidates
+          path: arj28-candidate-evidence/
+          if-no-files-found: error
+          retention-days: 3
+      - name: Collect ARJ-29 reorder candidates
+        if: success()
+        run: |
+          mkdir arj29-candidate-evidence
+          cp test-results/arj29-candidates/arj29-wishlist-before-mobile.png arj29-candidate-evidence/
+          cp test-results/arj29-candidates/arj29-wishlist-before-desktop.png arj29-candidate-evidence/
+          cp test-results/arj29-candidates/arj29-wishlist-reorder-mobile.png arj29-candidate-evidence/
+          cp test-results/arj29-candidates/arj29-wishlist-reorder-desktop.png arj29-candidate-evidence/
+          sha256sum arj29-candidate-evidence/*.png > arj29-candidate-evidence/SHA256SUMS
+          git rev-parse HEAD > arj29-candidate-evidence/IMPLEMENTATION_HEAD
+      - name: Upload ARJ-29 reorder candidates
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: arj29-reorder-candidates
+          path: arj29-candidate-evidence/
+          if-no-files-found: error
+          retention-days: 3
+      # The collector admits only the four wishlist names with actual/diff
+      # PNG suffixes from wishlist visual result folders. Error contexts,
+      # auth captures, traces, and reports never enter the artifact directory.
+      - name: Collect wishlist visual evidence
+        if: failure()
+        run: node scripts/collect-wishlist-visual-evidence.mjs test-results wishlist-visual-evidence
+      - name: Upload wishlist visual evidence
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: failed-screenshot-evidence
-          path: test-results/
+          name: wishlist-visual-evidence
+          path: wishlist-visual-evidence/
+          if-no-files-found: ignore
+          retention-days: 3
+      # ARJ-37: the groups visual specs' actual/expected/diff captures, for
+      # cross-OS review of the committed baselines (the wishlist collector
+      # above is fail-closed to the wishlist names only).
+      - name: Collect groups visual evidence
+        if: failure()
+        run: |
+          mkdir groups-visual-evidence
+          find test-results -type f \
+            -name "groups-*-actual.png" -exec cp {} groups-visual-evidence/ \;
+          find test-results -type f \
+            -name "groups-*-expected.png" -exec cp {} groups-visual-evidence/ \;
+          find test-results -type f \
+            -name "groups-*-diff.png" -exec cp {} groups-visual-evidence/ \;
+      - name: Upload groups visual evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: groups-visual-evidence
+          path: groups-visual-evidence/
+          if-no-files-found: ignore
+          retention-days: 3
+
+  # Brief 006b criterion 14: the 006b migration must also succeed against a
+  # POPULATED 006a predecessor state, not only a fresh stack. This bounded
+  # harness builds disposable local databases from the committed migrations
+  # through 006a, seeds both fixture kinds (generic history and zero generic
+  # history) plus multiple-active/expired/targeted cases, applies 006b once,
+  # asserts the backfilled versions and system audits, and proves a forced
+  # migration failure rolls everything back. It deliberately replays real
+  # migrations from scratch on every run — never a cached snapshot — because
+  # it tests migration upgrades. It only needs the stack's containers up (it
+  # execs into the database container); no seed state and no Playwright.
+  group-upgrade:
+    name: Populated-state group upgrade
+    needs: triage
+    if: needs.triage.outputs.docs_only == 'false'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies (frozen lockfile)
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile
+      - name: Start the local Supabase stack (containers for the disposable databases)
+        timeout-minutes: 10
+        run: |
+          pnpm exec supabase start > /tmp/gmt-supabase-start.txt 2>&1 \
+            || { echo "supabase start failed; sanitized diagnostics:"; grep -viE 'key|secret|password|token|eyJ' /tmp/gmt-supabase-start.txt | tail -40 >&2 || true; exit 1; }
+      - name: Run the populated-state group upgrade
+        timeout-minutes: 5
+        run: pnpm test:db:group-upgrade
+
+  no-provider-actions:
+    name: No-provider Server Action gates
+    needs: triage
+    if: needs.triage.outputs.docs_only == 'false'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies (frozen lockfile)
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile
+      # Same Playwright cache as the stack-e2e job; keyed on the lockfile
+      # that pins the browser version.
+      - name: Restore the Playwright Chromium cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: playwright-${{ runner.os }}-
+      - name: Install the Playwright Chromium browser
+        timeout-minutes: 5
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Prove dotenv cannot reintroduce provider configuration
+        timeout-minutes: 2
+        run: pnpm exec vitest run tests/helpers/no-provider-env.test.ts
+      - name: Build without provider configuration and test landing and signed-out actions
+        timeout-minutes: 8
+        run: bash scripts/e2e-no-provider-actions.sh
+      - name: Collect public landing visual evidence
+        if: failure()
+        run: node scripts/collect-landing-visual-evidence.mjs
+      - name: Upload public landing visual evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: landing-visual-evidence
+          path: landing-visual-evidence/
+          if-no-files-found: ignore
           retention-days: 3

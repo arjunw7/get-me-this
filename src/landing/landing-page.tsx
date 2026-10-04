@@ -1,3 +1,4 @@
+import { GuideLinks } from "@/src/marketing/guide-links";
 import Link from "next/link";
 
 import { ArrowRightIcon } from "./icons";
@@ -6,27 +7,29 @@ import { HeroCollage } from "./hero-collage";
 import { GroupDemoSection } from "./group-demo";
 import { CtaLink } from "./cta-link";
 import {
-  createGroupHref,
+  dashboardHref,
+  dashboardLabel,
   finalCta,
   footer,
   hero,
   howItWorks,
   landingNav,
   loginHref,
-  occasionTilts,
+  faqs,
   occasions,
+  occasionTilts,
   startWishlistHref,
 } from "./content";
 import { loggedOutConfirmation } from "@/src/auth/flow-copy";
 
-/**
- * The landing page, ported from the frozen V18 reference
- * (pages/Landing.tsx). Server component: fully static, no client JS.
- *
- * Layout geometry (max-w-6xl sections, px-5/sm:px-8 gutters) follows the
- * reference; colours, type, radii, and shadows are semantic tokens.
- */
-export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
+/** Public wishlist-first introduction; authentication remains intent-preserving. */
+export function LandingPage({
+  loggedOut = false,
+  signedIn = false,
+}: {
+  loggedOut?: boolean;
+  signedIn?: boolean;
+}) {
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-surface-page text-content-primary">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
@@ -45,19 +48,27 @@ export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
               {item.label}
             </a>
           ))}
-          <a
-            href={loginHref}
-            className="inline-flex h-11 items-center rounded-surface px-3 text-sm font-bold hover:bg-surface-sunken"
-          >
-            Log in
-          </a>
+          {signedIn ? (
+            <Link
+              href={dashboardHref}
+              className="inline-flex h-11 items-center rounded-surface px-3 text-sm font-bold hover:bg-surface-sunken"
+            >
+              {dashboardLabel}
+            </Link>
+          ) : (
+            <a
+              href={loginHref}
+              className="inline-flex h-11 items-center rounded-surface px-3 text-sm font-bold hover:bg-surface-sunken"
+            >
+              Log in
+            </a>
+          )}
         </nav>
       </header>
 
       <main>
         {/* The confirmed-logout confirmation (004e): rendered only for the
-            `?loggedOut=1` return after sign-out; the normal visit — the
-            committed baseline — renders nothing here. */}
+            `?loggedOut=1` return after sign-out; a normal visit renders nothing here. */}
         {loggedOut ? (
           <p
             role="status"
@@ -67,7 +78,7 @@ export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
           </p>
         ) : null}
         {/* Hero */}
-        <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 pt-6 pb-16 sm:px-8 lg:grid-cols-[1.05fr_1fr] lg:pt-14">
+        <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 pt-6 pb-16 sm:px-8 lg:grid-cols-[1fr_1fr] lg:gap-16 lg:pt-12">
           <div>
             <p className="text-base font-bold text-action-primary-strong">
               {hero.eyebrow}
@@ -83,13 +94,7 @@ export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
                 {hero.primaryCta}
                 <ArrowRightIcon className="h-5 w-5" />
               </CtaLink>
-              <CtaLink href={createGroupHref} variant="subtle" size="lg">
-                {hero.secondaryCta}
-              </CtaLink>
             </div>
-            <p className="mt-5 text-sm text-content-muted">
-              {hero.privacyNote}
-            </p>
           </div>
           <HeroCollage />
         </section>
@@ -134,10 +139,10 @@ export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
         <section
           id="occasions"
           aria-labelledby="occasions-title"
-          className="mx-auto max-w-6xl px-5 pt-20 pb-30 sm:px-8"
+          className="border-b-2 border-outline-strong"
         >
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:items-center">
-            <div>
+          <div className="mx-auto grid max-w-6xl gap-10 px-5 pt-20 pb-30 sm:px-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+            <div className="lg:order-2">
               <h2
                 id="occasions-title"
                 className="font-display text-4xl leading-[1.02] font-extrabold tracking-tight sm:text-5xl"
@@ -149,7 +154,7 @@ export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
                 Eid, Diwali or someone’s chaotic housewarming.
               </p>
             </div>
-            <ul className="flex flex-wrap gap-3">
+            <ul className="flex flex-wrap gap-3 lg:order-1">
               {occasions.map((occasion, index) => (
                 <li
                   key={occasion.label}
@@ -172,8 +177,48 @@ export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
           </div>
         </section>
 
+        <section
+          aria-labelledby="questions-title"
+          className="-mt-0.5 border-t-2 border-outline-strong bg-surface-raised"
+        >
+          <div className="mx-auto grid max-w-6xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+            <div>
+              <h2
+                id="questions-title"
+                className="font-display text-4xl font-extrabold tracking-tight"
+              >
+                A few good questions.
+              </h2>
+              <p className="mt-4 text-lg text-content-secondary">
+                Your wishlist works on its own. Groups are for planning gifts
+                together.
+              </p>
+            </div>
+            <div className="divide-y-2 divide-outline-subtle">
+              {faqs.map((faq) => (
+                <details key={faq.question} className="group py-4">
+                  <summary className="min-h-11 cursor-pointer content-center pr-2 font-bold">
+                    {faq.question}
+                  </summary>
+                  <p className="pt-3 pb-2 leading-relaxed text-content-secondary">
+                    {faq.answer}
+                  </p>
+                  {faq.question === "Do I need a group to use my wishlist?" ? (
+                    <Link
+                      href="/how-it-works"
+                      className="inline-flex min-h-11 items-center rounded-control font-semibold underline underline-offset-4 hover:text-action-primary-strong"
+                    >
+                      Read the wishlist and group guide
+                    </Link>
+                  ) : null}
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Final CTA */}
-        <section className="px-5 pb-20 sm:px-8">
+        <section className="px-5 py-16 sm:px-8 sm:py-20">
           <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 rounded-surface-2xl border-2 border-outline-strong bg-action-primary p-8 shadow-chunk-lg sm:p-12 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">
               <h2 className="font-display text-3xl leading-[1.05] font-extrabold tracking-tight sm:text-5xl">
@@ -183,7 +228,7 @@ export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
             </div>
             <CtaLink
               href={startWishlistHref}
-              variant="contrast"
+              variant="subtle"
               size="lg"
               className="shrink-0"
             >
@@ -192,6 +237,7 @@ export function LandingPage({ loggedOut = false }: { loggedOut?: boolean }) {
             </CtaLink>
           </div>
         </section>
+        <GuideLinks />
       </main>
 
       <footer className="border-t-2 border-outline-strong">

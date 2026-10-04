@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
+const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
+vi.mock("@/src/analytics/server", () => ({
+  getServerAnalytics: () => analytics,
+}));
 
 class RedirectSignal extends Error {
   constructor(readonly to: string) {
@@ -97,6 +101,7 @@ function formData(entries: Record<string, string>): FormData {
 }
 
 beforeEach(() => {
+  analytics.capture.mockReset();
   cookieStore.clear();
   requestHeaders.host = "127.0.0.1:3100";
   delete requestHeaders["x-forwarded-proto"];
@@ -115,6 +120,45 @@ afterEach(() => {
 });
 
 describe("requestCodeAction", () => {
+  it("sends from the production domain and carries the sign-in flow", async () => {
+    requestHeaders.host = "getmethis.fun";
+    requestHeaders["x-forwarded-proto"] = "https";
+    signInWithOtp.mockResolvedValue({ data: {}, error: null });
+
+    await expect(
+      requestCodeAction(
+        IDLE,
+        formData({ email: "you@example.com", intent: "wishlist" }),
+      ),
+    ).rejects.toMatchObject({ to: "/auth/verify" });
+    expect(signInWithOtp).toHaveBeenCalledExactlyOnceWith({
+      email: "you@example.com",
+      options: { emailRedirectTo: "https://getmethis.fun/auth/confirm" },
+    });
+    expect(cookieStore.get(CARRY_COOKIE_NAME)?.value).toContain("wishlist");
+  });
+
+  it.each([
+    ["getmethis.fun", "http"],
+    ["getmethis.fun.evil.example", "https"],
+    ["evil.getmethis.fun", "https"],
+    ["getmethis.fun:444", "https"],
+  ])(
+    "does not send from untrusted production lookalike %s (%s)",
+    async (host, proto) => {
+      requestHeaders.host = host;
+      requestHeaders["x-forwarded-proto"] = proto;
+      expect(
+        await requestCodeAction(
+          IDLE,
+          formData({ email: "you@example.com", intent: "home" }),
+        ),
+      ).toEqual({ status: "error", failure: "unavailable" });
+      expect(signInWithOtp).not.toHaveBeenCalled();
+      expect(cookieStore.has(CARRY_COOKIE_NAME)).toBe(false);
+    },
+  );
+
   it("requests a code with the allowlisted redirect and carries the email and intent", async () => {
     signInWithOtp.mockResolvedValue({ data: {}, error: null });
 
@@ -242,6 +286,11 @@ describe("verifyCodeAction", () => {
     await expect(
       verifyCodeAction(IDLE, formData({ code: "123456" })),
     ).rejects.toThrow(new RedirectSignal("/onboarding"));
+    expect(analytics.capture).toHaveBeenCalledExactlyOnceWith(
+      "auth_completed",
+      { method: "email", is_new_user: true },
+      { distinctId: "user-1" },
+    );
 
     expect(verifyOtp).toHaveBeenCalledWith({
       email: "you@example.com",
@@ -330,6 +379,7 @@ describe("verifyCodeAction", () => {
     const result = await verifyCodeAction(IDLE, formData({ code: "000000" }));
 
     expect(result).toEqual({ status: "error", failure: "rejected-code" });
+    expect(analytics.capture).not.toHaveBeenCalled();
     // The carried email survives a rejection: the user can retry or resend
     // without re-entering their address.
     expect(cookieStore.get(CARRY_COOKIE_NAME)?.value).toContain(
@@ -355,6 +405,26 @@ describe("verifyCodeAction", () => {
 });
 
 describe("resendCodeAction", () => {
+  it("resends on the production domain using the production confirmation URL", async () => {
+    requestHeaders.host = "getmethis.fun";
+    requestHeaders["x-forwarded-proto"] = "https";
+    cookieStore.set(CARRY_COOKIE_NAME, {
+      name: CARRY_COOKIE_NAME,
+      value: JSON.stringify({
+        email: "you@example.com",
+        intent: "home",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }),
+    });
+    signInWithOtp.mockResolvedValue({ data: {}, error: null });
+
+    expect(await resendCodeAction(IDLE)).toEqual({ status: "resent" });
+    expect(signInWithOtp).toHaveBeenCalledExactlyOnceWith({
+      email: "you@example.com",
+      options: { emailRedirectTo: "https://getmethis.fun/auth/confirm" },
+    });
+  });
+
   it("resends to the carried email with the allowlisted redirect", async () => {
     const exp = Math.floor(Date.now() / 1000) + 3600;
     cookieStore.set(CARRY_COOKIE_NAME, {
@@ -545,6 +615,7 @@ describe("verifyMagicLinkAction", () => {
   it("treats a missing link cookie as the closed recovery, never verifying", async () => {
     const result = await verifyMagicLinkAction(IDLE_LINK);
     expect(result).toEqual({ status: "error", failure: "rejected-code" });
+    expect(analytics.capture).not.toHaveBeenCalled();
     expect(verifyOtp).not.toHaveBeenCalled();
   });
 
@@ -561,6 +632,7 @@ describe("verifyMagicLinkAction", () => {
     });
     const result = await verifyMagicLinkAction(IDLE_LINK);
     expect(result).toEqual({ status: "error", failure: "rejected-code" });
+    expect(analytics.capture).not.toHaveBeenCalled();
     expect(verifyOtp).not.toHaveBeenCalled();
 
     // A tampered payload under a valid-looking envelope is the same.
@@ -588,6 +660,7 @@ describe("verifyMagicLinkAction", () => {
 
     const result = await verifyMagicLinkAction(IDLE_LINK);
     expect(result).toEqual({ status: "error", failure: "rejected-code" });
+    expect(analytics.capture).not.toHaveBeenCalled();
     expect(cookieStore.get(LINK_COOKIE_NAME)?.options).toMatchObject({
       maxAge: 0,
     });
@@ -620,4 +693,90 @@ describe("verifyMagicLinkAction", () => {
     expect(verifyOtp).toHaveBeenCalledTimes(1);
     expect(signOut).not.toHaveBeenCalled();
   });
+});
+
+describe("public wishlist sign-in continuation", () => {
+  const shareToken = "A".repeat(43);
+  it("carries the validated target without putting it in the email callback URL", async () => {
+    signInWithOtp.mockResolvedValue({ error: null });
+    await expect(
+      requestCodeAction(
+        IDLE,
+        formData({
+          email: "you@example.com",
+          intent: "public-wishlist",
+          share: shareToken,
+        }),
+      ),
+    ).rejects.toThrow(new RedirectSignal("/auth/verify"));
+    expect(JSON.parse(cookieStore.get(CARRY_COOKIE_NAME)!.value)).toMatchObject(
+      { intent: "public-wishlist", shareToken },
+    );
+    expect(signInWithOtp).toHaveBeenCalledWith({
+      email: "you@example.com",
+      options: { emailRedirectTo: "http://127.0.0.1:3100/auth/confirm" },
+    });
+  });
+  it.each(["//evil.example", "A".repeat(42) + "B"])(
+    "discards malformed public destinations during the request",
+    async (share) => {
+      signInWithOtp.mockResolvedValue({ error: null });
+      await expect(
+        requestCodeAction(
+          IDLE,
+          formData({
+            email: "you@example.com",
+            intent: "public-wishlist",
+            share,
+          }),
+        ),
+      ).rejects.toThrow(new RedirectSignal("/auth/verify"));
+      const payload = JSON.parse(cookieStore.get(CARRY_COOKIE_NAME)!.value);
+      expect(payload.intent).toBe("home");
+      expect(payload).not.toHaveProperty("shareToken");
+    },
+  );
+  it.each([
+    ["code", true],
+    ["code", false],
+    ["link", true],
+    ["link", false],
+  ] as const)(
+    "returns through %s verification with complete=%s",
+    async (method, complete) => {
+      cookieStore.set(CARRY_COOKIE_NAME, {
+        name: CARRY_COOKIE_NAME,
+        value: JSON.stringify({
+          email: "you@example.com",
+          intent: "public-wishlist",
+          shareToken,
+          exp: Date.now() / 1000 + 3600,
+        }),
+      });
+      verifyOtp.mockResolvedValue({ data: {}, error: null });
+      getUser.mockResolvedValue({ data: { user: { id: "viewer" } } });
+      mockProfileRow({ display_name: complete ? "Ada" : null });
+      if (method === "link")
+        cookieStore.set(LINK_COOKIE_NAME, {
+          name: LINK_COOKIE_NAME,
+          value: await encodeLinkEnvelope(
+            "hash",
+            "email",
+            Date.now(),
+            "test-secret",
+          ),
+        });
+      const action =
+        method === "code"
+          ? verifyCodeAction(IDLE, formData({ code: "123456" }))
+          : verifyMagicLinkAction(IDLE);
+      await expect(action).rejects.toThrow(
+        new RedirectSignal(
+          complete ? `/s/${shareToken}` : `/onboarding?share=${shareToken}`,
+        ),
+      );
+      expect(cookieStore.get(CARRY_COOKIE_NAME)?.options?.maxAge).toBe(0);
+      expect(profilesFrom).toHaveBeenCalledWith("profiles");
+    },
+  );
 });

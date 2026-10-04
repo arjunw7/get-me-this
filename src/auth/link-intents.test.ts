@@ -43,12 +43,32 @@ const BYPASS_CORPUS = [
 describe("resolveSafeRedirectTarget", () => {
   it("maps every approved intent to a server-defined route", () => {
     expect(resolveSafeRedirectTarget("home")).toBe(HOME);
-    // Unbuilt wishlist / create-group experiences resolve to home with no
-    // claim of creation (004e serves the real routes).
+    // The unbuilt wishlist experience resolves to home with no claim of
+    // creation; 006b serves the real create-group route.
     expect(resolveSafeRedirectTarget("wishlist")).toBe(HOME);
-    expect(resolveSafeRedirectTarget("create-group")).toBe(HOME);
+    expect(resolveSafeRedirectTarget("create-group")).toBe("/groups/new");
   });
 
+  it("only constructs a public wishlist path from the closed intent and canonical token", () => {
+    const token = "A".repeat(43);
+    expect(resolveSafeRedirectTarget("public-wishlist", token)).toBe(
+      `/s/${token}`,
+    );
+    expect(resolveSafeRedirectTarget("home", token)).toBe("/home");
+    expect(resolveSafeRedirectTarget("create-group", token)).toBe(
+      "/groups/new",
+    );
+    expect(resolveSafeRedirectTarget("public-wishlist")).toBe("/home");
+    for (const attempt of [
+      ...BYPASS_CORPUS,
+      "A".repeat(42) + "B",
+      "/s/" + token,
+    ]) {
+      expect(resolveSafeRedirectTarget("public-wishlist", attempt)).toBe(
+        "/home",
+      );
+    }
+  });
   it("defaults an absent intent to home", () => {
     expect(resolveSafeRedirectTarget(undefined)).toBe(HOME);
   });

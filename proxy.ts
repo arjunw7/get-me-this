@@ -1,3 +1,7 @@
+import { canonicalHostRedirect } from "@/src/auth/canonical-redirect";
+import { isSharePreviewAgent } from "@/src/invite/share-preview-agent";
+import { mayIndexRequest } from "@/src/seo/policy";
+import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { createServerClient } from "@supabase/ssr";
@@ -42,6 +46,41 @@ import {
 
 export async function proxy(request: NextRequest) {
   const { pathname, search, origin } = request.nextUrl;
+  const withIndexingPolicy = (response: NextResponse) => {
+    // Next's proxy URL may use its internal listener hostname behind Railway.
+    // Check the original Host header; never trust a forwarded host or query.
+    if (
+      !mayIndexRequest(
+        request.nextUrl,
+        request.method,
+        undefined,
+        request.headers.get("host") ?? request.nextUrl.host,
+      )
+    ) {
+      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    }
+    return response;
+  };
+
+  // Canonicalize before token parking, session refresh or any page/action runs.
+  const canonicalRedirect = canonicalHostRedirect(request);
+  if (canonicalRedirect) return withIndexingPolicy(canonicalRedirect);
+
+  // Preview fetches never refresh auth, set cookies, or begin a join flow.
+  // The handlers still authorize each capability through the database.
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    (/^\/invite\/preview\/[a-f0-9]{64}\/image$/.test(pathname) ||
+      (/^\/invite\/[^/]+$/.test(pathname) &&
+        isSharePreviewAgent(request.headers.get("user-agent"))))
+  ) {
+    const previewResponse = NextResponse.next();
+    previewResponse.headers.set("Cache-Control", NO_STORE);
+    previewResponse.headers.set("Referrer-Policy", NO_REFERRER);
+    previewResponse.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    previewResponse.headers.set("Vary", "User-Agent");
+    return previewResponse;
+  }
 
   // 1. /auth/confirm with any query: discard the query (it may carry the
   // one-time token hash) before substantive rendering or analytics, with
@@ -76,16 +115,30 @@ export async function proxy(request: NextRequest) {
     }
     redirectResponse.headers.set("Cache-Control", NO_STORE);
     redirectResponse.headers.set("Referrer-Policy", NO_REFERRER);
-    return redirectResponse;
+    return withIndexingPolicy(redirectResponse);
   }
 
   // 2. Session maintenance first: a refresh rebuilds the response (the
   // updated request cookies must flow downstream), so cache policy is
   // applied to the final response object afterwards.
+  //
+  // Brief 006c: when the browser presents an invitation coordinator
+  // cookie, this proxy NEVER refreshes or writes session cookies — it
+  // validates nothing that could write, and the response carries no auth
+  // Set-Cookie. A direct navigation needing refresh inside an invitation
+  // journey returns the safe brokered-re-auth state instead (the
+  // invitation routes re-check the session server-side and render honest
+  // re-auth choices; no timer or navigation submits one automatically).
+  // Without a coordinator cookie, the existing generic refresh behavior is
+  // unchanged.
+  const coordinatorPresent = Boolean(
+    request.cookies.get("__Host-gmt-invite-coordinator")?.value,
+  );
+
   let response = NextResponse.next({ request });
 
   const config = getSupabasePublicConfig();
-  if (config) {
+  if (config && !coordinatorPresent) {
     const supabase = createServerClient(config.url, config.publishableKey, {
       cookies: {
         getAll() {
@@ -124,13 +177,20 @@ export async function proxy(request: NextRequest) {
     // configured, this whole block is skipped and the server-side gate
     // remains the control.
     if (user === null && isProtectedRoutePath(pathname)) {
-      const signedOutResponse = NextResponse.redirect(`${origin}/auth`, 302);
+      const share =
+        pathname === "/onboarding"
+          ? parsePublicShareToken(request.nextUrl.searchParams.get("share"))
+          : null;
+      const signedOutResponse = NextResponse.redirect(
+        `${origin}/auth${share ? `?intent=public-wishlist&share=${share}` : ""}`,
+        302,
+      );
       // The redirect bounces an unauthenticated request away from
       // authenticated data access; it sets no cookies but must never be
       // cached as a signed-in-page response.
       signedOutResponse.headers.set("Cache-Control", NO_STORE);
       signedOutResponse.headers.set("Referrer-Policy", NO_REFERRER);
-      return signedOutResponse;
+      return withIndexingPolicy(signedOutResponse);
     }
   }
 
@@ -152,11 +212,34 @@ export async function proxy(request: NextRequest) {
     response.headers.set("Cache-Control", NO_STORE);
     response.headers.set("Referrer-Policy", NO_REFERRER);
   }
+  // Brief 006c: every route in the invitation, invitation-auth, and
+  // invitation-onboarding families — including Server Action responses —
+  // is no-store and no-referrer. Dynamic flow ids are removed from client
+  // analytics page paths and referrers; a cached invitation response could
+  // leak one browser's continuation envelope to another.
+  if (
+    pathname.startsWith("/invite") ||
+    pathname.startsWith("/auth/invite") ||
+    pathname.startsWith("/auth/confirm/invite") ||
+    pathname.startsWith("/auth/link/invite") ||
+    pathname.startsWith("/onboarding/invite")
+  ) {
+    response.headers.set("Cache-Control", NO_STORE);
+    response.headers.set("Referrer-Policy", NO_REFERRER);
+  }
   if (isProtectedRoutePath(pathname)) {
     response.headers.set("Cache-Control", NO_STORE);
   }
 
-  return response;
+  const shareContinuation =
+    (pathname === "/auth" || pathname === "/onboarding") &&
+    request.nextUrl.searchParams.has("share");
+  if (pathname === "/s" || pathname.startsWith("/s/") || shareContinuation) {
+    response.headers.set("Cache-Control", NO_STORE);
+    response.headers.set("Referrer-Policy", NO_REFERRER);
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+  return withIndexingPolicy(response);
 }
 
 export const config = {
@@ -167,5 +250,11 @@ export const config = {
   // headers on action responses are proven end-to-end (tests/e2e).
   matcher: [
     "/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // Include assets only on www so every link canonicalizes, without adding
+    // session maintenance to ordinary static requests. Host values are regexes.
+    {
+      source: "/:path*",
+      has: [{ type: "host", value: "www\\.getmethis\\.fun" }],
+    },
   ],
 };

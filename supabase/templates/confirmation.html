@@ -6,7 +6,7 @@
   the six-digit code. This local template mirrors the staging project's
   branded combined message (docs/ops/resend-auth-delivery.md, 004b) in its
   004c form: the emailed link is built from the trusted destination plus
-  {{ .TokenHash }} — pointing at the app's own /auth/confirm route, never at
+  {{ .TokenHash }} — built from the trusted RedirectTo (the 006c invitation sends target /auth/confirm/invite/[flowId]), never at
   Supabase's consuming verify endpoint — so a link click cannot consume the
   one-time token or create a session.
 
@@ -96,7 +96,7 @@
             expire in one hour.
           </p>
           <a
-            href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email"
+            href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email"
             style="
               display: inline-block;
               padding: 14px 28px;

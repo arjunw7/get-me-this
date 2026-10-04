@@ -4,6 +4,8 @@
 
 Each user owns one persistent wishlist reused across every group. Groups grant visibility to the current wishlist rather than cloning it.
 
+The profile’s saved **Vibe** colors its wishlist and profile accents. The owner selects Tomato, Marigold, Electric, or Acid lime during profile creation or Edit profile; Marigold is the default. Authorized joined members see the same saved Vibe. They cannot edit it, and Vibe exposes no reservation or private gifting information.
+
 ## Add from link
 
 1. User pastes an HTTP/HTTPS product URL.
@@ -52,8 +54,17 @@ Each user owns one persistent wishlist reused across every group. Groups grant v
 
 ## Empty and failure states
 
-- Empty wishlist encourages the first item without implying public visibility.
+- Empty owner wishlist encourages the first item and includes sharing. A public empty wishlist shows a friendly empty state without owner editing controls.
 - Broken/deleted retailer page continues showing saved metadata and marks the source as unavailable only after verified failure.
 - Missing image uses a branded placeholder.
 - Failed extraction never discards the pasted URL or user-entered data.
 
+## Share wishlist
+
+Every wishlist starts with an active public link. The owner opens Share wishlist beside Edit profile. The sheet shows a selectable URL, an accessible external-link icon at its right edge that opens the same URL in a new tab, and Copy link. It has no Stop sharing control or separate Open public wishlist CTA. Clipboard failures keep the selectable link visible without claiming success. Backend revocation remains supported and invalidates the link for subsequent reads, image fetches, and reactions; it is not exposed as an action in this sheet. An already disabled link can be re-enabled with a fresh URL. Already downloaded or copied content cannot be recalled.
+
+The public route shows the saved profile Vibe, name, personality line, item information, and public reaction counts only. No group data or gifting state is read by this route. Visitors sign in to react; existing and new accounts return to the shared wishlist after authentication/onboarding, then explicitly choose a reaction. The owner sees reaction summaries without reacting to their own items. Public and group reactions are separate contexts; the owner’s private wishlist combines their counts.
+
+## Reordering interaction
+
+Choose Reorder, then drag an item's handle into its new position. No visible up/down buttons are required. Keyboard users focus a handle, press Space or Enter to pick it up, use arrow keys or Home/End to move it, and press Space or Enter to drop; Escape cancels without saving. Touch handles support pointer movement and edge scrolling. Saving, stale-order refresh, authorization failure, and recovery continue through the existing compare-and-swap order boundary; Done waits for pending work. Announcements and saving feedback must not move the rows while dragging.

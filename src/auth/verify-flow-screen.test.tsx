@@ -8,6 +8,17 @@ vi.mock("next/navigation", () => ({
   useRouter: vi.fn(),
 }));
 
+// The signed-in boundary's sign-out runs through the invitation mutation
+// broker; the mock delegates straight to the (mocked) action.
+const runInvitationMutationResolved = vi.fn((action: () => Promise<unknown>) =>
+  action(),
+);
+
+vi.mock("@/src/invite/mutation-broker", () => ({
+  runInvitationMutationResolved: (action: () => Promise<unknown>) =>
+    runInvitationMutationResolved(action),
+}));
+
 const verifyCodeAction = vi.fn();
 const resendCodeAction = vi.fn();
 const cancelAuthFlowAction = vi.fn();

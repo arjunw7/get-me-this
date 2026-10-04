@@ -14,7 +14,7 @@
 
 begin;
 
-select plan(154);
+select plan(163);
 
 -- Synthetic test identities; rolled back at the end of the suite.
 select gen_random_uuid() as uid_a \gset
@@ -56,6 +56,18 @@ select has_column('public', 'wishlist_items', 'conversion_rate_at', 'wishlist_it
 select has_column('public', 'wishlist_items', 'desire_level', 'wishlist_items.desire_level exists');
 select has_column('public', 'wishlist_items', 'extraction_status', 'wishlist_items.extraction_status exists');
 select has_column('public', 'wishlist_items', 'sort_position', 'wishlist_items.sort_position exists');
+select has_column('public', 'wishlist_items', 'client_submission_id', 'wishlist_items.client_submission_id exists');
+select is(
+  (
+    select is_nullable
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'wishlist_items'
+      and column_name = 'client_submission_id'
+  ),
+  'YES',
+  'client_submission_id is nullable for legacy rows'
+);
 select has_column('public', 'wishlist_items', 'created_at', 'wishlist_items.created_at exists');
 select has_column('public', 'wishlist_items', 'updated_at', 'wishlist_items.updated_at exists');
 
@@ -105,8 +117,8 @@ select is(
     where conrelid = 'public.wishlist_items'::regclass
       and contype = 'f'
   ),
-  2,
-  'wishlist_items has exactly two foreign keys (owner FK and the composite FK); no second plain wishlist_id FK exists'
+  3,
+  'wishlist_items has exactly three foreign keys (owner FK, the composite FK, and the 007b self-referencing copied_from_item_id FK); no second plain wishlist_id FK exists'
 );
 
 select has_type(
@@ -457,6 +469,42 @@ select is(
   'extraction_status defaults to manual on a minimal insert'
 );
 
+select gen_random_uuid() as submission_key_a \gset
+
+insert into public.wishlist_items (
+  wishlist_id, owner_id, title, sort_position, client_submission_id
+)
+values (
+  :'wid_a'::uuid,
+  :'uid_a'::uuid,
+  'Submission key item',
+  4,
+  :'submission_key_a'::uuid
+);
+
+select throws_ok(
+  format(
+    'insert into public.wishlist_items (wishlist_id, owner_id, title, sort_position, client_submission_id) values (%L, %L, ''Duplicate submission key'', 5, %L)',
+    :'wid_a',
+    :'uid_a',
+    :'submission_key_a'
+  ),
+  '23505',
+  NULL,
+  'the same owner cannot reuse a live client_submission_id'
+);
+
+select is(
+  (
+    select client_submission_id::text
+    from public.wishlist_items
+    where owner_id = :'uid_a'::uuid
+      and title = 'Mystery novel'
+  ),
+  NULL,
+  'older rows without a client_submission_id remain valid'
+);
+
 select ok(
   (
     select created_at is not null and updated_at is not null
@@ -481,8 +529,7 @@ set title = 'Pour-over kettle, matte',
   conversion_rate_source = 'fixture-rate-table-v2',
   conversion_rate_at = clock_timestamp(),
   desire_level = 'would_love',
-  extraction_status = 'manual',
-  sort_position = 1
+  extraction_status = 'manual'
 where owner_id = :'uid_a'::uuid
   and title = 'Pour-over kettle';
 
@@ -490,7 +537,7 @@ select is(
   (
     select title
     from public.wishlist_items
-    where owner_id = :'uid_a'::uuid and sort_position = 1
+    where owner_id = :'uid_a'::uuid and title = 'Pour-over kettle, matte'
   ),
   'Pour-over kettle, matte',
   'the owner update through every granted column landed'
@@ -500,7 +547,7 @@ select is(
   (
     select converted_amount_minor
     from public.wishlist_items
-    where owner_id = :'uid_a'::uuid and sort_position = 1
+    where owner_id = :'uid_a'::uuid and title = 'Pour-over kettle, matte'
   ),
   3100::bigint,
   'the converted tuple updated through the granted columns round-trips'
@@ -516,7 +563,7 @@ select is(
 
 select is(
   (select count(*)::int from public.wishlist_items),
-  3,
+  4,
   'the owner''s item list contains exactly their own rows'
 );
 
@@ -1079,8 +1126,19 @@ select is(
       and table_name = 'wishlist_items'
       and privilege_type = 'INSERT'
   ),
-  17,
-  'the authenticated INSERT grant covers exactly the 17 client-writable columns (excluding only id, created_at, updated_at)'
+  18,
+  'the authenticated INSERT grant covers exactly the 18 client-writable columns (excluding only id, created_at, updated_at)'
+);
+
+select ok(
+  has_column_privilege('authenticated', 'public.wishlist_items', 'client_submission_id', 'INSERT')
+    and not has_column_privilege('authenticated', 'public.wishlist_items', 'client_submission_id', 'UPDATE'),
+  'client_submission_id is INSERT-only'
+);
+
+select has_index(
+  'public', 'wishlist_items', 'wishlist_items_owner_submission_live_key',
+  'the owner-scoped live submission-key uniqueness index exists'
 );
 
 select is(
@@ -1092,8 +1150,8 @@ select is(
       and table_name = 'wishlist_items'
       and privilege_type = 'UPDATE'
   ),
-  15,
-  'the authenticated UPDATE grant covers exactly the 15 client-updatable columns (additionally excluding wishlist_id and owner_id)'
+  14,
+  'the authenticated UPDATE grant covers exactly the 14 non-order client-updatable columns'
 );
 
 select ok(
@@ -1107,17 +1165,19 @@ select ok(
   not has_column_privilege('authenticated', 'public.wishlist_items', 'id', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.wishlist_items', 'wishlist_id', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.wishlist_items', 'owner_id', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.wishlist_items', 'sort_position', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.wishlist_items', 'created_at', 'UPDATE')
     and not has_column_privilege('authenticated', 'public.wishlist_items', 'updated_at', 'UPDATE'),
-  'the UPDATE grant additionally excludes wishlist_id and owner_id (items cannot be moved or re-owned)'
+  'the UPDATE grant excludes identity, ownership, order, and database-managed timestamps'
 );
 
 select ok(
   has_column_privilege('authenticated', 'public.wishlist_items', 'title', 'INSERT')
     and has_column_privilege('authenticated', 'public.wishlist_items', 'title', 'UPDATE')
     and has_column_privilege('authenticated', 'public.wishlist_items', 'sort_position', 'INSERT')
+    and not has_column_privilege('authenticated', 'public.wishlist_items', 'sort_position', 'UPDATE')
     and has_column_privilege('authenticated', 'public.wishlist_items', 'original_amount_minor', 'INSERT'),
-  'the INSERT/UPDATE grants cover the client-writable columns (title, sort_position, money)'
+  'INSERT retains sort_position while direct UPDATE does not'
 );
 
 select ok(
@@ -1244,6 +1304,27 @@ values
   (:'wid_b'::uuid, :'uid_b'::uuid, 'B item one', 1),
   (:'wid_b'::uuid, :'uid_b'::uuid, 'B item two', 2);
 
+insert into public.wishlist_items (
+  wishlist_id, owner_id, title, sort_position, client_submission_id
+)
+values (
+  :'wid_b'::uuid,
+  :'uid_b'::uuid,
+  'B reused submission key',
+  3,
+  :'submission_key_a'::uuid
+);
+
+select is(
+  (
+    select count(*)::int
+    from public.wishlist_items
+    where client_submission_id = :'submission_key_a'::uuid
+  ),
+  1,
+  'user B sees only their own row for a submission key also used by user A'
+);
+
 select is(
   (
     select count(*)::int
@@ -1272,7 +1353,7 @@ select is(
 
 select is(
   (select count(*)::int from public.wishlist_items),
-  2,
+  3,
   'authenticated user B''s visible item count is exactly their own'
 );
 
@@ -1297,6 +1378,31 @@ select is(
   (select count(*)::int from attempted),
   0,
   'user B''s DELETE targeting user A''s items affects zero rows'
+);
+
+with attempted as (
+  update public.wishlist_items
+  set title = 'Submission key hijack'
+  where owner_id = :'uid_a'::uuid
+    and client_submission_id = :'submission_key_a'::uuid
+  returning id
+)
+select is(
+  (select count(*)::int from attempted),
+  0,
+  'user B cannot update user A''s live submission-key row'
+);
+
+with attempted as (
+  delete from public.wishlist_items
+  where owner_id = :'uid_a'::uuid
+    and client_submission_id = :'submission_key_a'::uuid
+  returning id
+)
+select is(
+  (select count(*)::int from attempted),
+  0,
+  'user B cannot delete user A''s live submission-key row'
 );
 
 select throws_ok(

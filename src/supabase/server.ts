@@ -44,3 +44,32 @@ export async function createSupabaseServerClient() {
     },
   });
 }
+
+/**
+ * The request-only Supabase client (brief 006c): identical to the standard
+ * server client except its cookie writer FAILS CLOSED — every set/remove
+ * attempt throws instead of writing. The invitation Join handler and the
+ * coordinator-bearing invitation routes validate the current access token
+ * through this client; a response that tried to refresh, replace, or clear
+ * the shared session cookies would throw instead of silently emitting an
+ * auth Set-Cookie.
+ *
+ * Returns null when the public configuration is absent.
+ */
+export async function createSupabaseRequestOnlyClient() {
+  const config = getSupabasePublicConfig();
+  if (!config) return null;
+  const cookieStore = await cookies();
+  return createServerClient(config.url, config.publishableKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll() {
+        throw new Error(
+          "invitation routes are request-only: auth cookie writes are forbidden here",
+        );
+      },
+    },
+  });
+}

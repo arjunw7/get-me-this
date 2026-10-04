@@ -6,7 +6,8 @@
 
 - Unified email authentication with a six-digit OTP and magic link in the same email.
 - New and returning users use the same entry screen.
-- Minimal onboarding: display name and optional avatar.
+- Minimal onboarding: display name, optional taste line, and saved Vibe (Tomato, Marigold, Electric, or Acid lime; Marigold default).
+- Edit profile updates those same fields for the signed-in owner. The saved Vibe appears consistently on the owner’s wishlist and profile accents, including authorized member views.
 - Session restoration, protected application routes, account menu, and confirmed logout.
 
 ### Wishlist
@@ -26,6 +27,7 @@
 - Signed-out invitation preview and intent-preserving authentication.
 - Organizer and membership states.
 - Browse all joined members' wishlists.
+- User-requested extension (4 October 2026): current organizers can delete a group from Organizer tools after explicit confirmation. Includes server-side authorization, invitation revocation, and preservation of personal wishlists.
 
 ### Gifting
 
@@ -82,3 +84,6 @@
 
 Any addition to P0 requires removing comparable scope or explicitly extending the launch plan.
 
+## Public wishlist sharing (approved extension, 2026-10-04)
+
+Every wishlist has a public link automatically. My wishlist includes the baseline Share wishlist CTA. The sharing sheet shows the URL with an accessible open-link icon and Copy link. It has no Stop sharing control or separate Open public wishlist CTA. Backend revocation remains supported; an already disabled link can be re-enabled with a new URL. Public pages carry the owner’s Vibe and safe wishlist fields, including an empty state. Signed-in non-owners can react; anonymous visitors return to the same wishlist after email sign-in and profile completion. No reaction is submitted automatically during sign-in. Reservations, purchase progress, gifting assignments, and all group information stay private. Public discovery, followers, and public gifting coordination remain out of scope.

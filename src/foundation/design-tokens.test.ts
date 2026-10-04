@@ -110,7 +110,14 @@ describe("design tokens", () => {
     const sourceFiles = [
       ...collectFiles(join(repositoryRoot, "app"), [".tsx", ".ts", ".css"]),
       ...collectFiles(join(repositoryRoot, "src"), [".tsx", ".ts"]),
-    ].filter((filePath) => filePath !== tokensPath);
+    ].filter(
+      // Scoped 009a amendment: src/email/brand-palette.ts is the single
+      // documented home of the email-rendering palette — external email
+      // clients cannot consume Tailwind CSS variables (see that module).
+      (filePath) =>
+        filePath !== tokensPath &&
+        filePath !== join(repositoryRoot, "src", "email", "brand-palette.ts"),
+    );
 
     const offenders = sourceFiles.filter((filePath) =>
       /#[0-9a-fA-F]{3,8}\b/.test(readFileSync(filePath, "utf8")),

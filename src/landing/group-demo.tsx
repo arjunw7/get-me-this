@@ -1,59 +1,49 @@
-/* eslint-disable @next/next/no-img-element -- local deterministic demo
-   assets served from public/; see hero-collage.tsx for the rationale. */
-
+/* eslint-disable @next/next/no-img-element -- original local marketing assets. */
 import type { ReactNode } from "react";
-
 import { Avatar } from "./avatar";
 import { AvatarStack } from "./avatar-stack";
-import { whyItWorks } from "./content";
 import { demoGroup, demoPeople, demoProducts } from "./demo-data";
+import { createGroupHref, groupCopy } from "./content";
+import { CtaLink } from "./cta-link";
 import { CheckIcon, EyeOffIcon } from "./icons";
 
-/**
- * "Why it works" section with the example-group snapshot, ported from the
- * frozen V18 reference (components/landing/GroupDemoSection.tsx).
- *
- * The snapshot is a static figure: demo people and products only, no mode
- * chooser (the prototype's mode state is not rendered by the reference).
- */
 export function GroupDemoSection() {
   return (
     <section
-      id="why"
-      aria-labelledby="why-title"
-      className="mx-auto max-w-6xl px-5 py-20 sm:px-8"
+      id="groups"
+      aria-labelledby="groups-title"
+      className="mx-auto max-w-6xl scroll-mt-8 px-5 py-16 sm:px-8 sm:py-24"
     >
-      <div className="grid gap-12 lg:grid-cols-[1fr_1.15fr] lg:items-center lg:gap-16">
+      <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.15fr] lg:gap-16">
         <div>
           <h2
-            id="why-title"
-            className="font-display text-4xl leading-[1.02] font-extrabold tracking-tight sm:text-5xl"
+            id="groups-title"
+            className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl"
           >
-            {whyItWorks.title}
+            {groupCopy.title}
           </h2>
-          <p className="mt-4 text-lg leading-relaxed text-content-secondary">
-            {whyItWorks.body}
+          <p className="mt-5 text-lg leading-relaxed text-content-secondary">
+            {groupCopy.body}
           </p>
-
-          <ol className="mt-8 flex flex-col gap-5">
-            {whyItWorks.benefits.map((benefit, index) => (
-              <li key={benefit.title} className="flex gap-4">
+          <ol className="mt-7 space-y-5">
+            {groupCopy.benefits.map((benefit, index) => (
+              <li key={benefit.title} className="flex gap-3">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-outline-strong bg-action-primary font-display text-sm font-extrabold">
                   {index + 1}
                 </span>
                 <div>
-                  <h3 className="font-display text-lg leading-tight font-extrabold">
-                    {benefit.title}
-                  </h3>
-                  <p className="mt-0.5 text-content-secondary">
-                    {benefit.body}
-                  </p>
+                  <h3 className="font-bold">{benefit.title}</h3>
+                  <p className="mt-1 text-content-secondary">{benefit.body}</p>
                 </div>
               </li>
             ))}
           </ol>
+          <div className="mt-8">
+            <CtaLink href={createGroupHref} variant="secondary">
+              Create a group
+            </CtaLink>
+          </div>
         </div>
-
         <div className="sm:pl-8 lg:pl-4">
           <GroupSnapshot />
         </div>

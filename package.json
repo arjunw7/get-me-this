@@ -10,8 +10,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "format": "prettier --write --ignore-unknown .env.example .gitignore .nvmrc .prettierignore .railway README.md app eslint.config.mjs instrumentation-client.ts next.config.mjs package.json postcss.config.mjs proxy.ts scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check",
-    "format:check": "prettier --check --ignore-unknown .env.example .gitignore .nvmrc .prettierignore .railway README.md app eslint.config.mjs instrumentation-client.ts next.config.mjs package.json postcss.config.mjs proxy.ts scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check",
+    "format": "prettier --write --ignore-unknown .env.example .gitignore .nvmrc .prettierignore .railway README.md app eslint.config.mjs instrumentation.ts instrumentation-client.ts next.config.mjs package.json postcss.config.mjs proxy.ts scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check",
+    "format:check": "prettier --check --ignore-unknown .env.example .gitignore .nvmrc .prettierignore .railway README.md app eslint.config.mjs instrumentation.ts instrumentation-client.ts next.config.mjs package.json postcss.config.mjs proxy.ts scripts src supabase tests vitest.config.ts playwright.config.ts tsconfig.json && git diff --check",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
@@ -20,12 +20,25 @@
     "test:analytics": "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN=phc-fixture-token NEXT_PUBLIC_POSTHOG_HOST=http://127.0.0.1:3100/analytics-fixture pnpm build && pnpm exec playwright test tests/analytics --project=desktop",
     "test:visual": "pnpm build && pnpm exec playwright test tests/visual",
     "test:db": "supabase test db --local",
+    "test:db:group-upgrade": "bash scripts/test-group-upgrade-local.sh",
+    "test:db:races": "bash scripts/test-group-races-local.sh",
+    "test:db:races:006b": "bash scripts/test-group-races-006b-local.sh",
+    "test:db:races:reactions": "bash scripts/test-reaction-races-local.sh",
+    "test:db:races:006c": "bash scripts/test-group-races-006c-local.sh",
+    "test:db:races:gifting": "bash scripts/test-gift-checklist-races-local.sh",
+    "test:db:races:draw": "bash scripts/test-gift-draw-races-local.sh",
+    "test:db:races:008d": "bash scripts/test-draw-008d-races-local.sh",
+    "test:db:races:006d": "bash scripts/test-group-room-snapshot-races-local.sh",
+    "test:db:races:006e": "bash scripts/test-member-wishlist-snapshot-races-local.sh",
+    "test:db:races:copy": "bash scripts/test-copy-races-local.sh",
+    "test:db:races:006f": "bash scripts/test-group-admin-races-local.sh",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:status": "supabase status",
     "db:reset": "supabase db reset --local",
     "db:seed": "bash scripts/db-seed.sh",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "test:db:races:reservations": "bash scripts/test-reservation-races-local.sh"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
@@ -35,7 +48,8 @@
     "posthog-node": "5.54.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "server-only": "0.0.1"
+    "server-only": "0.0.1",
+    "sharp": "0.35.4"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

@@ -1,5 +1,6 @@
 import localFont from "next/font/local";
-import type { Metadata } from "next";
+import { AnalyticsConsentControl } from "@/src/analytics/consent-control";
+import { createBrandMetadata } from "@/src/brand/metadata";
 import type { ReactNode } from "react";
 
 import "./globals.css";
@@ -23,11 +24,7 @@ const bodyFont = localFont({
   fallback: ["system-ui", "-apple-system", "Segoe UI", "sans-serif"],
 });
 
-export const metadata: Metadata = {
-  title: "Get Me This | Group wishlists for every occasion",
-  description:
-    "Save what you want, share it with your people, and give without guessing.",
-};
+export const metadata = createBrandMetadata();
 
 export default function RootLayout({
   children,
@@ -37,7 +34,10 @@ export default function RootLayout({
       lang="en"
       className={`${displayFont.variable} ${bodyFont.variable} font-body`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <AnalyticsConsentControl />
+      </body>
     </html>
   );
 }

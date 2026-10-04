@@ -74,17 +74,43 @@ describe("buttonClassName", () => {
     }
   });
 
-  it("gates hover and press motion on the enabled state", () => {
+  it("gates hover and press motion so a disabled control never moves", () => {
     for (const variant of VARIANTS) {
       for (const size of SIZES) {
         const className = buttonClassName({ variant, size });
-        expect(className).toContain("enabled:hover:-translate-y-0.5");
-        expect(className).toContain("enabled:active:translate-x-0.5");
-        expect(className).not.toMatch(/(?<!enabled:)hover:-translate-y/);
+        // The gate is :not(:disabled), not :enabled: anchor elements
+        // (CtaLink) can never match :enabled, which silenced their hover
+        // lift entirely (ARJ-53). Anchors cannot be disabled and always
+        // qualify; real buttons are excluded only while disabled.
+        expect(className).toContain(
+          "[&:not(:disabled)]:hover:-translate-y-0.5",
+        );
+        expect(className).toContain(
+          "[&:not(:disabled)]:active:translate-x-0.5",
+        );
+        expect(className).toContain(
+          "[&:not(:disabled)]:active:translate-y-0.5",
+        );
+        // No motion utility may exist without the not-disabled gate.
+        const ungated = className
+          .split(" ")
+          .filter((utility) =>
+            /^(?:hover:-translate-y|active:translate-[xy]|active:shadow-none)/.test(
+              utility,
+            ),
+          );
+        expect(ungated).toEqual([]);
         expect(className).toContain("disabled:cursor-not-allowed");
         expect(className).toContain("disabled:shadow-none");
       }
     }
+  });
+
+  it("transitions the translate property so the press motion animates", () => {
+    // Tailwind v4 emits translate utilities as the `translate` property; a
+    // transition naming only `transform` never animates the lift.
+    const className = buttonClassName({ variant: "primary", size: "lg" });
+    expect(className).toContain("transition-[transform,translate,box-shadow]");
   });
 
   it("uses the snap easing and press duration tokens", () => {

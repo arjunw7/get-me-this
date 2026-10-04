@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
+const analytics = vi.hoisted(() => ({ capture: vi.fn() }));
+vi.mock("@/src/analytics/server", () => ({
+  getServerAnalytics: () => analytics,
+}));
 
 class RedirectSignal extends Error {
   constructor(readonly to: string) {
@@ -42,6 +46,7 @@ function formData(entries: Record<string, string>): FormData {
 }
 
 beforeEach(() => {
+  analytics.capture.mockReset();
   mockClient = {
     auth: { getUser: vi.fn() },
     from: vi.fn(),
@@ -74,8 +79,100 @@ describe("completeOnboardingAction", () => {
     ).rejects.toThrow(new RedirectSignal("/home"));
 
     expect(mockClient!.from).toHaveBeenCalledWith("profiles");
+    expect(analytics.capture).toHaveBeenCalledExactlyOnceWith(
+      "onboarding_completed",
+      { avatar_selected: false },
+      { distinctId: "user-1" },
+    );
   });
 
+  it.each(["tomato", "marigold", "electric", "acid_lime"])(
+    "persists chosen Vibe %s for the authenticated account",
+    async (vibe) => {
+      mockClient!.auth.getUser.mockResolvedValue({
+        data: { user: { id: "owner" } },
+      });
+      const eq = vi.fn().mockResolvedValue({ error: null });
+      const update = vi.fn().mockReturnValue({ eq });
+      mockClient!.from.mockReturnValue({ update });
+      await expect(
+        completeOnboardingAction(
+          IDLE,
+          formData({ displayName: "Ada", vibe, userId: "someone-else" }),
+        ),
+      ).rejects.toThrow(new RedirectSignal("/home"));
+      expect(update).toHaveBeenCalledWith({
+        display_name: "Ada",
+        taste_line: null,
+        vibe,
+      });
+      expect(eq).toHaveBeenCalledWith("id", "owner");
+    },
+  );
+  it("omits Vibe on an older submission, preserving the saved value or database default", async () => {
+    mockClient!.auth.getUser.mockResolvedValue({
+      data: { user: { id: "owner" } },
+    });
+    const update = vi
+      .fn()
+      .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    mockClient!.from.mockReturnValue({ update });
+    await expect(
+      completeOnboardingAction(IDLE, formData({ displayName: "Ada" })),
+    ).rejects.toThrow(new RedirectSignal("/home"));
+    expect(update).toHaveBeenCalledWith({
+      display_name: "Ada",
+      taste_line: null,
+    });
+  });
+  it.each(["", "coral", "Electric", "electric ", "pink"])(
+    "refuses invalid Vibe %s before writing",
+    async (vibe) => {
+      mockClient!.auth.getUser.mockResolvedValue({
+        data: { user: { id: "owner" } },
+      });
+      expect(
+        await completeOnboardingAction(
+          IDLE,
+          formData({ displayName: "Ada", vibe }),
+        ),
+      ).toEqual({ status: "error", errors: { vibe: "invalid" } });
+      expect(mockClient!.from).not.toHaveBeenCalled();
+    },
+  );
+  it("returns a new profile to the public wishlist after saving, without a reaction", async () => {
+    const share = "A".repeat(43);
+    mockClient!.auth.getUser.mockResolvedValue({
+      data: { user: { id: "owner" } },
+    });
+    const update = vi
+      .fn()
+      .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    mockClient!.from.mockReturnValue({ update });
+    await expect(
+      completeOnboardingAction(
+        IDLE,
+        formData({ displayName: "Ada", share, reaction: "very_you" }),
+      ),
+    ).rejects.toThrow(new RedirectSignal(`/s/${share}`));
+    expect(update).toHaveBeenCalledWith({
+      display_name: "Ada",
+      taste_line: null,
+    });
+    expect(mockClient!.from).toHaveBeenCalledExactlyOnceWith("profiles");
+  });
+  it.each(["//evil.example", "A".repeat(42) + "B"])(
+    "ignores an unsafe public return identifier after onboarding",
+    async (share) => {
+      mockClient!.auth.getUser.mockResolvedValue({
+        data: { user: { id: "owner" } },
+      });
+      mockUpdate({ error: null });
+      await expect(
+        completeOnboardingAction(IDLE, formData({ displayName: "Ada", share })),
+      ).rejects.toThrow(new RedirectSignal("/home"));
+    },
+  );
   it("rejects a blank display name server-side without any write", async () => {
     mockClient!.auth.getUser.mockResolvedValue({
       data: { user: { id: "user-1" } },

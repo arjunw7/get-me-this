@@ -159,7 +159,17 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# The 006c invitation flows pass an explicit email redirectTo (the invitation
+# confirm route), so every local origin the app is served from must be
+# allow-listed here: 3000 (plain local dev) and 3100 (the stack-gated e2e
+# web server). The ** wildcard covers the per-flow id path segments.
+additional_redirect_urls = [
+  "http://localhost:3200/auth/confirm",
+  "http://127.0.0.1:3200/auth/confirm",
+  "https://127.0.0.1:3000",
+  "http://127.0.0.1:3000/**",
+  "http://127.0.0.1:3100/**",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

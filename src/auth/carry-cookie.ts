@@ -1,5 +1,6 @@
 import "server-only";
 
+import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import { cookies } from "next/headers";
 
 import { CARRY_COOKIE_MAX_AGE_SECONDS } from "./flow-config";
@@ -25,11 +26,13 @@ export const CARRY_COOKIE_NAME = "gmt-auth-carry";
 export type AuthCarry = {
   readonly email: string;
   readonly intent: AuthIntent;
+  readonly shareToken?: string;
 };
 
 type CarryPayload = {
   email?: unknown;
   intent?: unknown;
+  shareToken?: unknown;
   exp?: unknown;
 };
 
@@ -46,10 +49,14 @@ export function encodeAuthCarry(
   email: string,
   intent: AuthIntent,
   nowMs: number,
+  shareToken?: string,
 ): string {
   return JSON.stringify({
     email,
     intent,
+    ...(intent === "public-wishlist" && parsePublicShareToken(shareToken)
+      ? { shareToken }
+      : {}),
     exp: Math.floor(nowMs / 1000) + CARRY_COOKIE_MAX_AGE_SECONDS,
   });
 }
@@ -81,7 +88,13 @@ export function parseAuthCarry(
     return null;
   }
   if (payload.exp <= Math.floor(nowMs / 1000)) return null;
-  return { email: payload.email.trim(), intent };
+  const shareToken = parsePublicShareToken(payload.shareToken);
+  if (intent === "public-wishlist" && !shareToken) return null;
+  return {
+    email: payload.email.trim(),
+    intent,
+    ...(intent === "public-wishlist" && shareToken ? { shareToken } : {}),
+  };
 }
 
 /** Reads and validates the carry cookie from the current request. */
@@ -94,11 +107,16 @@ export async function readAuthCarry(): Promise<AuthCarry | null> {
 export async function setAuthCarry(
   email: string,
   intent: AuthIntent,
+  shareToken?: string,
 ): Promise<void> {
   const store = await cookies();
-  store.set(CARRY_COOKIE_NAME, encodeAuthCarry(email, intent, Date.now()), {
-    ...carryCookieOptions,
-  });
+  store.set(
+    CARRY_COOKIE_NAME,
+    encodeAuthCarry(email, intent, Date.now(), shareToken),
+    {
+      ...carryCookieOptions,
+    },
+  );
 }
 
 /** Clears the carry cookie on the current action's response. */

@@ -118,7 +118,7 @@ async function completeOnboarding(
   await page.getByRole("button", { name: /Let’s go/i }).click();
   await page.waitForURL("**/home");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    `Welcome, ${displayName}.`,
+    `Welcome in, ${displayName.split(" ")[0]}.`,
   );
 }
 
@@ -182,18 +182,23 @@ test("a fresh user signs in, completes onboarding, lands on /home, and confirmed
   await page.reload();
   await expect(page).toHaveURL(/\/home$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Welcome, Ada.",
+    "Welcome in, Ada.",
   );
-  // The taste line is shown in the profile block.
+  // The persisted profile is visible on the wishlist at both viewport sizes.
+  // Mobile Home intentionally keeps the account control compact.
+  await page.goto("/wishlist");
   await expect(
-    page.getByText("currently in my tiny-luxuries era"),
+    page
+      .getByRole("region", { name: "Ada", exact: true })
+      .getByText("currently in my tiny-luxuries era", { exact: true }),
   ).toBeVisible();
+  await page.goto("/home");
 
   // A new tab in the same browser retains the session (cookie storage).
   const secondTab = await page.context().newPage();
   await secondTab.goto("/home");
   await expect(secondTab.getByRole("heading", { level: 1 })).toHaveText(
-    "Welcome, Ada.",
+    "Welcome in, Ada.",
   );
   await secondTab.close();
 
@@ -211,16 +216,17 @@ test("a fresh user signs in, completes onboarding, lands on /home, and confirmed
   // Logout requires confirmation (signing in again needs email access).
   await page.getByRole("button", { name: /Account/i }).click();
   await expect(page.getByText(email)).toBeVisible();
-  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: "Log out", exact: true }).click();
   await expect(page.getByText("Log out of Get Me This?")).toBeVisible();
   // Cancel keeps the session.
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page).toHaveURL(/\/home$/);
 
-  // Confirming logs out (the menu is still open after Cancel), and the
-  // landing page shows the approved copy.
-  await page.getByRole("button", { name: "Log out" }).click();
-  await page.getByRole("button", { name: "Log out" }).click();
+  // Cancel closes the sheet; reopen the account menu to confirm logout.
+  // The landing page then shows the approved copy.
+  await page.getByRole("button", { name: /Account/i }).click();
+  await page.getByRole("button", { name: "Log out", exact: true }).click();
+  await page.getByRole("button", { name: "Log out", exact: true }).click();
   await expect(page).toHaveURL(/\/\?loggedOut=1$/);
   await expect(
     page.getByText("You’re logged out. See you soon."),
@@ -243,8 +249,8 @@ test("a returning user with a complete profile goes straight to their destinatio
 
   // Sign out through the account menu (confirmation → logout).
   await page.getByRole("button", { name: /Account/i }).click();
-  await page.getByRole("button", { name: "Log out" }).click();
-  await page.getByRole("button", { name: "Log out" }).click();
+  await page.getByRole("button", { name: "Log out", exact: true }).click();
+  await page.getByRole("button", { name: "Log out", exact: true }).click();
   await expect(page).toHaveURL(/\/\?loggedOut=1$/);
 
   // Return trip: same email, complete profile — straight to /home.
@@ -256,7 +262,7 @@ test("a returning user with a complete profile goes straight to their destinatio
   await verifyCode(page, second.code);
   await page.waitForURL("**/home");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Welcome, Rohan.",
+    "Welcome in, Rohan.",
   );
 
   // Direct-link access to onboarding with a complete profile is routed

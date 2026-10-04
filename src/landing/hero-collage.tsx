@@ -6,12 +6,14 @@ import type { CSSProperties } from "react";
 
 import { Avatar } from "./avatar";
 import { demoPeople, demoProducts, heroBubbles } from "./demo-data";
-import { LockIcon } from "./icons";
 import { Tape } from "./tape";
 
 /**
  * Decorative hero collage, ported from the frozen V18 reference
  * (components/landing/HeroCollage.tsx).
+ *
+ * The original reservation sticker is omitted: public wishlist links never
+ * show reservation information. Group coordination is explained separately.
  *
  * Entirely decorative (aria-hidden): the marketing copy next to it carries
  * the meaning. Entrance motion is CSS (.landing-reveal) with per-card
@@ -92,12 +94,6 @@ export function HeroCollage() {
                     alt=""
                     className="h-full w-full object-cover"
                   />
-                  {tape ? (
-                    <span className="absolute right-2 bottom-2 inline-flex rotate-[-4deg] items-center gap-1 rounded-full border-2 border-outline-strong bg-accent-fresh px-2 py-0.5 text-caption font-bold">
-                      <LockIcon className="h-3 w-3" />
-                      Reserved secretly
-                    </span>
-                  ) : null}
                 </div>
                 <div className="p-3">
                   <p className="font-display text-sm leading-tight font-bold">

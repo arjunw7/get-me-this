@@ -52,11 +52,13 @@ function failureCopy(
 export function EmailEntryForm({
   intent,
   intentNote,
+  shareToken,
 }: {
   /** The parsed approved intent, carried through the server action. */
   intent: AuthIntent;
   /** Intent-specific helper copy from the frozen reference; null for home. */
   intentNote?: string | null;
+  shareToken?: string;
 }) {
   const [email, setEmail] = useState("");
   const [clientError, setClientError] = useState<ClientError | null>(null);
@@ -101,6 +103,7 @@ export function EmailEntryForm({
           you left off.
         </p>
         <form
+          data-ph-no-capture={intent === "public-wishlist" || undefined}
           action={formAction}
           onSubmit={submit}
           noValidate
@@ -109,6 +112,9 @@ export function EmailEntryForm({
           {/* The approved intent travels with the action and is re-validated
               against the closed enum server-side. */}
           <input type="hidden" name="intent" value={intent} />
+          {intent === "public-wishlist" && shareToken ? (
+            <input type="hidden" name="share" value={shareToken} />
+          ) : null}
           <label className="block">
             <span className="text-sm font-bold">Email</span>
             <div className="relative">

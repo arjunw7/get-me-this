@@ -2,37 +2,95 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { WishlistItemSnapshot } from "./display";
+import type {
+  ConvertedMoneyTuple,
+  WishlistItemSnapshot,
+  WishlistItemView,
+} from "./display";
 import { WishlistCard, WishlistCardGrid } from "./wishlist-card";
 
 /**
- * The wishlist card (005b): snapshot-field rendering, the branded
- * missing-image placeholder (including the runtime image-failure
- * fallback), and the linked/unlinked retailer presentation.
+ * The wishlist card (005b) and its approximate-conversion states (005g):
+ * snapshot-field rendering, the branded missing-image placeholder
+ * (including the runtime image-failure fallback), the linked/unlinked
+ * retailer presentation, and the dormant-conversion display treatments —
+ * original-only default, approximate line, stale tuple, and the fail-safe
+ * degradations, with "approximately" in the accessible text. Since 005f the
+ * card consumes the server-resolved client-safe view (`imageSrc`); the
+ * snapshot-first fallback order itself is proven in item-views.test.ts.
  */
 
-function item(
-  overrides: Partial<WishlistItemSnapshot> = {},
-): WishlistItemSnapshot {
+function item(overrides: Partial<WishlistItemView> = {}): WishlistItemView {
   return {
     id: "00000000-0000-4000-8000-000000000002",
     title: "Ceramic pour-over coffee set",
     sourceUrl: "https://example.invalid/products/pour-over-set",
     retailer: "Fixture Roasters",
-    imageUrl: null,
-    imageSnapshotPath: null,
+    imageSrc: null,
     note: "The matte one, not the glossy one.",
     desireLevel: "really_want",
     sortPosition: 1,
-    originalAmountMinor: 249900,
+    originalAmountMinor: "249900",
     originalCurrency: "INR",
+    converted: null,
     createdAt: "2026-09-30T00:00:00.000Z",
     updatedAt: "2026-09-30T00:00:00.000Z",
     ...overrides,
   };
 }
 
+/** A complete stored converted tuple: 24.99 INR ≈ 29.99 USD. */
+function convertedTuple(
+  overrides: Partial<ConvertedMoneyTuple> = {},
+): ConvertedMoneyTuple {
+  return {
+    amountMinor: "2999",
+    currency: "USD",
+    rateSource: "fixture-provider quote fx-1",
+    rateAt: "2026-10-01T12:00:00.000Z",
+    stale: false,
+    ...overrides,
+  };
+}
+
 describe("WishlistCard", () => {
+  it("loads a replacement image after the previous image failed", () => {
+    const { rerender } = render(
+      <WishlistCard
+        item={item({ imageSrc: "https://example.invalid/old.jpg" })}
+        index={0}
+      />,
+    );
+    fireEvent.error(screen.getByRole("img"));
+    expect(screen.getByTestId("wishlist-image-placeholder")).toBeVisible();
+
+    rerender(
+      <WishlistCard
+        item={item({ imageSrc: "https://example.invalid/new.jpg" })}
+        index={0}
+      />,
+    );
+    expect(screen.getByRole("img")).toHaveAttribute(
+      "src",
+      "https://example.invalid/new.jpg",
+    );
+  });
+
+  it("keeps an unsupported stored currency opaque with an unavailable-price explanation", () => {
+    render(
+      <WishlistCard
+        item={item({
+          originalAmountMinor: "9007199254740993",
+          originalCurrency: "ZZZ",
+        })}
+        index={0}
+      />,
+    );
+    expect(
+      screen.getByText("9007199254740993 ZZZ — price display unavailable"),
+    ).toBeVisible();
+  });
+
   it("renders the title, linked retailer, pinned money format, note, and desire chip", () => {
     render(<WishlistCard item={item()} index={0} />);
 
@@ -53,6 +111,12 @@ describe("WishlistCard", () => {
       screen.getByText("The matte one, not the glossy one."),
     ).toBeVisible();
     expect(screen.getByText("Really want")).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Edit Ceramic pour-over coffee set" }),
+    ).toHaveAttribute(
+      "href",
+      "/wishlist/items/00000000-0000-4000-8000-000000000002/edit",
+    );
   });
 
   it("renders an unlinked retailer (no source URL) as plain text", () => {
@@ -66,6 +130,29 @@ describe("WishlistCard", () => {
     expect(screen.getByText("Fixture Roasters")).toBeVisible();
     expect(screen.queryByRole("link", { name: "Fixture Roasters" })).toBeNull();
     expect(screen.getByText("Would love")).toBeVisible();
+  });
+
+  it("keeps a source link when retailer metadata is absent", () => {
+    render(<WishlistCard item={item({ retailer: null })} index={0} />);
+    const link = screen.getByRole("link", { name: "example.invalid" });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://example.invalid/products/pour-over-set",
+    );
+    expect(link).toHaveAttribute("rel", "noreferrer");
+  });
+
+  it("uses a safe generic label for an unparseable source URL", () => {
+    render(
+      <WishlistCard
+        item={item({ sourceUrl: "bad-url", retailer: null })}
+        index={0}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Source link" })).toHaveAttribute(
+      "href",
+      "bad-url",
+    );
   });
 
   it("omits the money text entirely for items with no stored price", () => {
@@ -96,12 +183,12 @@ describe("WishlistCard", () => {
     expect(screen.queryByRole("img")).toBeNull();
   });
 
-  it("prefers the image URL over the snapshot path in this slice", () => {
+  it("renders the server-resolved signed snapshot URL when one exists (005f snapshot-first)", () => {
     render(
       <WishlistCard
         item={item({
-          imageUrl: "https://example.invalid/images/pour-over.jpg",
-          imageSnapshotPath: "wishlist-items/snapshot.jpg",
+          imageSrc:
+            "https://example.invalid/storage/wishlist-item-snapshots/signed",
         })}
         index={0}
       />,
@@ -112,27 +199,32 @@ describe("WishlistCard", () => {
     });
     expect(image).toHaveAttribute(
       "src",
-      "https://example.invalid/images/pour-over.jpg",
+      "https://example.invalid/storage/wishlist-item-snapshots/signed",
     );
     expect(screen.queryByTestId("wishlist-image-placeholder")).toBeNull();
   });
 
-  it("renders the placeholder for a snapshot-path-only item (no Storage resolution until 005e/005f)", () => {
+  it("falls back to the remote image URL when no signed snapshot URL exists", () => {
     render(
       <WishlistCard
-        item={item({ imageSnapshotPath: "wishlist-items/snapshot.jpg" })}
+        item={item({
+          imageSrc: "https://example.invalid/images/pour-over.jpg",
+        })}
         index={0}
       />,
     );
 
-    expect(screen.getByTestId("wishlist-image-placeholder")).toBeVisible();
-    expect(screen.queryByRole("img")).toBeNull();
+    expect(
+      screen
+        .getByRole("img", { name: "Ceramic pour-over coffee set" })
+        .getAttribute("src"),
+    ).toBe("https://example.invalid/images/pour-over.jpg");
   });
 
   it("degrades a runtime image failure to the branded placeholder", () => {
     render(
       <WishlistCard
-        item={item({ imageUrl: "http://127.0.0.1:59999/broken.jpg" })}
+        item={item({ imageSrc: "http://127.0.0.1:59999/broken.jpg" })}
         index={0}
       />,
     );
@@ -163,6 +255,98 @@ describe("WishlistCard", () => {
   });
 });
 
+describe("WishlistCard approximate-conversion states (005g, dormant)", () => {
+  function renderCard(overrides: Partial<WishlistItemSnapshot> = {}) {
+    return render(<WishlistCard item={item(overrides)} index={0} />);
+  }
+
+  it("shows the original price only when no conversion exists — the default dormant state", () => {
+    renderCard();
+    expect(screen.getByText("2499.00 INR")).toBeVisible();
+    expect(screen.queryByTestId("approximate-price-line")).toBeNull();
+    expect(screen.queryByText(/≈/)).toBeNull();
+    expect(screen.queryByText(/approximately/i)).toBeNull();
+  });
+
+  it("renders the approximate line below the original for a complete supported tuple", () => {
+    renderCard({ originalAmountMinor: "2499", converted: convertedTuple() });
+    expect(screen.getByText("24.99 INR")).toBeVisible();
+    expect(screen.getByTestId("approximate-price-line")).toHaveTextContent(
+      "≈ 29.99 USD · fixture-provider quote fx-1 · captured 2026-10-01",
+    );
+  });
+
+  it("carries 'approximately', amount, code, rate source, and captured date in the accessible text", () => {
+    renderCard({ originalAmountMinor: "2499", converted: convertedTuple() });
+    expect(
+      screen.getByText(
+        "Approximately 29.99 USD — rate source fixture-provider quote fx-1, captured 2026-10-01.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the original line before the approximate line in reading order", () => {
+    const { container } = renderCard({
+      originalAmountMinor: "2499",
+      converted: convertedTuple(),
+    });
+    const original = screen.getByText("24.99 INR");
+    const approximate = screen.getByTestId("approximate-price-line");
+    expect(
+      original.compareDocumentPosition(approximate) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(container.querySelector("article")).toContainElement(approximate);
+  });
+
+  it("renders a stale tuple as the identical line with its older captured date", () => {
+    renderCard({
+      originalAmountMinor: "2499",
+      converted: convertedTuple({ rateAt: "2026-08-01T00:00:00.000Z" }),
+    });
+    expect(screen.getByTestId("approximate-price-line")).toHaveTextContent(
+      "≈ 29.99 USD · fixture-provider quote fx-1 · captured 2026-08-01",
+    );
+    expect(screen.getByText("24.99 INR")).toBeVisible();
+  });
+
+  it("omits the approximate line and shows the original for an unsupported converted code", () => {
+    renderCard({
+      originalAmountMinor: "2499",
+      converted: convertedTuple({ currency: "XYZ" }),
+    });
+    expect(screen.getByText("24.99 INR")).toBeVisible();
+    expect(screen.queryByTestId("approximate-price-line")).toBeNull();
+  });
+
+  it("omits the approximate line and shows the original for a malformed converted amount", () => {
+    renderCard({
+      originalAmountMinor: "2499",
+      converted: convertedTuple({ amountMinor: "12.5" }),
+    });
+    expect(screen.getByText("24.99 INR")).toBeVisible();
+    expect(screen.queryByTestId("approximate-price-line")).toBeNull();
+  });
+
+  it("omits the approximate line for an item with no stored original price", () => {
+    renderCard({
+      originalAmountMinor: null,
+      originalCurrency: null,
+      converted: convertedTuple(),
+    });
+    expect(screen.queryByTestId("approximate-price-line")).toBeNull();
+    expect(screen.queryByText(/≈/)).toBeNull();
+  });
+
+  it("marks approximately with text, never color alone", () => {
+    renderCard({ originalAmountMinor: "2499", converted: convertedTuple() });
+    const line = screen.getByTestId("approximate-price-line");
+    // The textual marker and detail are present as content, not styling.
+    expect(line).toHaveTextContent("≈");
+    expect(line).toHaveTextContent("captured 2026-10-01");
+  });
+});
+
 describe("WishlistCardGrid", () => {
   it("renders one card per item in the given (pinned read) order", () => {
     const items = [
@@ -175,7 +359,7 @@ describe("WishlistCardGrid", () => {
         note: null,
         desireLevel: "would_love",
         sortPosition: 2,
-        originalAmountMinor: 132000,
+        originalAmountMinor: "132000",
         originalCurrency: "JPY",
       }),
       item({
@@ -203,5 +387,57 @@ describe("WishlistCardGrid", () => {
     ]);
     // The zero-decimal JPY item never shows fractional digits.
     expect(within(cards[1]).getByText("132000 JPY")).toBeVisible();
+  });
+});
+
+describe("owner reaction summary wiring", () => {
+  it("matches aggregate rows by item id and exposes no gifting controls", () => {
+    const first = item({ id: "first", title: "First item" });
+    const second = item({ id: "second", title: "Second item" });
+    render(
+      <WishlistCardGrid
+        items={[first, second]}
+        reactionSummaries={{
+          second: {
+            itemId: "second",
+            counts: { veryYou: 2, questionable: 0, wantItToo: 1 },
+          },
+          first: {
+            itemId: "first",
+            counts: { veryYou: 0, questionable: 0, wantItToo: 0 },
+          },
+        }}
+      />,
+    );
+    const firstCard = screen
+      .getByRole("heading", { name: "First item" })
+      .closest("article")!;
+    const secondCard = screen
+      .getByRole("heading", { name: "Second item" })
+      .closest("article")!;
+    expect(within(firstCard).getByText("No reactions yet")).toBeVisible();
+    expect(within(secondCard).getByText("3 reactions")).toBeVisible();
+    expect(
+      within(secondCard).queryByText("Questionable, but supported"),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /react|reserve/i })).toBeNull();
+    expect(screen.queryByText(/reserved/i)).toBeNull();
+  });
+  it("does not invent zero counts when the summary read was unavailable", () => {
+    render(<WishlistCard item={item()} index={0} />);
+    expect(screen.queryByText("No reactions yet")).toBeNull();
+  });
+  it("does not render a summary supplied for another item", () => {
+    render(
+      <WishlistCard
+        item={item()}
+        index={0}
+        reactionSummary={{
+          itemId: "another-item",
+          counts: { veryYou: 2, questionable: 0, wantItToo: 0 },
+        }}
+      />,
+    );
+    expect(screen.queryByText("2 reactions")).toBeNull();
   });
 });

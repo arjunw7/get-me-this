@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * End-to-end coverage for the static fidelity landing slice (ARJ-16).
+ * End-to-end coverage for the approved wishlist-first landing revision.
  *
  * The suites run under both approved projects (mobile 390x844 and desktop
  * 1440x1000). Landing CTAs are verified by CLICK-THROUGH: each control is
@@ -12,22 +12,22 @@ import { expect, test } from "@playwright/test";
 test("renders the approved landing hierarchy", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page).toHaveTitle(
-    "Get Me This | Group wishlists for every occasion",
-  );
+  await expect(page).toHaveTitle("Get Me This | Your shareable gift wishlist");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
   const heading = page.getByRole("heading", { level: 1 });
-  await expect(heading).toHaveText(
-    /Make a wishlist\. Share it with your\s+people\./,
-  );
+  await expect(heading).toHaveText("Good gifts start with a wishlist.");
 
-  for (const section of ["How it works", "Any excuse to gift."]) {
+  for (const section of [
+    "Your wishlist. One link. Happy friends.",
+    "A few good questions.",
+    "Any excuse to gift.",
+  ]) {
     await expect(page.getByRole("heading", { name: section })).toBeVisible();
   }
   await expect(
     page.getByRole("heading", {
-      name: "Everyone’s wishlist in one place. No double gifts.",
+      name: "Gifting together? Start a group.",
     }),
   ).toBeVisible();
 
@@ -39,6 +39,12 @@ test("renders the approved landing hierarchy", async ({ page }) => {
   await expect(
     page.getByRole("figure", { name: "Santa Party 🎉" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("figure", { name: "Santa Party 🎉" }),
+  ).toContainText("Reserved by you");
+  await expect(
+    page.getByRole("figure", { name: "Santa Party 🎉" }),
+  ).toContainText("Kabir sees his list, but none of the reservations");
 });
 
 test("anchor navigation scrolls to its section", async ({ page }, testInfo) => {
@@ -49,15 +55,17 @@ test("anchor navigation scrolls to its section", async ({ page }, testInfo) => {
     "anchor nav is hidden on mobile in the approved design",
   );
   await page.goto("/");
-  await page.getByRole("link", { name: "How it works" }).click();
+  await page.getByRole("link", { name: "How it works" }).first().click();
   await expect(
-    page.getByRole("heading", { name: "How it works" }),
+    page.getByRole("heading", {
+      name: "Your wishlist. One link. Happy friends.",
+    }),
   ).toBeInViewport();
 });
 
 test.describe("landing CTA click-through", () => {
   for (const cta of [
-    { name: "Start my wishlist", intent: "wishlist" },
+    { name: "Create my wishlist", intent: "wishlist" },
     { name: "Create a group", intent: "create-group" },
   ]) {
     test(`"${cta.name}" lands on the rendered email-entry destination`, async ({
@@ -161,12 +169,11 @@ test("every interactive control is keyboard reachable with a visible focus ring"
   }
 
   const focused = focusedLabels.join("\n");
-  // Controls visible at every viewport: wordmark (home), Log in, and both
-  // hero CTAs must be keyboard reachable with the focus ring.
+  // Controls visible at every viewport: wordmark (home), Log in, and the
+  // primary hero CTA must be keyboard reachable with the focus ring.
   expect(focused).toMatch(/Get Me\s*This\|solid/);
   expect(focused).toContain("Log in|solid");
-  expect(focused).toContain("Start my wishlist|solid");
-  expect(focused).toContain("Create a group|solid");
+  expect(focused).toContain("Create my wishlist|solid");
   // The anchor nav is hidden below md in the approved design; desktop only.
   if (isDesktop) {
     expect(focused).toContain("How it works|solid");
@@ -182,7 +189,7 @@ test("every interactive control is keyboard reachable with a visible focus ring"
       name: "Get Me This home",
       start: "/auth",
       destinationUrl: /\/$/,
-      destinationHeading: "How it works",
+      destinationHeading: "Your wishlist. One link. Happy friends.",
     },
     {
       name: "Log in",
@@ -191,7 +198,7 @@ test("every interactive control is keyboard reachable with a visible focus ring"
       destinationHeading: "Welcome to Get Me This.",
     },
     {
-      name: "Start my wishlist",
+      name: "Create my wishlist",
       start: "/",
       destinationUrl: /\/auth\?intent=wishlist$/,
       destinationHeading: "Welcome to Get Me This.",
@@ -222,28 +229,94 @@ test("every interactive control is keyboard reachable with a visible focus ring"
   }
 });
 
-test("the hero collage is static under reduced motion", async ({
+test("the standalone wishlist FAQ works with a keyboard at both sizes", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const question = page
+    .locator("summary")
+    .filter({ hasText: "Do I need a group" });
+  await question.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText("No. Create your wishlist and share its link.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+});
+
+test("the original decorative collage respects reduced motion and shows no public reservations", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  const hero = page.locator("main > section").first();
+  await expect(hero.locator("img")).toHaveCount(3);
+  await expect(hero).not.toContainText(/reserved|reservation/i);
+  const reveal = hero.locator(".landing-reveal").first();
+  await expect(reveal).toBeVisible();
+  const duration = await reveal.evaluate(
+    (element) => getComputedStyle(element).animationDuration,
+  );
+  const durationMs = duration.endsWith("ms")
+    ? parseFloat(duration)
+    : parseFloat(duration) * 1000;
+  expect(durationMs).toBeLessThanOrEqual(0.02);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("the landing CTAs pop on hover with the approved press motion", async ({
   page,
   browserName,
 }) => {
   test.skip(
     browserName !== "chromium",
-    "prefers-reduced-motion emulation is asserted in Chromium",
+    "press-motion interpolation is asserted in Chromium, the approved evidence engine",
   );
 
-  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
+  const cta = page.getByRole("link", { name: "Create my wishlist" }).first();
+  await cta.waitFor({ state: "visible" });
 
-  const reveal = page.locator(".landing-reveal").first();
-  await expect(reveal).toBeVisible();
-  // The global reduced-motion block pins every animation to 0.01ms, so no
-  // entrance motion can play regardless of the resolved animation name.
-  const duration = await reveal.evaluate(
-    (element) => getComputedStyle(element).animationDuration,
+  // Sample the computed translate through the 150ms press transition while
+  // the pointer moves onto the CTA. The lift must animate through
+  // intermediate values: on staging the lift never fired on anchors at all
+  // (:enabled never matches an anchor), so the control read as inert.
+  const sampling = cta.evaluate(
+    (element) =>
+      new Promise<string[]>((resolve) => {
+        const read = () => getComputedStyle(element).translate;
+        const observed = [read()];
+        const start = performance.now();
+        const tick = () => {
+          observed.push(read());
+          if (performance.now() - start < 300) requestAnimationFrame(tick);
+          else resolve(observed);
+        };
+        requestAnimationFrame(tick);
+      }),
   );
-  // Chromium serialises 0.01ms as "1e-05s"; compare numerically.
-  const durationMs = duration.endsWith("ms")
-    ? parseFloat(duration)
-    : parseFloat(duration) * 1000;
-  expect(durationMs).toBeLessThanOrEqual(0.02);
+  await cta.hover();
+  const observed = await sampling;
+
+  const liftOf = (value: string) => {
+    if (!value || value === "none") return 0;
+    return Math.abs(parseFloat(value.split(" ")[1] ?? "0")) || 0;
+  };
+
+  // The hover end-state is the approved 2px lift (spacing token 0.5).
+  const finalLift = liftOf(observed[observed.length - 1]);
+  expect(finalLift).toBeGreaterThanOrEqual(1.9);
+  expect(finalLift).toBeLessThanOrEqual(2.1);
+
+  // The lift is animated: at least one sampled frame sits strictly between
+  // rest and the final lift. A jump (or no motion) fails this.
+  const intermediates = observed
+    .map(liftOf)
+    .filter((lift) => lift > 0.05 && lift < 1.9);
+  expect(intermediates.length).toBeGreaterThanOrEqual(1);
 });

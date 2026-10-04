@@ -1,3 +1,5 @@
+import { isUuid } from "./validation";
+
 /**
  * Client-lane privacy boundary.
  *
@@ -26,7 +28,39 @@
 const ROUTE_TEMPLATES: readonly (readonly (string | `:${string}`)[])[] = [
   [], // "/"
   ["onboarding"],
+  ["home"],
+  ["auth"],
+  ["auth", "verify"],
+  ["auth", "confirm"],
+  ["wishlist"],
+  ["wishlist", "items", "new"],
+  ["wishlist", "items", "new", "review"],
+  ["wishlist", "items", ":itemId", "edit"],
+  ["s", ":shareToken"],
+  ["groups"],
+  ["groups", "new"],
+  ["groups", ":groupId", "created"],
+  ["groups", ":groupId", "gifting"],
+  ["groups", ":groupId", "members", ":memberId", "wishlist"],
+  ["how-it-works"],
+  ["wishlist-from-different-stores"],
+  ["birthday-wishlist"],
+  ["secret-santa"],
   ["invite", ":token"],
+  // Brief 006c: every invitation-family route emits only its template —
+  // the raw token, start id, and flow id are never emitted, and the
+  // invitation regions are blocked from autocapture and replay by the
+  // screens' sensitive-region attributes.
+  ["invite", "start", ":startId"],
+  ["invite", "continue", ":flowId"],
+  ["invite", "unavailable"],
+  ["invite", "bootstrap"],
+  ["auth", "invite", ":flowId"],
+  ["auth", "invite", ":flowId", "verify"],
+  ["auth", "invite", ":flowId", "reconcile"],
+  ["auth", "confirm", "invite", ":flowId"],
+  ["auth", "link", "invite", ":flowId"],
+  ["onboarding", "invite", ":flowId"],
   ["auth", "callback"],
   ["auth", "link"],
   ["groups", ":groupId"],
@@ -122,10 +156,18 @@ const APPROVED_EVENT_PROPERTIES: Record<string, readonly string[]> = {
  * sanitization.
  */
 const SDK_REQUIRED_EVENT_PROPERTIES: readonly string[] = ["token"];
+const SDK_IDENTITY_PROPERTIES = [
+  "distinct_id",
+  "$anon_distinct_id",
+  "$session_id",
+  "$window_id",
+] as const;
 
 type ClientEvent = {
   readonly event?: string;
   readonly properties?: Record<string, unknown>;
+  readonly uuid?: string;
+  readonly timestamp?: unknown;
 };
 
 /**
@@ -159,7 +201,7 @@ export function sanitizeClientEventForSend<T extends ClientEvent | null>(
     // $raw_event_path, UTM/attribution, …) is discarded here, never
     // filtered selectively.
     return {
-      ...event,
+      ...safeEnvelope(event),
       properties: {
         $current_url: sanitizeAbsoluteUrl(currentUrl),
         $pathname: sanitizeRoutePath(currentUrl),
@@ -187,12 +229,16 @@ export function sanitizeClientEventForSend<T extends ClientEvent | null>(
   const properties = { ...(event.properties ?? {}) };
   const allowed: Record<string, unknown> = {};
   for (const key of approvedProperties) {
-    if (key in properties) {
+    if (
+      key in properties &&
+      ((key !== "distinct_id" && key !== "$anon_distinct_id") ||
+        (typeof properties[key] === "string" && isUuid(properties[key])))
+    ) {
       allowed[key] = properties[key];
     }
   }
   return {
-    ...event,
+    ...safeEnvelope(event),
     properties: {
       ...allowed,
       ...preserveRequiredSdkProperties(event.properties),
@@ -218,7 +264,28 @@ function preserveRequiredSdkProperties(
       preserved[key] = value;
     }
   }
+  for (const key of SDK_IDENTITY_PROPERTIES) {
+    const value = originalProperties[key];
+    if (typeof value === "string" && isUuid(value)) preserved[key] = value;
+  }
+  if (typeof originalProperties.$process_person_profile === "boolean") {
+    preserved.$process_person_profile =
+      originalProperties.$process_person_profile;
+  }
   return preserved;
+}
+
+/** Drop SDK-generated person metadata, including initial URLs/referrers. */
+function safeEnvelope<T extends Exclude<ClientEvent, null>>(event: T): T {
+  return {
+    event: event.event,
+    ...(typeof event.uuid === "string" && isUuid(event.uuid)
+      ? { uuid: event.uuid }
+      : {}),
+    ...(event.timestamp instanceof Date || typeof event.timestamp === "string"
+      ? { timestamp: event.timestamp }
+      : {}),
+  } as T;
 }
 
 /**

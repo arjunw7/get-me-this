@@ -1,0 +1,34 @@
+{
+  "approvedBy": "repository owner",
+  "approvedDate": "2026-10-04",
+  "authorization": "Explicit approval in the task: \"i approve. you can replace them. these were changed based on my feedback only, right?\"",
+  "scope": "Exactly two reviewed landing baselines; no tolerance changes. The four separately reviewed wishlist baselines were applied in base PR78.",
+  "files": [
+    {
+      "baseline": "tests/visual/baselines/landing-desktop.png",
+      "candidate": "landing-desktop-actual.png",
+      "sha256": "82615196e04089de3621c18baf45a20f87529cef4acb2127e176bf6b373cd024",
+      "width": 1440,
+      "height": 3421,
+      "source": {
+        "head": "67f1042cbe7f5f522df371af778d9f253b506fbc",
+        "runUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37180956007",
+        "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37180956007/artifacts/11295301062",
+        "platform": "ubuntu-24.04 GitHub Actions, pinned Playwright Chromium"
+      }
+    },
+    {
+      "baseline": "tests/visual/baselines/landing-mobile.png",
+      "candidate": "landing-mobile-actual.png",
+      "sha256": "f4143f6d9c3ec330c5fb79304de1f9a7b587f0061d257f8fb9c8da1aba5f9ed4",
+      "width": 390,
+      "height": 5173,
+      "source": {
+        "head": "67f1042cbe7f5f522df371af778d9f253b506fbc",
+        "runUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37180956007",
+        "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37180956007/artifacts/11295301062",
+        "platform": "ubuntu-24.04 GitHub Actions, pinned Playwright Chromium"
+      }
+    }
+  ]
+}

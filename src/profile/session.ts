@@ -1,9 +1,11 @@
 import "server-only";
 
+import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/src/supabase/server";
 import { resolveSafeRedirectTarget } from "@/src/auth/link-intents";
+import { normalizeVibe, type Vibe } from "./vibe";
 import { isProfileComplete } from "./profile";
 
 /**
@@ -21,6 +23,7 @@ import { isProfileComplete } from "./profile";
 export type SessionProfile = {
   readonly displayName: string | null;
   readonly tasteLine: string | null;
+  readonly vibe: Vibe;
 };
 
 /**
@@ -47,13 +50,14 @@ export async function getOwnProfile(
   if (!supabase) return null;
   const { data } = await supabase
     .from("profiles")
-    .select("display_name, taste_line")
+    .select("display_name, taste_line, vibe")
     .eq("id", userId)
     .single();
   if (!data) return null;
   return {
     displayName: data.display_name ?? null,
     tasteLine: data.taste_line ?? null,
+    vibe: normalizeVibe(data.vibe),
   };
 }
 
@@ -61,22 +65,25 @@ export async function getOwnProfile(
  * The route a just-verified user should be sent to, shared by BOTH
  * verification paths (six-digit code and magic link — identical post-auth
  * rules):
- * - incomplete profile → `/onboarding` (regardless of any carried intent;
- *   the brief's intent decision honors the approved intent only for
- *   already-complete profiles);
+ * - incomplete profile → `/onboarding`, retaining only a validated public
+ *   wishlist identifier for that explicitly supported return flow;
  * - complete profile → the destination resolved ONLY through 004d's tested
- *   intent-to-route table (`resolveSafeRedirectTarget`; unbuilt intents
- *   land on the honest `/home`).
+ *   intent-to-route helper (`resolveSafeRedirectTarget`).
  */
 export async function postAuthRouteForUser(
   userId: string,
   carriedIntent: string | undefined,
+  publicShareToken?: unknown,
 ): Promise<string> {
+  const shareToken =
+    carriedIntent === "public-wishlist"
+      ? parsePublicShareToken(publicShareToken)
+      : null;
   const profile = await getOwnProfile(userId);
   if (!isProfileComplete(profile?.displayName ?? null)) {
-    return "/onboarding";
+    return shareToken ? `/onboarding?share=${shareToken}` : "/onboarding";
   }
-  return resolveSafeRedirectTarget(carriedIntent);
+  return resolveSafeRedirectTarget(carriedIntent, shareToken);
 }
 
 /**

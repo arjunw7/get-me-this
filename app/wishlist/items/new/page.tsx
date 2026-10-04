@@ -2,46 +2,50 @@ import type { Metadata } from "next";
 
 import { AnalyticsIdentity } from "@/src/auth/analytics-identity";
 import { requireCompleteProfile } from "@/src/profile/session";
-import { WishlistShellHeader } from "@/src/wishlist/wishlist-shell-header";
+import { AddItemHeader } from "@/src/wishlist/add-item-header";
+import { getStarterIdea } from "@/src/home/starter-ideas";
+import { AddItemFlow } from "@/src/wishlist/add-item-flow";
 
 export const metadata: Metadata = {
   title: "Get Me This | Add an item",
   description: "Add the first thing to your wishlist.",
 };
+export const dynamic = "force-dynamic";
 
 /**
- * The interim add-route page (005b): a minimal, honest protected state at
- * `/wishlist/items/new` so the empty state's CTA is never a 404 dead end.
- * It carries no form, no extraction, and no mock data — item entry arrives
- * with 005c, which replaces this page's content; 005f extends the route
- * into the extraction state machine. The route is claimed now so it has
- * no signed-out exposure from the moment it exists.
+ * The protected add-item flow (005f): initial URL entry, bounded same-origin
+ * extraction, explicit review, and the manual fallback, replacing 005c's
+ * interim manual page. All remote page fetching is server-side behind the
+ * 005e extract route; the pasted URL is carried in the route as `?url=`
+ * and allowlisted starter prompts in `?pick=` seed an editable note only.
  */
-export default async function NewWishlistItemPage() {
-  const { userId, email, profile } = await requireCompleteProfile();
-  // requireCompleteProfile guarantees a non-blank display name.
-  const displayName = profile.displayName as string;
+export default async function NewWishlistItemPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ url?: string; pick?: string }>;
+}) {
+  const { userId } = await requireCompleteProfile();
+  const { url, pick } = await searchParams;
+  const starterIdea = getStarterIdea(pick);
+  // Only a bounded, non-blank value seeds the field: blankness and the
+  // 2048-character bound are checked here — not the URL's shape, which is
+  // the flow's own validation job. Anything else is treated as absent and
+  // the field starts empty. The value is rendered as a controlled input
+  // value, never as HTML.
+  const initialUrl =
+    url && url.trim().length > 0 && url.length <= 2048 ? url : undefined;
 
   return (
-    <div className="min-h-screen w-full bg-surface-page text-content-primary">
+    <div className="min-h-screen w-full bg-surface-page pb-32 text-content-primary sm:pb-16">
       <AnalyticsIdentity userId={userId} />
-      <WishlistShellHeader email={email} displayName={displayName} />
-      <main className="mx-auto w-full max-w-[var(--spacing-content-max)] px-5 pt-10 pb-16 sm:px-8">
-        <section className="rounded-surface-2xl border-2 border-dashed border-outline-strong/35 bg-surface-raised px-6 py-12 text-center">
-          <h1 className="font-display text-display-sm font-extrabold tracking-tight sm:text-display-md">
-            Add an item
-          </h1>
-          <p className="mt-3 text-content-secondary">
-            This is where adding items will live — it’s arriving with the next
-            update. Your wishlist is safe and waiting.
-          </p>
-          <a
-            href="/wishlist"
-            className="mt-6 inline-flex min-h-touch-min items-center rounded-surface border-2 border-outline-strong bg-surface-raised px-6 font-bold text-content-primary shadow-chunk-sm transition-transform duration-[var(--duration-press)] ease-snap hover:-translate-y-0.5"
-          >
-            Back to your wishlist
-          </a>
-        </section>
+      <AddItemHeader />
+      {/* ARJ-62: the column width follows the flow's client-side step, not
+          the server-known ?url= param. Pinning the width here crushed the
+          005f review/manual form into the 520px entry column on the
+          paste-into-empty-page path (sliver inputs, overlapping fields);
+          add-item-flow.tsx now owns the per-step width. */}
+      <main className="mx-auto w-full px-5 pt-8 pb-16 sm:px-8 sm:pt-12">
+        <AddItemFlow initialUrl={initialUrl ?? ""} starterIdea={starterIdea} />
       </main>
     </div>
   );

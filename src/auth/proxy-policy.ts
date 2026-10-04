@@ -54,9 +54,9 @@ export function isServerActionRequest(
  * The protected application routes (004e): every authenticated route is
  * listed here explicitly — the landing page, the auth routes, the interim
  * confirm route, and the limited invitation preview stay public per the
- * permissions matrix. 005b adds the wishlist routes: `/wishlist` (the
- * owner's display) and `/wishlist/items/new` (the interim add surface,
- * later 005c/005f's create flow).
+ * permissions matrix. Wishlist routes include the owner's display, manual
+ * item create, owner-scoped item edit surfaces, and 005e's Node-only
+ * extraction POST boundary.
  *
  * The proxy redirects anonymous requests for these paths to `/auth` (whose
  * default is the safe `home` intent) BEFORE any page or action reads
@@ -75,10 +75,24 @@ const PROTECTED_ROUTE_PATHS: readonly string[] = [
   "/onboarding",
   "/wishlist",
   "/wishlist/items/new",
+  "/wishlist/items/extract",
+  "/groups",
+  "/groups/new",
 ];
 
 export function isProtectedRoutePath(pathname: string): boolean {
-  return PROTECTED_ROUTE_PATHS.includes(pathname);
+  return (
+    PROTECTED_ROUTE_PATHS.includes(pathname) ||
+    /^\/wishlist\/items\/[^/]+\/edit$/.test(pathname) ||
+    /^\/groups\/[^/]+\/created$/.test(pathname) ||
+    // The private group room (006d): every /groups/[groupId] document and
+    // action response. /groups/new and the /created suffix are covered by
+    // the entries above; the room path covers the bare group id.
+    /^\/groups\/[^/]+$/.test(pathname) ||
+    // Member wishlist browsing (006e): the joined-member read route under
+    // the room.
+    /^\/groups\/[^/]+\/members\/[^/]+\/wishlist$/.test(pathname)
+  );
 }
 
 export const NO_STORE = "no-store";

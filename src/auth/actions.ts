@@ -1,7 +1,10 @@
 "use server";
 
+import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
+
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getServerAnalytics } from "@/src/analytics/server";
 
 import { createSupabaseServerClient } from "@/src/supabase/server";
 import { postAuthRouteForUser } from "@/src/profile/session";
@@ -10,6 +13,12 @@ import { clearLinkCarry, readLinkCarry } from "./link-carry";
 import { isValidEmail } from "./email";
 import { emailRedirectToForOrigin, requestOrigin } from "./email-redirect";
 import { mapRequestCodeFailure, mapVerifyCodeFailure } from "./provider-errors";
+import { gateOtpSendRequest, gateOtpVerify } from "./abuse-gate";
+import {
+  acquireMutationLease,
+  deliverMutationPending,
+  releaseMutationLease,
+} from "@/src/invite/lease-session";
 import { parseIntent } from "./fixtures";
 import type {
   LinkVerifyState,
@@ -56,15 +65,28 @@ export async function requestCodeAction(
   const email = rawEmail.trim();
   // The approved intent enum, parsed exactly as before; unknown values
   // resolve to home both on the page and here.
-  const intent = parseIntent(
+  const parsedIntent = parseIntent(
     typeof rawIntent === "string" ? rawIntent : undefined,
   );
+  const shareToken =
+    parsedIntent === "public-wishlist"
+      ? parsePublicShareToken(formData.get("share"))
+      : null;
+  const intent =
+    parsedIntent === "public-wishlist" && !shareToken ? "home" : parsedIntent;
 
   const supabase = await createSupabaseServerClient();
   const emailRedirectTo = await trustedEmailRedirectUrl();
   if (!supabase || !emailRedirectTo) {
     return { status: "error", failure: "unavailable" };
   }
+
+  // 009b: the durable per-coarse-key send limiter and the Turnstile gate
+  // (application-level wiring — see src/auth/captcha.ts). Both denials land
+  // in the existing generic recovery classes, byte-identical to the
+  // provider's own over-limit/unavailable outcomes.
+  const sendDenial = await gateOtpSendRequest(formData);
+  if (sendDenial) return { status: "error", failure: sendDenial };
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -74,7 +96,8 @@ export async function requestCodeAction(
     return { status: "error", failure: mapRequestCodeFailure(error) };
   }
 
-  await setAuthCarry(email, intent);
+  if (shareToken) await setAuthCarry(email, intent, shareToken);
+  else await setAuthCarry(email, intent);
   redirect("/auth/verify");
 }
 
@@ -94,12 +117,32 @@ export async function verifyCodeAction(
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { status: "error", failure: "unavailable" };
 
+  // Brief 006c criterion 12: this action mutates the session cookies, so
+  // while a coordinator cookie exists it participates in the invitation
+  // auth-mutation protocol. Blocked: another mutation's delivery is
+  // unacknowledged — no provider call, no cookie.
+  const acquisition = await acquireMutationLease("otp_verify");
+  if (acquisition.outcome === "blocked") {
+    return { status: "error", failure: "blocked" };
+  }
+  const lease = acquisition.outcome === "held" ? acquisition.lease : null;
+
+  // 009b: the durable per-coarse-key verify limiter. A denial reuses the
+  // provider's own over-limit class — the approved "Hold on." recovery —
+  // with no distinguishing signal.
+  const verifyDenial = await gateOtpVerify();
+  if (verifyDenial) {
+    if (lease) await releaseMutationLease(lease);
+    return { status: "error", failure: verifyDenial };
+  }
+
   const { error } = await supabase.auth.verifyOtp({
     email: carry.email,
     token: rawCode.trim(),
     type: "email",
   });
   if (error) {
+    if (lease) await releaseMutationLease(lease);
     return { status: "error", failure: mapVerifyCodeFailure(error) };
   }
 
@@ -113,8 +156,28 @@ export async function verifyCodeAction(
   // (unbuilt intents land on the honest /home).
   const verified = await supabase.auth.getUser();
   const userId = verified.data.user?.id;
-  if (!userId) return { status: "error", failure: "unavailable" };
-  redirect(await postAuthRouteForUser(userId, carry.intent));
+  if (!userId) {
+    if (lease) await releaseMutationLease(lease);
+    return { status: "error", failure: "unavailable" };
+  }
+  if (lease) {
+    const delivered = await deliverMutationPending(lease, userId, "deliver");
+    if (!delivered) await releaseMutationLease(lease);
+  }
+  const destination = await postAuthRouteForUser(
+    userId,
+    carry.intent,
+    carry.shareToken,
+  );
+  await getServerAnalytics().capture(
+    "auth_completed",
+    {
+      method: "email",
+      is_new_user: destination.startsWith("/onboarding"),
+    },
+    { distinctId: userId },
+  );
+  redirect(destination);
 }
 
 /** Resends the code to the carried email. */
@@ -194,11 +257,22 @@ export async function verifyMagicLinkAction(
   const supabase = await createSupabaseServerClient();
   if (!supabase) return { status: "error", failure: "unavailable" };
 
+  // Brief 006c criterion 12: the magic-link completion mutates the session
+  // cookies, so while a coordinator cookie exists it participates in the
+  // invitation auth-mutation protocol. Blocked: another mutation's
+  // delivery is unacknowledged — no provider call, no cookie.
+  const acquisition = await acquireMutationLease("magic_link_verify");
+  if (acquisition.outcome === "blocked") {
+    return { status: "error", failure: "blocked" };
+  }
+  const magicLease = acquisition.outcome === "held" ? acquisition.lease : null;
+
   const { error } = await supabase.auth.verifyOtp({
     token_hash: carried.tokenHash,
     type: carried.type,
   });
   if (error) {
+    if (magicLease) await releaseMutationLease(magicLease);
     return { status: "error", failure: mapVerifyCodeFailure(error) };
   }
 
@@ -213,7 +287,28 @@ export async function verifyMagicLinkAction(
   const verified = await supabase.auth.getUser();
   const userId = verified.data.user?.id;
   if (!userId) return { status: "error", failure: "unavailable" };
-  redirect(await postAuthRouteForUser(userId, authCarry?.intent));
+  if (magicLease) {
+    const delivered = await deliverMutationPending(
+      magicLease,
+      userId,
+      "deliver",
+    );
+    if (!delivered) await releaseMutationLease(magicLease);
+  }
+  const destination = await postAuthRouteForUser(
+    userId,
+    authCarry?.intent,
+    authCarry?.shareToken,
+  );
+  await getServerAnalytics().capture(
+    "auth_completed",
+    {
+      method: "email",
+      is_new_user: destination.startsWith("/onboarding"),
+    },
+    { distinctId: userId },
+  );
+  redirect(destination);
 }
 
 /**
@@ -226,6 +321,18 @@ export async function verifyMagicLinkAction(
  * PostHog identity cannot survive the logout.
  */
 export async function signOutAction(): Promise<void> {
+  // Brief 006c criterion 12: while a coordinator cookie exists, the
+  // generic account logout participates in the invitation auth-mutation
+  // protocol — the same lease-held cleanup, delivery_pending nonce, and
+  // broker acknowledgement as the dedicated invitation logout. Absent
+  // that cookie the existing behavior is unchanged.
+  const { readCoordinatorCookie } = await import("@/src/invite/flow-session");
+  const { signOutWithInvitationCleanupAction } =
+    await import("@/src/invite/invite-actions");
+  if (await readCoordinatorCookie()) {
+    await signOutWithInvitationCleanupAction();
+    return;
+  }
   const supabase = await createSupabaseServerClient();
   if (supabase) {
     await supabase.auth.signOut({ scope: "local" });

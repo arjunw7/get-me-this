@@ -1,3 +1,4 @@
+import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -29,6 +30,18 @@ export default async function AuthPage({
 
   const params = await searchParams;
   const raw = params.intent;
-  const intent = parseIntent(Array.isArray(raw) ? raw[0] : raw);
-  return <EmailEntryForm intent={intent} intentNote={INTENT_NOTES[intent]} />;
+  const parsedIntent = parseIntent(Array.isArray(raw) ? raw[0] : raw);
+  const shareToken =
+    parsedIntent === "public-wishlist"
+      ? parsePublicShareToken(params.share)
+      : null;
+  const intent =
+    parsedIntent === "public-wishlist" && !shareToken ? "home" : parsedIntent;
+  return (
+    <EmailEntryForm
+      intent={intent}
+      intentNote={INTENT_NOTES[intent]}
+      shareToken={shareToken ?? undefined}
+    />
+  );
 }

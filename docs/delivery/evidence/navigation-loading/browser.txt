@@ -1,0 +1,93 @@
+
+> get-me-this@0.1.0 build /Users/loop/.codex/worktrees/navigation-loading/get-me-this
+> next build
+
+▲ Next.js 16.3.6 (Turbopack)
+✓ Running next.config.mjs took 8ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 841ms
+  Running TypeScript ...
+  Finished TypeScript in 1213ms ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/23) ...
+  Generating static pages using 11 workers (5/23) 
+  Generating static pages using 11 workers (11/23) 
+  Generating static pages using 11 workers (17/23) 
+✓ Generating static pages using 11 workers (23/23) in 176ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ○ /apple-icon.png
+├ ƒ /auth
+├ ○ /auth/confirm
+├ ƒ /auth/confirm/invite/[flowId]
+├ ƒ /auth/invite/[flowId]
+├ ƒ /auth/invite/[flowId]/reconcile
+├ ƒ /auth/invite/[flowId]/verify
+├ ƒ /auth/invite/mutation/acknowledge
+├ ƒ /auth/invite/mutation/recover
+├ ƒ /auth/invite/mutation/refresh
+├ ƒ /auth/link
+├ ƒ /auth/link/invite/[flowId]
+├ ƒ /auth/verify
+├ ○ /birthday-wishlist
+├ ○ /design-foundation
+├ ƒ /groups
+├ ƒ /groups/[groupId]
+├ ƒ /groups/[groupId]/created
+├ ƒ /groups/[groupId]/gifting
+├ ƒ /groups/[groupId]/members/[memberId]/wishlist
+├ ƒ /groups/new
+├ ƒ /health
+├ ƒ /home
+├ ○ /how-it-works
+├ ○ /icon.png
+├ ƒ /invite/[opaqueToken]
+├ ƒ /invite/bootstrap
+├ ƒ /invite/continue/[flowId]
+├ ƒ /invite/preview/[digest]/image
+├ ƒ /invite/start/[startId]
+├ ƒ /invite/unavailable
+├ ƒ /onboarding
+├ ƒ /onboarding/invite/[flowId]
+├ ƒ /robots.txt
+├ ƒ /s/[token]
+├ ƒ /s/[token]/images/[itemId]
+├ ○ /secret-santa
+├ ƒ /sitemap.xml
+├ ƒ /test-support/invite-mutation-broker-reference
+├ ƒ /test-support/wishlist-action-reference
+├ ƒ /wishlist
+├ ○ /wishlist-from-different-stores
+├ ƒ /wishlist/items/[itemId]/edit
+├ ƒ /wishlist/items/extract
+└ ƒ /wishlist/items/new
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[WebServer] (node:89461) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:89462) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 6 tests using 1 worker
+
+(node:89468) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [mobile] › tests/e2e/app-navigation-local.spec.ts:12:5 › the Groups index denies signed-out access (107ms)
+  ✓  2 [mobile] › tests/e2e/app-navigation-local.spec.ts:20:5 › responsive navigation connects real destinations and Home reflects saved items (4.4s)
+  ✓  3 [mobile] › tests/e2e/app-navigation-local.spec.ts:135:5 › profile edits persist across wishlist and Home, cancellation preserves stored values (2.5s)
+(node:89491) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  4 [desktop] › tests/e2e/app-navigation-local.spec.ts:12:5 › the Groups index denies signed-out access (111ms)
+  ✓  5 [desktop] › tests/e2e/app-navigation-local.spec.ts:20:5 › responsive navigation connects real destinations and Home reflects saved items (3.8s)
+  ✓  6 [desktop] › tests/e2e/app-navigation-local.spec.ts:135:5 › profile edits persist across wishlist and Home, cancellation preserves stored values (2.8s)
+
+  6 passed (15.0s)

@@ -1,5 +1,5 @@
 /**
- * Catalog tests: the ten server-authoritative business events and their
+ * Catalog tests: the server-authoritative business events and their
  * exact allowed values, matching docs/analytics/tracking-plan.md, plus the
  * complete active ISO 4217 currency allowlist. Compile-time tests prove,
  * against the REAL exported ServerAnalytics.capture() surface, that unknown
@@ -8,7 +8,6 @@
  */
 import { beforeAll, describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import type { AnalyticsEventName } from "./event-definitions";
 import type { ServerAnalytics, EventProperties } from "./types";
 import { EVENT_DEFINITIONS, SUPPORTED_CURRENCIES } from "./event-definitions";
 
@@ -32,6 +31,10 @@ const TRACKING_PLAN_EVENTS = [
   "gifting_mode_selected",
   "name_draw_completed",
   "group_activated",
+  "gift_checklist_progressed",
+  "member_wishlist_viewed",
+  "item_copied",
+  "group_activity_viewed",
 ] as const;
 
 const EXPECTED_PROPERTIES: Record<
@@ -56,15 +59,24 @@ const EXPECTED_PROPERTIES: Record<
   ],
   gifting_mode_selected: ["gifting_mode", "changed_from_existing"],
   name_draw_completed: ["participant_count_bucket", "is_redraw"],
+  gift_checklist_progressed: ["action", "checklist_total_bucket"],
+  item_copied: ["copy_outcome"],
+  member_wishlist_viewed: [
+    "view_scope",
+    "wishlist_state",
+    "item_count_bucket",
+    "gifting_mode",
+  ],
   group_activated: [
     "gifting_mode",
     "member_count_bucket",
     "time_to_activation_bucket",
   ],
+  group_activity_viewed: ["scope", "entry_count_bucket", "gifting_mode"],
 };
 
 describe("analytics event catalog", () => {
-  it("contains exactly the ten tracking-plan events", () => {
+  it("contains exactly the tracking-plan events", () => {
     expect(Object.keys(EVENT_DEFINITIONS).sort()).toEqual(
       [...TRACKING_PLAN_EVENTS].sort(),
     );
@@ -148,6 +160,30 @@ describe("analytics event catalog", () => {
     ).toMatchObject({
       kind: "string-enum",
       values: ["under_24h", "1_to_3_days", "4_to_7_days", "over_7_days"],
+    });
+    expect(
+      EVENT_DEFINITIONS.member_wishlist_viewed.properties.view_scope,
+    ).toMatchObject({
+      kind: "string-enum",
+      values: ["own", "friend"],
+    });
+    expect(
+      EVENT_DEFINITIONS.member_wishlist_viewed.properties.wishlist_state,
+    ).toMatchObject({
+      kind: "string-enum",
+      values: ["populated", "empty"],
+    });
+    expect(
+      EVENT_DEFINITIONS.member_wishlist_viewed.properties.item_count_bucket,
+    ).toMatchObject({
+      kind: "string-enum",
+      values: ["zero", "one_to_five", "six_to_ten", "eleven_plus"],
+    });
+    expect(
+      EVENT_DEFINITIONS.member_wishlist_viewed.properties.gifting_mode,
+    ).toMatchObject({
+      kind: "string-enum",
+      values: ["secret_draw", "gift_everyone", "wishlist_only"],
     });
   });
 });

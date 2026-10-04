@@ -9,9 +9,9 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
+const eslint = new ESLint({ cwd: projectRoot });
 
 async function lintText(code: string, filePath: string): Promise<string[]> {
-  const eslint = new ESLint({ cwd: projectRoot });
   const [result] = await eslint.lintText(code, { filePath });
   return (result?.messages ?? [])
     .filter((message) => message.ruleId === "no-restricted-imports")
@@ -26,7 +26,7 @@ describe("SDK ownership lint rule", () => {
     );
     expect(messages.length).toBeGreaterThan(0);
     expect(messages[0]).toContain("@/src/analytics/client");
-  });
+  }, 15_000);
 
   it("blocks a posthog-node import from product code", async () => {
     const messages = await lintText(

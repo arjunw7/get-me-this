@@ -1,5 +1,5 @@
 /**
- * Single source of truth for the ten server-authoritative business events.
+ * Single source of truth for the server-authoritative business events.
  *
  * The tracking plan (docs/analytics/tracking-plan.md) defines the catalog,
  * the required properties, and the privacy exclusions. This module encodes
@@ -238,7 +238,7 @@ export interface EventDefinition {
 }
 
 /**
- * The ten server-authoritative business events with their exact allowed
+ * The server-authoritative business events with their exact allowed
  * values. Every controlled property is an enum or a strict boolean; no
  * free-form strings, raw prices, user content, or identifiers other than
  * internal UUIDs passed as the distinct id / group context by the adapter.
@@ -323,6 +323,38 @@ export const EVENT_DEFINITIONS = {
       is_redraw: booleanProperty,
     },
   },
+  gift_checklist_progressed: {
+    properties: {
+      action: stringEnum(["completed", "reopened"]),
+      checklist_total_bucket: stringEnum([
+        "one_to_five",
+        "six_to_ten",
+        "eleven_plus",
+      ]),
+    },
+  },
+  member_wishlist_viewed: {
+    properties: {
+      view_scope: stringEnum(["own", "friend"]),
+      wishlist_state: stringEnum(["populated", "empty"]),
+      item_count_bucket: stringEnum([
+        "zero",
+        "one_to_five",
+        "six_to_ten",
+        "eleven_plus",
+      ]),
+      gifting_mode: stringEnum([
+        "secret_draw",
+        "gift_everyone",
+        "wishlist_only",
+      ]),
+    },
+  },
+  item_copied: {
+    properties: {
+      copy_outcome: stringEnum(["created", "already_copied"]),
+    },
+  },
   group_activated: {
     properties: {
       gifting_mode: stringEnum([
@@ -336,6 +368,22 @@ export const EVENT_DEFINITIONS = {
         "1_to_3_days",
         "4_to_7_days",
         "over_7_days",
+      ]),
+    },
+  },
+  group_activity_viewed: {
+    properties: {
+      scope: stringEnum(["group"]),
+      entry_count_bucket: stringEnum([
+        "zero",
+        "one_to_five",
+        "six_to_twenty",
+        "twenty_one_plus",
+      ]),
+      gifting_mode: stringEnum([
+        "secret_draw",
+        "gift_everyone",
+        "wishlist_only",
       ]),
     },
   },

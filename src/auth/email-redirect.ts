@@ -2,8 +2,8 @@
  * Trusted, environment-specific destinations for the emailed sign-in link
  * (004c) — the code's mirror of the Supabase Auth `uri_allow_list`
  * configuration recorded in docs/ops/resend-auth-delivery.md: the local
- * development and production-build test origins, and the staging service
- * origin.
+ * development and production-build test origins, the staging service
+ * origins, and the canonical production origin.
  *
  * The request's own origin may only SELECT an allowlisted entry; the
  * returned URL is built entirely from these server-side constants. No
@@ -13,12 +13,17 @@
 
 /** Exact `emailRedirectTo` per trusted origin, keyed by that same origin. */
 const EMAIL_REDIRECT_TARGETS: Readonly<Record<string, string>> = {
+  // Canonical production domain; also allow this exact callback in Supabase.
+  "https://getmethis.fun": "https://getmethis.fun/auth/confirm",
   // Local development (pnpm dev).
   "http://localhost:3000": "http://localhost:3000/auth/confirm",
   "http://127.0.0.1:3000": "http://127.0.0.1:3000/auth/confirm",
   // The production-build end-to-end server (playwright.config.ts, port 3100).
   "http://localhost:3100": "http://localhost:3100/auth/confirm",
   "http://127.0.0.1:3100": "http://127.0.0.1:3100/auth/confirm",
+  // Isolated local verification while the review server stays on 3100.
+  "http://localhost:3200": "http://localhost:3200/auth/confirm",
+  "http://127.0.0.1:3200": "http://127.0.0.1:3200/auth/confirm",
   // Staging service; this origin backs the provider's `uri_allow_list`.
   "https://get-me-this-staging.up.railway.app":
     "https://get-me-this-staging.up.railway.app/auth/confirm",

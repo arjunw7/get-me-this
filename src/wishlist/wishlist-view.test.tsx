@@ -1,14 +1,21 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import type { OwnWishlist } from "./data";
+vi.mock("server-only", () => ({}));
+
 import {
+  type OwnWishlistView,
   type WishlistItemRow,
-  type WishlistItemSnapshot,
   toWishlistItemSnapshot,
+  toItemView,
 } from "./display";
+import { VIBE_OPTIONS, vibeClasses } from "@/src/profile/vibe";
 import { WishlistView } from "./wishlist-view";
+
+const reorderAction = async () => ({ status: "recovery" as const });
+const refreshAction = async () => ({ status: "recovery" as const });
+const deleteAction = async () => ({ status: "unavailable" as const });
 
 /**
  * The wishlist presentation's state selection (005b criterion 13),
@@ -28,31 +35,48 @@ function fixtureRow(overrides: Partial<WishlistItemRow> = {}): WishlistItemRow {
     note: "The matte one, not the glossy one.",
     desire_level: "really_want",
     sort_position: 1,
-    original_amount_minor: 249900,
+    original_amount_minor: "249900",
     original_currency: "INR",
+    converted_amount_minor: null,
+    converted_currency: null,
+    conversion_rate_source: null,
+    conversion_rate_at: null,
     created_at: "2026-09-30T00:00:00.000Z",
     updated_at: "2026-09-30T00:00:00.000Z",
     ...overrides,
   };
 }
 
-function snapshot(row: WishlistItemRow): WishlistItemSnapshot {
-  // The view consumes mapped snapshots; the mapper is pinned in
-  // display.test.ts. The cast mirrors data.ts's trusted-database shape.
-  return toWishlistItemSnapshot(row);
+// The view consumes client-safe item views (005f): the server resolves
+// image sources and strips raw snapshot paths before anything crosses into
+// a client component.
+function snapshot(row: WishlistItemRow) {
+  return toItemView(toWishlistItemSnapshot(row), null);
 }
 
-const EMPTY_WISHLIST: OwnWishlist = { wishlistId: "w-1", items: [] };
+const EMPTY_WISHLIST: OwnWishlistView = { wishlistId: "w-1", items: [] };
 
-function viewProps(wishlist: OwnWishlist | null) {
+function viewProps(wishlist: OwnWishlistView | null) {
   return {
     displayName: "Ada",
     tasteLine: "currently in my tiny-luxuries era",
     wishlist,
+    reorderAction,
+    refreshAction,
+    deleteAction,
   };
 }
 
 describe("WishlistView state selection", () => {
+  it.each(VIBE_OPTIONS)("renders the saved $label Vibe", ({ value, label }) => {
+    const { container } = render(
+      <WishlistView {...viewProps(EMPTY_WISHLIST)} vibe={value} />,
+    );
+    expect(container.querySelector(`[data-vibe="${value}"]`)).toHaveClass(
+      ...vibeClasses(value).split(" "),
+    );
+    expect(screen.getByText(new RegExp(`${label} vibe`))).toBeVisible();
+  });
   it("renders the V18 empty composition for zero items", () => {
     render(<WishlistView {...viewProps(EMPTY_WISHLIST)} />);
 
@@ -60,10 +84,16 @@ describe("WishlistView state selection", () => {
       screen.getByRole("heading", { name: "Very minimalist of you." }),
     ).toBeVisible();
     expect(
-      screen.getByText(/Add the first thing you’d secretly love to unwrap/),
+      screen.getByText(
+        "Add the first thing you'd secretly love to unwrap. A candle, a camera, the hoodie you keep looking at.",
+      ),
     ).toBeVisible();
-    // The profile header shows the display name, taste line, and "0 things".
-    expect(screen.getByRole("heading", { name: "Ada" })).toBeVisible();
+    expect(
+      screen.queryByText(/Your friends will take it from there/),
+    ).toBeNull();
+    // The profile region is named for the owner; viewport-specific heading
+    // visibility is checked by the real-browser geometry suite.
+    expect(screen.getByRole("region", { name: "Ada" })).toBeVisible();
     expect(screen.getByText("currently in my tiny-luxuries era")).toBeVisible();
     expect(screen.getByText("0 things")).toBeVisible();
   });
@@ -95,7 +125,7 @@ describe("WishlistView state selection", () => {
   });
 
   it("renders the populated view from saved item snapshots in read order", () => {
-    const wishlist: OwnWishlist = {
+    const wishlist: OwnWishlistView = {
       wishlistId: "w-1",
       items: [
         snapshot(fixtureRow()),
@@ -108,7 +138,7 @@ describe("WishlistView state selection", () => {
             note: null,
             desire_level: "would_love",
             sort_position: 2,
-            original_amount_minor: 132000,
+            original_amount_minor: "132000",
             original_currency: "JPY",
           }),
         ),
@@ -117,6 +147,10 @@ describe("WishlistView state selection", () => {
     render(<WishlistView {...viewProps(wishlist)} />);
 
     expect(screen.getByText("2 things")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Add an item" })).toHaveAttribute(
+      "href",
+      "/wishlist/items/new",
+    );
     const cards = screen.getAllByRole("article");
     expect(cards).toHaveLength(2);
     // Pinned read order (sort_position ASC, id ASC — preserved by data.ts).
@@ -127,6 +161,22 @@ describe("WishlistView state selection", () => {
       "Ceramic pour-over coffee set",
       "The Overstory paperback",
     ]);
+    expect(screen.getByRole("button", { name: "Reorder" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("renders only closed success-marker copy", () => {
+    const wishlist: OwnWishlistView = { wishlistId: "w-1", items: [] };
+    const { rerender } = render(
+      <WishlistView {...viewProps(wishlist)} notice="added" />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Item added to your wishlist.",
+    );
+    rerender(<WishlistView {...viewProps(wishlist)} notice={null} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("renders the designed error state for the missing-wishlist invariant violation, never the empty state", () => {
