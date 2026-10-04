@@ -147,10 +147,10 @@ export function LandingPage({
         <section
           id="occasions"
           aria-labelledby="occasions-title"
-          className="mx-auto max-w-6xl px-5 pt-20 pb-30 sm:px-8"
+          className="border-y-2 border-outline-strong"
         >
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr] lg:items-center">
-            <div>
+          <div className="mx-auto grid max-w-6xl gap-10 px-5 pt-20 pb-30 sm:px-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+            <div className="lg:order-2">
               <h2
                 id="occasions-title"
                 className="font-display text-4xl leading-[1.02] font-extrabold tracking-tight sm:text-5xl"
@@ -162,7 +162,7 @@ export function LandingPage({
                 Eid, Diwali or someone’s chaotic housewarming.
               </p>
             </div>
-            <ul className="flex flex-wrap gap-3">
+            <ul className="flex flex-wrap gap-3 lg:order-1">
               {occasions.map((occasion, index) => (
                 <li
                   key={occasion.label}
@@ -187,7 +187,7 @@ export function LandingPage({
 
         <section
           aria-labelledby="questions-title"
-          className="border-t-2 border-outline-strong bg-surface-raised"
+          className="-mt-0.5 border-y-2 border-outline-strong bg-surface-raised"
         >
           <div className="mx-auto grid max-w-6xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
             <div>

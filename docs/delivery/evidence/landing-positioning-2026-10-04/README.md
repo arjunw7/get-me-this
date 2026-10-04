@@ -12,7 +12,7 @@ The user approved the marketing review after new visitors could not understand h
 - [x] Make the secondary hero action useful: **How it works** scrolls to `#how` at desktop and mobile sizes. The removed interactive example is not moved elsewhere; its unused component and unit tests are deleted.
 - [x] Keep public-sharing claims truthful. The original hero's “Reserved secretly” sticker is omitted because public wishlist links never expose reservations. This is the only change inside the restored hero illustration; its composition and remaining content stay intact.
 - [x] Introduce groups as optional and use existing individual wishlists. Restore the original Santa Party member/product illustration, including its private reservation badges, budget states and explicit explanation that Kabir cannot see reservations on his own list. The three current benefits use the original numbered tomato markers (1, 2, 3), as requested. The old universal “No double gifts” headline is not restored.
-- [x] Restore the original **Any excuse to gift.** events section with its colorful occasion tiles between groups and FAQ. Remove the condensed “Birthdays · Diwali · Eid · Secret Santa · Just because” line beneath groups. Preserve the original section geometry, colors and content.
+- [x] Restore the original **Any excuse to gift.** events section with its colorful occasion tiles between groups and FAQ. Remove the condensed “Birthdays · Diwali · Eid · Secret Santa · Just because” line beneath groups. Keep the original colors and content. The latest user-approved refinement puts occasion cards on the left and text on the right at desktop widths, with full-width top/bottom section borders on both occasions and FAQ. Mobile keeps the introductory text above the cards.
 - [x] Explain public-link visibility, sign-in requirements for reactions/groups and external purchases in accessible disclosure questions.
 - [x] Preserve authentication intent, session-aware navigation and logout confirmation. No schema, permissions, protected-app, dependency or production-resource changes.
 
@@ -30,18 +30,21 @@ Route `/`, anonymous session, fixed demo content, no overlays, desktop **1440×1
 - [Restored group illustration — mobile](group-mobile.png)
 - [Restored occasions — desktop](occasions-desktop.png)
 - [Restored occasions — mobile](occasions-mobile.png)
+- [FAQ section borders — desktop](faq-desktop.png)
+- [FAQ section borders — mobile](faq-mobile.png)
 
-`collage-before-*` records the immediately preceding compact interactive design. `refinement-before-*`, `example-review-desktop.png` and `friend-view-*` preserve earlier review evidence only; those interactions are no longer shipped.
+Intermediate interactive-demo screenshots have been removed from the final evidence tree. The original before captures and current after/section captures remain; superseded iterations are recoverable in Git history.
 
 These are review evidence, **not approved replacement golden screenshots**. No baseline files or manifest were changed. The landing still differs from the old group-first goldens, so a separate explicit baseline approval is required after human review.
 
 ## Final integrated verification
 
-Final screenshots use source commit **647c63b**, which includes the approved landing changes, integrated CI fixes and brand/favicon/social assets. The coordinating agent built and served this branch on3300 with the actual local Supabase configuration. The server was not stopped or rebuilt during evidence collection.
+Final screenshots use the integrated landing branch based on **ad2dfd7**, plus the border/column refinements committed with this evidence. It includes the approved landing changes, integrated CI fixes and brand/favicon/social assets. The coordinating agent built and served this branch on3300 with the actual local Supabase configuration. The server was not stopped or rebuilt during evidence collection.
 
-- Combined `pnpm verify` passed formatting, lint, type-check, **154 test files /1,512 unit tests**, and production build (run by the coordinating agent).
+- Combined `pnpm verify` passed formatting, lint, type-check, **154 test files /1,512 unit tests**, and production build (run by the coordinating agent before the final styling-only refinement). The latest border/column build also passed.
 - Focused final landing/browser accessibility run: **23 passed, 1 intentional mobile-navigation skip**. The two viewport variants of the test requiring an unconfigured auth provider were explicitly excluded with `--grep-invert`, because this integrated server has Supabase configured. That failure-recovery scenario passed earlier on the isolated unconfigured build; no production behavior or test files were altered to accommodate this run.
 - Independent rendered-page checks at both sizes confirmed markers **1,2,3**, three original hero product images, no hero reservation sticker, original **Santa Party 🎉** group illustration, seven occasion tiles, occasions before FAQ, and absence of the condensed occasion line. No horizontal overflow:1440/1440 desktop and390/390 mobile.
+- Final border/column checks passed on the latest running build: occasions and FAQ each span the full viewport (1440px desktop /390px mobile), each has2px top and bottom borders, and their shared edge overlaps by2px to remain a single line. Cards are left of text on desktop; text precedes cards vertically on mobile. Screenshots were visually inspected; no broad test rerun was needed for this styling-only refinement.
 - Anonymous page metadata renders `/assets/brand/share-banner-v2.png` for both Open Graph and Twitter images. Favicon, PNG icon and Apple icon links are present. Asset correctness was checked separately in the integrated brand work.
 - Existing golden files are untouched. The last comparison before restoring the occasion section reported two expected landing differences from the old group-first design. New final screenshots require explicit review and baseline approval; they were not adopted automatically.
 - This public-only revision does not mutate data. Database suites were handled separately by the CI-fix work.
@@ -54,4 +57,4 @@ No migration is required. Reverting the landing commits restores the previous pa
 
 ## Occasion-section restoration
 
-The final follow-up restores the original V18 occasion section immediately before the FAQ, as explicitly requested. It reuses the original seven fixed tiles, semantic colors, rotation rhythm, layout and copy. The condensed occasion line is removed. Focused formatting and11landing unit checks passed on this change. The coordinating agent subsequently verified and built the integrated branch; final screenshots now show this restored section. No server was started or stopped during the screenshot follow-up.
+The final follow-up restores the original V18 occasion section immediately before the FAQ, as explicitly requested. It reuses the original seven fixed tiles, semantic colors, rotation rhythm and copy. A later explicit refinement reverses the desktop columns (cards left, text right) and adds full-width top/bottom borders to occasions and FAQ. Their shared separator overlaps by one border width to avoid a doubled line. The condensed occasion line is removed. Focused formatting and11landing unit checks passed on this change. The coordinating agent subsequently verified and built the integrated branch; final screenshots now show this restored section. No server was started or stopped during the screenshot follow-up.
