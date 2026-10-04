@@ -37,13 +37,16 @@
     "db:status": "supabase status",
     "db:reset": "supabase db reset --local",
     "db:seed": "bash scripts/db-seed.sh",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "test:db:races:reservations": "bash scripts/test-reservation-races-local.sh"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm browser:check && pnpm test && pnpm build",
+    "test:db:races:reservations": "bash scripts/test-reservation-races-local.sh",
+    "browser:check": "prettier --check --ignore-unknown workers/amazon && tsc -p workers/amazon/tsconfig.json --noEmit",
+    "browser:build": "tsc -p workers/amazon/tsconfig.json"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.117.2",
     "next": "16.3.6",
+    "playwright-core": "1.63.0",
     "posthog-js": "1.434.15",
     "posthog-node": "5.54.1",
     "react": "19.3.0",

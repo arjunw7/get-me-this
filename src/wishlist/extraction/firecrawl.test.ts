@@ -20,7 +20,7 @@ function fixture(value: unknown = product, statusCode = 200) {
     data: {
       product: value,
       metadata: { statusCode, sourceURL: source },
-      markdown: "MRP ₹1,299.50",
+      markdown: "Price ₹1,299.50\nMRP ₹1,500",
     },
   };
 }
@@ -84,6 +84,26 @@ describe("Firecrawl product import", () => {
     expect(result.originalAmountMinor).toBeUndefined();
     expect(result.originalCurrency).toBeUndefined();
   });
+  it.each([
+    "MRP: ₹1,299.50\nSale price ₹999",
+    "Price ₹999\n~~₹1,299.50~~",
+    "Original price INR 1299.50\nCurrent price INR 999",
+    "INR 1299.50 (MRP)\nINR 999 Sale price",
+    "M.R.P.:\nINR ₹1,299.50\nPrice ₹999",
+  ])(
+    "does not confirm native money using only list-price evidence: %s",
+    async (markdown) => {
+      const body = fixture();
+      body.data.markdown = markdown;
+      const result = await extractProductLink(source, options(body));
+      expect(result.title).toBe("Blue cup");
+      expect(result.candidateImageUrls).toEqual([
+        "https://cdn.example/cup.jpg",
+      ]);
+      expect(result.originalAmountMinor).toBeUndefined();
+      expect(result.originalCurrency).toBeUndefined();
+    },
+  );
   it("omits a price without matching visible currency and amount evidence", async () => {
     const body = fixture();
     body.data.markdown = "# Blue cup\nSubscribe for offers";

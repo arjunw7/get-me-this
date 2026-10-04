@@ -1,163 +1,80 @@
 import "server-only";
+import { chromium, type Browser } from "playwright-core";
 import { ExtractionError } from "./errors";
-import { readProviderJson, type ProviderOptions } from "./firecrawl";
+import { type ProviderOptions } from "./firecrawl";
 import { ExtractionLimiter } from "./limiter";
-import { decimalToMinorUnits } from "./money";
-import { validateExtractionResult, type ExtractionResult } from "./result";
-import { destinationHostname, parseDestinationUrl } from "./url-policy";
 import { resolvePinnedAddress } from "./transport";
-
-const API = "https://api.firecrawl.dev/v2/interact";
-const hosts = new Set([
-  "amazon.in",
-  "amazon.com",
-  "amazon.co.uk",
-  "amazon.de",
-  "amazon.fr",
-  "amazon.it",
-  "amazon.es",
-  "amazon.ca",
-  "amazon.com.au",
-  "amazon.co.jp",
-  "amazon.com.br",
-  "amazon.com.mx",
-  "amazon.ae",
-  "amazon.sa",
-  "amazon.sg",
-  "amazon.nl",
-  "amazon.se",
-  "amazon.pl",
-  "amazon.com.tr",
-  "amazon.com.be",
-]);
-const starts = new ExtractionLimiter({ processRate: 2, processConcurrency: 2 });
-function admitBrowser(): boolean {
-  const result = starts.acquire("amazon");
-  if (!result.ok) return false;
-  result.permit.release();
-  return true;
-}
-function asin(url: URL): string | null {
-  return (
-    /\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:\/|$)/iu
-      .exec(url.pathname)?.[1]
-      ?.toUpperCase() ?? null
-  );
-}
-export function isAmazonProductUrl(raw: string): boolean {
-  try {
-    const url = parseDestinationUrl(raw);
-    return hosts.has(url.hostname.replace(/^www\./u, "")) && asin(url) !== null;
-  } catch {
-    return false;
-  }
-}
-
-/** Static read-only DOM program; the URL is a JSON string, never executable input. */
-export function amazonBrowserCode(source: string): string {
-  return `await page.setViewportSize({width:1440,height:1000});
-await page.setExtraHTTPHeaders({'Accept-Language':'en-IN,en;q=0.9'});
-const response=await page.goto(${JSON.stringify(source)},{waitUntil:'domcontentloaded',timeout:18000});
-await page.waitForTimeout(1500);
-const product=await page.evaluate(()=>{
- const text=(selector)=>document.querySelector(selector)?.textContent?.trim()||null;
- const prices=Array.from(document.querySelectorAll('#corePrice_feature_div .apex-pricetopay-value .a-offscreen, #corePriceDisplay_desktop_feature_div .apex-pricetopay-value .a-offscreen')).map(e=>e.textContent?.trim()).filter(Boolean).slice(0,8);
- const currencies=Array.from(document.querySelectorAll('script')).flatMap(e=>Array.from((e.textContent||'').matchAll(/"currencyInfo"\\s*:\\s*\\{\\s*"code"\\s*:\\s*"([A-Z]{3})"/g),m=>m[1]));
- const unique=Array.from(new Set(currencies));
- return {title:text('#productTitle'),asin:document.querySelector('input#ASIN')?.value||null,image:document.querySelector('#landingImage')?.getAttribute('src')||null,prices,currency:unique.length===1?unique[0]:null,unavailable:/currently unavailable|temporarily out of stock/i.test(text('#availability')||''),blocked:!!document.querySelector('form[action*="validateCaptcha"],input#captchacharacters')};
+import { destinationHostname, parseDestinationUrl } from "./url-policy";
+import {
+  amazonAsin,
+  amazonBrowserCode,
+  amazonProposal,
+  isAmazonProductUrl,
+} from "./amazon-product";
+export { amazonBrowserCode, isAmazonProductUrl } from "./amazon-product";
+const starts = new ExtractionLimiter({
+  processRate: 10,
+  processConcurrency: 1,
 });
-console.log(JSON.stringify({...product,status:response?.status()||0,finalUrl:page.url()}));`;
-}
-function object(value: unknown): Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-function proposal(source: URL, value: unknown): ExtractionResult {
-  const data = object(value);
-  const finalUrl =
-    typeof data.finalUrl === "string"
-      ? parseDestinationUrl(data.finalUrl)
-      : null;
-  if (
-    typeof data.status !== "number" ||
-    data.status < 200 ||
-    data.status >= 300 ||
-    data.blocked !== false ||
-    !finalUrl ||
-    finalUrl.hostname.replace(/^www\./u, "") !==
-      source.hostname.replace(/^www\./u, "") ||
-    asin(finalUrl) !== asin(source) ||
-    data.asin !== asin(source) ||
-    typeof data.title !== "string" ||
-    !data.title.trim()
-  )
-    throw new ExtractionError("extraction_failed");
-  const prices = Array.isArray(data.prices)
-    ? [
-        ...new Set(
-          data.prices
-            .filter((v): v is string => typeof v === "string")
-            .map((v) => v.trim()),
-        ),
-      ]
-    : [];
-  let money: ReturnType<typeof decimalToMinorUnits> = null;
-  if (
-    data.unavailable === false &&
-    prices.length === 1 &&
-    typeof data.currency === "string"
-  ) {
-    const match =
-      /^(₹|£|€|\$|INR|USD|CAD|AUD|GBP|EUR)\s*(\d[\d,]*(?:\.\d+)?)$/u.exec(
-        prices[0]!,
-      );
-    const symbols: Record<string, string> = {
-      "₹": "INR",
-      "£": "GBP",
-      "€": "EUR",
-    };
-    if (
-      match &&
-      (match[1] === "$"
-        ? ["USD", "CAD", "AUD", "NZD", "SGD"].includes(data.currency)
-        : (symbols[match[1]!] ?? match[1]) === data.currency)
-    )
-      money = decimalToMinorUnits(match[2]!.replaceAll(",", ""), data.currency);
-  }
-  const images: string[] = [];
-  if (typeof data.image === "string") {
-    try {
-      images.push(parseDestinationUrl(data.image).href);
-    } catch {
-      /* Manual entry can supply an image. */
+type Options = ProviderOptions & {
+  readonly workerUrl?: string;
+  readonly workerSecret?: string;
+  readonly limiter?: ExtractionLimiter;
+  readonly connect?: typeof chromium.connect;
+};
+function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(new ExtractionError("timeout"));
+    if (signal.aborted) {
+      abort();
+      return;
     }
-  }
-  const result = validateExtractionResult({
-    sourceUrl: source.href,
-    title: data.title,
-    retailer: source.hostname.replace(/^www\./u, ""),
-    candidateImageUrls: images,
-    ...(money
-      ? {
-          originalAmountMinor: money.amountMinor,
-          originalCurrency: money.currency,
-        }
-      : {}),
+    signal.addEventListener("abort", abort, { once: true });
+    promise
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener("abort", abort));
   });
-  if (!result.title) throw new ExtractionError("extraction_failed");
-  return result;
 }
-
-export async function extractAmazonProduct(
-  raw: string,
-  options: ProviderOptions & { readonly admit?: () => boolean } = {},
-): Promise<ExtractionResult> {
+async function close(browser: Browser): Promise<void> {
+  await Promise.race([
+    browser.close().catch(() => undefined),
+    new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, 3000);
+      timer.unref();
+    }),
+  ]);
+}
+export async function extractAmazonProduct(raw: string, options: Options = {}) {
   const source = parseDestinationUrl(raw);
   if (!isAmazonProductUrl(source.href))
     throw new ExtractionError("unsupported_content");
-  const key = options.apiKey ?? process.env.FIRECRAWL_API_KEY;
-  if (!key?.trim()) throw new ExtractionError("unavailable");
+  const workerUrl = options.workerUrl ?? process.env.AMAZON_BROWSER_WS_URL;
+  const secret = options.workerSecret ?? process.env.AMAZON_BROWSER_SECRET;
+  if (!workerUrl || !secret || secret.length < 32)
+    throw new ExtractionError("unavailable");
+  try {
+    const endpoint = new URL(workerUrl);
+    if (
+      !["ws:", "wss:"].includes(endpoint.protocol) ||
+      endpoint.username ||
+      endpoint.password ||
+      endpoint.hash ||
+      endpoint.search ||
+      endpoint.pathname !== "/session" ||
+      (endpoint.protocol === "ws:" &&
+        ![
+          "127.0.0.1",
+          "[::1]",
+          "localhost",
+          "browser",
+          "amazon-browser",
+        ].includes(endpoint.hostname) &&
+        !endpoint.hostname.endsWith(".railway.internal"))
+    )
+      throw new Error();
+  } catch {
+    throw new ExtractionError("unavailable");
+  }
   const remaining = Math.min(
     30000,
     (options.deadline ?? Date.now() + 30000) - Date.now(),
@@ -168,25 +85,8 @@ export async function extractAmazonProduct(
   const abort = () => controller.abort();
   options.signal?.addEventListener("abort", abort, { once: true });
   const timer = setTimeout(abort, remaining);
-  const transport = options.fetch ?? fetch;
-  let session: string | undefined;
-  const request = async (path: string, body: unknown, signal: AbortSignal) => {
-    const response = await transport(path, {
-      method: "POST",
-      redirect: "error",
-      headers: {
-        authorization: `Bearer ${key}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal,
-    });
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new ExtractionError("unavailable");
-    }
-    return object(await readProviderJson(response, signal));
-  };
+  let browser: Browser | undefined;
+  let permit: ReturnType<typeof starts.acquire> | undefined;
   try {
     await resolvePinnedAddress(
       destinationHostname(source),
@@ -194,34 +94,64 @@ export async function extractAmazonProduct(
       controller.signal,
       Date.now() + remaining,
     );
-    if (!(options.admit ?? admitBrowser)())
-      throw new ExtractionError("unavailable");
-    const created = await request(
-      API,
-      { ttl: 30, activityTtl: 10, streamWebView: false },
+    permit = (options.limiter ?? starts).acquire("amazon");
+    if (!permit.ok) throw new ExtractionError("unavailable");
+    const connecting = (options.connect ?? chromium.connect.bind(chromium))(
+      workerUrl,
+      {
+        timeout: Math.min(5000, remaining),
+        headers: { authorization: `Bearer ${secret}` },
+      },
+    );
+    void connecting.then(
+      async (value) => {
+        if (controller.signal.aborted) await close(value);
+      },
+      () => undefined,
+    );
+    browser = await raceAbort(connecting, controller.signal);
+    const context = await raceAbort(
+      browser.newContext({
+        locale: "en-IN",
+        viewport: { width: 1440, height: 1000 },
+        serviceWorkers: "block",
+        acceptDownloads: false,
+        ignoreHTTPSErrors: false,
+      }),
       controller.signal,
     );
-    if (
-      created.success !== true ||
-      typeof created.id !== "string" ||
-      !/^[a-zA-Z0-9_-]{1,128}$/u.test(created.id)
-    )
-      throw new ExtractionError("extraction_failed");
-    session = created.id;
-    const executed = await request(
-      `${API}/${session}/execute`,
-      { code: amazonBrowserCode(source.href), language: "node", timeout: 23 },
+    let requests = 0;
+    await context.route("**/*", async (route) => {
+      try {
+        parseDestinationUrl(route.request().url());
+        if (++requests > 120) throw new Error();
+        await route.continue();
+      } catch {
+        await route.abort();
+      }
+    });
+    await context.routeWebSocket("**/*", (socket) => socket.close());
+    const page = await raceAbort(context.newPage(), controller.signal);
+    // Only a fixed retailer host and selected ASIN go to the browser; no
+    // pasted query, credentials, fragment or executable input is forwarded.
+    const canonical = `https://www.${source.hostname.replace(/^www\./u, "")}/dp/${amazonAsin(source)}?th=1&psc=1`;
+    let output: unknown;
+    const program = new Function(
+      "page",
+      "console",
+      `return (async()=>{${amazonBrowserCode(canonical)}})()`,
+    );
+    await raceAbort(
+      program(page, {
+        log: (text: unknown) => {
+          if (typeof text !== "string" || Buffer.byteLength(text) > 16384)
+            throw new ExtractionError("too_large");
+          output = JSON.parse(text) as unknown;
+        },
+      }) as Promise<void>,
       controller.signal,
     );
-    if (
-      executed.success !== true ||
-      executed.exitCode !== 0 ||
-      executed.killed === true ||
-      typeof executed.stdout !== "string"
-    )
-      throw new ExtractionError("extraction_failed");
-    if (controller.signal.aborted) throw new ExtractionError("timeout");
-    return proposal(source, JSON.parse(executed.stdout.trim()) as unknown);
+    return amazonProposal(source, output);
   } catch (error) {
     if (controller.signal.aborted) throw new ExtractionError("timeout");
     if (error instanceof ExtractionError) throw error;
@@ -229,19 +159,7 @@ export async function extractAmazonProduct(
   } finally {
     clearTimeout(timer);
     options.signal?.removeEventListener("abort", abort);
-    if (session) {
-      // Cleanup must run even after cancellation; provider TTL bounds orphan lifetime.
-      try {
-        const response = await transport(`${API}/${session}`, {
-          method: "DELETE",
-          redirect: "error",
-          headers: { authorization: `Bearer ${key}` },
-          signal: AbortSignal.timeout(3000),
-        });
-        await response.body?.cancel();
-      } catch {
-        /* No provider errors or session URLs enter logs. */
-      }
-    }
+    if (browser) await close(browser);
+    if (permit?.ok) permit.permit.release();
   }
 }

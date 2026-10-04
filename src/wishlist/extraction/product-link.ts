@@ -1,5 +1,6 @@
 import "server-only";
-import { extractAmazonProduct, isAmazonProductUrl } from "./amazon-browser";
+import { extractAmazonProduct } from "./amazon-browser";
+import { isAmazonUrl } from "./amazon-product";
 import {
   extractProductLink as scrapeProduct,
   type ProviderOptions,
@@ -8,7 +9,7 @@ export function extractProductLink(
   sourceUrl: string,
   options: ProviderOptions = {},
 ) {
-  return isAmazonProductUrl(sourceUrl)
+  return isAmazonUrl(sourceUrl)
     ? extractAmazonProduct(sourceUrl, options)
     : scrapeProduct(sourceUrl, options);
 }

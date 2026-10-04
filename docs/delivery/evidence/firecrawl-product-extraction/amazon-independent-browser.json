@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-04",
+  "runtime": "Node 24.21 / Playwright 1.63 / sandboxed Linux ARM64 Chromium",
+  "topology": "App client on isolated and outbound networks; browser internal-only; credential-free public-peer-pinned CONNECT broker",
+  "results": [
+    {
+      "asin": "B0DGTSRX3R",
+      "success": true,
+      "durationMs": 6972,
+      "result": {
+        "sourceUrl": "https://www.amazon.in/dp/B0DGTSRX3R",
+        "title": "boAt Rockerz 480, RGB LEDs,6 Light Modes, 40mm Drivers,Beast Mode, 60H Battery, ENx Tech, App Support, Bluetooth Headphones, Wireless Over Ear Headphone with Mic (Black Sabre)",
+        "retailer": "amazon.in",
+        "candidateImageUrls": [
+          "https://m.media-amazon.com/images/I/41VFJcUHTvL._SY300_SX300_QL70_FMwebp_.jpg"
+        ]
+      }
+    },
+    {
+      "asin": "B09MTQ23X4",
+      "success": true,
+      "durationMs": 5778,
+      "result": {
+        "sourceUrl": "https://www.amazon.in/dp/B09MTQ23X4",
+        "title": "boAt Nirvana 751 ANC, 65Hrs Battery, Hybrid Active Noise Cancellation(~33dB), Fast Charge, Ambient Mode,Integrated Controls,Carry Pouch, Bluetooth Headphones, Wireless Headphone with Mic (Bold Blue)",
+        "retailer": "amazon.in",
+        "originalAmountMinor": "279900",
+        "originalCurrency": "INR",
+        "candidateImageUrls": [
+          "https://m.media-amazon.com/images/I/311Lzi5zIsL._SY300_SX300_QL70_FMwebp_.jpg"
+        ]
+      }
+    },
+    {
+      "asin": "B07PR1CL3S",
+      "success": true,
+      "durationMs": 5592,
+      "result": {
+        "sourceUrl": "https://www.amazon.in/dp/B07PR1CL3S",
+        "title": "boAt Rockerz 450/450R, 15 HRS Battery, 40mm Drivers, Padded Ear Cushions, Integrated Controls, Dual Modes, Bluetooth Headphones, Wireless Headphone with Mic (Luscious Black)",
+        "retailer": "amazon.in",
+        "candidateImageUrls": [
+          "https://m.media-amazon.com/images/I/41212WwiTgL._SY300_SX300_QL70_FMwebp_.jpg"
+        ]
+      }
+    }
+  ],
+  "lifecycleChecks": {
+    "rejectsInvalidAuth": true,
+    "cancellation": true,
+    "nextSessionAfterCancellation": true
+  },
+  "effectiveCapabilities": "none",
+  "limitations": [
+    "Three Amazon India pages only; production IP not tested",
+    "Images discovered but not saved through production storage",
+    "Offers depend on session/location/variant; uncertain prices stay editable"
+  ]
+}

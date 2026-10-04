@@ -1,0 +1,42 @@
+services:
+  browser:
+    build:
+      context: ../..
+      dockerfile: workers/amazon/Dockerfile
+    environment:
+      AMAZON_BROWSER_SECRET: ${AMAZON_BROWSER_SECRET:?Set a dedicated random 32-character-or-longer server-only secret}
+      BROWSER_EGRESS_PROXY: http://egress:8080
+    networks: [isolated]
+    init: true
+    restart: unless-stopped
+    mem_limit: 768m
+    cpus: 1
+    pids_limit: 256
+    shm_size: 256m
+    cap_drop: [ALL]
+    cap_add: [SYS_CHROOT]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./seccomp-profile.json
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+  egress:
+    build:
+      context: ../..
+      dockerfile: workers/amazon/Dockerfile
+    command:
+      [node, --conditions=react-server, dist/amazon/workers/amazon/egress.js]
+    environment:
+      PORT: "8080"
+    networks: [isolated, outbound]
+    init: true
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+networks:
+  isolated:
+    internal: true
+  outbound: {}

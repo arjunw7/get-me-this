@@ -6,11 +6,12 @@ Architecture: [Product-link extraction boundary](../../../architecture/product-l
 
 ## Acceptance evidence
 
-1. **Provider routing:** `product-link.ts` selects the managed browser for
-   recognized Amazon ASIN URLs; other URLs use `firecrawl.ts`. Fixed API URLs,
-   server-only credentials and no new SDK/dependency. Adapter tests assert the
-   HTTP sequence, request contract and no retries.
-2. **Conservative product fields:** 23 scraper tests and 17 Amazon tests cover
+1. **Provider routing:** `product-link.ts` selects independent Playwright for
+   recognized Amazon ASIN URLs; other URLs use `firecrawl.ts`. A dedicated server-only worker key protects the browser; other-store API
+   requests remain fixed. `playwright-core` is a production remote client; the
+   Chromium binary is isolated in the separate worker image. Unsupported Amazon
+   paths do not fall through to Firecrawl.
+2. **Conservative product fields:** 28 scraper tests, 17 Amazon tests and 10 egress tests cover
    original source, exact minor units, safe images, explicit product mismatches,
    currency conflicts, ambiguous prices, CAPTCHA/non-2xx pages and partial
    proposals. A DOM fixture proves MRP/recommendations and blank price nodes
@@ -21,15 +22,17 @@ Architecture: [Product-link extraction boundary](../../../architecture/product-l
    foreign-owner rejection, explicit save, persistence, replay conflicts,
    preserved input/manual fallback and snapshot-first images. No schema/RLS or
    selected-image transport change.
-4. **Resource and secret handling:** missing keys/payment errors fail safely;
-   no API retry. Browser starts are bounded to two/minute per process, overall
-   admission to ten/minute/two concurrent. Cancellation still executes deletion
-   with a separate bounded signal; malformed session IDs cannot change API
-   paths. Thirty-second TTL bounds provider orphan lifetime. Provider responses
-   have a 256-KiB decoded ceiling. No credentials/session-viewer URLs are in
-   committed evidence.
+4. **Resource and secret handling:** missing configuration fails safely; no
+   retries. Independent browser admission is ten/minute, one concurrent per
+   app process and one active worker session. Whole-browser disconnect cleanup
+   and a 28-second watchdog bound lifetime. Chromium is non-root and sandboxed,
+   with zero effective capabilities; only SYS_CHROOT is in its bounding set.
+   Browser network is internal-only; the credential-free broker pins/checks
+   public peers and caps tunnels, bytes and deadlines. Ten automated broker
+   tests cover private/mixed DNS, invalid authorities and actual-peer mismatch.
+   No credentials or browser endpoint identifiers are committed.
 5. **Verification:** `VITEST_MAX_WORKERS=2 pnpm verify` passed on Node 24.21.0:
-   166 files, 1,638 tests, formatting, lint, typecheck and production build.
+   167 files, 1,653 tests, formatting, lint, typecheck and production build.
    Two existing unrelated lint warnings remain. Generated Playwright HTML/trace diagnostics were archived outside the source tree before final verification: the existing broad ESLint command otherwise traverses bundled third-party trace assets. The first parallel run hit
    three existing HTML/image subprocess deadlines; the complete two-worker
    rerun passed without changing any safety deadline. Local database suites
@@ -63,14 +66,22 @@ end-to-end claim.
 
 ## Live provider evidence and limits
 
-[Sanitized managed-browser output](amazon-managed-browser.json) records the
-exact committed read-only DOM program executed through the authenticated
-Firecrawl connector on 4 October 2026. B0DGTSRX3R returned HTTP 200, the matching
-ASIN/title/main image and explicit INR 1,699. B07PR1CL3S returned the matching
-product/image and `unavailable: true`, with no price. All sessions were stopped.
-The standalone HTTP lifecycle itself is covered by injected-fetch unit tests;
-a real application preview with its server-only key is still required before
-rollout. No production import or production key configuration was performed.
+[Independent Linux-worker results](amazon-independent-browser.json) record the
+actual production adapter connected to sandboxed Chromium through the isolated
+network and pinned CONNECT broker. Three Amazon India ASINs returned matching
+product titles/images; B09MTQ23X4 exposed INR 2,799, while the other two
+prices stayed blank because no current offer was confirmed. The client ran in a separate app-side container; the credential-free
+broker never received the worker secret. Invalid credentials returned 401,
+caller cancellation returned timeout, and a subsequent session succeeded after
+cleanup. Browser public-DNS resolution was denied by the internal-only network.
+This validates local runtime and network topology, not production-IP behavior
+or image storage. The initial integration caught an unbound Playwright method;
+the adapter now preserves its receiver and a regression test covers it.
+
+[Earlier managed-browser output](amazon-managed-browser.json) is historical
+comparison evidence only; the final Amazon adapter does not call Firecrawl.
+That earlier run exposed INR 1,699 for B0DGTSRX3R. The different Linux session
+had no confirmed price for that ASIN, illustrating location/session-dependent offers.
 
 A separate 60-link native scrape benchmark had 24 core-field, 14 partial and
 22 failed responses; product/currency mistakes make raw completeness an
@@ -80,8 +91,7 @@ Nykaa ID mismatch and domestic Nicobar USD/rupee conflict. These are captured
 responses, not 60 new live integration requests or proof of current accuracy.
 
 The local unsigned Chromium ten-link Amazon trial read seven matching pages;
-two had current prices, five lacked prices and three returned 404. Managed
-browser validation covers two Amazon India pages only. Images were discovered;
+two had current prices, five lacked prices and three returned 404. The final isolated worker validation covers three Amazon India pages only. Images were discovered;
 those real images were not saved/decoded through the production storage flow.
 Other marketplaces, layout changes, location/variant-specific offers and short
 links remain coverage limitations. Universal extraction is not promised.
@@ -95,8 +105,10 @@ follow-up. No paid plan, auto-top-up or infrastructure was enabled.
 
 Draft proposal only; independent review is required before merge. The automatic [Railway preview](https://get-me-this-get-me-this-pr-87.up.railway.app/)
 returned HTTP 200 on its public landing page. No production resources were
-modified. Validate its server-only `FIRECRAWL_API_KEY` to validate the real application-to-API
-path, provider trust boundary and free-account limits. No schema migration is
+modified. Its real import path still needs server-only `FIRECRAWL_API_KEY` for other stores,
+plus a separately provisioned isolated Amazon worker, `AMAZON_BROWSER_WS_URL`
+and `AMAZON_BROWSER_SECRET`. Amazon imports safely require manual entry until
+that worker is configured. No independent production worker has been deployed. No schema migration is
 required. Revert this slice to restore the original HTML extractor/timeouts and
 admission settings. No Magic Patterns mock data/editor artifacts were added to
 the application; existing automated test fixtures remain test-only.

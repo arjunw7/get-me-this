@@ -5,49 +5,46 @@ Node.js POST boundary. It accepts one bounded JSON URL and returns only an
 editable metadata proposal. It does not create a wishlist item, write Storage,
 or emit analytics.
 
-## Amazon product pages (managed browser)
+## Amazon product pages (independent Playwright)
 
-Recognized `dp`/`gp/product` ASIN links on the listed Amazon marketplaces use
-Firecrawl's standalone Interact browser directly. Other links, including short
-links, use the product scraper below. Amazon's product scraper yielded no usable
-products in the ten-link benchmark; a fresh Chromium context read seven pages.
-The same read-only DOM program then succeeded in Firecrawl's managed browser,
-including the main image and INR 1,699 current price for B0DGTSRX3R.
+Amazon marketplace URLs bypass Firecrawl entirely. Recognized `dp`/`gp/product`
+ASIN links use a separately hosted, authenticated Playwright worker; unsupported
+Amazon paths fail into editable manual entry without spending Firecrawl credits.
+Missing worker configuration, blocked/deleted pages and timeouts also fail safely.
+Only Amazon India has live benchmark evidence; universal extraction is not claimed.
 
-The server creates a disposable session with a 30-second TTL, ten-second idle
-TTL, no saved profile and no streamed viewer. A fixed Playwright program renders
-the URL, waits briefly and reads the product title, selected ASIN, main image,
-main product buy-price nodes and explicit page currency code. It does not read
-MRP, recommendations, apply coupons, sign in or solve CAPTCHAs. Final retailer,
-URL ASIN and selected ASIN must match the pasted product. Blocked/non-2xx pages
-fail into manual entry. Missing, unavailable, conflicting or unsupported prices
-stay empty; title and image can still be proposed. Prices are exact minor-unit
-strings. This is a snapshot of the browser's offer, not a checkout-price promise.
+The app performs public-DNS preflight, strips tracking/query input, creates a
+fresh context and runs a fixed read-only DOM program. Final host, URL ASIN and
+selected ASIN must match. The reader uses title, main image, main buy-price nodes
+and explicit currency metadata. MRP/recommendations, unavailable offers and
+conflicting prices never supply money. Original source and exact minor-unit
+prices remain editable; missing prices do not prevent title/image proposals.
 
-Creation, execution and deletion use fixed Firecrawl API endpoints; user input
-is JSON-encoded into the static program. Session identifiers are restricted to
-safe path characters. Decoded JSON uses the same 256-KiB ceiling as scraping.
-The request has a 30-second budget and attempts deletion in `finally`, using
-an independent three-second cleanup signal even after user cancellation. If
-creation returns no usable session ID or deletion fails, the provider TTL bounds
-orphan lifetime. No session viewer URLs, credentials or vendor errors are logged.
+`AMAZON_BROWSER_WS_URL` and a dedicated `AMAZON_BROWSER_SECRET` stay server-only.
+The frontend admits one authenticated browser session at a time, launches fresh
+sandboxed Chromium as a non-root user and kills the entire process on disconnect
+or its 28-second watchdog. The app has a 30-second budget and bounded cleanup;
+a late connection after cancellation is closed. Admission is ten starts/minute,
+one concurrent per app process, in addition to existing durable user controls.
+App page requests are bounded to 120, service workers/downloads/WebSockets are
+blocked, TLS verification remains enabled and output is capped at 16 KiB.
 
-The provider owns browser DNS, redirects and subrequests; the app's public-DNS
-preflight does not pin those connections. Candidate images still pass the
-existing guarded image-save pipeline. Browser starts are limited to two per
-minute per Node instance, additionally to overall extraction admission and the
-existing durable per-user budget. A multi-instance rollout needs shared account
-quota coordination before increasing capacity. Firecrawl code execution consumes
-browser credits (currently two credits per minute with a one-minute minimum);
-use a dedicated free account/key with automatic top-ups disabled. No paid plan or
-production browser infrastructure is provisioned by this change. Both browser
-execution and scraping use Firecrawl credits. Exhaustion leads to manual entry;
-there is no independently hosted Chromium fallback.
+Chromium has no direct internet route. Its only network path is the separate
+credential-free HTTPS CONNECT broker. That broker checks every DNS answer,
+dials a public numeric address and verifies the actual socket peer before
+opening a tunnel. Private/metadata/loopback destinations, non-443 ports and
+plain HTTP fail closed. DNS/connect/header deadlines, connection counts and
+byte/idle/lifetime limits bound resources. Chromium verifies retailer TLS
+end-to-end. Candidate images still use the existing guarded save pipeline.
 
-Coverage is not universal: deleted products, location-dependent offers, missing
-variants, layout changes, blockers and short-link redirects can still need edits.
-Only Amazon India was tested live; other recognized marketplace hosts use the
-same conservative reader and may return partial proposals or manual entry.
+The supplied local Docker configuration enforces this boundary. A staging or
+production host must enforce equivalent network isolation; a private service
+hostname alone does not provide it. See [worker deployment instructions](../../workers/amazon/README.md).
+The app needs access to the worker network and public DNS; the browser must not
+inherit application credentials. This requires independent review and a tested
+worker deployment before rollout. No production infrastructure is provisioned.
+Independent browsing consumes no Firecrawl credits, but hosting compute can
+still cost money. Other stores continue to use Firecrawl and its allowance.
 
 ## Primary product acquisition for other stores (Firecrawl)
 
