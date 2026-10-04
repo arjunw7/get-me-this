@@ -144,7 +144,7 @@ export function LandingPage({
         <section
           id="occasions"
           aria-labelledby="occasions-title"
-          className="border-y-2 border-outline-strong"
+          className="border-b-2 border-outline-strong"
         >
           <div className="mx-auto grid max-w-6xl gap-10 px-5 pt-20 pb-30 sm:px-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
             <div className="lg:order-2">
@@ -184,7 +184,7 @@ export function LandingPage({
 
         <section
           aria-labelledby="questions-title"
-          className="-mt-0.5 border-y-2 border-outline-strong bg-surface-raised"
+          className="-mt-0.5 border-t-2 border-outline-strong bg-surface-raised"
         >
           <div className="mx-auto grid max-w-6xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
             <div>
