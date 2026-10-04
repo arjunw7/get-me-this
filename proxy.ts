@@ -1,4 +1,5 @@
 import { canonicalHostRedirect } from "@/src/auth/canonical-redirect";
+import { mayIndexRequest } from "@/src/seo/policy";
 import { parsePublicShareToken } from "@/src/wishlist/public-share-token";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -43,11 +44,26 @@ import {
  */
 
 export async function proxy(request: NextRequest) {
+  const { pathname, search, origin } = request.nextUrl;
+  const withIndexingPolicy = (response: NextResponse) => {
+    // Next's proxy URL may use its internal listener hostname behind Railway.
+    // Check the original Host header; never trust a forwarded host or query.
+    if (
+      !mayIndexRequest(
+        request.nextUrl,
+        request.method,
+        undefined,
+        request.headers.get("host") ?? request.nextUrl.host,
+      )
+    ) {
+      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    }
+    return response;
+  };
+
   // Canonicalize before token parking, session refresh or any page/action runs.
   const canonicalRedirect = canonicalHostRedirect(request);
-  if (canonicalRedirect) return canonicalRedirect;
-
-  const { pathname, search, origin } = request.nextUrl;
+  if (canonicalRedirect) return withIndexingPolicy(canonicalRedirect);
 
   // 1. /auth/confirm with any query: discard the query (it may carry the
   // one-time token hash) before substantive rendering or analytics, with
@@ -82,7 +98,7 @@ export async function proxy(request: NextRequest) {
     }
     redirectResponse.headers.set("Cache-Control", NO_STORE);
     redirectResponse.headers.set("Referrer-Policy", NO_REFERRER);
-    return redirectResponse;
+    return withIndexingPolicy(redirectResponse);
   }
 
   // 2. Session maintenance first: a refresh rebuilds the response (the
@@ -157,7 +173,7 @@ export async function proxy(request: NextRequest) {
       // cached as a signed-in-page response.
       signedOutResponse.headers.set("Cache-Control", NO_STORE);
       signedOutResponse.headers.set("Referrer-Policy", NO_REFERRER);
-      return signedOutResponse;
+      return withIndexingPolicy(signedOutResponse);
     }
   }
 
@@ -206,7 +222,7 @@ export async function proxy(request: NextRequest) {
     response.headers.set("Referrer-Policy", NO_REFERRER);
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
-  return response;
+  return withIndexingPolicy(response);
 }
 
 export const config = {

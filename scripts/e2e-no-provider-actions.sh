@@ -13,6 +13,7 @@ export E2E_WISHLIST_CONTROL_URL=''
 export E2E_WISHLIST_CONTROL_TOKEN=''
 export E2E_ACTION_REFERENCE=1
 export E2E_NO_PROVIDER=1
+export SEO_INDEXING_ENABLED=false
 
 pnpm build
 # The public landing journey includes the explicit no-provider auth recovery
@@ -20,4 +21,5 @@ pnpm build
 pnpm exec playwright test \
   tests/e2e/wishlist-items-no-provider.spec.ts \
   tests/e2e/landing.spec.ts \
+  tests/e2e/seo.spec.ts \
   tests/visual/landing.visual.spec.ts

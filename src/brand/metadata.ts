@@ -61,6 +61,8 @@ export function createBrandMetadata(
     title: BRAND_TITLE,
     description: BRAND_DESCRIPTION,
     applicationName: "Get Me This",
+    // Only reviewed marketing routes explicitly opt into indexing.
+    robots: { index: false, follow: false },
     openGraph: {
       type: "website",
       siteName: "Get Me This",
