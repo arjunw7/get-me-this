@@ -91,6 +91,15 @@ test("responsive navigation connects real destinations and Home reflects saved i
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
+    const inlineAdd = page
+      .getByRole("main")
+      .getByRole("link", { name: "Add an item", exact: true });
+    await expect(inlineAdd).toBeVisible();
+    // Empty lists retain their contextual CTA without a duplicate floating
+    // button obscuring the empty-state heading on a narrow viewport.
+    await expect(
+      page.locator('a[href="/wishlist/items/new"]').filter({ visible: true }),
+    ).toHaveCount(page.viewportSize()!.width < 1024 ? 1 : 2);
     await seedWishlistItems(admin, ownerId, [
       {
         id: randomUUID(),
@@ -99,6 +108,20 @@ test("responsive navigation connects real destinations and Home reflects saved i
         desire_level: "would_love",
       },
     ]);
+    await page.reload();
+    const add = page
+      .getByRole("link", { name: "Add an item", exact: true })
+      .filter({ visible: true });
+    await expect(add).toHaveCount(1);
+    if (page.viewportSize()!.width < 1024) {
+      await expect(add).toHaveCSS("position", "fixed");
+      const actionBox = await add.boundingBox();
+      const navBox = await navigation.boundingBox();
+      expect(actionBox!.y + actionBox!.height).toBeLessThan(navBox!.y);
+    }
+    await add.click();
+    await expect(page).toHaveURL(/\/wishlist\/items\/new$/);
+    await page.goto("/wishlist");
     await navigation.getByRole("link", { name: "Home", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "1 item on your wishlist" }),

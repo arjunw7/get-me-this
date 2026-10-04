@@ -16,12 +16,14 @@ export function AppNavigation({
   tasteLine,
   vibe,
   brokered,
+  showMobileAdd = true,
 }: {
   email: string | null;
   displayName: string;
   tasteLine?: string | null;
   vibe?: Vibe;
   brokered: boolean;
+  showMobileAdd?: boolean;
 }) {
   const pathname = usePathname();
   const editing = pathname.startsWith("/wishlist/items/");
@@ -70,7 +72,7 @@ export function AppNavigation({
         </Link>
         <AccountMenu {...account} variant="topbar" />
       </header>
-      {!editing && (
+      {!editing && showMobileAdd && (
         <Link
           href="/wishlist/items/new"
           className="fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 inline-flex h-14 items-center gap-2 rounded-pill border-2 border-outline-strong bg-action-primary pl-4 pr-5 font-bold shadow-chunk lg:hidden"

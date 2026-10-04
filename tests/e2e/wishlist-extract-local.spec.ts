@@ -1,3 +1,4 @@
+import { selectCurrency } from "../helpers/select-currency";
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 import {
@@ -94,13 +95,7 @@ async function fillManualForm(
 ) {
   await page.getByLabel("Item name").fill(item.title);
   if (item.amount) await page.getByLabel("Price").fill(item.amount);
-  if (item.currency)
-    await page
-      .getByRole("combobox", { name: "Currency", exact: true })
-      .fill(item.currency);
-  await page
-    .getByRole("combobox", { name: "Currency", exact: true })
-    .press("Enter");
+  if (item.currency) await selectCurrency(page, item.currency);
   if (item.sourceUrl)
     await page.getByLabel("Link (optional)").fill(item.sourceUrl);
   if (item.retailer)

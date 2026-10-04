@@ -51,19 +51,19 @@ select ok(
   'baseline migration 20260927000000 is recorded as applied'
 );
 
--- 4. Exactly the thirteen reviewed application tables exist in public:
---    profiles (004a) plus wishlists and wishlist_items (005a) plus the five
---    006a group tables plus the 006b group_creation_receipts table plus the
---    007a group_item_reactions table plus the 007c group_item_reservations
---    table plus the 008b gift_checklist_entries table plus the 008c
---    group_assignments table. Any other public table means an unreviewed
---    schema change. (Deliberate, reviewed amendment of the 002d assertion
---    "no application tables exist" and of the
---    004a/005a/006a/006b/007a/008b counts; see those briefs and 007a/007c.)
+-- 4. Match names, not only a count: an unreviewed replacement must fail too.
+-- The public sharing extension adds public_wishlist_item_reactions while
+-- keeping its bearer-link state private.
 select is(
-  (select count(*)::int from pg_tables where schemaname = 'public'),
-  14,
-  'only the reviewed public tables (profiles, wishlists, wishlist_items, groups, group_members, group_invitations, group_invitation_uses, audit_events, group_creation_receipts, gift_checklist_entries, group_assignments, group_assignment_views, group_item_reactions, group_item_reservations) exist in the public schema'
+  (select array_agg(tablename::text order by tablename) from pg_tables where schemaname = 'public'),
+  array[
+    'audit_events', 'gift_checklist_entries', 'group_assignment_views',
+    'group_assignments', 'group_creation_receipts', 'group_invitation_uses',
+    'group_invitations', 'group_item_reactions', 'group_item_reservations',
+    'group_members', 'groups', 'profiles', 'public_wishlist_item_reactions',
+    'wishlist_items', 'wishlists'
+  ]::text[],
+  'exactly the reviewed public application tables exist'
 );
 
 select has_table(

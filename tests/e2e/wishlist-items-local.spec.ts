@@ -1,3 +1,4 @@
+import { selectCurrency } from "../helpers/select-currency";
 import { randomUUID } from "node:crypto";
 
 import { expect, test } from "@playwright/test";
@@ -43,12 +44,20 @@ test("manual create, exact decimal readback, owner edit, and confirmed hard dele
       .click();
     await page.getByLabel("Item name").fill("Manual e2e fixture lamp");
     await page.getByLabel("Price").fill("24.99");
-    await page
-      .getByRole("combobox", { name: "Currency", exact: true })
-      .fill("INR");
-    await page
-      .getByRole("combobox", { name: "Currency", exact: true })
-      .press("Enter");
+    // Retaining the default via keyboard must not submit this valid form.
+    const currency = page.getByRole("combobox", {
+      name: "Currency",
+      exact: true,
+    });
+    await currency.focus();
+    await currency.press("Enter");
+    await expect(page.getByRole("listbox", { name: "Currency" })).toBeVisible();
+    await currency.press("Enter");
+    await expect(page).toHaveURL(/\/wishlist\/items\/new$/);
+    await expect(
+      page.getByRole("button", { name: "Add item", exact: true }),
+    ).toBeVisible();
+    await selectCurrency(page, "INR");
     await page
       .getByLabel("Link (optional)")
       .fill("https://arj28-fixture.invalid/lamp");

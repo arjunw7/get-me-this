@@ -63,7 +63,7 @@ async function fillAndSubmitCreateForm(
   ).toBeVisible();
 
   await page.getByLabel("Group name").fill(name);
-  await page.getByLabel("Date").fill(futureIsoDate());
+  await page.getByLabel("Date", { exact: true }).fill(futureIsoDate());
   // Budget defaults to 2500 INR and the mode defaults to secret_draw; the
   // visible defaults are valid, so the form submits without touching them.
   await page.getByRole("button", { name: "Create group" }).click();
@@ -207,7 +207,7 @@ test("double submission creates exactly one group", async ({ page }) => {
 
     const groupName = "Double submission bash";
     await page.getByLabel("Group name").fill(groupName);
-    await page.getByLabel("Date").fill(futureIsoDate());
+    await page.getByLabel("Date", { exact: true }).fill(futureIsoDate());
 
     // Correctness never depends on the disabled control: dispatch two
     // genuine submissions with the same draft key and payload.
@@ -261,7 +261,7 @@ test("replaying the same draft through the UI returns the original group", async
 
     const groupName = "Replay birthday bash";
     await page.getByLabel("Group name").fill(groupName);
-    await page.getByLabel("Date").fill(futureIsoDate());
+    await page.getByLabel("Date", { exact: true }).fill(futureIsoDate());
     await page.getByRole("button", { name: "Create group" }).click();
     await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
     const firstGroupId = new URL(page.url()).pathname.split("/")[2];
@@ -308,7 +308,7 @@ test("a changed payload after a submitted attempt surfaces the conflict BEFORE t
     }, requestKey);
     const groupName = "Conflict first draft";
     await page.getByLabel("Group name").fill(groupName);
-    await page.getByLabel("Date").fill(futureIsoDate());
+    await page.getByLabel("Date", { exact: true }).fill(futureIsoDate());
     await page.getByRole("button", { name: "Create group" }).click();
     await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
     const groupId = new URL(page.url()).pathname.split("/")[2];
@@ -333,7 +333,7 @@ test("a changed payload after a submitted attempt surfaces the conflict BEFORE t
       page.getByRole("heading", { name: "What are we celebrating?" }),
     ).toBeVisible();
     await page.getByLabel("Group name").fill("Conflict changed draft");
-    await page.getByLabel("Date").fill(futureIsoDate());
+    await page.getByLabel("Date", { exact: true }).fill(futureIsoDate());
     await page.getByRole("button", { name: "Create group" }).click();
 
     const conflict = page.getByTestId("idempotency-conflict");
@@ -373,7 +373,7 @@ test("only the explicit confirmation submits a changed payload as a new request"
     }, requestKey);
     const groupName = "New request first draft";
     await page.getByLabel("Group name").fill(groupName);
-    await page.getByLabel("Date").fill(futureIsoDate());
+    await page.getByLabel("Date", { exact: true }).fill(futureIsoDate());
     await page.getByRole("button", { name: "Create group" }).click();
     await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
     const firstGroupId = new URL(page.url()).pathname.split("/")[2];
@@ -386,7 +386,7 @@ test("only the explicit confirmation submits a changed payload as a new request"
       page.getByRole("heading", { name: "What are we celebrating?" }),
     ).toBeVisible();
     await page.getByLabel("Group name").fill("New request second draft");
-    await page.getByLabel("Date").fill(futureIsoDate());
+    await page.getByLabel("Date", { exact: true }).fill(futureIsoDate());
     await page.getByRole("button", { name: "Create group" }).click();
     await expect(page.getByTestId("idempotency-conflict")).toBeVisible();
 
@@ -671,7 +671,7 @@ test("the create form rejects an empty name client-side, retains input, and neve
     ).toBeVisible();
 
     // Client-side field errors keep every entered value and never send.
-    await page.getByLabel("Date").fill(futureIsoDate());
+    await page.getByLabel("Date", { exact: true }).fill(futureIsoDate());
     let actionRequests = 0;
     page.on("request", (request) => {
       if (
@@ -688,6 +688,8 @@ test("the create form rejects an empty name client-side, retains input, and neve
     await expect(page).toHaveURL(/\/groups\/new$/);
     expect(actionRequests).toBe(0);
     // The valid date the user entered is retained.
-    await expect(page.getByLabel("Date")).toHaveValue(futureIsoDate());
+    await expect(page.getByLabel("Date", { exact: true })).toHaveValue(
+      futureIsoDate(),
+    );
   });
 });

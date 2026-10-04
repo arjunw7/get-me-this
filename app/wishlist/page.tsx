@@ -75,6 +75,7 @@ export default async function WishlistPage({
         displayName={displayName}
         tasteLine={profile.tasteLine}
         vibe={profile.vibe}
+        showMobileAdd={wishlist?.items.length !== 0}
       />
       <WishlistView
         displayName={displayName}

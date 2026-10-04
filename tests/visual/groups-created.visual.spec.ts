@@ -103,7 +103,7 @@ test.describe("the created screen's invitation states", () => {
       const date = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         .toISOString()
         .slice(0, 10);
-      await page.getByLabel("Date").fill(date);
+      await page.getByLabel("Date", { exact: true }).fill(date);
       await page.getByRole("button", { name: "Create group" }).click();
       await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
       const groupId = new URL(page.url()).pathname.split("/")[2];

@@ -62,7 +62,7 @@ test("the group room's three honest state families are captured for review", asy
     );
     await page.goto("/groups/new");
     await page.getByLabel("Group name").fill(GROUP_NAME);
-    await page.getByLabel("Date").fill(OCCASION_DATE);
+    await page.getByLabel("Date", { exact: true }).fill(OCCASION_DATE);
     await page.getByRole("button", { name: "Create group" }).click();
     await page.waitForURL(/\/groups\/[0-9a-f-]{36}\/created$/);
     const groupId = new URL(page.url()).pathname.split("/")[2];

@@ -145,7 +145,7 @@ test.describe("the create-group form", () => {
       const date = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         .toISOString()
         .slice(0, 10);
-      await page.getByLabel("Date").fill(date);
+      await page.getByLabel("Date", { exact: true }).fill(date);
 
       // Hold the server-action response open so the pending state is
       // stable for the capture, then release it. The swallowed rejection
@@ -228,7 +228,7 @@ test.describe("the create-group form", () => {
       const date = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         .toISOString()
         .slice(0, 10);
-      await page.getByLabel("Date").fill(date);
+      await page.getByLabel("Date", { exact: true }).fill(date);
       await page.getByRole("button", { name: "Create group" }).click();
 
       await expect(page.getByTestId("idempotency-conflict")).toBeVisible();
