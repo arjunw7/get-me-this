@@ -28,17 +28,23 @@ Route `/`, anonymous session, fixed demo content, no overlays, desktop **1440×1
 - [Final hero — mobile](hero-mobile.png)
 - [Restored group illustration — desktop](group-desktop.png)
 - [Restored group illustration — mobile](group-mobile.png)
+- [Restored occasions — desktop](occasions-desktop.png)
+- [Restored occasions — mobile](occasions-mobile.png)
 
 `collage-before-*` records the immediately preceding compact interactive design. `refinement-before-*`, `example-review-desktop.png` and `friend-view-*` preserve earlier review evidence only; those interactions are no longer shipped.
 
 These are review evidence, **not approved replacement golden screenshots**. No baseline files or manifest were changed. The landing still differs from the old group-first goldens, so a separate explicit baseline approval is required after human review.
 
-## Verification
+## Final integrated verification
 
-- Initial implementation: `pnpm verify` passed formatting, lint (two existing unrelated warnings), type-check, **154 test files /1,503 unit tests**, and production build. Local test helpers required loopback-port permission. A real local dependency copy was required by Next.js; dependency versions are unchanged.
-- Final restored-illustration revision: focused landing unit tests **11 passed**, production build passed. Browser coverage verifies CTA click-through, keyboard navigation, FAQ disclosure, original collage reduced-motion behavior, no hero reservation status, correct group reservation illustration and public-route WCAG A/AA accessibility at both widths. Final browser results: **25 passed, 1 intentional mobile-navigation skip**.
-- Final landing visual comparison reported two expected failures against the old group-first goldens. The tests remain active; no golden files were rewritten, skipped or loosened.
-- This public-only change does not mutate data. Database authorization/race suites were not rerun. Email entry and honest provider-failure recovery are checked in the unconfigured-provider build.
+Final screenshots use source commit **647c63b**, which includes the approved landing changes, integrated CI fixes and brand/favicon/social assets. The coordinating agent built and served this branch on3300 with the actual local Supabase configuration. The server was not stopped or rebuilt during evidence collection.
+
+- Combined `pnpm verify` passed formatting, lint, type-check, **154 test files /1,512 unit tests**, and production build (run by the coordinating agent).
+- Focused final landing/browser accessibility run: **23 passed, 1 intentional mobile-navigation skip**. The two viewport variants of the test requiring an unconfigured auth provider were explicitly excluded with `--grep-invert`, because this integrated server has Supabase configured. That failure-recovery scenario passed earlier on the isolated unconfigured build; no production behavior or test files were altered to accommodate this run.
+- Independent rendered-page checks at both sizes confirmed markers **1,2,3**, three original hero product images, no hero reservation sticker, original **Santa Party 🎉** group illustration, seven occasion tiles, occasions before FAQ, and absence of the condensed occasion line. No horizontal overflow:1440/1440 desktop and390/390 mobile.
+- Anonymous page metadata renders `/assets/brand/share-banner-v2.png` for both Open Graph and Twitter images. Favicon, PNG icon and Apple icon links are present. Asset correctness was checked separately in the integrated brand work.
+- Existing golden files are untouched. The last comparison before restoring the occasion section reported two expected landing differences from the old group-first design. New final screenshots require explicit review and baseline approval; they were not adopted automatically.
+- This public-only revision does not mutate data. Database suites were handled separately by the CI-fix work.
 
 ## Boundaries and rollback
 
@@ -48,4 +54,4 @@ No migration is required. Reverting the landing commits restores the previous pa
 
 ## Occasion-section restoration
 
-The final follow-up restores the original V18 occasion section immediately before the FAQ, as explicitly requested. It reuses the original seven fixed tiles, semantic colors, rotation rhythm, layout and copy. The condensed occasion line is removed. Focused formatting and landing unit checks run on this commit; the coordinating agent will rebuild the combined branch and refresh final screenshots afterward. No server was started or stopped by this follow-up.
+The final follow-up restores the original V18 occasion section immediately before the FAQ, as explicitly requested. It reuses the original seven fixed tiles, semantic colors, rotation rhythm, layout and copy. The condensed occasion line is removed. Focused formatting and11landing unit checks passed on this change. The coordinating agent subsequently verified and built the integrated branch; final screenshots now show this restored section. No server was started or stopped during the screenshot follow-up.
