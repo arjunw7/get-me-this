@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { WishlistNotice } from "./wishlist-notice";
 import { DEFAULT_VIBE, type Vibe } from "@/src/profile/vibe";
 import { EditProfileButton } from "@/src/profile/edit-profile-button";
 import type { OwnerReactionSummary } from "@/src/groups/reactions/reaction-write";
@@ -72,18 +73,7 @@ export function WishlistView({
           </>
         }
       />
-      {notice ? (
-        <p
-          role="status"
-          className="mt-5 rounded-surface border-2 border-outline-strong bg-accent-fresh-soft px-4 py-3 font-bold"
-        >
-          {notice === "added"
-            ? "Item added to your wishlist."
-            : notice === "updated"
-              ? "Item changes saved."
-              : "Item removed from your wishlist."}
-        </p>
-      ) : null}
+      {notice ? <WishlistNotice key={notice} notice={notice} /> : null}
       <div className={wishlist.items.length === 0 ? "mt-6" : "mt-8"}>
         {wishlist.items.length === 0 ? (
           <WishlistEmpty />
