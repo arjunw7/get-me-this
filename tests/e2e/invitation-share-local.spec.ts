@@ -64,7 +64,15 @@ test("shared invitations show a dynamic banner while browser joining stays intac
     expect(html).toContain("Hosted by Arjun Wadhwa · Fri, 6 Nov, 2026");
     expect(html).toContain("Wadhwa Diwali Squad");
     const imageUrl = /property="og:image" content="([^"]+)"/.exec(html)?.[1];
-    expect(Boolean(imageUrl)).toBe(true);
+    expect(
+      Boolean(imageUrl),
+      "Share metadata needs an image URL; configure APP_ORIGIN for the test server",
+    ).toBe(true);
+    // Fail before fetching if inherited deployment configuration points away
+    // from the local fixture server. Only the origin can appear in diagnostics.
+    expect(new URL(imageUrl!).origin).toBe(
+      new URL(testInfo.project.use.baseURL!).origin,
+    );
     const imageResponse = await request.get(imageUrl!);
     expect(imageResponse.status()).toBe(200);
     expect(imageResponse.headers()["content-type"]).toContain("image/png");

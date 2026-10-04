@@ -96,6 +96,11 @@ if [ -z "${INVITATION_CONTINUATION_COOKIE_SECRET:-}" ]; then
   export INVITATION_CONTINUATION_COOKIE_SECRET
 fi
 
+# Match playwright.config.ts at build AND runtime. Production metadata omits
+# absolute share images without a configured origin; never inherit a deployed
+# origin here, since fixture image requests must stay on the local test server.
+export APP_ORIGIN="http://127.0.0.1:3100"
+
 pnpm build
 
 # Test-only outbound transport controller. It has no Supabase credentials and

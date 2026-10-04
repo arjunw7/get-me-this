@@ -65,6 +65,23 @@ scoped cleanup helper. Tests were rerun after both corrections. The database
 suite is run on a fresh synthetic fixture state, as its existing smoke/group
 counts assume no leftover browser fixtures.
 
+## CI origin regression
+
+The first CI stack run passed 248 tests but failed the two invitation-image
+cases because the runner configured neither APP_ORIGIN nor a Railway domain.
+The share response correctly omitted absolute image metadata without a trusted
+origin. Earlier local evidence used an explicitly configured origin, masking
+that difference.
+
+The stack runner now pins APP_ORIGIN to the same loopback origin as
+playwright.config.ts before both build and server startup. It overrides inherited
+deployment origins so synthetic invitation capabilities stay on the local
+fixture server. The browser test also checks the image origin before fetching.
+Both reported failures were reproduced with the old runner environment and
+passed with the new setting. The local reproduction used port 3200 for both
+server and origin because 3100 was occupied; only the two relevant specs were
+selected from the runner. No application or visual baseline changes were needed.
+
 ## Visual evidence
 
 The actual PNG returned by the route is [invitation-banner.png](invitation-banner.png).
