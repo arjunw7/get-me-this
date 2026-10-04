@@ -1,73 +1,76 @@
-/**
- * Static marketing copy for the landing page, transcribed from the frozen
- * V18 reference (data/landing.ts, Landing.tsx, GroupDemoSection.tsx).
- *
- * Terminology rules apply: `wishlist` and `group`, never the prototype's
- * internal nouns.
- */
+/** Public landing copy approved in the 4 October 2026 positioning review. */
 export const landingNav = [
   { label: "How it works", href: "#how" },
-  { label: "Why it works", href: "#why" },
-  { label: "Occasions", href: "#occasions" },
+  { label: "Gifting with a group", href: "#groups" },
 ] as const;
-
 export const loginHref = "/auth?intent=home";
 export const dashboardHref = "/home";
 export const dashboardLabel = "Dashboard";
 export const startWishlistHref = "/auth?intent=wishlist";
 export const createGroupHref = "/auth?intent=create-group";
-
 export const hero = {
-  eyebrow: "Group wishlists for every occasion.",
-  title: "Make a wishlist. Share it with your\u00A0people.",
-  body: "Save things you actually want from any store. Create a group for birthdays, Diwali, Secret Santa, or anything worth celebrating. Friends can reserve gifts privately—so surprises stay secret and nobody buys the same thing twice.",
-  primaryCta: "Start my wishlist",
-  secondaryCta: "Create a group",
-  privacyNote:
-    "Share your wishlist with a link. Group gifting and reservations stay private.",
+  eyebrow: "Your shareable gift wishlist",
+  title: "Good gifts start with a wishlist.",
+  body: "Save gift ideas from different stores in one wishlist. Share it with friends so they know what you’d love to get.",
+  primaryCta: "Create my wishlist",
 } as const;
-
 export const howItWorks = {
-  title: "How it works",
+  title: "Your wishlist. One link. Happy friends.",
   steps: [
     {
-      title: "Make your wishlist",
-      body: "Save products from any shop and add helpful notes, like a size or “the blue one, not the green.”",
+      title: "Add what you’d love",
+      body: "Save product links from different stores. Add helpful details like size, colour, or why you want it.",
     },
     {
-      title: "Create a group",
-      body: "Invite friends, then choose the occasion, budget, currency and gifting mode.",
+      title: "Share your wishlist",
+      body: "Send one link to friends. They can browse without creating an account.",
     },
     {
-      title: "Gift without guessing",
-      body: "Browse wishlists and reserve gifts privately, so nobody spoils the surprise or buys the same thing twice.",
+      title: "Make gifting easier",
+      body: "Friends pick something you like and buy it from the original store.",
     },
   ],
 } as const;
-
-export const whyItWorks = {
-  title: "Everyone’s wishlist in one place. No double gifts.",
-  body: "Here’s what a group looks like once your friends are in.",
+export const groupCopy = {
+  title: "Gifting together? Start a group.",
+  body: "A group brings your friends’ individual wishlists into one private place. See what everyone wants and coordinate gifts without spoiling the surprise.",
   benefits: [
     {
-      title: "See what everyone actually wants",
-      body: "Each person’s wishlist, with notes like size or colour.",
+      title: "Your wishlist comes with you",
+      body: "Everyone keeps their own wishlist. No new list to build.",
     },
     {
-      title: "Stay inside the budget",
-      body: "One amount per person. Pricier picks are flagged.",
+      title: "Let friends know it’s covered",
+      body: "Reserve a gift so other people in the group know someone is getting it.",
     },
     {
-      title: "Reserve it so nobody doubles up",
-      body: "Everyone else sees it’s taken and picks something else.",
-    },
-    {
-      title: "The surprise stays secret",
-      body: "Kabir never sees what’s reserved on his own list.",
+      title: "Keep the surprise",
+      body: "The person receiving it never sees the reservation.",
     },
   ],
 } as const;
-
+export const faqs = [
+  {
+    question: "Do I need a group to use my wishlist?",
+    answer:
+      "No. Create your wishlist and share its link. Groups are optional and help friends coordinate gifts together.",
+  },
+  {
+    question: "Do my friends need an account?",
+    answer:
+      "They can view your public wishlist without one. They need to sign in to react or join a group.",
+  },
+  {
+    question: "Who can see my wishlist?",
+    answer:
+      "Anyone with your public link can view it. Your group’s reservations and gifting plans are private and don’t appear on the public page.",
+  },
+  {
+    question: "Where are gifts purchased?",
+    answer:
+      "At the original store. Get Me This helps you share ideas and coordinate gifts; it doesn’t process the purchase.",
+  },
+] as const;
 export type OccasionTile = {
   readonly label: string;
   readonly example: string;
@@ -97,12 +100,10 @@ export const occasionTilts = [
 ] as const;
 
 export const finalCta = {
-  title: "Your friends can finally take the hint.",
-  body: "Save what you want, share it with your people, and give without guessing.",
-  cta: "Start my wishlist",
+  title: "Next time they ask what you want, send your wishlist.",
+  body: "Less guessing. More “you remembered!”",
+  cta: "Create my wishlist",
 } as const;
-
 export const footer = {
-  tagline:
-    "Group wishlists for every occasion. No public feeds, no followers, just your people.",
+  tagline: "Your wishlist. Your people. Better gifts.",
 } as const;

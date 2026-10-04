@@ -1,5 +1,5 @@
 import localFont from "next/font/local";
-import type { Metadata } from "next";
+import { createBrandMetadata } from "@/src/brand/metadata";
 import type { ReactNode } from "react";
 
 import "./globals.css";
@@ -23,11 +23,7 @@ const bodyFont = localFont({
   fallback: ["system-ui", "-apple-system", "Segoe UI", "sans-serif"],
 });
 
-export const metadata: Metadata = {
-  title: "Get Me This | Group wishlists for every occasion",
-  description:
-    "Save what you want, share it with your people, and give without guessing.",
-};
+export const metadata = createBrandMetadata();
 
 export default function RootLayout({
   children,

@@ -15,4 +15,9 @@ export E2E_ACTION_REFERENCE=1
 export E2E_NO_PROVIDER=1
 
 pnpm build
-pnpm exec playwright test tests/e2e/wishlist-items-no-provider.spec.ts
+# The public landing journey includes the explicit no-provider auth recovery
+# state. Keep it here rather than in the configured-Supabase stack suite.
+pnpm exec playwright test \
+  tests/e2e/wishlist-items-no-provider.spec.ts \
+  tests/e2e/landing.spec.ts \
+  tests/visual/landing.visual.spec.ts

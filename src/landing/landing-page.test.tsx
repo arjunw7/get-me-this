@@ -8,7 +8,7 @@ import { LandingPage } from "./landing-page";
 /**
  * ARJ-54: the landing header reflects the persisted session — a signed-in
  * visitor gets the Dashboard entry to /home instead of the Log in anchor,
- * while the signed-out render stays identical to the committed baseline.
+ * while the signed-out entry remains available after the landing redesign.
  */
 describe("LandingPage session-aware nav (ARJ-54)", () => {
   it("offers the signed-out visitor Log in and no Dashboard entry", () => {

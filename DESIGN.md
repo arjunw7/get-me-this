@@ -16,23 +16,21 @@ The deployed URL is the easiest live comparison surface, but it is mutable. Comm
 
 ## Product comprehension
 
-A first-time visitor should understand within five seconds that Get Me This is a group-wishlist product.
+A first-time visitor should understand within five seconds that Get Me This is a shareable gift wishlist. The user approved this landing-page positioning extension on 4 October 2026 after comprehension testing found that visitors incorrectly inferred groups were required.
 
-Primary language:
+Primary landing language:
 
-- Category: **Group wishlists for every occasion.**
-- Hero: **Make a wishlist. Share it with your people.**
-- Value: **Save what you want, share it with your people, and give without guessing.**
-- Supporting personality: **Your friends can finally take the hint.**
+- Category: **Your shareable gift wishlist**
+- Hero: **Good gifts start with a wishlist.**
+- Primary action: **Create my wishlist** (preserves wishlist authentication intent)
+- The hero has one action, **Create my wishlist**. Its secondary How it works button and supporting no-group/account line were removed at the user's request. The desktop navigation still links to How it works, and the sections below explain standalone sharing.
+- Optional next step: **Gifting together? Start a group.**
 
-Use familiar terms:
+Teach adding, sharing and shopping from the original store before introducing groups. A group brings existing individual wishlists together; it is not a prerequisite or a new shared wishlist. The hero uses the original V18 overlapping product-card collage, tape, reaction bubbles and reduced-motion-aware entrance. The user explicitly restored this illustration after reviewing interactive alternatives. Its “Reserved secretly” sticker is omitted so the public-sharing hero does not imply public reservation visibility. The groups section retains the original Santa Party member/product illustration, including its private reservation badges and recipient-visibility explanation. Groups remain an optional next step in the surrounding new copy. The **Any excuse to gift.** section and original colorful occasion tiles appear after groups and before the FAQ; the condensed occasion text row is removed. The latest approved layout puts occasion cards on the left and text on the right on desktop, with text first on mobile. Occasions has no top border and FAQ has no bottom border; retain the single full-width separator between them. Never imply in-app checkout, pooled payments, guaranteed extraction or duplicate prevention.
 
-- `wishlist`, never `Shelfie`
-- `group`, never `Circle`
-- `Add an item`
-- `Start my wishlist`
-- `Create a group`
-- `Update my wishlist`
+Keep the V18 visual language, typography and semantic tokens. This approved landing hierarchy supersedes V18's group-first marketing copy only; it does not change authenticated screens or authorize automatic visual baseline replacement. New desktop/mobile review evidence lives in `docs/delivery/evidence/landing-positioning-2026-10-04/`.
+
+Use familiar terms: `wishlist` (never `Shelfie`), `group` (never `Circle`), `Add an item`, `Create my wishlist`, `Create a group`, and `Update my wishlist`.
 
 ## Personality
 
