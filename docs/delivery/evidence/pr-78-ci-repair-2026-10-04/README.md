@@ -45,7 +45,7 @@ The four additional local mobile create-group mismatches are **not proposed base
 - [x] Remove obvious mobile empty-state overlap without losing entry/navigation: desktop/mobile navigation checks and matched screenshots.
 - [x] Keep decorative tape attached without changing three-column masonry: matched final desktop/mobile captures.
 - [x] Preserve authorization, broker semantics, and source data: negative browser checks retained; no schema/RLS changes, reset, review-data cleanup, or new mock products in application code.
-- [ ] Exact-head clean-stack/Linux CI confirmation and human approval for any required wishlist golden replacement remain pending.
+- [x] Clean-stack/Linux CI confirmed the functional repairs; the owner explicitly approved the four wishlist replacements. Final post-replacement exact-head CI remains required.
 
 No migration or rollback is needed for these application/test-only fixes. Reverting this scoped commit restores the prior behavior. The PR Railway status was green at base head; no new preview was published by this subtask.
 
@@ -53,4 +53,4 @@ No migration or rollback is needed for these application/test-only fixes. Revert
 
 The owner reviewed the consolidated six-image old/candidate/diff gallery and explicitly approved replacement. This PR replaces only the four wishlist goldens using the reviewed Ubuntu CI captures from source `6745d52`; subsequent `4881266` changed only the database race harness. [Approval and exact hashes](baseline-approval.json). No tolerances or group-creation goldens changed. The two landing candidates are applied separately in stacked PR79.
 
-Current pre-replacement CI on `4881266`:26database files/1815assertions and all8configured race harnesses passed; fullstack242passed/6skipped, with only the four now-approved wishlist comparisons failing. All8group-creation screenshot states passed. New exact-head CI must complete after replacement before merge.
+Pre-replacement CI on `4881266`: 26 database files / 1,815 assertions and all eight configured race harnesses passed; full stack: 242 passed / six skipped, with only the four now-approved wishlist comparisons failing. All eight group-creation screenshot states passed. New exact-head CI must complete after replacement before merge.
