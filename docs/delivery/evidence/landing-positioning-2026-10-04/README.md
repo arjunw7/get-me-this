@@ -67,3 +67,9 @@ No migration is required. Reverting the landing commits restores the previous pa
 ## Occasion-section restoration
 
 The final follow-up restores the original V18 occasion section immediately before the FAQ, as explicitly requested. It reuses the original seven fixed tiles, semantic colors, rotation rhythm and copy. A later explicit refinement reverses the desktop columns (cards left, text right) and retains only the full-width separator between occasions and FAQ after the user removed the occasions top border and FAQ bottom border. Their shared separator overlaps by one border width to avoid a doubled line. The condensed occasion line is removed. Focused formatting and11landing unit checks passed on this change. The coordinating agent subsequently verified and built the integrated branch; final screenshots now show this restored section. No server was started or stopped during the screenshot follow-up.
+
+## Explicit owner approval — 4 October 2026
+
+The owner reviewed the consolidated six-image old/candidate/diff gallery and explicitly approved replacement. This PR replaces exactly the desktop/mobile landing goldens using the reviewed Ubuntu CI captures from `67f1042`. [Approval and exact hashes](baseline-approval.json). The four approved wishlist goldens are inherited from base PR78; no other golden or comparison tolerance changed.
+
+The landing functional and visual specs are now included in the no-provider CI job. Before approval, exact-head Linux proof was23passed/1intentional mobile-navigation skip, with only the two approved screenshot differences failing. Full isolated verify passed155files/1513tests plus production build; clean CI DB1815assertions/all8race harnesses passed. New exact-head CI must complete after replacement before merge.
