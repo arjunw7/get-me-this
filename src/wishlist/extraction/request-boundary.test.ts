@@ -39,6 +39,66 @@ function dependencies(overrides: Record<string, unknown> = {}) {
 }
 
 describe("extraction POST boundary", () => {
+  it("uses Firecrawl for the default authenticated extractor", async () => {
+    vi.stubEnv("FIRECRAWL_API_KEY", "test-only-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          success: true,
+          data: {
+            metadata: { statusCode: 200 },
+            markdown: "USD 12.50",
+            product: {
+              title: "Managed cup",
+              variants: [
+                { price: { amount: 12.5, currency: "USD" }, images: [] },
+              ],
+            },
+          },
+        }),
+      ),
+    );
+    try {
+      const response = await handleExtractionPost(
+        request(JSON.stringify({ url: "https://93.184.216.34/cup" })),
+        dependencies({ extract: undefined }),
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({
+        result: {
+          sourceUrl: "https://93.184.216.34/cup",
+          title: "Managed cup",
+          retailer: "93.184.216.34",
+          originalAmountMinor: "1250",
+          originalCurrency: "USD",
+          candidateImageUrls: [],
+        },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  });
+  it("allows a managed scrape to finish after the old ten-second deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = handleExtractionPost(
+        request(),
+        dependencies({
+          extract: async () =>
+            await new Promise((resolve) =>
+              setTimeout(() => resolve(proposal), 20_000),
+            ),
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(20_001);
+      expect((await pending).status).toBe(200);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("returns an authenticated same-origin proposal with privacy headers", async () => {
     const response = await handleExtractionPost(request(), dependencies());
     expect(response.status).toBe(200);
@@ -264,7 +324,7 @@ describe("extraction POST boundary", () => {
     expect(extract).not.toHaveBeenCalled();
   });
 
-  it("includes authentication in the ten-second route-entry deadline", async () => {
+  it("includes authentication in the managed-scrape route-entry deadline", async () => {
     vi.useFakeTimers();
     try {
       const extract = vi.fn(async () => proposal);
@@ -275,7 +335,7 @@ describe("extraction POST boundary", () => {
           extract,
         }),
       );
-      await vi.advanceTimersByTimeAsync(10_001);
+      await vi.advanceTimersByTimeAsync(35_001);
       const response = await pending;
       expect(response.status).toBe(504);
       expect(extract).not.toHaveBeenCalled();

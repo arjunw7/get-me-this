@@ -49,8 +49,8 @@ type Step = "input" | "loading" | "review" | "manual";
 const ENTRY_COLUMN = "mx-auto w-full max-w-[var(--spacing-content-max)]";
 const WIDE_COLUMN = "mx-auto w-full max-w-4xl sm:px-5";
 
-/** The client wait: the 005e 10s server deadline plus admission margin. */
-const EXTRACT_WAIT_MS = 12_000;
+/** The client wait: the 35s managed-provider deadline plus admission margin. */
+const EXTRACT_WAIT_MS = 37_000;
 
 const INITIAL_ACTION_STATE: ItemActionState = { status: "idle" };
 

@@ -1,0 +1,37 @@
+{
+  "viewport": "mobile",
+  "states": [
+    {
+      "state": "add-initial",
+      "violationIds": []
+    },
+    {
+      "state": "add-initial-prefilled",
+      "violationIds": []
+    },
+    {
+      "state": "add-loading",
+      "violationIds": []
+    },
+    {
+      "state": "add-extracted-review",
+      "violationIds": []
+    },
+    {
+      "state": "add-validation",
+      "violationIds": []
+    },
+    {
+      "state": "add-partial-review",
+      "violationIds": []
+    },
+    {
+      "state": "add-manual-fallback",
+      "violationIds": []
+    },
+    {
+      "state": "wishlist-added-notice",
+      "violationIds": []
+    }
+  ]
+}
