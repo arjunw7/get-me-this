@@ -25,6 +25,7 @@ test("preview and utility responses stay out of search", async ({
   for (const path of [
     "/",
     "/auth",
+    "/how-it-works",
     "/invite/unavailable",
     "/design-foundation",
     "/s/invalid",

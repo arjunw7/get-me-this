@@ -7,7 +7,7 @@ import {
 
 export const LAUNCH_ORIGIN = "https://getmethis.fun";
 // Only reviewed marketing pages belong here. Never derive this from app routes or user data.
-export const PUBLIC_SEARCH_PATHS: readonly string[] = ["/"];
+export const PUBLIC_SEARCH_PATHS: readonly string[] = ["/", "/how-it-works"];
 export type SeoEnvironment = {
   APP_ORIGIN?: string;
   RAILWAY_PUBLIC_DOMAIN?: string;
@@ -124,6 +124,67 @@ export function websiteStructuredData() {
         applicationCategory: "LifestyleApplication",
         operatingSystem: "Web browser",
         description: BRAND_DESCRIPTION,
+      },
+    ],
+  };
+}
+
+const GUIDE_TITLE = "How Get Me This works: wishlists and private gift groups";
+const GUIDE_DESCRIPTION =
+  "Save gift ideas from different shops, share your wishlist with friends, and use private groups when you want to plan gifts together.";
+
+export function howItWorksMetadata(
+  env: SeoEnvironment = deploymentEnvironment(),
+): Metadata {
+  const brand = createBrandMetadata(env);
+  const enabled = indexingEnabled(env);
+  const url = `${LAUNCH_ORIGIN}/how-it-works`;
+  return {
+    ...brand,
+    title: GUIDE_TITLE,
+    description: GUIDE_DESCRIPTION,
+    alternates: { canonical: url },
+    openGraph: {
+      ...brand.openGraph,
+      title: GUIDE_TITLE,
+      description: GUIDE_DESCRIPTION,
+      url,
+    },
+    twitter: {
+      ...brand.twitter,
+      title: GUIDE_TITLE,
+      description: GUIDE_DESCRIPTION,
+    },
+    robots: { index: enabled, follow: enabled },
+  };
+}
+
+export function howItWorksStructuredData() {
+  const url = `${LAUNCH_ORIGIN}/how-it-works`;
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": `${url}#webpage`,
+        url,
+        name: GUIDE_TITLE,
+        description: GUIDE_DESCRIPTION,
+        isPartOf: { "@id": `${LAUNCH_ORIGIN}/#website` },
+        breadcrumb: { "@id": `${url}#breadcrumb` },
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": `${url}#breadcrumb`,
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: "Home",
+            item: `${LAUNCH_ORIGIN}/`,
+          },
+          { "@type": "ListItem", position: 2, name: "How it works", item: url },
+        ],
       },
     ],
   };

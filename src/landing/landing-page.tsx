@@ -202,6 +202,14 @@ export function LandingPage({
                   <p className="pt-3 pb-2 leading-relaxed text-content-secondary">
                     {faq.answer}
                   </p>
+                  {faq.question === "Do I need a group to use my wishlist?" ? (
+                    <Link
+                      href="/how-it-works"
+                      className="inline-flex min-h-11 items-center rounded-control font-semibold underline underline-offset-4 hover:text-action-primary-strong"
+                    >
+                      Read the wishlist and group guide
+                    </Link>
+                  ) : null}
                 </details>
               ))}
             </div>

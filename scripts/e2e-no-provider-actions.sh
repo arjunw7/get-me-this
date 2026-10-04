@@ -22,4 +22,5 @@ pnpm exec playwright test \
   tests/e2e/wishlist-items-no-provider.spec.ts \
   tests/e2e/landing.spec.ts \
   tests/e2e/seo.spec.ts \
+  tests/e2e/how-it-works.spec.ts \
   tests/visual/landing.visual.spec.ts
