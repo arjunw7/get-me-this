@@ -67,7 +67,7 @@ test("responsive navigation connects real destinations and Home reflects saved i
       .getByRole("navigation", { name: "Main" })
       .filter({ visible: true });
     await navigation.getByRole("link", { name: "Groups", exact: true }).click();
-    await expect(page).toHaveURL(/\/groups$/);
+    await expect(page).toHaveURL(/\/groups$/, { timeout: 1000 });
     await expect(
       navigation.getByRole("link", { name: "Groups", exact: true }),
     ).toHaveAttribute("aria-current", "page");
