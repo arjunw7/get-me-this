@@ -32,7 +32,6 @@ describe("landing content", () => {
     expect(hero.eyebrow).toBe("Your shareable gift wishlist");
     expect(hero.title).toBe("Good gifts start with a wishlist.");
     expect(hero.primaryCta).toBe("Create my wishlist");
-    expect(hero.secondaryCta).toBe("How it works");
     expect(startWishlistHref).toBe("/auth?intent=wishlist");
     expect(createGroupHref).toBe("/auth?intent=create-group");
     expect(loginHref).toBe("/auth?intent=home");
@@ -54,7 +53,6 @@ describe("landing content", () => {
       /group/i,
     );
     expect(finalCta.cta).toBe("Create my wishlist");
-    expect(hero.privacyNote).toContain("No group needed");
   });
 
   it("never uses the prototype's internal product nouns", () => {

@@ -170,11 +170,10 @@ test("every interactive control is keyboard reachable with a visible focus ring"
 
   const focused = focusedLabels.join("\n");
   // Controls visible at every viewport: wordmark (home), Log in, and the
-  // primary and example hero CTAs must be keyboard reachable with the focus ring.
+  // primary hero CTA must be keyboard reachable with the focus ring.
   expect(focused).toMatch(/Get Me\s*This\|solid/);
   expect(focused).toContain("Log in|solid");
   expect(focused).toContain("Create my wishlist|solid");
-  expect(focused).toContain("How it works|solid");
   // The anchor nav is hidden below md in the approved design; desktop only.
   if (isDesktop) {
     expect(focused).toContain("How it works|solid");
@@ -230,19 +229,10 @@ test("every interactive control is keyboard reachable with a visible focus ring"
   }
 });
 
-test("the hero explanation action works with a keyboard at both sizes", async ({
+test("the standalone wishlist FAQ works with a keyboard at both sizes", async ({
   page,
 }) => {
   await page.goto("/");
-  const action = page.getByRole("link", { name: "How it works" }).last();
-  await action.focus();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/#how$/);
-  await expect(
-    page.getByRole("heading", {
-      name: "Your wishlist. One link. Happy friends.",
-    }),
-  ).toBeInViewport();
   const question = page
     .locator("summary")
     .filter({ hasText: "Do I need a group" });

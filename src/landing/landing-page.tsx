@@ -93,13 +93,7 @@ export function LandingPage({
                 {hero.primaryCta}
                 <ArrowRightIcon className="h-5 w-5" />
               </CtaLink>
-              <CtaLink href="#how" variant="subtle" size="lg">
-                {hero.secondaryCta}
-              </CtaLink>
             </div>
-            <p className="mt-5 text-sm text-content-muted">
-              {hero.privacyNote}
-            </p>
           </div>
           <HeroCollage />
         </section>

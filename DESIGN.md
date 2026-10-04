@@ -23,8 +23,7 @@ Primary landing language:
 - Category: **Your shareable gift wishlist**
 - Hero: **Good gifts start with a wishlist.**
 - Primary action: **Create my wishlist** (preserves wishlist authentication intent)
-- Secondary action: **How it works** (scrolls to the standalone wishlist explanation)
-- Supporting line: **No group needed. Friends can view your list without signing up.**
+- The hero has one action, **Create my wishlist**. Its secondary How it works button and supporting no-group/account line were removed at the user's request. The desktop navigation still links to How it works, and the sections below explain standalone sharing.
 - Optional next step: **Gifting together? Start a group.**
 
 Teach adding, sharing and shopping from the original store before introducing groups. A group brings existing individual wishlists together; it is not a prerequisite or a new shared wishlist. The hero uses the original V18 overlapping product-card collage, tape, reaction bubbles and reduced-motion-aware entrance. The user explicitly restored this illustration after reviewing interactive alternatives. Its “Reserved secretly” sticker is omitted so the public-sharing hero does not imply public reservation visibility. The groups section retains the original Santa Party member/product illustration, including its private reservation badges and recipient-visibility explanation. Groups remain an optional next step in the surrounding new copy. The **Any excuse to gift.** section and original colorful occasion tiles appear after groups and before the FAQ; the condensed occasion text row is removed. The latest approved layout puts occasion cards on the left and text on the right on desktop, with text first on mobile. Occasions has no top border and FAQ has no bottom border; retain the single full-width separator between them. Never imply in-app checkout, pooled payments, guaranteed extraction or duplicate prevention.

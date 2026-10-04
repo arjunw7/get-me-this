@@ -9,9 +9,9 @@ The user approved the marketing review after new visitors could not understand h
 - [x] Remove the How it works eyebrow, optional-next-step eyebrow, and group-mode footnote. Give the final Create my wishlist CTA a light face with a visible dark bottom/right shadow and hover lift.
 
 - [x] Lead with a shareable individual wishlist. Primary action: **Create my wishlist**, preserving `/auth?intent=wishlist`.
-- [x] Explicitly say no group is needed and friends can view without signing up. How it works explains add → share → buy at the original store before introducing groups.
+- [x] Explain standalone sharing in How it works and FAQ. The hero’s no-group/account supporting line is removed at the user’s request. How it works explains add → share → buy at the original store before introducing groups.
 - [x] Preserve the selected headline, supporting copy and new page structure while restoring the original hero collage: three overlapping product cards, tape, avatars, reaction bubbles and entrance motion. The restored illustration is decorative, not interactive.
-- [x] Make the secondary hero action useful: **How it works** scrolls to `#how` at desktop and mobile sizes. The removed interactive example is not moved elsewhere; its unused component and unit tests are deleted.
+- [x] Keep one hero action: **Create my wishlist**. Remove its **How it works** secondary button; retain the desktop navigation link and explanation section. The removed interactive example is not moved elsewhere; its unused component and unit tests are deleted.
 - [x] Keep public-sharing claims truthful. The original hero's “Reserved secretly” sticker is omitted because public wishlist links never expose reservations. This is the only change inside the restored hero illustration; its composition and remaining content stay intact.
 - [x] Introduce groups as optional and use existing individual wishlists. Restore the original Santa Party member/product illustration, including its private reservation badges, budget states and explicit explanation that Kabir cannot see reservations on his own list. The three current benefits use the original numbered tomato markers (1, 2, 3), as requested. The old universal “No double gifts” headline is not restored.
 - [x] Restore the original **Any excuse to gift.** events section with its colorful occasion tiles between groups and FAQ. Remove the condensed “Birthdays · Diwali · Eid · Secret Santa · Just because” line beneath groups. Keep the original colors and content. The latest user-approved refinement puts occasion cards on the left and text on the right at desktop widths, with a single full-width separator between occasions and FAQ, no top border on occasions and no bottom border on FAQ. Mobile keeps the introductory text above the cards.
@@ -43,6 +43,8 @@ Intermediate interactive-demo screenshots have been removed from the final evide
 These are review evidence, **not approved replacement golden screenshots**. No baseline files or manifest were changed. The landing still differs from the old group-first goldens, so a separate explicit baseline approval is required after human review.
 
 ## Final integrated verification
+
+Latest hero cleanup: removed the secondary hero CTA and supporting no-group/account line. Full `pnpm verify` passed again (154 files /1,512 tests plus build). Desktop/mobile rendered checks confirmed one hero CTA and preserved explanation sections; affected keyboard/navigation checks passed (5 passed, 1 intentional mobile navigation skip). Hero and full-page screenshots reflect this final state.
 
 After the final copy removals and CTA refinement, `pnpm verify` passed again: formatting, lint, types, all **154 files /1,512 tests**, and production build. Rendered checks at 1440×1000 and 390×844 confirmed all three removed lines are absent, the CTA retains `/auth?intent=wishlist`, its dark shadow extends 2px right/down, and hover lifts it 2px. Current full-page captures include these latest changes. Earlier verification history follows for context.
 
