@@ -94,11 +94,7 @@ export async function GET(
   // The flow cookie is re-anchored to this response so the parked
   // credential and the flow travel together (same-site, same lifetime
   // window). The envelope content is unchanged.
-  const resealed = await sealFlowCookie(
-    { flowId, browserSecret: flow.browserSecret, email: flow.email },
-    Date.now(),
-    secret!,
-  );
+  const resealed = await sealFlowCookie({ ...flow }, Date.now(), secret!);
   response.cookies.set(`__Host-gmt-invite-${flowId}`, resealed, {
     httpOnly: true,
     secure: true,

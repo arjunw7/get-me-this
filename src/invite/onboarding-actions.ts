@@ -9,15 +9,17 @@ import { isProfileComplete } from "@/src/profile/profile";
 import { getOwnProfile } from "@/src/profile/session";
 import type { OnboardingSubmitState } from "@/src/profile/onboarding-state";
 import { readFlowCookie } from "./flow-session";
+import { resumeInvitationJoinAction } from "./invite-actions";
 import { isFlowId } from "./token";
 
 /**
  * The invitation onboarding completion action (brief 006c): the approved
  * 004e validation and profile write, with the invitation-specific return —
- * the clean invitation preview. Every render and submit repeats the
+ * automatic continuation of the person's original Join decision. Every render
+ * and submit repeats the
  * authenticated-session and continuation checks; a flow-id edit, cookie
  * swap, session switch, expired continuation, or mismatched verified user
- * cannot choose a destination. Onboarding NEVER accepts the invitation.
+ * cannot choose a destination. Only a previously recorded Join is resumed.
  */
 export async function completeOnboardingForInvitationAction(
   _previous: OnboardingSubmitState,
@@ -65,12 +67,12 @@ export async function completeOnboardingForInvitationAction(
     return { status: "error", failure: "update-failed" };
   }
 
-  // Defense in depth: a complete profile returns to the clean preview;
-  // nothing here accepted the invitation.
+  // Re-read the saved profile before resuming the original Join decision.
   const profile = await getOwnProfile(user.id);
   if (!isProfileComplete(profile?.displayName ?? null)) {
     return { status: "error", failure: "update-failed" };
   }
 
+  if (flow.joinRequested === true) await resumeInvitationJoinAction(formData);
   redirect(`/invite/continue/${flowId}`);
 }

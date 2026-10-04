@@ -22,7 +22,7 @@ generic preview; messaging apps may retain previously cached previews.
 
 ## Invitation
 
-A signed-out visitor with a valid invitation sees a limited preview: host, group name, occasion date, budget, gifting mode, and joined member count. The visitor selects **Join the group**, authenticates, completes onboarding if needed, and returns to the invitation before membership is created.
+A signed-out visitor with a valid invitation sees a limited preview: host, group name, occasion date, budget, gifting mode, and joined member count. The visitor selects **Join the group**, authenticates, completes onboarding if needed, and joins automatically after the profile is complete. That first Join click is retained in the browser-bound, sealed continuation; both OTP and magic-link sign-in use the same automatic reconciliation POST. Successful acceptance lands on Home. Preview GETs, prefetch, and email scanners never join a group. Invalid, expired, revoked, exhausted, or account-mismatched continuations remain denied by the existing database acceptance function. A continuation created before this change without recorded Join consent still requires an explicit Join.
 
 Expired, revoked, or invalid invitations reveal no private group data and provide a clear recovery message.
 

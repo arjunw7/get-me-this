@@ -39,7 +39,9 @@ const MAILPIT_URL = process.env.E2E_MAILPIT_URL ?? "http://127.0.0.1:54324";
 const GROUP_NAME = "Invitation e2e fixture";
 
 /** Polls the local Mailpit inbox for the six-digit invitation code. */
-async function readCodeFor(email: string): Promise<string> {
+async function readCredentialsFor(
+  email: string,
+): Promise<{ code: string; tokenHash: string }> {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const listing = await fetch(`${MAILPIT_URL}/api/v1/messages?limit=50`, {
       signal: AbortSignal.timeout(5_000),
@@ -58,11 +60,18 @@ async function readCodeFor(email: string): Promise<string> {
         HTML?: string;
       };
       const code = (detail.Text || detail.HTML || "").match(/\b(\d{6})\b/)?.[1];
-      if (code) return code;
+      const tokenHash = (detail.Text || detail.HTML || "").match(
+        /token_hash=([^"'&\s]+)/,
+      )?.[1];
+      if (code && tokenHash) return { code, tokenHash };
     }
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
   throw new Error("no invitation code arrived within 12s");
+}
+
+async function readCodeFor(email: string): Promise<string> {
+  return (await readCredentialsFor(email)).code;
 }
 
 /** Types a six-digit code into the designed OTP input. */
@@ -200,157 +209,140 @@ test.describe("invitation preview and acceptance", () => {
     }
   });
 
-  test("a signed-out recipient joins through OTP, onboarding, and a final explicit Join", async ({
-    page,
-  }) => {
-    test.setTimeout(120_000);
-    const scope = new FixtureScope();
-    await scope.run(async () => {
-      const { token, groupId, extraUserIds } = await createGroupAndToken(
-        page,
-        scope,
-      );
-
-      // A fresh, signed-out browser opens the raw link. The context uses
-      // this test project's viewport, so both the mobile and the desktop
-      // project run the whole journey at their own size (review note c).
-      const context = await page
-        .context()
-        .browser()
-        ?.newContext({ viewport: page.viewportSize() ?? undefined });
-      if (!context) throw new Error("no browser context");
-      try {
-        const recipient = await context.newPage();
-        // Review note e: enumerate every Set-Cookie writer observed across
-        // the whole journey and prove each is in the named inventory.
-        const writers = observeCookieWriters(recipient);
-        const step = (label: string) =>
-          console.log(`[journey] ${label} url=${recipient.url()}`);
-        recipient.on("crash", () => console.log("[journey] PAGE CRASHED"));
-        recipient.on("close", () => console.log("[journey] PAGE CLOSED"));
-        recipient.on("requestfailed", (request) =>
-          console.log(
-            `[journey] requestfailed ${request.method()} ${new URL(request.url()).pathname} ${request.failure()?.errorText ?? ""}`,
-          ),
+  for (const authMethod of ["OTP", "magic link"] as const) {
+    test(`a signed-out recipient joins through ${authMethod} with one Join click`, async ({
+      page,
+    }) => {
+      test.setTimeout(120_000);
+      const scope = new FixtureScope();
+      await scope.run(async () => {
+        const { token, groupId, extraUserIds } = await createGroupAndToken(
+          page,
+          scope,
         );
 
-        await recipient.goto(`/invite/${token}`, {
-          waitUntil: "domcontentloaded",
-        });
-        // The raw landing never renders content: it redirects (directly,
-        // or through the token-free start bootstrap) to the clean preview.
-        await recipient.waitForURL(/\/invite\/continue\/[0-9a-f-]{36}$/);
-        step("preview");
+        // A fresh, signed-out browser opens the raw link. The context uses
+        // this test project's viewport, so both the mobile and the desktop
+        // project run the whole journey at their own size (review note c).
+        const context = await page
+          .context()
+          .browser()
+          ?.newContext({ viewport: page.viewportSize() ?? undefined });
+        if (!context) throw new Error("no browser context");
+        try {
+          const recipient = await context.newPage();
+          // Review note e: enumerate every Set-Cookie writer observed across
+          // the whole journey and prove each is in the named inventory.
+          const writers = observeCookieWriters(recipient);
+          const step = (label: string) =>
+            console.log(`[journey] ${label} url=${recipient.url()}`);
+          recipient.on("crash", () => console.log("[journey] PAGE CRASHED"));
+          recipient.on("close", () => console.log("[journey] PAGE CLOSED"));
+          recipient.on("requestfailed", (request) =>
+            console.log(
+              `[journey] requestfailed ${request.method()} ${new URL(request.url()).pathname} ${request.failure()?.errorText ?? ""}`,
+            ),
+          );
 
-        // Exactly the approved preview content renders.
-        await expect(
-          recipient.getByRole("heading", {
-            name: `You're invited to ${GROUP_NAME}.`,
-          }),
-        ).toBeVisible();
-        await expect(recipient.getByText("Organizer Ona")).toBeVisible();
-        await expect(recipient.getByText("Joined so far")).toBeVisible();
-        step("preview content");
+          await recipient.goto(`/invite/${token}`, {
+            waitUntil: "domcontentloaded",
+          });
+          // The raw landing never renders content: it redirects (directly,
+          // or through the token-free start bootstrap) to the clean preview.
+          await recipient.waitForURL(/\/invite\/continue\/[0-9a-f-]{36}$/);
+          step("preview");
 
-        // Join: signed-out → the dedicated invitation email screen.
-        await recipient.getByRole("button", { name: "Join the group" }).click();
-        await recipient.waitForURL("/auth/invite/**");
-        const flowId = new URL(recipient.url()).pathname.split("/").pop() ?? "";
-        step("email screen");
+          // Exactly the approved preview content renders.
+          await expect(
+            recipient.getByRole("heading", {
+              name: `You're invited to ${GROUP_NAME}.`,
+            }),
+          ).toBeVisible();
+          await expect(recipient.getByText("Organizer Ona")).toBeVisible();
+          await expect(recipient.getByText("Joined so far")).toBeVisible();
+          step("preview content");
 
-        const email = `invitations-e2e-recipient-${Date.now()}@example.invalid`;
-        await recipient.getByLabel("Email").fill(email);
-        await recipient
-          .getByRole("button", { name: "Continue with email" })
-          .click();
+          // Join: signed-out → the dedicated invitation email screen.
+          await recipient
+            .getByRole("button", { name: "Join the group" })
+            .click();
+          await recipient.waitForURL("/auth/invite/**");
+          const flowId =
+            new URL(recipient.url()).pathname.split("/").pop() ?? "";
+          step("email screen");
 
-        // OTP verification against the code the real local delivery sent.
-        await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/verify$/);
-        const code = await readCodeFor(email);
-        await enterCode(recipient, code);
-        step("code entered");
-        await recipient.getByRole("button", { name: "Verify" }).click();
+          const email = `invitations-e2e-recipient-${Date.now()}@example.invalid`;
+          await recipient.getByLabel("Email").fill(email);
+          await recipient
+            .getByRole("button", { name: "Continue with email" })
+            .click();
 
-        // The verification response never binds or accepts: the clean
-        // reconciliation screen requires the explicit continuation POST.
-        await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/reconcile$/);
-        step("reconcile");
-        await expect(
-          recipient.getByRole("heading", { name: "You're signed in." }),
-        ).toBeVisible();
-        // The reconciliation is idempotent, but the click's URL wait must
-        // span the brokered verification's settle round-trip, which is
-        // slow under CI load — and re-clicking is never an option for the
-        // one-shot verification steps before this point.
-        await recipient
-          .getByRole("button", { name: "Continue this invitation" })
-          .click();
-        await recipient.waitForURL(`/invite/continue/${flowId}`, {
-          timeout: 30_000,
-        });
-        step("second preview");
+          await recipient.waitForURL(/\/auth\/invite\/[0-9a-f-]{36}\/verify$/);
+          const credentials = await readCredentialsFor(email);
+          if (authMethod === "OTP") {
+            await enterCode(recipient, credentials.code);
+            await recipient
+              .getByRole("button", { name: "Verify", exact: true })
+              .click();
+          } else {
+            await recipient.goto(
+              `/auth/confirm/invite/${flowId}?token_hash=${credentials.tokenHash}&type=email`,
+            );
+            await recipient
+              .getByRole("button", { name: "Use my sign-in link" })
+              .click();
+          }
+          // Reconciliation submits automatically. No repeated Join or Continue.
+          await recipient.waitForURL(`/onboarding/invite/${flowId}`, {
+            timeout: 30_000,
+          });
+          step("onboarding");
+          await recipient
+            .getByLabel("What should friends call you?")
+            .fill("Recipient Rhea");
+          await recipient.getByRole("button", { name: "Let’s go" }).click();
 
-        // Back on the live preview; a SECOND explicit Join sends the brand-
-        // new recipient to the invitation onboarding (it never accepts):
-        // completing it returns to the live preview for the third Join.
-        await expect(
-          recipient.getByRole("heading", {
-            name: `You're invited to ${GROUP_NAME}.`,
-          }),
-        ).toBeVisible();
-        await recipient.getByRole("button", { name: "Join the group" }).click();
-        await recipient.waitForURL(`/onboarding/invite/${flowId}`);
-        step("onboarding");
-        await recipient
-          .getByLabel("What should friends call you?")
-          .fill("Recipient Rhea");
-        await recipient.getByRole("button", { name: "Let’s go" }).click();
+          await recipient.waitForURL("/home", { timeout: 30_000 });
+          await expect(
+            recipient
+              .getByRole("navigation", { name: "Main" })
+              .filter({ visible: true }),
+          ).toBeVisible();
+          step("automatically joined, on Home");
 
-        await recipient.waitForURL(`/invite/continue/${flowId}`);
-        await expect(
-          recipient.getByRole("heading", {
-            name: `You're invited to ${GROUP_NAME}.`,
-          }),
-        ).toBeVisible();
-        await recipient.getByRole("button", { name: "Join the group" }).click();
-        await recipient.waitForURL(`/invite/continue/${flowId}`);
-        step("third preview joined");
-        await expect(
-          recipient.getByRole("heading", { name: "You're in." }),
-        ).toBeVisible();
+          // Database evidence: membership, one use, an accepted continuation.
+          const recipientId = runStackSql(
+            `select id::text from auth.users where email = '${email}';`,
+          ).trim();
+          extraUserIds.push(recipientId);
+          await expect
+            .poll(() => joinedCount(groupId, recipientId), { timeout: 10_000 })
+            .toBe("1");
+          step("membership row");
+          expect(invitationUseCount(groupId)).toBe("1");
+          const accepted = runStackSql(
+            `select count(*)::text from private.invitation_continuations where verified_user_id = '${recipientId}'::uuid and accepted_at is not null;`,
+          ).trim();
+          expect(accepted).toBe("1");
 
-        // Database evidence: membership, one use, an accepted continuation.
-        const recipientId = runStackSql(
-          `select id::text from auth.users where email = '${email}';`,
-        ).trim();
-        extraUserIds.push(recipientId);
-        await expect
-          .poll(() => joinedCount(groupId, recipientId), { timeout: 10_000 })
-          .toBe("1");
-        step("membership row");
-        expect(invitationUseCount(groupId)).toBe("1");
-        const accepted = runStackSql(
-          `select count(*)::text from private.invitation_continuations where verified_user_id = '${recipientId}'::uuid and accepted_at is not null;`,
-        ).trim();
-        expect(accepted).toBe("1");
+          // Replay: returning to the same flow renders joined with no
+          // additional membership or use.
+          await recipient.goto(`/invite/continue/${flowId}`);
+          await expect(
+            recipient.getByRole("heading", { name: "You're in." }),
+          ).toBeVisible();
+          expect(joinedCount(groupId, recipientId)).toBe("1");
+          expect(invitationUseCount(groupId)).toBe("1");
 
-        // Replay: returning to the same flow renders joined with no
-        // additional membership or use.
-        await recipient.goto(`/invite/continue/${flowId}`);
-        await expect(
-          recipient.getByRole("heading", { name: "You're in." }),
-        ).toBeVisible();
-        expect(joinedCount(groupId, recipientId)).toBe("1");
-        expect(invitationUseCount(groupId)).toBe("1");
-
-        // Review note e: the whole journey's Set-Cookie writers are the
-        // named inventory — nothing else wrote a cookie.
-        assertWritersInInventory(writers);
-      } finally {
-        await context.close();
-      }
+          // Review note e: the whole journey's Set-Cookie writers are the
+          // named inventory — nothing else wrote a cookie.
+          assertWritersInInventory(writers);
+        } finally {
+          await context.close();
+        }
+      });
     });
-  });
+  }
 
   test("a signed-in recipient joins directly from the preview", async ({
     page,
@@ -389,9 +381,11 @@ test.describe("invitation preview and acceptance", () => {
 
         // One explicit Join accepts directly — no email step.
         await joiner.getByRole("button", { name: "Join the group" }).click();
-        await joiner.waitForURL(/\/invite\/continue\/[0-9a-f-]{36}$/);
+        await joiner.waitForURL("/home");
         await expect(
-          joiner.getByRole("heading", { name: "You're in." }),
+          joiner
+            .getByRole("navigation", { name: "Main" })
+            .filter({ visible: true }),
         ).toBeVisible();
 
         await expect
@@ -454,9 +448,11 @@ test.describe("invitation preview and acceptance", () => {
         await joiner.goto(`/invite/${token}`);
         await joiner.waitForURL(/\/invite\/continue\/[0-9a-f-]{36}$/);
         await joiner.getByRole("button", { name: "Join the group" }).click();
-        await joiner.waitForURL(/\/invite\/continue\/[0-9a-f-]{36}$/);
+        await joiner.waitForURL("/home");
         await expect(
-          joiner.getByRole("heading", { name: "You're in." }),
+          joiner
+            .getByRole("navigation", { name: "Main" })
+            .filter({ visible: true }),
         ).toBeVisible();
         await expect
           .poll(() => joinedCount(groupId, joinerId), { timeout: 10_000 })

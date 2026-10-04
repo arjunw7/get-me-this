@@ -1,0 +1,6 @@
+Final local verification: pnpm verify — PASS
+Format check, lint (0 errors; 2 existing warnings), type check, 165 test files / 1601 tests, production build — PASS.
+Dedicated local database: 4 suites / 219 assertions — PASS.
+Invitation browser tests: 12 tests across desktop and mobile — PASS (44.8 seconds).
+
+During full-suite validation, two earlier runs hit existing timing-sensitive wishlist tests (reorder refresh, image normalization). The final complete run passed without modifying either test or production implementation. Build output was isolated under .next/verify to preserve the running navigation preview. Temporary environment-specific configuration is excluded from the committed diff.
