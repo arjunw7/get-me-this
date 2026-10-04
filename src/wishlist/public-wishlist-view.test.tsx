@@ -58,9 +58,7 @@ describe("PublicWishlistView", () => {
   });
   it("lets signed-out visitors read items, with sign-in required to react and no gifting controls", () => {
     render(<PublicWishlistView {...props} />);
-    expect(
-      screen.getByRole("heading", { name: "Aanya's wishlist" }),
-    ).toBeVisible();
+    expect(screen.getAllByRole("heading", { name: "Aanya" })[0]).toBeVisible();
     expect(screen.getByText("Little luxuries")).toBeVisible();
     expect(
       screen.getByRole("heading", { name: "A ceramic cup" }),

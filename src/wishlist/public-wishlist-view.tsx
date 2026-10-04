@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Wordmark } from "@/src/landing/wordmark";
-import { vibeClasses } from "@/src/profile/vibe";
-import { profileInitials } from "@/src/home/profile-initials";
+import { WishlistProfileHeader } from "./wishlist-profile-header";
 import { ReactionRow } from "@/src/groups/reactions/reaction-row";
 import { OwnerReactionSummaryRow } from "@/src/groups/reactions/owner-reaction-summary";
 import type {
@@ -65,36 +64,13 @@ export function PublicWishlistView({
         )}
       </header>
       <main className="mx-auto max-w-6xl px-5 pt-4 sm:px-8">
-        <section
-          aria-label={`${snapshot.displayName}'s profile`}
-          className="overflow-hidden rounded-surface-2xl border-2 border-outline-strong bg-surface-raised shadow-chunk"
-        >
-          <div
-            data-vibe={snapshot.vibe}
-            className={`h-24 border-b-2 border-outline-strong sm:h-28 ${vibeClasses(snapshot.vibe)}`}
-          />
-          <div className="px-5 pb-6 sm:px-7">
-            <span
-              aria-hidden="true"
-              className={`relative -mt-12 flex h-24 w-24 items-center justify-center rounded-full border-2 border-outline-strong font-display text-3xl font-extrabold ring-4 ring-surface-raised ${vibeClasses(snapshot.vibe)}`}
-            >
-              {profileInitials(snapshot.displayName)}
-            </span>
-            <h1 className="mt-4 break-words font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-              {snapshot.displayName}&apos;s wishlist
-            </h1>
-            {snapshot.tasteLine ? (
-              <p className="mt-2 text-lg text-content-secondary">
-                {snapshot.tasteLine}
-              </p>
-            ) : null}
-            <p className="mt-2 text-sm text-content-muted">
-              {snapshot.items.length}{" "}
-              {snapshot.items.length === 1 ? "thing" : "things"} · Public
-              wishlist
-            </p>
-          </div>
-        </section>
+        <WishlistProfileHeader
+          displayName={snapshot.displayName}
+          tasteLine={snapshot.tasteLine}
+          vibe={snapshot.vibe}
+          itemCount={snapshot.items.length}
+          label={`${snapshot.displayName}'s profile`}
+        />
         {snapshot.items.length === 0 ? (
           <section className="mt-8 rounded-surface-2xl border-2 border-dashed border-outline-strong/35 bg-surface-raised px-6 py-14 text-center">
             <h2 className="font-display text-2xl font-extrabold">

@@ -5,14 +5,20 @@ import { loadPublicWishlist } from "@/src/wishlist/public-share-data";
 import { reactToPublicItem } from "@/src/wishlist/public-share-actions";
 import { PublicWishlistView } from "@/src/wishlist/public-wishlist-view";
 
+import { publicSiteOrigin } from "@/src/brand/metadata";
+import { publicWishlistMetadata } from "@/src/wishlist/public-share-metadata";
+
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = {
-  title: "A wishlist for you | Get Me This",
-  description:
-    "A few things they'd love. Browse their wishlist and sign in to react.",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}): Promise<Metadata> {
+  const { token } = await params;
+  const snapshot = await loadPublicWishlist(token);
+  const origin = publicSiteOrigin(process.env);
+  return publicWishlistMetadata(snapshot, token, origin);
+}
 export default async function SharedWishlistPage({
   params,
 }: {

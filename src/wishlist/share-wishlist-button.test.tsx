@@ -44,6 +44,33 @@ describe("ShareWishlistButton", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Link copied.");
   });
 
+  it("offers WhatsApp with the same active link and safe external navigation", async () => {
+    const user = userEvent.setup();
+    render(<ShareWishlistButton state={state} onChange={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Share wishlist" }));
+    const link = screen.getByRole("link", { name: "Share on WhatsApp" });
+    expect(new URL(link.getAttribute("href")!).searchParams.get("text")).toBe(
+      `Here's my wishlist on Get Me This: ${window.location.origin}/s/public-token`,
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("hides both share actions for a disabled wishlist", async () => {
+    const user = userEvent.setup();
+    render(
+      <ShareWishlistButton
+        state={{ enabled: false, version: "2", shareToken: null }}
+        onChange={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Share wishlist" }));
+    expect(
+      screen.queryByRole("link", { name: "Share on WhatsApp" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy link" })).toBeNull();
+  });
+
   it("keeps a selectable read-only link when clipboard access fails", async () => {
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
@@ -176,7 +203,9 @@ describe("ShareWishlistButton", () => {
     await user.click(trigger);
     expect(screen.getByRole("button", { name: "Close sharing" })).toHaveFocus();
     await user.tab({ shift: true });
-    expect(screen.getByRole("button", { name: "Copy link" })).toHaveFocus();
+    expect(
+      screen.getByRole("link", { name: "Share on WhatsApp" }),
+    ).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("button", { name: "Close sharing" })).toHaveFocus();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
