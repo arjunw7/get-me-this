@@ -68,8 +68,8 @@ export async function invitationShareImage(preview: InvitationSharePreview) {
             style={{
               background: c.blue,
               color: c.paper,
-              padding: "13px 24px",
-              fontSize: 26,
+              padding: "14px 26px",
+              fontSize: 36,
               border: `2px solid ${c.ink}`,
               borderRadius: 12,
               transform: "rotate(-4deg)",
@@ -93,7 +93,8 @@ export async function invitationShareImage(preview: InvitationSharePreview) {
           display: "flex",
           position: "relative",
           marginTop: 30,
-          height: 280,
+          height: 410,
+          flexDirection: "column",
           flexShrink: 0,
           background: c.yellow,
           border: `3px solid ${c.ink}`,
@@ -107,6 +108,8 @@ export async function invitationShareImage(preview: InvitationSharePreview) {
           style={{
             display: "flex",
             width: "100%",
+            flex: 1,
+            alignItems: "center",
             fontFamily: "Bricolage Grotesque",
             fontWeight: 800,
             fontSize:
@@ -143,55 +146,64 @@ export async function invitationShareImage(preview: InvitationSharePreview) {
             strokeLinejoin="round"
           />
         </svg>
-      </div>
-      <div style={{ display: "flex", marginTop: 32, height: 92, gap: 24 }}>
         <div
           style={{
             display: "flex",
-            width: 646,
-            flexDirection: "column",
-            justifyContent: "center",
-            padding: "12px 24px",
-            border: `2px solid ${c.ink}`,
-            borderRadius: 18,
-            background: c.paper,
-            boxShadow: `5px 5px 0 ${c.tomato}`,
+            width: "100%",
+            marginTop: 22,
+            height: 110,
+            flexShrink: 0,
+            gap: 24,
           }}
         >
-          <span style={{ fontSize: 17, marginBottom: 4 }}>YOUR HOST</span>
-          <span
+          <div
             style={{
-              fontFamily: "Bricolage Grotesque",
-              fontWeight: 800,
-              fontSize:
-                preview.organizerName.length > 90
-                  ? 14
-                  : preview.organizerName.length > 60
-                    ? 20
-                    : preview.organizerName.length > 30
-                      ? 26
-                      : 34,
-              lineHeight: 1.1,
+              display: "flex",
+              width: 580,
+              flexDirection: "column",
+              justifyContent: "center",
+              padding: "12px 24px",
+              border: `2px solid ${c.ink}`,
+              borderRadius: 18,
+              background: c.paper,
+              boxShadow: `5px 5px 0 ${c.tomato}`,
             }}
           >
-            {preview.organizerName}
-          </span>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flex: 1,
-            alignItems: "center",
-            justifyContent: "center",
-            background: c.lime,
-            border: `2px solid ${c.ink}`,
-            borderRadius: 18,
-            boxShadow: `5px 5px 0 ${c.ink}`,
-            transform: "rotate(2deg)",
-            fontSize: 27,
-          }}
-        >
-          {preview.date}
+            <span style={{ fontSize: 17, marginBottom: 4 }}>YOUR HOST</span>
+            <span
+              style={{
+                fontFamily: "Bricolage Grotesque",
+                fontWeight: 800,
+                fontSize:
+                  preview.organizerName.length > 90
+                    ? 13
+                    : preview.organizerName.length > 60
+                      ? 16
+                      : preview.organizerName.length > 30
+                        ? 20
+                        : 30,
+                lineHeight: 1.1,
+              }}
+            >
+              {preview.organizerName}
+            </span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              background: c.lime,
+              border: `2px solid ${c.ink}`,
+              borderRadius: 18,
+              boxShadow: `5px 5px 0 ${c.ink}`,
+              transform: "rotate(2deg)",
+              fontSize: 27,
+            }}
+          >
+            {preview.date}
+          </div>
         </div>
       </div>
     </div>,

@@ -24,18 +24,22 @@ under AGENTS.md. The exact repair is documented in
 - [x] “As colorful and as quirky as possible.” Uses the app's marigold,
   electric blue, tomato, lime and paper tokens, the existing gift mark, a
   star doodle, tilted invitation/date stickers and offset shadows.
+- [x] “Move the host and date within the box which has group name” and
+  “increase the size of you're invited.” Both details now sit inside the
+  marigold card, and the invitation sticker text grows from 26px to 36px.
 - [ ] Apply the production repair and verify the user's real group. No
   production mutation has been performed or claimed as complete.
 
 ## Automated proof
 
-- `pnpm verify`: format, lint, strict types, unit/component tests and build.
-  Final result recorded in the PR. Two pre-existing unrelated lint warnings
+- `pnpm verify`: format, lint, strict types, 163 files / 1,583 unit/component
+  tests and build passed on the main base including merged PR #84.
+  Two pre-existing unrelated lint warnings
   remain in copy-button.tsx and redraw-section.test.tsx.
-- Full local database suite, including the new three-field projection,
+- Full local database suite: 28 suites / 1,881 assertions passed, including the new three-field projection,
   malformed/unknown capabilities, join-capability separation, live organizer
   name, group-zone midnight rollover, no use/membership changes, and denial
-  for expired, revoked, exhausted, targeted and inactive-group invitations.
+  for expired, revoked, exhausted, targeted, archived and deleted-group invitations.
 - 14 browser tests passed across 390×844 and 1440×1000: organizer modal stable
   reopening; non-organizer denial; signed-out OTP/onboarding/final Join;
   signed-in joining; invalid tokens; foreign-origin replay denial; pending
@@ -60,6 +64,12 @@ Its responsive display is captured at [desktop](banner-desktop.png) and
 [mobile](banner-mobile.png). The same synthetic group, organizer and occasion
 are used at both widths. These screenshots show the image itself; they do not
 claim an actual WhatsApp/other third-party card render.
+
+The user's final layout revision has exact before comparisons from the banner
+shown earlier in this conversation: [desktop before](banner-before-desktop.png)
+and [mobile before](banner-before-mobile.png). Same image endpoint, group fixture,
+viewport and display state; only the requested layout/sticker size changed.
+These are design-iteration comparisons, not pre-existing production banners.
 
 The ordinary guest preview is captured at [desktop](invite-browser-desktop.png)
 and [mobile](invite-browser-mobile.png). The organizer modal is captured at
