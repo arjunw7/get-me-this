@@ -5,32 +5,35 @@ import { describe, expect, it } from "vitest";
 import { WishlistExample } from "./wishlist-example";
 
 describe("standalone wishlist demonstration", () => {
-  it("keeps example edits through wishlist and anonymous friend views", async () => {
+  it("shows the same two gifts to a friend after one share action", async () => {
     const user = userEvent.setup();
     render(<WishlistExample />);
-    await user.click(screen.getByRole("button", { name: /Add an idea/ }));
-    const title = screen.getByLabelText("Item name");
-    await user.clear(title);
-    await user.type(title, "Blue espresso cups");
-    await user.click(screen.getByRole("button", { name: "Save example item" }));
+    const example = screen.getByRole("region", { name: "Example wishlist" });
+    expect(within(example).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(example).getByText("Your view")).toBeVisible();
     await user.click(
-      screen.getByRole("button", { name: "Preview shared wishlist" }),
+      screen.getByRole("button", { name: "Share this example" }),
     );
-    const demo = screen.getByRole("region", { name: "Try an example" });
-    expect(within(demo).getByText("Blue espresso cups")).toBeVisible();
-    expect(demo).not.toHaveTextContent(/reservation|reserved|group/i);
-    expect(within(demo).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(example).getByText("Friend’s view")).toBeVisible();
+    expect(within(example).getByText("Matcha set")).toBeVisible();
+    expect(within(example).getByText("Film camera")).toBeVisible();
+    expect(
+      within(example).getByText("They can browse. No sign-up needed."),
+    ).toHaveAttribute("aria-live", "polite");
+    expect(example).not.toHaveTextContent(/reservation|reserved|group/i);
+    expect(within(example).queryByRole("link")).not.toBeInTheDocument();
   });
-  it("prevents an empty example item and does not change saved data until saving", async () => {
+  it("keeps focus on the single action and supports replay without navigation", async () => {
     const user = userEvent.setup();
     render(<WishlistExample />);
-    await user.click(screen.getByRole("button", { name: /Add an idea/ }));
-    await user.clear(screen.getByLabelText("Item name"));
-    await user.type(screen.getByLabelText("Item name"), "   ");
+    const action = screen.getByRole("button", { name: "Share this example" });
+    action.focus();
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("button", { name: "Try again" })).toHaveFocus();
+    await user.keyboard("{Enter}");
     expect(
-      screen.getByRole("button", { name: "Save example item" }),
-    ).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: /Your wishlist/ }));
-    expect(screen.getByText("Glazed espresso cups")).toBeVisible();
+      screen.getByRole("button", { name: "Share this example" }),
+    ).toHaveFocus();
+    expect(screen.getByText("Your view")).toBeVisible();
   });
 });
