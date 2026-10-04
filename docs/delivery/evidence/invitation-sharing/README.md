@@ -23,10 +23,16 @@ under AGENTS.md. The exact repair is documented in
   renders the same Wordmark component, including its tomato underline.
 - [x] “As colorful and as quirky as possible.” Uses the app's marigold,
   electric blue, tomato, lime and paper tokens, the existing gift mark, a
-  star doodle, tilted invitation/date stickers and offset shadows.
+  tilted invitation chip and offset shadows.
 - [x] “Move the host and date within the box which has group name” and
   “increase the size of you're invited.” Both details now sit inside the
-  marigold card, and the invitation sticker text grows from 26px to 36px.
+  marigold card.
+- [x] “Don’t keep the date box tilted” and “make the date bold like host name.”
+  The date panel is straight and uses Bricolage Grotesque 800 at 30px.
+- [x] Remove the star; put the favicon gift before the top-left logo; keep
+  only a bold invitation chip at top right and make it “30% more bigger.”
+  The star is removed, the gift precedes the wordmark, and the chip uses
+  Bricolage Grotesque 800 at 46.8px (30% larger than the previous 36px).
 - [ ] Apply the production repair and verify the user's real group. No
   production mutation has been performed or claimed as complete.
 
@@ -68,7 +74,7 @@ claim an actual WhatsApp/other third-party card render.
 The user's final layout revision has exact before comparisons from the banner
 shown earlier in this conversation: [desktop before](banner-before-desktop.png)
 and [mobile before](banner-before-mobile.png). Same image endpoint, group fixture,
-viewport and display state; only the requested layout/sticker size changed.
+viewport and display state; only the requested layout and styling changed.
 These are design-iteration comparisons, not pre-existing production banners.
 
 The ordinary guest preview is captured at [desktop](invite-browser-desktop.png)

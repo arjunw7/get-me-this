@@ -62,14 +62,20 @@ export async function invitationShareImage(preview: InvitationSharePreview) {
           justifyContent: "space-between",
         }}
       >
-        <Wordmark imageColors={{ ink: c.ink, accent: c.tomato }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={c.giftMark} width={76} height={76} alt="" />
+          <Wordmark imageColors={{ ink: c.ink, accent: c.tomato }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center" }}>
           <span
             style={{
               background: c.blue,
               color: c.paper,
               padding: "14px 26px",
-              fontSize: 36,
+              fontFamily: "Bricolage Grotesque",
+              fontWeight: 800,
+              fontSize: 46.8,
               border: `2px solid ${c.ink}`,
               borderRadius: 12,
               transform: "rotate(-4deg)",
@@ -78,14 +84,6 @@ export async function invitationShareImage(preview: InvitationSharePreview) {
           >
             You&apos;re invited!
           </span>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={c.giftMark}
-            width={76}
-            height={76}
-            alt=""
-            style={{ transform: "rotate(9deg)" }}
-          />
         </div>
       </div>
       <div
@@ -127,25 +125,6 @@ export async function invitationShareImage(preview: InvitationSharePreview) {
         >
           {preview.groupName}
         </div>
-        <svg
-          width="62"
-          height="62"
-          viewBox="0 0 64 64"
-          style={{
-            position: "absolute",
-            right: -19,
-            top: -24,
-            transform: "rotate(12deg)",
-          }}
-        >
-          <path
-            d="M32 2 L39 23 L61 17 L45 34 L60 50 L38 43 L31 63 L25 42 L3 48 L19 32 L3 15 L25 23 Z"
-            fill={c.lime}
-            stroke={c.ink}
-            strokeWidth="2.5"
-            strokeLinejoin="round"
-          />
-        </svg>
         <div
           style={{
             display: "flex",
@@ -198,8 +177,9 @@ export async function invitationShareImage(preview: InvitationSharePreview) {
               border: `2px solid ${c.ink}`,
               borderRadius: 18,
               boxShadow: `5px 5px 0 ${c.ink}`,
-              transform: "rotate(2deg)",
-              fontSize: 27,
+              fontFamily: "Bricolage Grotesque",
+              fontWeight: 800,
+              fontSize: 30,
             }}
           >
             {preview.date}
