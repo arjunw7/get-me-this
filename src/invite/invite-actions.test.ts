@@ -65,6 +65,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("./flow-session", () => ({
   readFlowCookie: mocks.readFlowCookie,
+  readMutationDelivery: vi.fn().mockResolvedValue(null),
   readCoordinatorCookie: mocks.readCoordinatorCookie,
   readAllFlowCookies: mocks.readAllFlowCookies,
 }));
@@ -102,6 +103,7 @@ import {
   requestInvitationEmailAction,
   signOutWithInvitationCleanupAction,
   verifyInvitationCodeAction,
+  reconcileInvitationAction,
 } from "./invite-actions";
 
 const FLOW_ID = "0f0a0b0c-1111-4222-8333-444455556666";
@@ -206,7 +208,7 @@ describe("joinGroupInvitationAction", () => {
     expect(mocks.acceptFlow).not.toHaveBeenCalled();
   });
 
-  it("returns to the clean continuation after acceptance and emits the typed event once", async () => {
+  it("lands on Home after acceptance and emits the typed event once", async () => {
     mocks.acceptFlow.mockResolvedValue({
       kind: "accepted",
       result: "joined",
@@ -216,7 +218,7 @@ describe("joinGroupInvitationAction", () => {
     const redirect = await redirectOf(() =>
       joinGroupInvitationAction(formData({ flowId: FLOW_ID })),
     );
-    expect(redirect).toBe(`/invite/continue/${FLOW_ID}`);
+    expect(redirect).toBe("/home");
     expect(mocks.capture).toHaveBeenCalledTimes(1);
     expect(mocks.capture).toHaveBeenCalledWith(
       "invite_accepted",
@@ -235,7 +237,7 @@ describe("joinGroupInvitationAction", () => {
     const redirect = await redirectOf(() =>
       joinGroupInvitationAction(formData({ flowId: FLOW_ID })),
     );
-    expect(redirect).toBe(`/invite/continue/${FLOW_ID}`);
+    expect(redirect).toBe("/home");
     expect(mocks.capture).not.toHaveBeenCalled();
   });
 
@@ -467,5 +469,75 @@ describe("signOutWithInvitationCleanupAction", () => {
     expect(redirect).toBe("/?loggedOut=1");
     expect(mocks.signOut).toHaveBeenCalledTimes(1);
     expect(mocks.acquireAuthLease).not.toHaveBeenCalled();
+  });
+});
+
+describe("one-click invitation continuation", () => {
+  it("remembers the explicit Join click before sending a signed-out recipient to auth", async () => {
+    mocks.getSessionUser.mockResolvedValue(null);
+    expect(
+      await redirectOf(() =>
+        joinGroupInvitationAction(formData({ flowId: FLOW_ID })),
+      ),
+    ).toBe(`/auth/invite/${FLOW_ID}`);
+    expect(mocks.cookieSet).toHaveBeenCalledWith(
+      expect.stringContaining(FLOW_ID),
+      expect.any(String),
+      expect.any(Object),
+    );
+    expect(mocks.acceptFlow).not.toHaveBeenCalled();
+  });
+  it("joins automatically after reconciliation when the original Join consent is present", async () => {
+    mocks.readFlowCookie.mockResolvedValue({ ...FLOW, joinRequested: true });
+    mocks.verifyFlow.mockResolvedValue("verified");
+    mocks.acceptFlow.mockResolvedValue({
+      kind: "accepted",
+      groupId: GROUP_ID,
+      acceptedNow: true,
+    });
+    expect(
+      await redirectOf(() =>
+        reconcileInvitationAction(
+          { status: "idle" },
+          formData({ flowId: FLOW_ID }),
+        ),
+      ),
+    ).toBe("/home");
+    expect(mocks.acceptFlow).toHaveBeenCalledWith(FLOW_ID, BROWSER_SECRET);
+  });
+  it("takes a new recipient directly to profile setup after reconciliation", async () => {
+    mocks.readFlowCookie.mockResolvedValue({ ...FLOW, joinRequested: true });
+    mocks.verifyFlow.mockResolvedValue("verified");
+    mocks.getOwnProfile.mockResolvedValue({ displayName: null });
+    expect(
+      await redirectOf(() =>
+        reconcileInvitationAction(
+          { status: "idle" },
+          formData({ flowId: FLOW_ID }),
+        ),
+      ),
+    ).toBe(`/onboarding/invite/${FLOW_ID}`);
+    expect(mocks.acceptFlow).not.toHaveBeenCalled();
+  });
+  it("does not accept without the original click or with an invalid session binding", async () => {
+    mocks.verifyFlow.mockResolvedValue("verified");
+    expect(
+      await redirectOf(() =>
+        reconcileInvitationAction(
+          { status: "idle" },
+          formData({ flowId: FLOW_ID }),
+        ),
+      ),
+    ).toBe(`/invite/continue/${FLOW_ID}`);
+    expect(mocks.acceptFlow).not.toHaveBeenCalled();
+    mocks.readFlowCookie.mockResolvedValue({ ...FLOW, joinRequested: true });
+    mocks.verifyFlow.mockResolvedValue("unavailable");
+    expect(
+      await reconcileInvitationAction(
+        { status: "idle" },
+        formData({ flowId: FLOW_ID }),
+      ),
+    ).toEqual({ status: "restart" });
+    expect(mocks.acceptFlow).not.toHaveBeenCalled();
   });
 });

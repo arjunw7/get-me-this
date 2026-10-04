@@ -19,8 +19,8 @@ export const dynamic = "force-dynamic";
  * exception to 004e's default-home decision. It repeats the
  * authenticated-session, flow-cookie, and continuation checks on every
  * render; a complete profile returns to the clean invitation preview.
- * Onboarding NEVER accepts the invitation — after it, the person sees the
- * live preview again and must activate Join the group.
+ * Completion resumes a Join decision recorded by the initial same-origin
+ * POST. This GET renders only the profile form and never creates membership.
  */
 export default async function InviteOnboardingPage({
   params,
