@@ -164,7 +164,7 @@ select enum_has_labels(
 select has_type('public', 'group_status', 'the group_status enum type exists');
 select enum_has_labels(
   'public', 'group_status',
-  ARRAY['active', 'archived'],
+  ARRAY['active', 'archived', 'deleted'],
   'the group status enum has exactly the pinned labels in order'
 );
 select has_type('public', 'group_member_status', 'the group_member_status enum type exists');
@@ -195,7 +195,8 @@ select enum_has_labels(
     'item_reserved',
     'reservation_released',
     'draw_created',
-    'draw_redrawn'
+    'draw_redrawn',
+    'group_deleted'
   ],
   'the audit event enum has exactly the pinned labels in order (007c reservation and 008c draw values)'
 );

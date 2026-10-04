@@ -27,6 +27,7 @@
 - Signed-out invitation preview and intent-preserving authentication.
 - Organizer and membership states.
 - Browse all joined members' wishlists.
+- User-requested extension (4 October 2026): current organizers can delete a group from Organizer tools after explicit confirmation. Includes server-side authorization, invitation revocation, and preservation of personal wishlists.
 
 ### Gifting
 

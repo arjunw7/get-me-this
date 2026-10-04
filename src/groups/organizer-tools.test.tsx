@@ -69,6 +69,7 @@ function committed(version: string): MemberAdminActionResult {
 
 function baseProps() {
   return {
+    deleteAction: vi.fn(async () => ({ ok: true as const })),
     groupId: GROUP,
     groupName: "Diwali Room",
     organizerId: ORGANIZER,

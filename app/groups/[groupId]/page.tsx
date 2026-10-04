@@ -20,6 +20,7 @@ import { RedrawSection } from "@/src/groups/redraw-section";
 import { runDrawAction } from "@/src/groups/draw-actions";
 import { loadMemberAdminState } from "@/src/groups/member-admin-data";
 import { OrganizerTools } from "@/src/groups/organizer-tools";
+import { deleteGroupAction } from "@/src/groups/delete-group-action";
 import {
   removeGroupMemberAction,
   transferOrganizerAction,
@@ -128,6 +129,7 @@ export default async function GroupRoomPage({
       transferAction={transferOrganizerAction}
       revokeAction={revokeInvitationAction}
       reinviteAction={reinviteMemberAction}
+      deleteAction={deleteGroupAction}
     />
   ) : null;
 

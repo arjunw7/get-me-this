@@ -93,7 +93,8 @@ select enum_has_labels(
     'item_reserved',
     'reservation_released',
     'draw_created',
-    'draw_redrawn'
+    'draw_redrawn',
+    'group_deleted'
   ],
   'the audit event enum carries the two reservation values after the shared ones and before the 008c draw values'
 );

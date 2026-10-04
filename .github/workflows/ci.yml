@@ -234,6 +234,9 @@ jobs:
       - name: Run 006f member admin races
         timeout-minutes: 5
         run: pnpm test:db:races:006f
+      - name: Run group deletion races
+        timeout-minutes: 2
+        run: python3 scripts/test-group-deletion-races.py
 
   # The stack-gated Playwright suites (e2e, axe, visual) boot their own stack
   # on a dedicated runner, in parallel with the database job above.
