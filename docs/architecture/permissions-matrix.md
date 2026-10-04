@@ -25,6 +25,7 @@
 | Create/update group settings | No | No | No | No | Organizer only |
 | Run/redraw secret draw | No | No | No | No | Organizer, confirmed and audited |
 | Invite/remove members | No | No | No | No | Organizer |
+| Permanently delete group from the app | No | No | No | No | Current joined organizer, confirmed and audited |
 | Read/write `wishlist-item-snapshots` Storage objects (005f) | No | Own `{owner_id}/` prefix only | No | No | No |
 | Read/write `private.email_outbox` (009a) | No | No (no grant, no policy) | No | No | No |
 | Read/write `private.rate_limit_windows` (009b) | No | No (no grant, no policy) | No | No | No |
@@ -166,6 +167,8 @@ user's objects by direct authenticated storage API (pgTAP:
 `supabase/tests/wishlist_snapshot_bucket.sql`).
 
 ## Required negative tests
+
+- Group deletion denies anonymous callers, outsiders, ordinary members, former organizers, and organizers without joined membership. Deleted groups, old invite links, and private gifting projections are unavailable to all former members. Deletion never changes personal wishlists.
 
 - A non-member cannot enumerate groups, members, profiles, or items.
 - A member cannot access a group after leaving/removal.

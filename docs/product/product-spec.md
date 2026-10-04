@@ -106,6 +106,7 @@ Reservations are group-scoped and invisible to the wishlist owner in every mode.
 - Leaving after a draw alerts the organizer and does not silently reshuffle assignments.
 - Redrawing or otherwise invalidating assignments requires explicit confirmation and an audit record.
 - Logging out does not delete wishlists, memberships, reservations, or assignments.
+- A current joined organizer can permanently delete a group after confirmation. Everyone loses access to that group and its invite links; personal wishlists remain saved. Membership and audit history remain private internal records, with no restore operation.
 
 ## Open questions
 

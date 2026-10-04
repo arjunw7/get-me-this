@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/src/ui/button";
+import { DeleteGroupControl } from "./delete-group-control";
 
 import type {
+  DeleteGroupResult,
   MemberAdminActionResult,
   ReinviteActionResult,
 } from "./action-state";
@@ -39,6 +41,10 @@ import {
  */
 
 export interface OrganizerToolsProps {
+  readonly deleteAction: (
+    groupId: string,
+    expectedVersion: string,
+  ) => Promise<DeleteGroupResult>;
   readonly presentation?: "default" | "room";
   readonly groupId: string;
   readonly groupName: string;
@@ -129,6 +135,7 @@ export function OrganizerTools({
   transferAction,
   revokeAction,
   reinviteAction,
+  deleteAction,
 }: OrganizerToolsProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -405,6 +412,13 @@ export function OrganizerTools({
               ))}
             </ul>
           )}
+          <DeleteGroupControl
+            groupId={groupId}
+            groupName={groupName}
+            version={version}
+            deleteAction={deleteAction}
+            disabled={pending}
+          />
         </div>
       ) : null}
 

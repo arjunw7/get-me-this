@@ -108,6 +108,8 @@ For each review, compare the production implementation and the deployed prototyp
 
 The user approved these changes beyond the frozen prototype's native controls:
 
+- **Delete group** at the bottom of Organizer tools, available only to the current organizer. Reuse the logout confirmation's desktop modal/mobile bottom sheet styling, explain the consequences, focus Cancel first, and require explicit confirmation. This user-requested addition does not authorize automatic visual baseline replacement.
+
 - A prominent organizer-only Invite people action in the group header, leading to the existing invitation manager. Member avatar hover/focus must fit within the horizontal roster's padded clipping bounds.
 - A branded date popover using the page's cream, ink, rounded outlines, accent selection, and offset shadow. Keep typed ISO date entry and keyboard calendar navigation.
 - Styled searchable currency choices, matched by code or full name, with room around the chevron. Group creation retains its approved four-currency set; item forms retain their supported currency set.

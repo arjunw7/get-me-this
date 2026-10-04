@@ -1,5 +1,8 @@
 import type { GroupFieldErrors } from "./validation";
 
+export type DeleteGroupResult =
+  { ok: true } | { ok: false; reason: "stale" | "unavailable" | "retry" };
+
 /**
  * Typed action states shared by client and server (the "use server" module
  * exports only async functions; types live here).

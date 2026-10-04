@@ -181,6 +181,7 @@ pnpm exec playwright test \
   tests/e2e/group-activity-local.spec.ts \
   tests/e2e/group-wishlist-local.spec.ts \
   tests/e2e/group-member-admin-local.spec.ts \
+  tests/e2e/group-delete-local.spec.ts \
   tests/e2e/group-copy-local.spec.ts \
   tests/e2e/draw-assignment-local.spec.ts \
   tests/visual/wishlist-empty.visual.spec.ts \

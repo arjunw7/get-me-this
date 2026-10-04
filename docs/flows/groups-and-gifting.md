@@ -23,6 +23,12 @@ Expired, revoked, or invalid invitations reveal no private group data and provid
 
 States: invited, joined, declined, left, and removed. Organizers cannot silently read private assignments or reservations. Organizer capabilities are administrative, not omniscient.
 
+## Delete a group
+
+The current joined organizer sees **Delete group** at the bottom of Organizer tools. It opens a confirmation modal styled like the logout confirmation, with Cancel focused first. The modal explains that the group disappears for everyone, invitations stop working, and group gifting plans and reservations become unavailable; personal wishlists remain saved. Cancel or Escape closes without mutation. Confirmation disables repeat submission and dismissal while deletion is pending. Success returns to **Groups**; failures remain visible, and a changed member-admin version requires reviewing the refreshed group and confirming again.
+
+Deletion permanently ends app access to the group. Historical membership and audit records remain inaccessible to application users; there is no restore operation. The database checks the current organizer and joined membership under lock, so stale tabs and direct calls cannot bypass authorization.
+
 ## Draw names privately
 
 - Include only eligible joined participants.
