@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Compare the approved wishlist-first landing revision against the frozen
- * golden screenshots. These will differ until the owner approves the new
- * desktop/mobile evidence in docs/delivery/evidence/landing-positioning-2026-10-04.
+ * Compare against the two owner-approved Ubuntu CI homepage captures,
+ * including Helpful guides. Approval and exact hashes are recorded in
+ * docs/delivery/evidence/search-guides-2026-10-04/baseline-approval.json.
  * Never regenerate baselines merely to make this check pass.
  */
 test("landing page is visually stable", async ({ page }, testInfo) => {

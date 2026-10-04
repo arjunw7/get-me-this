@@ -1,0 +1,25 @@
+{
+  "approvedBy": "repository owner",
+  "approvedDate": "2026-10-04",
+  "authorization": "Explicit owner reply: \"Approved.\" after review of /private/tmp/gmt-pr83-visual-review/comparison.html and the proposed desktop/mobile homepage screenshots.",
+  "scope": "Exactly two homepage baselines adding Helpful guides; no comparison tolerance or other baseline changes.",
+  "sourceHead": "1c94a8a170c60f0fd7a059d4e0c32b5a9f0b9d26",
+  "runUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37191840250",
+  "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37191840250/artifacts/11298689389",
+  "files": [
+    {
+      "baseline": "tests/visual/baselines/landing-desktop.png",
+      "candidate": "landing-desktop-actual.png",
+      "sha256": "9eca535222d6096dc69b9429f612d4fd98f79bef5faed0a077cd60f8fb3c6a44",
+      "width": 1440,
+      "height": 3839
+    },
+    {
+      "baseline": "tests/visual/baselines/landing-mobile.png",
+      "candidate": "landing-mobile-actual.png",
+      "sha256": "15b7d4910ffa3eaadb0da80f078228da1976b5238145c8db9772d135e596694c",
+      "width": 390,
+      "height": 5997
+    }
+  ]
+}

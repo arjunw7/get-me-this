@@ -16,7 +16,7 @@ separate slices so the approved landing and private data model remain stable.
 - [x] Separate search and training policies: search retrieval allowed, GPTBot/ClaudeBot training disallowed, Google-Extended permitted only on reviewed marketing pages on the launch deployment. Google-Extended covers Gemini grounding AND training, not Google Search ranking.
 - [x] Homepage JSON-LD describes WebSite and WebApplication only; no invented prices, reviews, ratings, legal organization details or merchant product offers.
 - [x] Full local verification and rendered-response evidence recorded before PR completion. See `evidence/seo-foundation-2026-10-04/README.md`.
-- [ ] Exact-head GitHub CI passed after push.
+- [x] Technical foundation exact-head CI passed on PR #80 (`168f220`); merged as `1488a8e`. Subsequent page slices need their own checks.
 - [ ] Human-reviewed deployment and live domain checks complete.
 
 ## Production activation runbook (deployment owner)
@@ -35,8 +35,10 @@ No production settings are changed by this implementation.
 4. Confirm launch / returns 200 without X-Robots-Tag:noindex. Confirm /auth,
    /invite/unavailable, /s/invalid and /design-foundation remain noindex. Unknown
    share links still return404. Protected routes still require authentication.
-5. Confirm /robots.txt and /sitemap.xml return200; sitemap currently has exactly
-   the homepage. No personal URLs, guessed future pages or changing fake dates.
+5. Confirm /robots.txt and /sitemap.xml return200; sitemap contains only reviewed marketing routes: the homepage and, after
+   the guide slice deploys, /how-it-works, /birthday-wishlist,
+   /wishlist-from-different-stores and /secret-santa. No personal URLs, guessed
+   future pages or changing fake dates.
 6. Inspect a PR preview independently: homepage and utility responses must have
    noindex and its sitemap must have no loc entries. Robots intentionally allows
    fetches so noindex can be observed. Access protection is recommended for any
@@ -87,13 +89,11 @@ Starting source map from4October research (not proof of ranking influence):
 
 ## Slice 3: useful public content and proof
 
-- [ ] /how-it-works: add, share, shop; standalone wishlist vs private groups;
-      accounts, public visibility, extraction fallback, purchases at original store.
-- [ ] /birthday-wishlist: practical list-building, notes, budgets and sharing
-      etiquette; screenshots and a clear create-wishlist action.
-- [ ] /secret-santa: organizer/participant walkthrough, supported modes, private
-      assignments and reservations; accurately explain what recipients cannot see.
-- [ ] One additional page selected by research (cross-store or housewarming).
+- [ ] /how-it-works: implemented in draft PR #83, pending owner live review and deployment. Covers add/share/shop, standalone wishlist vs private groups, accounts, visibility and extraction fallback.
+- [ ] /birthday-wishlist: implemented in PR #83 with practical notes, price range and sharing etiquette; pending review/deployment.
+- [ ] /secret-santa: implemented in PR #83 with organizer/participant steps, private assignments, group-scoped reservations and supported draw limits; pending review/deployment.
+- [ ] /wishlist-from-different-stores: implemented in PR #83 with editable imports, manual fallback, original currencies and retailer checkout; pending review/deployment.
+- [ ] Homepage Helpful guides and related links: implemented in PR #83; owner desktop/mobile homepage design review and baseline replacement approved; deployment pending. Exactly the two reviewed CI homepage baselines are adopted.
 - [ ] About/contact and accurate owner-reviewed policy information.
 - [ ] Two real-product walkthrough videos and consented first-use stories.
 

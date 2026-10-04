@@ -1,0 +1,90 @@
+{
+  "base_commit": "1488a8e5ad567d7da8d74ff749934e0ffd6605f5",
+  "captured_utc": "2026-10-04T08:38:34.961831+00:00",
+  "environment": "local production build and runtime, enabled canonical launch host; no provider credentials",
+  "checks": [
+    {
+      "name": "/ is indexable",
+      "passed": true,
+      "detail": {
+        "status": 200,
+        "robots_meta": "index, follow",
+        "robots_header": null,
+        "canonical": "https://getmethis.fun"
+      }
+    },
+    {
+      "name": "/how-it-works?utm_source=chatgpt.com is indexable",
+      "passed": true,
+      "detail": {
+        "status": 200,
+        "robots_meta": "index, follow",
+        "robots_header": null,
+        "canonical": "https://getmethis.fun/how-it-works"
+      }
+    },
+    {
+      "name": "guide canonical excludes query",
+      "passed": true
+    },
+    {
+      "name": "guide is server-rendered with its schema",
+      "passed": true
+    },
+    {
+      "name": "/auth stays noindex",
+      "passed": true,
+      "detail": {
+        "status": 200
+      }
+    },
+    {
+      "name": "/s/invalid stays noindex",
+      "passed": true,
+      "detail": {
+        "status": 404
+      }
+    },
+    {
+      "name": "/invite/unavailable stays noindex",
+      "passed": true,
+      "detail": {
+        "status": 200
+      }
+    },
+    {
+      "name": "/groups stays noindex",
+      "passed": true,
+      "detail": {
+        "status": 307
+      }
+    },
+    {
+      "name": "/unknown stays noindex",
+      "passed": true,
+      "detail": {
+        "status": 404
+      }
+    },
+    {
+      "name": "alternate host stays noindex",
+      "passed": true
+    },
+    {
+      "name": "www preserves full guide link",
+      "passed": true
+    },
+    {
+      "name": "sitemap contains only two reviewed marketing routes",
+      "passed": true,
+      "detail": [
+        "https://getmethis.fun/",
+        "https://getmethis.fun/how-it-works"
+      ]
+    },
+    {
+      "name": "crawler policy exposes sitemap and reviewed guide",
+      "passed": true
+    }
+  ]
+}
