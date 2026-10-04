@@ -1,3 +1,4 @@
+import { GuideLinks } from "@/src/marketing/guide-links";
 import Link from "next/link";
 
 import { ArrowRightIcon } from "./icons";
@@ -236,6 +237,7 @@ export function LandingPage({
             </CtaLink>
           </div>
         </section>
+        <GuideLinks />
       </main>
 
       <footer className="border-t-2 border-outline-strong">

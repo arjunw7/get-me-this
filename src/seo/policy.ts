@@ -1,4 +1,5 @@
 import type { Metadata, MetadataRoute } from "next";
+import { guideIdentity, type GuidePath } from "@/src/marketing/guides";
 import {
   BRAND_DESCRIPTION,
   createBrandMetadata,
@@ -7,7 +8,13 @@ import {
 
 export const LAUNCH_ORIGIN = "https://getmethis.fun";
 // Only reviewed marketing pages belong here. Never derive this from app routes or user data.
-export const PUBLIC_SEARCH_PATHS: readonly string[] = ["/", "/how-it-works"];
+export const PUBLIC_SEARCH_PATHS: readonly string[] = [
+  "/",
+  "/how-it-works",
+  "/birthday-wishlist",
+  "/wishlist-from-different-stores",
+  "/secret-santa",
+];
 export type SeoEnvironment = {
   APP_ORIGIN?: string;
   RAILWAY_PUBLIC_DOMAIN?: string;
@@ -129,38 +136,37 @@ export function websiteStructuredData() {
   };
 }
 
-const GUIDE_TITLE = "How Get Me This works: wishlists and private gift groups";
-const GUIDE_DESCRIPTION =
-  "Save gift ideas from different shops, share your wishlist with friends, and use private groups when you want to plan gifts together.";
-
-export function howItWorksMetadata(
+export function guideMetadata(
+  path: GuidePath,
   env: SeoEnvironment = deploymentEnvironment(),
 ): Metadata {
   const brand = createBrandMetadata(env);
   const enabled = indexingEnabled(env);
-  const url = `${LAUNCH_ORIGIN}/how-it-works`;
+  const url = `${LAUNCH_ORIGIN}${path}`;
+  const identity = guideIdentity[path];
   return {
     ...brand,
-    title: GUIDE_TITLE,
-    description: GUIDE_DESCRIPTION,
+    title: identity.title,
+    description: identity.description,
     alternates: { canonical: url },
     openGraph: {
       ...brand.openGraph,
-      title: GUIDE_TITLE,
-      description: GUIDE_DESCRIPTION,
+      title: identity.title,
+      description: identity.description,
       url,
     },
     twitter: {
       ...brand.twitter,
-      title: GUIDE_TITLE,
-      description: GUIDE_DESCRIPTION,
+      title: identity.title,
+      description: identity.description,
     },
     robots: { index: enabled, follow: enabled },
   };
 }
 
-export function howItWorksStructuredData() {
-  const url = `${LAUNCH_ORIGIN}/how-it-works`;
+export function guideStructuredData(path: GuidePath) {
+  const url = `${LAUNCH_ORIGIN}${path}`;
+  const identity = guideIdentity[path];
   return {
     "@context": "https://schema.org",
     "@graph": [
@@ -168,8 +174,8 @@ export function howItWorksStructuredData() {
         "@type": "WebPage",
         "@id": `${url}#webpage`,
         url,
-        name: GUIDE_TITLE,
-        description: GUIDE_DESCRIPTION,
+        name: identity.title,
+        description: identity.description,
         isPartOf: { "@id": `${LAUNCH_ORIGIN}/#website` },
         breadcrumb: { "@id": `${url}#breadcrumb` },
       },
@@ -183,9 +189,19 @@ export function howItWorksStructuredData() {
             name: "Home",
             item: `${LAUNCH_ORIGIN}/`,
           },
-          { "@type": "ListItem", position: 2, name: "How it works", item: url },
+          { "@type": "ListItem", position: 2, name: identity.label, item: url },
         ],
       },
     ],
   };
+}
+
+export function howItWorksMetadata(
+  env: SeoEnvironment = deploymentEnvironment(),
+): Metadata {
+  return guideMetadata("/how-it-works", env);
+}
+
+export function howItWorksStructuredData() {
+  return guideStructuredData("/how-it-works");
 }

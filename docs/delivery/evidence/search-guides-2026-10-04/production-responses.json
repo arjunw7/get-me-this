@@ -1,0 +1,116 @@
+{
+  "environment": "isolated local production-mode build and runtime; not a live deployment",
+  "checks": [
+    {
+      "path": "/",
+      "status": 200,
+      "canonical": "https://getmethis.fun",
+      "indexable": true
+    },
+    {
+      "path": "/",
+      "host": "preview.up.railway.app",
+      "noindex": true
+    },
+    {
+      "path": "/how-it-works",
+      "status": 200,
+      "canonical": "https://getmethis.fun/how-it-works",
+      "indexable": true
+    },
+    {
+      "path": "/how-it-works",
+      "host": "preview.up.railway.app",
+      "noindex": true
+    },
+    {
+      "path": "/birthday-wishlist",
+      "status": 200,
+      "canonical": "https://getmethis.fun/birthday-wishlist",
+      "indexable": true
+    },
+    {
+      "path": "/birthday-wishlist",
+      "host": "preview.up.railway.app",
+      "noindex": true
+    },
+    {
+      "path": "/wishlist-from-different-stores",
+      "status": 200,
+      "canonical": "https://getmethis.fun/wishlist-from-different-stores",
+      "indexable": true
+    },
+    {
+      "path": "/wishlist-from-different-stores",
+      "host": "preview.up.railway.app",
+      "noindex": true
+    },
+    {
+      "path": "/secret-santa",
+      "status": 200,
+      "canonical": "https://getmethis.fun/secret-santa",
+      "indexable": true
+    },
+    {
+      "path": "/secret-santa",
+      "host": "preview.up.railway.app",
+      "noindex": true
+    },
+    {
+      "path": "/sitemap.xml",
+      "urls": [
+        "https://getmethis.fun/",
+        "https://getmethis.fun/how-it-works",
+        "https://getmethis.fun/birthday-wishlist",
+        "https://getmethis.fun/wishlist-from-different-stores",
+        "https://getmethis.fun/secret-santa"
+      ]
+    },
+    {
+      "path": "/robots.txt",
+      "exactMarketingAllows": true
+    },
+    {
+      "path": "/auth",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/invite/unavailable",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/s/invalid",
+      "status": 404,
+      "noindex": true
+    },
+    {
+      "path": "/design-foundation",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/birthday-wishlist/private",
+      "status": 404,
+      "noindex": true
+    },
+    {
+      "path": "/secret-santa-other",
+      "status": 404,
+      "noindex": true
+    },
+    {
+      "path": "/wishlist",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/secret-santa",
+      "host": "www.getmethis.fun",
+      "status": 308,
+      "preservesQuery": true,
+      "noindex": true
+    }
+  ]
+}

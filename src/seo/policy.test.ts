@@ -6,6 +6,8 @@ import sitemap from "../../app/sitemap";
 import { createBrandMetadata } from "@/src/brand/metadata";
 import {
   crawlerPolicy,
+  guideMetadata,
+  guideStructuredData,
   homepageMetadata,
   howItWorksMetadata,
   howItWorksStructuredData,
@@ -70,6 +72,9 @@ describe("search indexing boundary", () => {
       "/?utm_source=chatgpt.com",
       "/how-it-works",
       "/how-it-works?utm_source=chatgpt.com",
+      "/birthday-wishlist",
+      "/wishlist-from-different-stores",
+      "/secret-santa?utm_source=friend",
     ])
       expect(
         mayIndexRequest(new URL(path, LAUNCH_ORIGIN), "GET", production),
@@ -214,6 +219,9 @@ describe("search indexing boundary", () => {
     expect(sitemap()).toEqual([
       { url: `${LAUNCH_ORIGIN}/` },
       { url: `${LAUNCH_ORIGIN}/how-it-works` },
+      { url: `${LAUNCH_ORIGIN}/birthday-wishlist` },
+      { url: `${LAUNCH_ORIGIN}/wishlist-from-different-stores` },
+      { url: `${LAUNCH_ORIGIN}/secret-santa` },
     ]);
     expect(robots().sitemap).toBe(`${LAUNCH_ORIGIN}/sitemap.xml`);
     configure({});
@@ -227,7 +235,13 @@ describe("search indexing boundary", () => {
       {
         userAgent: "Google-Extended",
         disallow: "/",
-        allow: ["/$", "/how-it-works$"],
+        allow: [
+          "/$",
+          "/how-it-works$",
+          "/birthday-wishlist$",
+          "/wishlist-from-different-stores$",
+          "/secret-santa$",
+        ],
       },
     ]);
     expect(crawlerPolicy({}).rules).toContainEqual({
@@ -304,7 +318,7 @@ describe("public guide identity and indexing", () => {
     for (const path of [
       "/how-it-works/private",
       "/how-it-works-other",
-      "/birthday-wishlist",
+      "/birthday-wishlist/private",
       "/s/guide-demo",
     ]) {
       expect(
@@ -324,4 +338,77 @@ describe("public guide identity and indexing", () => {
       /aggregateRating|offers|reviewCount|Product|FAQPage/,
     );
   });
+});
+
+describe("topic guides", () => {
+  it.each([
+    "/birthday-wishlist",
+    "/wishlist-from-different-stores",
+    "/secret-santa",
+  ] as const)(
+    "gives %s a unique public identity while excluding previews and similar private routes",
+    async (path) => {
+      configure(production);
+      const metadata = guideMetadata(path, production);
+      expect(metadata.alternates?.canonical).toBe(`${LAUNCH_ORIGIN}${path}`);
+      expect(metadata.openGraph).toMatchObject({
+        url: `${LAUNCH_ORIGIN}${path}`,
+        title: metadata.title,
+        description: metadata.description,
+      });
+      expect(metadata.twitter).toMatchObject({
+        title: metadata.title,
+        description: metadata.description,
+      });
+      expect(metadata.robots).toEqual({ index: true, follow: true });
+      expect(
+        guideStructuredData(path)["@graph"].map((entity) => entity["@type"]),
+      ).toEqual(["WebPage", "BreadcrumbList"]);
+      expect(JSON.stringify(guideStructuredData(path))).not.toMatch(
+        /aggregateRating|offers|reviewCount|Product|FAQPage/,
+      );
+      expect(
+        (await proxy(new NextRequest(`${LAUNCH_ORIGIN}${path}`))).headers.has(
+          "X-Robots-Tag",
+        ),
+      ).toBe(false);
+      for (const env of [
+        {},
+        { ...production, RAILWAY_PR_NUMBER: "83" },
+        { ...production, SEO_INDEXING_ENABLED: "false" },
+      ]) {
+        expect(guideMetadata(path, env).robots).toEqual({
+          index: false,
+          follow: false,
+        });
+        expect(mayIndexRequest(new URL(path, LAUNCH_ORIGIN), "GET", env)).toBe(
+          false,
+        );
+      }
+      expect(
+        mayIndexRequest(
+          new URL(`${path}/private`, LAUNCH_ORIGIN),
+          "GET",
+          production,
+        ),
+      ).toBe(false);
+      expect(
+        mayIndexRequest(
+          new URL(`${path}-other`, LAUNCH_ORIGIN),
+          "GET",
+          production,
+        ),
+      ).toBe(false);
+      expect(
+        mayIndexRequest(
+          new URL(path, "https://preview.up.railway.app"),
+          "GET",
+          production,
+        ),
+      ).toBe(false);
+      expect(
+        mayIndexRequest(new URL(path, LAUNCH_ORIGIN), "POST", production),
+      ).toBe(false);
+    },
+  );
 });

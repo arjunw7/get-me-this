@@ -36,7 +36,9 @@ No production settings are changed by this implementation.
    /invite/unavailable, /s/invalid and /design-foundation remain noindex. Unknown
    share links still return404. Protected routes still require authentication.
 5. Confirm /robots.txt and /sitemap.xml return200; sitemap contains only reviewed marketing routes: the homepage and, after
-   the guide slice deploys, /how-it-works. No personal URLs, guessed future pages or changing fake dates.
+   the guide slice deploys, /how-it-works, /birthday-wishlist,
+   /wishlist-from-different-stores and /secret-santa. No personal URLs, guessed
+   future pages or changing fake dates.
 6. Inspect a PR preview independently: homepage and utility responses must have
    noindex and its sitemap must have no loc entries. Robots intentionally allows
    fetches so noindex can be observed. Access protection is recommended for any
@@ -87,14 +89,11 @@ Starting source map from4October research (not proof of ranking influence):
 
 ## Slice 3: useful public content and proof
 
-- [ ] /how-it-works: implementation prepared in the guide slice, pending independent
-      review, owner live review and deployment. Covers add/share/shop, standalone
-      wishlist vs private groups, accounts, public visibility and extraction fallback.
-- [ ] /birthday-wishlist: practical list-building, notes, budgets and sharing
-      etiquette; screenshots and a clear create-wishlist action.
-- [ ] /secret-santa: organizer/participant walkthrough, supported modes, private
-      assignments and reservations; accurately explain what recipients cannot see.
-- [ ] One additional page selected by research (cross-store or housewarming).
+- [ ] /how-it-works: implemented in draft PR #83, pending owner live review and deployment. Covers add/share/shop, standalone wishlist vs private groups, accounts, visibility and extraction fallback.
+- [ ] /birthday-wishlist: implemented in PR #83 with practical notes, price range and sharing etiquette; pending review/deployment.
+- [ ] /secret-santa: implemented in PR #83 with organizer/participant steps, private assignments, group-scoped reservations and supported draw limits; pending review/deployment.
+- [ ] /wishlist-from-different-stores: implemented in PR #83 with editable imports, manual fallback, original currencies and retailer checkout; pending review/deployment.
+- [ ] Homepage Helpful guides and related links: implemented in PR #83; pending owner design review/deployment. Existing visual baselines have not been replaced.
 - [ ] About/contact and accurate owner-reviewed policy information.
 - [ ] Two real-product walkthrough videos and consented first-use stories.
 

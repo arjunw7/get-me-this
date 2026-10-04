@@ -1,3 +1,4 @@
+import { GuideLinks } from "@/src/marketing/guide-links";
 import Link from "next/link";
 import { CtaLink } from "@/src/landing/cta-link";
 import { ArrowRightIcon } from "@/src/landing/icons";
@@ -310,6 +311,7 @@ export function HowItWorksPage() {
             </CtaLink>
           </div>
         </section>
+        <GuideLinks current="/how-it-works" />
       </main>
       <footer className="border-t-2 border-outline-strong">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8">
