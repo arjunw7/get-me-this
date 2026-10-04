@@ -13,38 +13,39 @@ Amazon paths and short links fail into editable manual entry without spending Fi
 Missing worker configuration, blocked/deleted pages and timeouts also fail safely.
 Only Amazon India has live benchmark evidence; universal extraction is not claimed.
 
-The app performs public-DNS preflight, strips tracking/query input, creates a
-fresh context and runs a fixed read-only DOM program. Final host, URL ASIN and
-selected ASIN must match. The reader uses title, main image, main buy-price nodes
-and explicit currency metadata. MRP/recommendations, unavailable offers and
-conflicting prices never supply money. Original source and exact minor-unit
-prices remain editable; missing prices do not prevent title/image proposals.
+The app performs public-DNS preflight, strips tracking/query input and sends
+only marketplace plus ASIN to an authenticated narrow HTTPS API. The worker
+constructs the canonical selected product URL, launches a fresh sandboxed
+Chromium process as a non-root user and runs a fixed DOM reader with retailer
+JavaScript disabled. Final host, URL ASIN and selected ASIN must match. Title,
+main image, current buy-price nodes and explicit currency evidence supply an
+editable proposal. MRP/recommendations and conflicting prices do not supply
+money. Missing money does not prevent title/image proposals.
 
-`AMAZON_BROWSER_WS_URL` and a dedicated `AMAZON_BROWSER_SECRET` stay server-only.
-The frontend admits one authenticated browser session at a time, launches fresh
-sandboxed Chromium as a non-root user and kills the entire process on disconnect
-or its 28-second watchdog. The app has a 30-second budget and bounded cleanup;
-a late connection after cancellation is closed. Admission is ten starts/minute,
-one concurrent per app process, in addition to existing durable user controls.
-App page requests are bounded to 120, service workers/downloads/WebSockets are
-blocked, TLS verification remains enabled and output is capped at 16 KiB.
+`AMAZON_BROWSER_URL` (HTTPS `/extract`) and a dedicated
+`AMAZON_BROWSER_SECRET` stay server-only. Worker admission is ten starts/minute
+and one concurrent job, with a 25-second deadline, 5-second startup, 80 requests,
+1 KiB input and 16 KiB output. App deadline remains 30 seconds and durable user
+controls remain in place. Cancellation kills the browser; failed cleanup exits
+the container before another job. Chromium receives no app credentials.
 
-Chromium has no direct internet route. Its only network path is the separate
-credential-free HTTPS CONNECT broker. That broker checks every DNS answer,
-dials a public numeric address and verifies the actual socket peer before
-opening a tunnel. Private/metadata/loopback destinations, non-443 ports and
-plain HTTP fail closed. DNS/connect/header deadlines, connection counts and
-byte/idle/lifetime limits bound resources. Chromium verifies retailer TLS
-end-to-end. Candidate images still use the existing guarded save pipeline.
+Deploy one worker in a separate Railway project, capped at 1 vCPU/1 GB.
+Sandboxed Chromium launch was verified on Railway. Only the selected Amazon product document passes the browser policy; automatic
+redirects and all subresources are blocked before fetching. Image URLs come
+from inert attributes.
+Chromium uses a guarded loopback CONNECT broker that validates every DNS answer,
+pins a public address and checks the connected peer. TLS remains verified.
+QUIC/non-proxied WebRTC are disabled. Candidate images use the existing guarded
+save pipeline.
 
-The supplied local Docker configuration enforces this boundary. A staging or
-production host must enforce equivalent network isolation; a private service
-hostname alone does not provide it. See [worker deployment instructions](../../workers/amazon/README.md).
-The app needs access to the worker network and public DNS; the browser must not
-inherit application credentials. This requires independent review and a tested
-worker deployment before rollout. No production infrastructure is provisioned.
-Independent browsing consumes no Firecrawl credits, but hosting compute can
-still cost money. Other stores continue to use Firecrawl and its allowance.
+Railway regular services cannot enforce host-level deny-direct-egress. The
+forced proxy and hostname policy are application/browser controls; they do not
+provide the former Docker network firewall guarantee. A separate project has
+no app private-network access or app/database secrets. This containment
+assumption needs independent review before production activation. See
+[worker deployment instructions](../../workers/amazon/README.md). Independent
+browsing uses no Firecrawl credits; Railway compute can cost money. Other
+stores continue to use Firecrawl and its allowance.
 
 ## Primary product acquisition for other stores (Firecrawl)
 
@@ -149,3 +150,7 @@ dimensions, pixel count, and single-frame shape, then re-encodes a metadata-free
 WebP no larger than 1,600 pixels on its longest side and 2 MiB. The function
 returns bytes only to server code; private Storage selection and writing belong
 to 005f.
+
+The guarded acquisition does not have a decoded document-byte cap. The
+1 GB container limit bounds process memory; an oversized/decompression-heavy
+Amazon response can still terminate the worker and cause safe manual fallback.

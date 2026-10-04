@@ -1,54 +1,68 @@
-# Independent Amazon browser worker
+# Amazon extraction worker on Railway
 
-This worker serves authenticated Playwright sessions for Amazon product imports.
-It consumes no Firecrawl credits. Compute and network usage depend on hosting.
-It is a proposal, not a production deployment.
+Amazon product imports use this independent Playwright worker and consume no
+Firecrawl credits. Railway compute/network usage can cost money.
 
-## Local setup
+## API and separation
 
-Build/start `workers/amazon/compose.yaml` with Docker Compose, setting a dedicated
-random secret of at least 32 characters through your private environment. Do not
-commit it, embed it in a URL, print Compose configuration or share browser logs
-containing credentials. Use the same secret as `AMAZON_BROWSER_SECRET` on the app.
-Set the app's `AMAZON_BROWSER_WS_URL` to `ws://browser:3105/session` and attach
-its container to the compose `isolated` network. The app may have its normal
-outbound network for public-DNS preflight; the browser must have only `isolated`.
-No browser/proxy port is published. The proxy receives no application secrets.
-Stop your own Compose project after testing; do not stop other local stacks.
+Deploy the root build context with `workers/amazon/Dockerfile`, start command
+`node --conditions=react-server dist/amazon/workers/amazon/railway.js`, health
+path `/health`, one replica, 1 vCPU and 1 GB RAM. Use a separate private Railway
+project with no app/database credentials. The HTTPS domain targets the API's
+`PORT` (8080); never expose the loopback broker or Chromium control socket.
 
-## Required deployment boundary
+Set a dedicated random `AMAZON_BROWSER_SECRET` of at least 32 characters on
+worker and app. Set app `AMAZON_BROWSER_URL` to `https://<worker-domain>/extract`.
+Keep both server-only. Never commit keys or put them in URLs/logs. The API
+checks bearer authentication before admitting work and accepts only an Amazon
+marketplace plus ten-character ASIN, not caller-supplied URLs/browser commands.
+Health reports process liveness; a real product import establishes readiness.
 
-Browser: non-root, sandbox enabled, one ephemeral process per admitted session,
-no direct external network, bounded CPU/memory/PIDs and temporary storage.
-Only the credential-free broker joins both the isolated and outbound networks.
-The broker accepts HTTPS CONNECT on port 443, validates all DNS answers, pins
-and checks the actual public peer, and enforces byte/time/concurrency limits.
-Keep both services inaccessible to public clients. Private hostnames by
-themselves do not restrict egress. Do not deploy on a platform that cannot
-enforce this topology; do not disable the Chromium sandbox to make startup pass.
-Public worker transport requires WSS; private WS is accepted only for the fixed
-local/service names recognized by the adapter. Keep app and worker Playwright
-versions equal (`1.63.0`). No production Railway resources were modified.
+## Browser and network policy
 
-The seccomp profile is the Apache-2.0 upstream [Playwright v1.63.0 Docker
-profile](https://github.com/microsoft/playwright/blob/v1.63.0/utils/docker/seccomp_profile.json).
-The browser drops all capabilities and includes only SYS_CHROOT in the bounding
-set so Chromium's inner user-namespace sandbox can chroot. The non-root browser
-has no effective capabilities; no SYS_ADMIN or privileged container is needed.
-The proxy drops all capabilities. TLS verification stays enabled.
+A fresh non-root Chromium process runs with its sandbox enabled for every job.
+A staging runtime probe confirmed sandboxed Chromium launches on Railway.
+Retailer JavaScript is disabled; a fixed trusted DOM reader obtains title,
+main image and current price/currency evidence. Only the selected Amazon product document is fetched; redirects are refused
+before following them. All subresources (including images, stylesheets and
+fonts), scripts, XHR/fetch, media, WebSockets, service workers, downloads and
+other documents are blocked. Image URLs are read from inert attributes. Chromium receives only PATH, HOME and the browser-install path.
 
-## Operational limits
+Chromium is forced through a loopback HTTPS CONNECT broker, with QUIC and
+non-proxied WebRTC disabled. The broker restricts hostnames, rejects every
+private DNS answer, pins the public IP and verifies the connected peer. TLS
+verification remains enabled. It bounds tunnels, bytes and connection lifetime.
+Railway does not provide host-level deny-direct-egress for regular services:
+these are application/browser controls, not an independent network firewall.
+This residual containment assumption requires independent review before
+production rollout. A separate project limits access to the app's private
+network and credentials but does not replace an egress firewall.
 
-One active worker session, 5-second startup and 28-second watchdog; disconnect
-kills the entire browser. App deadline 30 seconds, output 16 KiB and at most
-120 page requests. Broker: 16 tunnels, 2-second DNS/connect deadlines, 5-second
-idle and 30-second lifetime, 16 MiB/tunnel and 64 MiB/minute aggregate. There are
-no retries, persistent profiles, user cookies, CAPTCHA-solving or stealth flags.
-Missing configuration/capacity, private destinations or blocked pages return
-manual entry. Health returns process availability, not product-import readiness.
+## Bounds and failures
 
-Run `pnpm browser:check` and `pnpm verify` from the root. Docker image compilation
-checks the worker independently. Test live products through the app-side network
-before enabling a staging/production endpoint; local success does not establish
-Amazon's behavior on a production IP. Amazon price is a snapshot and may differ
-with delivery location, seller or selected variation.
+One active job and ten starts/minute per worker process; one replica. The app
+retains its authenticated durable user limits. Worker budget 25 seconds,
+launch 5 seconds, app 30 seconds, output 16 KiB, input 1 KiB, 80 page requests.
+Cancellation terminates the entire browser. Cleanup failure exits the worker
+container for Railway to restart (ON_FAILURE, three retries). There are no
+retries, persistent profiles, user cookies or CAPTCHA solving. Missing or
+blocked metadata fails into editable manual entry. Prices are snapshots and
+may depend on seller, location and variation; missing money remains blank.
+
+## Local checks
+
+Use `workers/amazon/compose.yaml` with a dedicated private environment secret.
+The app endpoint is `http://127.0.0.1:3115/extract`. The Compose profile matches
+the single-service application-enforced network design, with a local sandbox
+seccomp profile; it does not claim host-level deny-direct-egress. Stop only your
+own Compose project after testing. Run `pnpm browser:check`, `pnpm verify` and
+build the Docker image. Run `pnpm browser:build` followed by
+`node workers/amazon/redirect-check.mjs` where sandboxed Chromium is installed. Test real imports from Railway before activating the
+production app route; local success is not evidence for Railway's source IP.
+
+The local seccomp profile is the Apache-2.0 upstream
+[Playwright v1.63.0 profile](https://github.com/microsoft/playwright/blob/v1.63.0/utils/docker/seccomp_profile.json).
+
+The guarded acquisition does not have a decoded document-byte cap. The
+1 GB container limit bounds process memory; an oversized/decompression-heavy
+Amazon response can still terminate the worker and cause safe manual fallback.

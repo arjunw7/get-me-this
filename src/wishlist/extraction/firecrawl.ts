@@ -32,6 +32,7 @@ function record(value: unknown): RecordValue {
 export async function readProviderJson(
   response: Response,
   signal: AbortSignal,
+  maxBytes = MAX_RESPONSE_BYTES,
 ): Promise<unknown> {
   if (
     !response.headers
@@ -42,7 +43,7 @@ export async function readProviderJson(
     throw new ExtractionError("unsupported_content");
   }
   const declared = response.headers.get("content-length");
-  if (declared && Number(declared) > MAX_RESPONSE_BYTES) {
+  if (declared && Number(declared) > maxBytes) {
     await response.body?.cancel();
     throw new ExtractionError("too_large");
   }
@@ -61,7 +62,7 @@ export async function readProviderJson(
       if (signal.aborted) throw new ExtractionError("timeout");
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_RESPONSE_BYTES) {
+      if (size > maxBytes) {
         await reader.cancel();
         throw new ExtractionError("too_large");
       }

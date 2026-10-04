@@ -8,10 +8,10 @@ Architecture: [Product-link extraction boundary](../../../architecture/product-l
 
 1. **Provider routing:** `product-link.ts` selects independent Playwright for
    recognized Amazon ASIN URLs; other URLs use `firecrawl.ts`. A dedicated server-only worker key protects the browser; other-store API
-   requests remain fixed. `playwright-core` is a production remote client; the
-   Chromium binary is isolated in the separate worker image. Unsupported Amazon
+   requests remain fixed. The app uses native HTTPS; `playwright-core` runs only
+   in the separate worker image. Unsupported Amazon
    paths do not fall through to Firecrawl.
-2. **Conservative product fields:** 28 scraper tests, 18 Amazon tests and 10 egress tests cover
+2. **Conservative product fields:** 28 scraper tests, 19 Amazon client tests, 11 worker HTTP tests and 12 egress tests cover
    original source, exact minor units, safe images, explicit product mismatches,
    currency conflicts, ambiguous prices, CAPTCHA/non-2xx pages and partial
    proposals. A DOM fixture proves MRP/recommendations and blank price nodes
@@ -24,15 +24,14 @@ Architecture: [Product-link extraction boundary](../../../architecture/product-l
    selected-image transport change.
 4. **Resource and secret handling:** missing configuration fails safely; no
    retries. Independent browser admission is ten/minute, one concurrent per
-   app process and one active worker session. Whole-browser disconnect cleanup
-   and a 28-second watchdog bound lifetime. Chromium is non-root and sandboxed,
-   with zero effective capabilities; only SYS_CHROOT is in its bounding set.
-   Browser network is internal-only; the credential-free broker pins/checks
-   public peers and caps tunnels, bytes and deadlines. Ten automated broker
-   tests cover private/mixed DNS, invalid authorities and actual-peer mismatch.
-   No credentials or browser endpoint identifiers are committed.
+   app process and one active worker job. Worker deadline is 25 seconds;
+   cancellation kills sandboxed Chromium. Cleanup failure exits the container.
+   JavaScript is disabled and requests are restricted to selected Amazon pages
+   with redirects and all subresources blocked. The guarded loopback broker pins/checks public
+   peers. Railway has no host egress firewall: application/browser controls are
+   the documented containment assumption requiring independent review.
 5. **Verification:** `VITEST_MAX_WORKERS=2 pnpm verify` passed on Node 24.21.0:
-   170 files, 1,676 tests, formatting, lint, typecheck and production build.
+   171 files, 1,690 tests, formatting, lint, typecheck and production build.
    Two existing unrelated lint warnings remain. Generated Playwright HTML/trace diagnostics were archived outside the source tree before final verification: the existing broad ESLint command otherwise traverses bundled third-party trace assets. The first parallel run hit
    three existing HTML/image subprocess deadlines; the complete two-worker
    rerun passed without changing any safety deadline. Local database suites
@@ -79,7 +78,7 @@ end-to-end claim.
 
 ## Live provider evidence and limits
 
-[Independent Linux-worker results](amazon-independent-browser.json) record the
+[Earlier independent Linux-worker results](amazon-independent-browser.json) record the
 actual production adapter connected to sandboxed Chromium through the isolated
 network and pinned CONNECT broker. Three Amazon India ASINs returned matching
 product titles/images; B09MTQ23X4 exposed INR 2,799, while the other two
@@ -89,7 +88,7 @@ caller cancellation returned timeout, and a subsequent session succeeded after
 cleanup. Browser public-DNS resolution was denied by the internal-only network.
 This validates local runtime and network topology, not production-IP behavior
 or image storage. The initial integration caught an unbound Playwright method;
-the adapter now preserves its receiver and a regression test covers it.
+the earlier adapter preserved its receiver; the current client uses native HTTPS.
 
 [Earlier managed-browser output](amazon-managed-browser.json) is historical
 comparison evidence only; the final Amazon adapter does not call Firecrawl.
@@ -112,16 +111,34 @@ links remain coverage limitations. Universal extraction is not promised.
 Firecrawl's free plan has a monthly credit allowance; this implementation is
 not unlimited free scraping. Keep top-ups disabled and use a dedicated account
 or key; account-wide quota contention and multi-instance coordination require
-follow-up. No paid plan, auto-top-up or infrastructure was enabled.
+follow-up. No paid plan or auto-top-up was enabled. The user explicitly approved a separate
+Railway staging project/service capped at 1 vCPU/1 GB; its usage may add charges.
 
 ## Deployment and rollback
 
-Draft proposal only; independent review is required before merge. The automatic [Railway preview](https://get-me-this-get-me-this-pr-87.up.railway.app/)
-returned HTTP 200 on its public landing page. No production resources were
-modified. Its real import path still needs server-only `FIRECRAWL_API_KEY` for other stores,
-plus a separately provisioned isolated Amazon worker, `AMAZON_BROWSER_WS_URL`
-and `AMAZON_BROWSER_SECRET`. Amazon imports safely require manual entry until
-that worker is configured. No independent production worker has been deployed. No schema migration is
-required. Revert this slice to restore the original HTML extractor/timeouts and
-admission settings. No Magic Patterns mock data/editor artifacts were added to
-the application; existing automated test fixtures remain test-only.
+Draft proposal only; independent review is required before merge. The automatic
+[Railway preview](https://get-me-this-get-me-this-pr-87.up.railway.app/) is available.
+The user approved a separate Railway project, `get-me-this-amazon-browser`, with
+one staging service capped at 1 vCPU/1 GB. Its runtime probe confirmed sandboxed
+Chromium launches. The revised worker exposes only authenticated HTTPS
+`/extract`, configured through server-only `AMAZON_BROWSER_URL` and
+`AMAZON_BROWSER_SECRET`. The former WebSocket client/control server were removed. A real Chromium
+redirect regression proved document and image redirect destinations were never
+fetched; normal HTML remained readable. The independent review identified and
+confirmed fixes for shutdown/startup cleanup and redirect handling.
+Production activation remains gated on review, exact-head CI and human approval.
+Other stores require their existing server-only `FIRECRAWL_API_KEY`.
+
+[Local revised API results](amazon-railway-local.json): three Amazon India pages
+returned matching title/image proposals; all three left money blank because
+this acquisition did not confirm both current price and explicit currency. Earlier
+intermediate acquisitions exposed INR 1,699/2,799, illustrating session-dependent
+offers; those amounts are not substituted into the final proposals. Invalid credentials returned 401 and arbitrary-host requests returned 422.
+This validates the built single-service image, not Railway-IP behavior or image
+storage. Retailer JavaScript was disabled and Chromium sandbox remained enabled.
+
+No schema migration is required. Revert this slice to restore the original HTML
+extractor/timeouts and admission settings. Remove worker URL/key configuration
+when rolling back; the approved cloud worker can be stopped separately by its
+owner. No Magic Patterns mock data/editor artifacts were added to the app;
+existing automated test fixtures remain test-only.

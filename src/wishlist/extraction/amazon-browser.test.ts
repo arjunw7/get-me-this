@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { chromium, type Browser } from "playwright-core";
 import { ExtractionLimiter } from "./limiter";
 vi.mock("server-only", () => ({}));
 const { extractAmazonProduct, isAmazonProductUrl, amazonBrowserCode } =
@@ -18,37 +17,14 @@ const product = {
   blocked: false,
 };
 function options(value: typeof product = product) {
-  const close = vi.fn(async () => {});
-  const page = {
-    setViewportSize: async () => {},
-    setExtraHTTPHeaders: async () => {},
-    goto: vi.fn(async (url: string, options?: unknown) => {
-      void url;
-      void options;
-      return { status: () => value.status };
-    }),
-    waitForTimeout: async () => {},
-    evaluate: async () => value,
-    url: () => value.finalUrl,
-  };
-  const context = {
-    route: vi.fn(async () => {}),
-    routeWebSocket: vi.fn(async () => {}),
-    newPage: async () => page,
-  };
-  const browser = { newContext: vi.fn(async () => context), close };
-  const connect = vi.fn(async () => browser as unknown as Browser);
   return {
-    workerUrl: "ws://127.0.0.1:3105/session",
+    workerUrl: "https://browser.example/extract",
     workerSecret: "test-only-browser-secret-32-characters",
-    connect,
+    fetch: vi.fn(async () => Response.json(value)),
     transport: {
       resolve: async () => [{ address: "93.184.216.34", family: 4 }],
     },
     limiter: new ExtractionLimiter({ processRate: 100 }),
-    browser,
-    context,
-    page,
   };
 }
 afterEach(() => {
@@ -56,45 +32,14 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
-describe("Independent Amazon Playwright", () => {
+describe("Railway Amazon metadata API", () => {
   it("matches Amazon ASIN URLs and rejects deceptive retailers", () => {
     expect(isAmazonProductUrl(source)).toBe(true);
     expect(
       isAmazonProductUrl("https://amazon.in.attacker.example/dp/B0DGTSRX3R"),
     ).toBe(false);
   });
-  it.each([
-    "https://www.amazon.in/s?k=headphones",
-    "https://amzn.to/test-only-short-link",
-  ])("does not send unsupported Amazon links to Firecrawl: %s", async (url) => {
-    vi.stubEnv("FIRECRAWL_API_KEY", "test-only-provider-key");
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
-    const { extractProductLink } = await import("./product-link");
-    await expect(extractProductLink(url)).rejects.toMatchObject({
-      code: "unsupported_content",
-    });
-    expect(fetch).not.toHaveBeenCalled();
-  });
-  it("preserves the receiver when using the production Playwright connector", async () => {
-    const input = options();
-    vi.stubEnv("AMAZON_BROWSER_WS_URL", input.workerUrl);
-    vi.stubEnv("AMAZON_BROWSER_SECRET", input.workerSecret);
-    const spy = vi
-      .spyOn(chromium, "connect")
-      .mockImplementation(async function (this: unknown) {
-        expect(this).toBe(chromium);
-        return input.browser as unknown as Browser;
-      });
-    await expect(
-      extractAmazonProduct(source, {
-        transport: input.transport,
-        limiter: input.limiter,
-      }),
-    ).resolves.toMatchObject({ title: "Blue headphones" });
-    expect(spy).toHaveBeenCalledTimes(1);
-  });
-  it("uses the independent worker without a Firecrawl key and navigates a canonical URL", async () => {
+  it("uses a narrow authenticated request without a Firecrawl key or original query", async () => {
     vi.stubEnv("FIRECRAWL_API_KEY", "");
     const input = options();
     expect(await extractAmazonProduct(source, input)).toEqual({
@@ -105,73 +50,110 @@ describe("Independent Amazon Playwright", () => {
       originalCurrency: "INR",
       candidateImageUrls: [product.image],
     });
-    expect(input.page.goto.mock.calls[0]![0]).toBe(
-      "https://www.amazon.in/dp/B0DGTSRX3R?th=1&psc=1",
-    );
-    expect(input.browser.newContext).toHaveBeenCalledWith(
+    expect(input.fetch).toHaveBeenCalledWith(
+      input.workerUrl,
       expect.objectContaining({
-        serviceWorkers: "block",
-        acceptDownloads: false,
-        ignoreHTTPSErrors: false,
+        method: "POST",
+        redirect: "error",
+        body: JSON.stringify({ marketplace: "amazon.in", asin: "B0DGTSRX3R" }),
+        headers: {
+          authorization: `Bearer ${input.workerSecret}`,
+          "content-type": "application/json",
+        },
       }),
     );
-    expect(input.browser.close).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    "https://www.amazon.in/s?k=headphones",
+    "https://amzn.to/test-only-short-link",
+  ])("never sends unsupported Amazon links to Firecrawl: %s", async (url) => {
+    vi.stubEnv("FIRECRAWL_API_KEY", "test-only-key");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const { extractProductLink } = await import("./product-link");
+    await expect(extractProductLink(url)).rejects.toMatchObject({
+      code: "unsupported_content",
+    });
+    expect(fetch).not.toHaveBeenCalled();
   });
   it.each([
     { ...product, status: 503 },
     { ...product, blocked: true },
     { ...product, asin: "B09MTQ23X4" },
     { ...product, finalUrl: "https://www.amazon.in/dp/B09MTQ23X4" },
-    { ...product, title: "" },
-  ])(
-    "rejects blocked or mismatched products and closes the browser",
-    async (value) => {
-      const input = options(value);
-      await expect(extractAmazonProduct(source, input)).rejects.toMatchObject({
-        code: "extraction_failed",
-      });
-      expect(input.browser.close).toHaveBeenCalled();
-    },
-  );
+  ])("rejects wrong or blocked products", async (value) => {
+    await expect(
+      extractAmazonProduct(source, options(value)),
+    ).rejects.toMatchObject({ code: "extraction_failed" });
+  });
   it.each([
-    { ...product, unavailable: true },
     { ...product, prices: [] },
-    { ...product, prices: ["₹1,699.00", "₹2,000.00"] },
+    { ...product, prices: ["₹1699.00", "₹1700.00"] },
+    { ...product, unavailable: true },
     { ...product, currency: "USD" },
-  ])("leaves ambiguous money empty", async (value) => {
+  ])("keeps ambiguous money empty", async (value) => {
     expect(
       (await extractAmazonProduct(source, options(value))).originalAmountMinor,
     ).toBeUndefined();
   });
-  it("blocks private DNS before connecting a browser", async () => {
+  it("rejects private DNS before disclosing a target", async () => {
     const input = options();
     input.transport.resolve = async () => [{ address: "127.0.0.1", family: 4 }];
     await expect(extractAmazonProduct(source, input)).rejects.toMatchObject({
       code: "blocked_url",
     });
-    expect(input.connect).not.toHaveBeenCalled();
+    expect(input.fetch).not.toHaveBeenCalled();
   });
-  it("fails into manual entry with an unconfigured worker and never calls Firecrawl", async () => {
-    vi.stubEnv("AMAZON_BROWSER_WS_URL", "");
+  it("fails safely without worker configuration", async () => {
+    vi.stubEnv("AMAZON_BROWSER_URL", "");
     vi.stubEnv("AMAZON_BROWSER_SECRET", "");
-    const vendor = vi.fn();
-    vi.stubGlobal("fetch", vendor);
     await expect(extractAmazonProduct(source)).rejects.toMatchObject({
       code: "unavailable",
     });
-    expect(vendor).not.toHaveBeenCalled();
   });
-  it("closes the remote browser on cancellation", async () => {
+  it("passes cancellation to the worker request", async () => {
     const input = options();
     const controller = new AbortController();
-    input.page.goto.mockImplementation(async () => {
+    input.fetch.mockImplementation(async () => {
       controller.abort();
       throw new Error("cancelled");
     });
     await expect(
       extractAmazonProduct(source, { ...input, signal: controller.signal }),
     ).rejects.toMatchObject({ code: "timeout" });
-    expect(input.browser.close).toHaveBeenCalled();
+  });
+  it("does not retry worker capacity/auth errors", async () => {
+    const input = options();
+    input.fetch.mockImplementation(async () =>
+      Response.json({ code: "unavailable" }, { status: 503 }),
+    );
+    await expect(extractAmazonProduct(source, input)).rejects.toMatchObject({
+      code: "unavailable",
+    });
+    expect(input.fetch).toHaveBeenCalledTimes(1);
+  });
+  it("bounds decoded worker output", async () => {
+    const input = options();
+    input.fetch.mockImplementation(async () =>
+      Response.json({ payload: "x".repeat(17000) }),
+    );
+    await expect(extractAmazonProduct(source, input)).rejects.toMatchObject({
+      code: "too_large",
+    });
+  });
+  it("rejects unsafe worker transport and embedded credentials", async () => {
+    await expect(
+      extractAmazonProduct(source, {
+        ...options(),
+        workerUrl: "http://browser.example/extract",
+      }),
+    ).rejects.toMatchObject({ code: "unavailable" });
+    await expect(
+      extractAmazonProduct(source, {
+        ...options(),
+        workerUrl: "https://secret@browser.example/extract",
+      }),
+    ).rejects.toMatchObject({ code: "unavailable" });
   });
 });
 describe("Amazon DOM reader", () => {

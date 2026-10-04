@@ -8,6 +8,7 @@ async function attempt(
   authority: string,
   answers: readonly { address: string; family: number }[],
   peer?: string,
+  allowHost?: (hostname: string) => boolean,
 ) {
   const connect = vi.fn(async () => {
     if (!peer) throw new Error("unexpected dial");
@@ -19,6 +20,7 @@ async function attempt(
   const { server, shutdown } = createBrowserEgress({
     transport: { resolve: async () => answers },
     connect,
+    allowHost,
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
@@ -94,6 +96,26 @@ it("allows a tunnel only after the actual numeric public peer matches", async ()
     "shop.example:443",
     [{ address: "93.184.216.34", family: 4 }],
     "93.184.216.34",
+  );
+  expect(result.status).toBe(200);
+});
+
+it("rejects a public host outside the worker allowlist before dialing", async () => {
+  const result = await attempt(
+    "attacker.example:443",
+    [{ address: "93.184.216.34", family: 4 }],
+    "93.184.216.34",
+    (host) => host === "www.amazon.in",
+  );
+  expect(result.status).toBe(403);
+  expect(result.connect).not.toHaveBeenCalled();
+});
+it("allows an approved host only with a matching public peer", async () => {
+  const result = await attempt(
+    "www.amazon.in:443",
+    [{ address: "93.184.216.34", family: 4 }],
+    "93.184.216.34",
+    (host) => host === "www.amazon.in",
   );
   expect(result.status).toBe(200);
 });

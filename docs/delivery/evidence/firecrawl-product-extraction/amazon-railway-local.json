@@ -1,0 +1,26 @@
+{
+  "runtime": "Native production client with sandboxed Chromium, JS disabled, redirects refused",
+  "results": [
+    {
+      "asin": "B0DGTSRX3R",
+      "success": true,
+      "durationMs": 5264,
+      "title": true,
+      "images": 1
+    },
+    {
+      "asin": "B09MTQ23X4",
+      "success": true,
+      "durationMs": 4354,
+      "title": true,
+      "images": 1
+    },
+    {
+      "asin": "B07PR1CL3S",
+      "success": true,
+      "durationMs": 4333,
+      "title": true,
+      "images": 1
+    }
+  ]
+}

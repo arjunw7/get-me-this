@@ -7,6 +7,7 @@ import { parseDestinationUrl, destinationHostname } from "./url-policy";
 import { ExtractionError } from "./errors";
 export type EgressOptions = {
   readonly transport?: TransportDependencies;
+  readonly allowHost?: (hostname: string) => boolean;
   readonly connect?: (address: string, signal: AbortSignal) => Promise<Socket>;
 };
 /** CONNECT only: Chromium verifies target TLS through a public socket-pinned tunnel. */
@@ -71,6 +72,8 @@ export function createBrowserEgress(options: EgressOptions = {}) {
           throw new ExtractionError("blocked_url");
         const url = parseDestinationUrl(`https://${request.url}`);
         if (url.pathname !== "/" || url.search || url.hash)
+          throw new ExtractionError("blocked_url");
+        if (options.allowHost && !options.allowHost(destinationHostname(url)))
           throw new ExtractionError("blocked_url");
         const address = await resolvePinnedAddress(
           destinationHostname(url),
