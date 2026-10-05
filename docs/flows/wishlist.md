@@ -68,3 +68,7 @@ The public route shows the saved profile Vibe, name, personality line, item info
 ## Reordering interaction
 
 Choose Reorder, then drag an item's handle into its new position. No visible up/down buttons are required. Keyboard users focus a handle, press Space or Enter to pick it up, use arrow keys or Home/End to move it, and press Space or Enter to drop; Escape cancels without saving. Touch handles support pointer movement and edge scrolling. Saving, stale-order refresh, authorization failure, and recovery continue through the existing compare-and-swap order boundary; Done waits for pending work. Announcements and saving feedback must not move the rows while dragging.
+
+### First-use Home sharing progress
+
+Home presents three steps while the owner has no groups: add items, share the wishlist using the existing public-link sheet, and create a group for the next occasion. Opening the sheet, enabling sharing or a failed copy does not complete the sharing step. A successful clipboard copy or activating WhatsApp sharing marks it done; WhatsApp completion records the handoff, not delivery to another person. Progress is a browser-local onboarding hint scoped to the owner's wishlist ID, containing only `done`, never a share token or URL. It survives reloads in that browser; unavailable browser storage retains progress only for the current visit. It never grants access, changes public-sharing authorization, or represents a server-side audit of sharing.
