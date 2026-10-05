@@ -1,6 +1,7 @@
 import "server-only";
 import { ExtractionError } from "./errors";
 import { readProviderJson, type ProviderOptions } from "./firecrawl";
+import { resolveAmazonShortLink } from "./amazon-short-link";
 import { ExtractionLimiter } from "./limiter";
 import { resolvePinnedAddress } from "./transport";
 import { destinationHostname, parseDestinationUrl } from "./url-policy";
@@ -8,6 +9,7 @@ import {
   amazonAsin,
   amazonProposal,
   isAmazonProductUrl,
+  isAmazonShortUrl,
 } from "./amazon-product";
 export { amazonBrowserCode, isAmazonProductUrl } from "./amazon-product";
 const starts = new ExtractionLimiter({
@@ -23,7 +25,7 @@ type Options = ProviderOptions & {
 };
 export async function extractAmazonProduct(raw: string, options: Options = {}) {
   const source = parseDestinationUrl(raw);
-  if (!isAmazonProductUrl(source.href))
+  if (!isAmazonProductUrl(source.href) && !isAmazonShortUrl(source.href))
     throw new ExtractionError("unsupported_content");
   const workerUrl = options.workerUrl ?? process.env.AMAZON_BROWSER_URL;
   const secret = options.workerSecret ?? process.env.AMAZON_BROWSER_SECRET;
@@ -59,20 +61,27 @@ export async function extractAmazonProduct(raw: string, options: Options = {}) {
   );
   if (remaining < 1000 || options.signal?.aborted)
     throw new ExtractionError("timeout");
+  const deadline = Date.now() + remaining;
   const controller = new AbortController();
   const abort = () => controller.abort();
   options.signal?.addEventListener("abort", abort, { once: true });
   const timer = setTimeout(abort, remaining);
   let permit: ReturnType<typeof starts.acquire> | undefined;
   try {
-    await resolvePinnedAddress(
-      destinationHostname(source),
-      options.transport ?? {},
-      controller.signal,
-      Date.now() + remaining,
-    );
     permit = (options.limiter ?? starts).acquire("amazon");
     if (!permit.ok) throw new ExtractionError("unavailable");
+    const target = isAmazonShortUrl(source.href)
+      ? await resolveAmazonShortLink(source, options.transport ?? {}, {
+          signal: controller.signal,
+          deadline: Math.min(deadline, Date.now() + 8000),
+        })
+      : source;
+    await resolvePinnedAddress(
+      destinationHostname(target),
+      options.transport ?? {},
+      controller.signal,
+      deadline,
+    );
     const response = await (options.fetch ?? fetch)(workerUrl, {
       method: "POST",
       redirect: "error",
@@ -81,8 +90,8 @@ export async function extractAmazonProduct(raw: string, options: Options = {}) {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        marketplace: source.hostname.replace(/^www\./u, ""),
-        asin: amazonAsin(source),
+        marketplace: target.hostname.replace(/^www\./u, ""),
+        asin: amazonAsin(target),
       }),
       signal: controller.signal,
     });
@@ -91,7 +100,7 @@ export async function extractAmazonProduct(raw: string, options: Options = {}) {
       throw new ExtractionError("unavailable");
     }
     const value = await readProviderJson(response, controller.signal, 16384);
-    return amazonProposal(source, value);
+    return { ...amazonProposal(target, value), sourceUrl: source.href };
   } catch (error) {
     if (controller.signal.aborted) throw new ExtractionError("timeout");
     if (error instanceof ExtractionError) throw error;

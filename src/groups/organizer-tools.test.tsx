@@ -107,6 +107,7 @@ describe("OrganizerTools", () => {
   it("uses the room toolbar label while retaining the working disclosure", async () => {
     render(<OrganizerTools {...baseProps()} presentation="room" />);
     const button = screen.getByRole("button", { name: "Organizer tools" });
+    expect(button).toHaveClass("cursor-pointer");
     expect(button).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(button);
     expect(
