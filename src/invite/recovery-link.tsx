@@ -6,6 +6,7 @@ export function InviteRecoveryLink({ href }: { href: "/" | "/home" }) {
   return (
     <Link
       href={href}
+      aria-label="Back to Get Me This"
       prefetch
       className={`${buttonClassName({ variant: "secondary", size: "lg" })} cursor-pointer`}
     >
