@@ -130,7 +130,6 @@ test("six-row calendars stay spacious and budget entry rejects letters", async (
   });
 });
 
-
 test("wishlist drag reorder persists with pointer and keyboard and profile hover responds", async ({
   page,
 }) => {
