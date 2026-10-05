@@ -12,6 +12,10 @@ All 14 targeted desktop/mobile browser journeys pass: organizer-only access, rec
 
 Before/after screenshots compare the same signed-in local group fixture and route at desktop 1440×1000 and mobile 390×844. `visual-review/` additionally contains the six current baseline candidates and their approved before images for the exact ARJ-37 fixture. Capabilities are redacted. The visible families are now confirmation, recoverable link modal and legacy replacement modal; expired/revoked/stale handling remains in functional and database tests. Historical baselines for retired inline cards are retained as provenance, not used as expectations for the new UI.
 
-No approved baseline has been changed. The visual comparison fails against the former UI as expected; candidate adoption requires explicit human product/design approval. This PR remains a draft until that gate and exact-head CI are complete.
+The repository owner approved the six matched CI captures on 2026-10-05 and authorized recording and adoption. `visual-approval.json` records their exact hashes, CI source head and artifact. Only these six baselines and their per-file provenance have changed; prior approvals for all other files are preserved. Full CI must pass on the final head before merge.
+
+CI also exposed a concurrent-save test expecting the first tab’s redirect snapshot to include the other tab’s later commit. The test now reads the owner wishlist after both saves are acknowledged. It preserves the two-row database assertion, distinct positions, visible-item assertions and persisted read-order assertion.
+
+The corrected concurrent-save case passes five times each on desktop and mobile (10 runs). Local macOS visual checking passes mobile; the two desktop modal states differ from the approved Ubuntu CI captures in platform font wrapping (4% pixel difference). Baselines and comparison tolerances remain exactly as approved; the full CI run compares them on their source platform.
 
 No schema migration; rollback is reverting the PR. No Magic Patterns mock data or editor artifacts shipped. No PR preview deployment is currently present in GitHub deployment records; earlier PR previews exist, so a current preview remains pending availability.

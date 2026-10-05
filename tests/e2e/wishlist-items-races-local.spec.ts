@@ -517,6 +517,9 @@ test("distinct submission keys serialize and append to distinct ordered position
     expect(rows.data?.[0].sort_position).toBeLessThan(
       rows.data?.[1].sort_position ?? Number.NEGATIVE_INFINITY,
     );
+    // A redirect snapshot can finish before the other tab commits. Read again
+    // after both saves are acknowledged to verify the persisted owner view.
+    await first.goto("/wishlist");
     await expect(
       first.getByRole("heading", {
         name: "Distinct-key first",
@@ -530,7 +533,6 @@ test("distinct submission keys serialize and append to distinct ordered position
       }),
     ).toBeVisible();
     const expectedOrder = rows.data?.map((row) => row.title);
-    await first.goto("/wishlist");
     const renderedOrder = await first.locator("article h3").allTextContents();
     const indexFirst = renderedOrder.findIndex((text) =>
       text.includes("Distinct-key first"),
