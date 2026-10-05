@@ -197,3 +197,92 @@ test("profile edits persist across wishlist and Home, cancellation preserves sto
     await dialog.getByRole("button", { name: "Close edit profile" }).click();
   });
 });
+
+test("group creation entry shows loading and supports the custom occasion", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    await createSignedInFixture(
+      page,
+      stackAdminClient(),
+      "group-start-feedback",
+      { displayName: "Create Casey", tasteLine: "" },
+      scope,
+    );
+    const { mkdir } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    const capture = async (name: string) => {
+      await page.evaluate(() => document.fonts.ready);
+      const dir = process.env.E2E_INTERACTION_EVIDENCE_DIR;
+      if (dir) await mkdir(dir, { recursive: true });
+      await test.info().attach(name, {
+        body: await page.screenshot({
+          ...(dir
+            ? { path: join(dir, `${name}-${test.info().project.name}.png`) }
+            : {}),
+          fullPage: true,
+          animations: "disabled",
+        }),
+        contentType: "image/png",
+      });
+    };
+    const exercise = async (origin: string, changed: boolean) => {
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await page.route("**/groups/new*", async (route) => {
+        await held;
+        await route.continue();
+      });
+      await page.goto(`${origin}/groups`);
+      await page
+        .getByRole("textbox", { name: "Group name" })
+        .fill("Board game night");
+      const button = page.getByRole("button", { name: "Create a group" });
+      if (changed) {
+        await button.hover();
+        await expect(button).toHaveCSS("cursor", "pointer");
+      }
+      await capture(changed ? "after" : "before");
+      try {
+        if (!changed) release();
+        await button.click({ noWaitAfter: true });
+        if (changed) {
+          await expect(
+            page.getByRole("button", { name: "Opening form…" }),
+          ).toBeDisabled();
+          await capture("loading-after");
+        }
+      } finally {
+        release();
+      }
+      await expect(page).toHaveURL(/\/groups\/new\?/);
+      await expect(
+        page.getByRole("textbox", { name: "Group name" }),
+      ).toHaveValue("Board game night");
+      await page.unroute("**/groups/new*");
+    };
+    if (process.env.E2E_PUBLIC_BEFORE_ORIGIN) {
+      const before = new URL(process.env.E2E_PUBLIC_BEFORE_ORIGIN);
+      if (before.protocol !== "http:" || before.hostname !== "127.0.0.1")
+        throw new Error("Before evidence requires a loopback server");
+      await exercise(before.origin, false);
+    }
+    await exercise("http://127.0.0.1:3100", true);
+    await page.goto("/groups");
+    await page
+      .getByRole("textbox", { name: "Group name" })
+      .fill("Board game night");
+    await page.getByText("Something else", { exact: true }).click();
+    await page.getByRole("button", { name: "Create a group" }).click();
+    await expect(
+      page.getByRole("radio", { name: "Something else" }),
+    ).toBeChecked();
+    await expect(page.getByRole("textbox", { name: "Group name" })).toHaveValue(
+      "Board game night",
+    );
+  });
+});

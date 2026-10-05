@@ -8,8 +8,17 @@ or emit analytics.
 ## Amazon product pages (independent Playwright)
 
 Amazon marketplace URLs bypass Firecrawl entirely. Recognized `dp`/`gp/product`
-ASIN links use a separately hosted, authenticated Playwright worker; unsupported
-Amazon paths and short links fail into editable manual entry without spending Firecrawl credits.
+ASIN links use a separately hosted, authenticated Playwright worker. Exact
+`amzn.in`, `amzn.to`, `amzn.eu` and `a.co` short-link hosts resolve through the
+existing guarded HTTP transport first. Every hop must be an approved Amazon
+host with public DNS and a matching socket peer; HTTPS downgrade is blocked.
+Resolution allows at most three redirects and eight seconds within the same
+30-second import budget. A bounded HTML fetch (at most 1 MiB for a final product
+prefix) establishes the final URL; no retailer scripts execute. Only a final
+Amazon `dp`/`gp/product` ASIN is sent to the worker. The pasted short URL remains
+the proposal's source URL, while the resolved marketplace supplies the retailer.
+Unsupported paths, interstitials, loops and unsafe redirects fail into editable
+manual entry without spending Firecrawl credits.
 Missing worker configuration, blocked/deleted pages and timeouts also fail safely.
 Only Amazon India has live benchmark evidence; universal extraction is not claimed.
 
@@ -45,13 +54,13 @@ no app private-network access or app/database secrets. This containment
 assumption needs independent review before production activation. See
 [worker deployment instructions](../../workers/amazon/README.md). Independent
 browsing uses no Firecrawl credits; Railway compute can cost money. Other
-stores continue to use Firecrawl and its allowance.
+stores use Firecrawl first and its allowance, then the general Playwright worker.
 
 ## Primary product acquisition for other stores (Firecrawl)
 
 The user selected Firecrawl on 4 October 2026. The endpoint now calls the
 server-only `firecrawl.ts` adapter. `FIRECRAWL_API_KEY` is read only on the
-server; an absent key fails safely to manual entry. No SDK dependency is added.
+server; an absent key skips to the browser fallback. No SDK dependency is added.
 The old direct HTML extractor remains available for regression tests and
 rollback, but is not an automatic production fallback.
 
@@ -71,7 +80,7 @@ This changes the acquisition trust boundary and must receive independent review
 before rollout. A provider API redirect is refused so credentials cannot be
 forwarded to another endpoint.
 
-The provider call is aborted after 30 seconds (or the earlier caller deadline).
+For non-Amazon imports the provider call receives eight seconds (or the earlier caller deadline), reserving time for browser fallback.
 The entire authenticated endpoint has a 35-second deadline; the browser waits
 37 seconds and still permits cancellation/manual entry. Decoded provider JSON
 is capped at 256 KiB. API errors, credit exhaustion, malformed responses and
@@ -81,7 +90,7 @@ the existing proposal contract; at most eight safe, distinct image candidates
 are returned. The original pasted URL remains the saved source. Recognizable Nykaa, Etsy,
 IKEA, Amazon India and Flipkart product identifiers must match the provider
 product URL on the same retailer. An explicit mismatch falls back to manual
-entry. Generic slugs and omitted variant options still require user review.
+entry through the browser fallback. Generic slugs and omitted variant options still require user review.
 
 Only a single returned variant can supply its price and explicit ISO
 currency, and only when rendered page evidence contains the same amount and
@@ -103,6 +112,57 @@ credit top-ups disabled for the initial free rollout. The app's existing rate
 limits bound traffic per user/process; they do not enforce an account-wide
 monthly credit cap across deployments. No account or production configuration
 is changed by this implementation.
+
+## General Playwright fallback
+
+Non-Amazon imports use Firecrawl first. Missing credentials, credit exhaustion,
+provider errors/timeouts, malformed output, or missing title/image attempt the
+independent worker. Missing optional price alone does not consume another browser
+job. Invalid/private URL admission failures and caller cancellation never retry.
+A usable Firecrawl proposal returns immediately. If an incomplete Firecrawl proposal
+exists and the browser fails, its fields remain editable rather than being lost.
+If both fail, the existing manual form remains available with the pasted URL.
+
+The entire pipeline retains a single 35-second deadline: up to eight seconds for
+Firecrawl and up to the remaining 27 seconds for browser acquisition. The generic
+API is authenticated `POST /extract-product` with exactly `{url}`; caller browser
+commands, headers, scripts and cookies are not accepted. It shares worker admission
+(one job, ten starts/minute) with Amazon. App config reuses `AMAZON_BROWSER_URL` and
+`AMAZON_BROWSER_SECRET` by default; optional `PRODUCT_BROWSER_URL/SECRET` can point
+to the same reviewed worker in a separate dedicated service.
+
+Generic pages run scripts inside fresh sandboxed Chromium, with only the minimum
+process environment and a separate loopback CONNECT broker on 8082. All HTTPS
+resource destinations repeat public-DNS pinning and socket-peer verification.
+Only GET script/style/XHR/fetch requests are admitted. Images/fonts/media,
+WebSockets, service workers, dedicated/shared/blob workers, subframes, downloads,
+popups and automatic document navigation are blocked. A separately enforced CSP
+policy blocks worker/frame/object creation even when the retailer's CSP allows it.
+At most 160 resource requests and three explicit document redirects are allowed;
+redirects are inspected before following, and destination acquisition re-enters
+routing and the broker. HTTP source acquisition is upgraded to HTTPS while keeping
+the original source URL. Sites needing POST data, worker-based rendering, cross-host
+product redirects or canonical URLs that omit selected variants may fail manually.
+
+The fixed DOM reader extracts bounded JSON-LD, heading/Open Graph identity and
+image URLs. Matching final/canonical/product URLs must stay on the source retailer
+and retain meaningful query parameters; only known tracking parameters are ignored.
+A mismatched structured product record is discarded entirely, including price.
+If the final/canonical page itself still matches, its own title and Open Graph
+image can supply a proposal; wrong structured fields are never merged back.
+Visible current-price evidence must match structured price and explicit ISO currency
+through the same conservative money check as Firecrawl. Multiple offers, ranges,
+unavailable products or ambiguous prices leave money editable. Metadata is capped at
+16 KiB; visible text and image candidates are trimmed before sacrificing useful title
+and image fields. The container's 1 GB memory cap remains the native rendering and
+decompression boundary; generic script execution broadens the browser trust boundary
+and needs independent review before worker deployment. No universal success is claimed.
+
+The current deployed Amazon-only worker must be upgraded using this PR's Dockerfile
+and its Node-only Railway start override must include `/usr/bin/tini -s --`
+before deploying the web change. An old worker returns 404 on `/extract-product`,
+which safely preserves manual entry. No new project or API key is required when
+reusing the existing separate worker. This PR does not change production resources.
 
 ## Selected-image transport and retained direct extractor
 

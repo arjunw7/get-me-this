@@ -269,3 +269,63 @@ test("branded calendar and searchable currency submit the selected date and curr
     expect(String(saved.data.original_amount_minor)).toBe("1000");
   });
 });
+
+test("first-use Home shares through the existing modal and remembers completion", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const owner = await person(scope, "Sharing Sam");
+    await seedWishlistItems(stackAdminClient(), owner.id, [
+      { id: randomUUID(), title: "A ceramic cup", sort_position: 0 },
+    ]);
+    await mailpitLogin(page, owner.email);
+    await before(
+      page,
+      "/home",
+      async () => {
+        await expect(
+          page.getByRole("heading", { name: "1 item on your wishlist" }),
+        ).toBeVisible();
+      },
+      "onboarding-sharing",
+    );
+    await page.goto("/home");
+    const sharing = page.getByRole("region", { name: "Share your wishlist" });
+    const group = page.getByRole("region", {
+      name: "Create a group for your next occasion",
+    });
+    await expect(sharing).toHaveAttribute("aria-current", "step");
+    await expect(page.getByText("Step 3 · Your people")).toBeVisible();
+    await capture(page, "onboarding-sharing-after");
+    await page
+      .getByRole("button", { name: "Share wishlist", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Share your wishlist" });
+    await expect(dialog).toBeVisible();
+    await expect(sharing.getByText("Wishlist shared.")).toHaveCount(0);
+    // Redact the capability in visual evidence; the modal still copies its authoritative URL.
+    await dialog.getByLabel("Public wishlist link").evaluate((input) => {
+      (input as HTMLInputElement).value =
+        `https://example.invalid/s/${"S".repeat(43)}`;
+    });
+    await capture(page, "onboarding-share-modal");
+    await page
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
+    await dialog
+      .getByRole("button", { name: "Copy link", exact: true })
+      .click();
+    await expect(
+      dialog.getByText("Link copied.", { exact: true }),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Close sharing" }).click();
+    await expect(sharing.getByText("Wishlist shared.")).toBeVisible();
+    await expect(group).toHaveAttribute("aria-current", "step");
+    await capture(page, "onboarding-sharing-complete");
+    await page.reload();
+    await expect(sharing.getByText("Wishlist shared.")).toBeVisible();
+    await expect(group).toHaveAttribute("aria-current", "step");
+  });
+});

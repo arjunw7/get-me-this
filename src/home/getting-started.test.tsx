@@ -6,7 +6,10 @@ import { GettingStarted } from "./getting-started";
 import { HomeLinkForm } from "./home-link-form";
 import { getStarterIdea } from "./starter-ideas";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  localStorage.clear();
+});
 
 describe("first-use Home", () => {
   it("offers allowlisted ideas as editable handoffs without saving products", () => {
@@ -77,10 +80,13 @@ describe("first-use Home", () => {
       screen.queryByRole("list", { name: "No link handy? Start with an idea" }),
     ).not.toBeInTheDocument();
     expect(
+      screen.getByRole("region", { name: "Share your wishlist" }),
+    ).toHaveAttribute("aria-current", "step");
+    expect(
       screen.getByRole("region", {
         name: "Create a group for your next occasion",
       }),
-    ).toHaveAttribute("aria-current", "step");
+    ).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Add another" })).toHaveAttribute(
       "href",
       "/wishlist/items/new",
@@ -102,4 +108,68 @@ describe("first-use Home", () => {
       "Paste your link into the field",
     );
   });
+});
+
+const shareProps = {
+  wishlist: { wishlistId: "sharing-list", items: [] },
+  shareState: { enabled: true, version: "1", shareToken: "S".repeat(43) },
+  onShareChange: vi.fn(),
+};
+it("uses the existing share modal and completes only a successful sharing action, retaining progress on reload", async () => {
+  const user = userEvent.setup();
+  const view = render(<GettingStarted {...shareProps} />);
+  const shareStep = screen.getByRole("region", { name: "Share your wishlist" });
+  await user.click(screen.getByRole("button", { name: "Share wishlist" }));
+  expect(
+    screen.getByRole("dialog", { name: "Share your wishlist" }),
+  ).toBeVisible();
+  expect(
+    within(shareStep).queryByText("Wishlist shared."),
+  ).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Copy link" }));
+  expect(await within(shareStep).findByText("Wishlist shared.")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Close sharing" }));
+  view.unmount();
+  render(<GettingStarted {...shareProps} />);
+  expect(screen.getByText("Wishlist shared.")).toBeVisible();
+  expect(localStorage.getItem("gmt:onboarding:shared:sharing-list")).toBe(
+    "done",
+  );
+  expect(Object.values(localStorage).join("")).not.toContain(
+    shareProps.shareState.shareToken,
+  );
+});
+it("keeps sharing incomplete when copying is denied", async () => {
+  const user = userEvent.setup();
+  vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+    new Error("denied"),
+  );
+  render(<GettingStarted {...shareProps} />);
+  await user.click(screen.getByRole("button", { name: "Share wishlist" }));
+  await user.click(screen.getByRole("button", { name: "Copy link" }));
+  expect(
+    await screen.findByText(
+      "Copy didn’t work. Select and copy the link above.",
+    ),
+  ).toBeVisible();
+  expect(screen.queryByText("Wishlist shared.")).not.toBeInTheDocument();
+  expect(localStorage.getItem("gmt:onboarding:shared:sharing-list")).toBeNull();
+});
+
+it("marks the WhatsApp handoff complete without claiming message delivery", async () => {
+  const user = userEvent.setup();
+  render(<GettingStarted {...shareProps} />);
+  await user.click(screen.getByRole("button", { name: "Share wishlist" }));
+  await user.click(screen.getByRole("link", { name: "Share on WhatsApp" }));
+  expect(screen.getByText("Wishlist shared.")).toBeVisible();
+});
+it("still completes this visit when browser storage is unavailable", async () => {
+  const user = userEvent.setup();
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("unavailable");
+  });
+  render(<GettingStarted {...shareProps} />);
+  await user.click(screen.getByRole("button", { name: "Share wishlist" }));
+  await user.click(screen.getByRole("button", { name: "Copy link" }));
+  expect(await screen.findByText("Wishlist shared.")).toBeVisible();
 });
