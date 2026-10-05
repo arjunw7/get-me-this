@@ -76,10 +76,15 @@ export function ReactionRow({
             <button
               key={kind}
               type="button"
+              aria-label={
+                kind === "questionable"
+                  ? "Questionable, but supported"
+                  : REACTION_LABELS[kind]
+              }
               aria-pressed={active}
               disabled={isPending}
               onClick={() => pick(kind)}
-              className={`${compact ? "flex min-h-[60px] min-w-0 flex-col items-center justify-center gap-1 rounded-surface border-2 px-1 text-[11px]" : "min-h-11 rounded-pill border-2 px-4 text-sm"} font-bold transition-transform duration-100 motion-reduce:transition-none disabled:opacity-60 ${
+              className={`${compact ? "flex min-h-[76px] min-w-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-surface border-2 px-1 py-2 text-[11px]" : "min-h-11 rounded-pill border-2 px-4 text-sm"} font-bold transition-transform duration-100 motion-reduce:transition-none disabled:opacity-60 ${
                 active
                   ? "border-outline-strong bg-accent-highlight text-content-primary"
                   : compact
@@ -96,7 +101,12 @@ export function ReactionRow({
                       : "♡"}
                 </span>
               ) : null}
-              {REACTION_LABELS[kind]}
+              <span
+                {...(compact ? { "data-reaction-label": true } : {})}
+                className={compact ? "text-center leading-snug" : undefined}
+              >
+                {REACTION_LABELS[kind]}
+              </span>
               {kind === "questionable" ? (
                 <span className="sr-only">, but supported</span>
               ) : null}
