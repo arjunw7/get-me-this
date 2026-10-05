@@ -75,7 +75,9 @@ describe("WishlistView state selection", () => {
     expect(container.querySelector(`[data-vibe="${value}"]`)).toHaveClass(
       ...vibeClasses(value).split(" "),
     );
-    expect(screen.getByText(new RegExp(`${label} vibe`))).toBeVisible();
+    expect(
+      screen.queryByText(new RegExp(`${label} vibe`)),
+    ).not.toBeInTheDocument();
   });
   it("renders the V18 empty composition for zero items", () => {
     render(<WishlistView {...viewProps(EMPTY_WISHLIST)} />);
@@ -95,7 +97,7 @@ describe("WishlistView state selection", () => {
     // visibility is checked by the real-browser geometry suite.
     expect(screen.getByRole("region", { name: "Ada" })).toBeVisible();
     expect(screen.getByText("currently in my tiny-luxuries era")).toBeVisible();
-    expect(screen.getByText("0 things")).toBeVisible();
+    expect(screen.queryByText("0 things")).not.toBeInTheDocument();
   });
 
   it("labels the empty-state CTA exactly 'Add an item' pointing at /wishlist/items/new", () => {
@@ -146,7 +148,7 @@ describe("WishlistView state selection", () => {
     };
     render(<WishlistView {...viewProps(wishlist)} />);
 
-    expect(screen.getByText("2 things")).toBeVisible();
+    expect(screen.queryByText("2 things")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Add an item" })).toHaveAttribute(
       "href",
       "/wishlist/items/new",

@@ -113,7 +113,7 @@ test("the signed-in populated wishlist matches the pinned V18 filled composition
 
     // Guard: the intended state rendered before capture.
     await expect(page.getByRole("heading", { name: "Ada" })).toBeVisible();
-    await expect(page.getByText("4 things")).toBeVisible();
+    await expect(page.getByText("4 things")).toHaveCount(0);
     await expect(page.getByRole("article")).toHaveCount(4);
 
     await expect(page).toHaveScreenshot(

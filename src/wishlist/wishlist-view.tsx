@@ -61,7 +61,6 @@ export function WishlistView({
         displayName={displayName}
         tasteLine={tasteLine}
         vibe={vibe}
-        itemCount={wishlist.items.length}
         actions={
           <>
             {shareControl}

@@ -60,6 +60,8 @@ describe("PublicWishlistView", () => {
     render(<PublicWishlistView {...props} />);
     expect(screen.getAllByRole("heading", { name: "Aanya" })[0]).toBeVisible();
     expect(screen.getByText("Little luxuries")).toBeVisible();
+    expect(screen.queryByText(/electric vibe/)).not.toBeInTheDocument();
+    expect(screen.queryByText("No reactions yet")).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "A ceramic cup" }),
     ).toBeVisible();
@@ -86,7 +88,7 @@ describe("PublicWishlistView", () => {
         snapshot={{ ...snapshot, viewerIsOwner: true }}
       />,
     );
-    expect(screen.getByText("No reactions yet")).toBeVisible();
+    expect(screen.queryByText("No reactions yet")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Very you" }),
     ).not.toBeInTheDocument();
@@ -188,4 +190,29 @@ describe("PublicWishlistView", () => {
       screen.queryByRole("link", { name: /Add|Edit/ }),
     ).not.toBeInTheDocument();
   });
+});
+
+it("keeps nonzero public reaction summaries visible and read-only for signed-out visitors", () => {
+  render(
+    <PublicWishlistView
+      {...props}
+      snapshot={{
+        ...snapshot,
+        items: [
+          {
+            ...snapshot.items[0],
+            reaction: {
+              ...snapshot.items[0].reaction,
+              counts: { veryYou: 1, questionable: 0, wantItToo: 0 },
+            },
+          },
+        ],
+      }}
+    />,
+  );
+  expect(screen.getByText("1 reaction")).toBeVisible();
+  expect(screen.getByText("Very you")).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Very you" }),
+  ).not.toBeInTheDocument();
 });

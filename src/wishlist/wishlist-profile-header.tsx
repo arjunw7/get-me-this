@@ -1,12 +1,6 @@
 import type { ReactNode } from "react";
-import {
-  DEFAULT_VIBE,
-  VIBE_OPTIONS,
-  vibeClasses,
-  type Vibe,
-} from "@/src/profile/vibe";
+import { DEFAULT_VIBE, vibeClasses, type Vibe } from "@/src/profile/vibe";
 import { profileInitials } from "@/src/home/profile-initials";
-import { formatItemCount } from "./display";
 import typography from "./wishlist-typography.module.css";
 
 /**
@@ -16,14 +10,12 @@ export function WishlistProfileHeader({
   displayName,
   tasteLine,
   vibe = DEFAULT_VIBE,
-  itemCount,
   actions,
   label,
 }: {
   displayName: string;
   tasteLine: string | null;
   vibe?: Vibe;
-  itemCount: number;
   actions?: ReactNode;
   label?: string;
 }) {
@@ -76,16 +68,6 @@ export function WishlistProfileHeader({
                 {tasteLine}
               </p>
             ) : null}
-            <p className="mt-2 inline-flex items-center gap-2 text-sm text-content-muted">
-              <span
-                aria-hidden="true"
-                className={`h-3 w-3 rounded-full border border-outline-strong ${vibeClasses(vibe)}`}
-              />
-              <span>
-                {VIBE_OPTIONS.find((option) => option.value === vibe)?.label}{" "}
-                vibe · <span>{formatItemCount(itemCount)}</span>
-              </span>
-            </p>
           </div>
         </div>
         {actions ? (
