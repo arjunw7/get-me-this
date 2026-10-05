@@ -1,3 +1,10 @@
+import { fulfillProductResource } from "./product-route";
+import { readProductDom } from "../../src/wishlist/extraction/product-browser-dom";
+import {
+  createProductRequestPolicy,
+  productResourceAllowed,
+} from "../../src/wishlist/extraction/product-browser-protocol";
+import { productBrowserProposal } from "../../src/wishlist/extraction/product-browser-result";
 import { fulfillWithoutRedirects } from "./route";
 import { chromium, type Browser, type BrowserServer } from "playwright-core";
 import { createBrowserEgress } from "../../src/wishlist/extraction/browser-egress";
@@ -17,15 +24,22 @@ if (!secret || secret.length < 32)
   throw new Error("Amazon worker authentication is missing");
 const egress = createBrowserEgress({ allowHost: amazonBrokerHostAllowed });
 egress.server.listen(8081, "127.0.0.1");
+const productEgress = createBrowserEgress();
+productEgress.server.listen(8082, "127.0.0.1");
 const failClosed = () => {
   server.close();
   egress.shutdown();
+  productEgress.shutdown();
   // Container restart also terminates any orphaned Chromium processes.
   process.exit(1);
 };
 const shutdownController = new AbortController();
 let terminateActive: (() => Promise<void>) | undefined;
-const server = createAmazonWorker(secret, async (target, requestSignal) => {
+const run = async (
+  target: URL,
+  requestSignal: AbortSignal,
+  generic = false,
+) => {
   const signal = AbortSignal.any([requestSignal, shutdownController.signal]);
   let phase = "launch";
   let owner: BrowserServer | undefined;
@@ -56,7 +70,9 @@ const server = createAmazonWorker(secret, async (target, requestSignal) => {
       headless: true,
       chromiumSandbox: true,
       host: "127.0.0.1",
-      proxy: { server: "http://127.0.0.1:8081" },
+      proxy: {
+        server: generic ? "http://127.0.0.1:8082" : "http://127.0.0.1:8081",
+      },
       args: [
         "--disable-quic",
         "--force-webrtc-ip-handling-policy=disable_non_proxied_udp",
@@ -78,7 +94,7 @@ const server = createAmazonWorker(secret, async (target, requestSignal) => {
     browser = await chromium.connect(owner.wsEndpoint(), { timeout: 2000 });
     phase = "context";
     const context = await browser.newContext({
-      javaScriptEnabled: false,
+      javaScriptEnabled: generic,
       locale: "en-IN",
       viewport: { width: 1440, height: 1000 },
       serviceWorkers: "block",
@@ -87,42 +103,114 @@ const server = createAmazonWorker(secret, async (target, requestSignal) => {
     });
     const page = await context.newPage();
     let requests = 0;
+    let pendingRedirect: string | undefined;
+    const productPolicy = createProductRequestPolicy(target);
+    context.on("page", (other) => {
+      if (other !== page) void other.close();
+    });
     await context.route("**/*", async (route) => {
       const request = route.request();
       const document = request.resourceType() === "document";
-      if (
+      if (generic) {
+        if (
+          !productPolicy.admit(
+            request.url(),
+            request.method(),
+            request.resourceType(),
+            request.frame() === page.mainFrame(),
+          )
+        ) {
+          await route.abort();
+          return;
+        }
+      } else if (
         ++requests > 80 ||
         request.method() !== "GET" ||
         !document ||
         !amazonResourceAllowed(request.url(), target) ||
-        ["script", "xhr", "fetch", "media"].includes(request.resourceType()) ||
-        (document &&
-          (request.frame() !== page.mainFrame() ||
-            !amazonDocumentAllowed(request.url(), target)))
+        request.frame() !== page.mainFrame() ||
+        !amazonDocumentAllowed(request.url(), target)
       ) {
         await route.abort();
         return;
       }
-      await fulfillWithoutRedirects(route);
+      if (generic)
+        await fulfillProductResource(
+          route,
+          document
+            ? (url) => {
+                pendingRedirect = url;
+              }
+            : undefined,
+        );
+      else await fulfillWithoutRedirects(route);
     });
     await context.routeWebSocket("**/*", (socket) => socket.close());
     let output: unknown;
-    const program = new Function(
-      "page",
-      "console",
-      `return(async()=>{${amazonBrowserCode(target.href)}})()`,
-    );
     phase = "acquire";
-    await program(page, {
-      log: (text: unknown) => {
-        if (typeof text !== "string" || Buffer.byteLength(text) > 16384)
-          throw new ExtractionError("too_large");
-        output = JSON.parse(text) as unknown;
-      },
-    });
+    if (generic) {
+      let current = target;
+      // Automatic redirects are refused by acquisition. Follow document redirects
+      // explicitly so each next URL re-enters routing and the public pinned broker.
+      let response;
+      for (let redirects = 0; ; redirects++) {
+        pendingRedirect = undefined;
+        productPolicy.navigate(current);
+        response = await page.goto(current.href, {
+          waitUntil: "domcontentloaded",
+          timeout: 15000,
+        });
+        if (!pendingRedirect) break;
+        if (redirects >= 3) throw new ExtractionError("unavailable");
+        current = new URL(pendingRedirect, current);
+        if (!productResourceAllowed(current.href))
+          throw new ExtractionError("blocked_url");
+      }
+      await page.waitForTimeout(1200);
+      const metadata = await page.evaluate(readProductDom);
+      output = {
+        ...metadata,
+        finalUrl: page.url(),
+        status: response?.status() ?? 0,
+      };
+      // Preserve useful name/images even when visible text cannot fit the API.
+      if (Buffer.byteLength(JSON.stringify(output)) > 16384) {
+        metadata.body = "";
+        while (
+          metadata.images.length &&
+          Buffer.byteLength(
+            JSON.stringify({
+              ...metadata,
+              finalUrl: page.url(),
+              status: response?.status() ?? 0,
+            }),
+          ) > 16384
+        )
+          metadata.images.pop();
+        output = {
+          ...metadata,
+          finalUrl: page.url(),
+          status: response?.status() ?? 0,
+        };
+      }
+    } else {
+      const program = new Function(
+        "page",
+        "console",
+        `return(async()=>{${amazonBrowserCode(target.href)}})()`,
+      );
+      await program(page, {
+        log: (text: unknown) => {
+          if (typeof text !== "string" || Buffer.byteLength(text) > 16384)
+            throw new ExtractionError("too_large");
+          output = JSON.parse(text) as unknown;
+        },
+      });
+    }
     if (signal.aborted) throw new ExtractionError("timeout");
     phase = "validate";
-    amazonProposal(target, output);
+    if (generic) productBrowserProposal(target, output);
+    else amazonProposal(target, output);
     return output;
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
@@ -166,13 +254,19 @@ const server = createAmazonWorker(secret, async (target, requestSignal) => {
       });
     terminateActive = undefined;
   }
-});
+};
+const server = createAmazonWorker(
+  secret,
+  (target, signal) => run(target, signal),
+  (target, signal) => run(target, signal, true),
+);
 server.listen(Number(process.env.PORT ?? 8080), "0.0.0.0");
 const shutdown = () => {
   shutdownController.abort();
   server.close();
   void terminateActive?.().catch(failClosed);
   egress.shutdown();
+  productEgress.shutdown();
 };
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);

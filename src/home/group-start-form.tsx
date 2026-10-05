@@ -1,5 +1,7 @@
 "use client";
 
+import Form from "next/form";
+import { buttonClassName } from "@/src/ui/styles";
 import { useState } from "react";
 import type { OccasionType } from "@/src/groups/occasions";
 
@@ -34,6 +36,12 @@ const IDEAS: readonly {
     tone: "bg-accent-info",
   },
   {
+    value: "other",
+    label: "Something else",
+    suggestion: "",
+    tone: "bg-surface-raised",
+  },
+  {
     value: "secret_santa",
     label: "Secret Santa",
     suggestion: "Our Secret Santa",
@@ -42,13 +50,21 @@ const IDEAS: readonly {
 ];
 
 export function GroupStartForm({ hasGroups }: { hasGroups: boolean }) {
+  const [opening, setOpening] = useState(false);
   const [occasion, setOccasion] = useState("");
   const [name, setName] = useState("");
   const [suggested, setSuggested] = useState(false);
   return (
-    <form
+    <Form
       action="/groups/new"
-      method="get"
+      aria-busy={opening}
+      onSubmit={(event) => {
+        if (opening) {
+          event.preventDefault();
+          return;
+        }
+        setOpening(true);
+      }}
       aria-labelledby="group-create-title"
       className={`rounded-surface-xl border-2 border-outline-strong bg-surface-raised p-6 sm:p-7 ${hasGroups ? "" : "shadow-chunk"}`}
     >
@@ -76,8 +92,13 @@ export function GroupStartForm({ hasGroups }: { hasGroups: boolean }) {
                 checked={occasion === idea.value}
                 onChange={() => {
                   setOccasion(idea.value);
-                  setName(idea.suggestion);
-                  setSuggested(true);
+                  if (idea.value === "other") {
+                    if (suggested) setName("");
+                    setSuggested(false);
+                  } else {
+                    setName(idea.suggestion);
+                    setSuggested(true);
+                  }
                 }}
                 className="peer sr-only"
               />
@@ -118,10 +139,17 @@ export function GroupStartForm({ hasGroups }: { hasGroups: boolean }) {
       </label>
       <button
         type="submit"
-        className="mt-5 inline-flex h-12 items-center gap-2 rounded-surface border-2 border-outline-strong bg-action-primary px-5 font-bold shadow-chunk-sm"
+        disabled={opening}
+        className={`${buttonClassName({ variant: "primary", size: "md" })} mt-5 cursor-pointer`}
       >
-        Create a group <span aria-hidden="true">→</span>
+        {opening ? (
+          "Opening form…"
+        ) : (
+          <>
+            Create a group <span aria-hidden="true">→</span>
+          </>
+        )}
       </button>
-    </form>
+    </Form>
   );
 }
