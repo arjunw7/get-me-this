@@ -24,8 +24,8 @@ import {
  * stack, run through scripts/e2e-local-stack.sh: the protected /groups/new
  * route sends signed-out visitors to sign-in, a signed-in member creates a
  * private group through the V18 form and lands on the organizer-only
- * "created" screen, the shareable invite link is shown exactly once and is
- * never recoverable after the one display (reload loses it), a second
+ * "created" screen, the shareable invitation modal opens on demand and is
+ * recovered only when the organizer opens the shared modal, a second
  * member who is not the organizer gets a 404 on the created URL, and the
  * brief's idempotency, stale-tab, expiry, and clipboard-failure behaviors
  * hold through the real UI.
@@ -115,7 +115,7 @@ test("the protected create-group route redirects signed-out visitors to sign-in"
   await expect(page).toHaveURL(/\/auth/);
 });
 
-test("a member creates a private group; the invite link is shown exactly once; the created screen is organizer-only", async ({
+test("a member creates a private group; its shared modal recovers the invite; the created screen is organizer-only", async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -132,30 +132,31 @@ test("a member creates a private group; the invite link is shown exactly once; t
     );
     const groupName = "Fixture birthday bash";
 
-    // First issuance: the token link is displayed exactly once. Assertions
-    // below use only lengths and boolean shape checks: a failure message
-    // must never print link or token material into CI logs.
-    await page.getByRole("button", { name: "Create invite link" }).click();
-    const linkCard = page.getByTestId("invite-link-card");
-    await expect(linkCard).toBeVisible();
-    const link = await linkCard.locator(".select-all").first().textContent();
-    const linkText = (link ?? "").trim();
-    const token = linkText.includes("/invite/")
-      ? (linkText.split("/invite/")[1] ?? "")
-      : "";
-    expect(linkText.length).toBeGreaterThan(43);
+    // The shared modal issues on demand and can recover the same organizer link.
+    await page
+      .getByRole("button", { name: "Invite people", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: `${groupName} is ready.` });
+    const input = dialog.getByRole("textbox", { name: "Invite link" });
+    await expect(input).toBeVisible();
+    const linkText = await input.inputValue();
+    const token = linkText.split("/invite/")[1] ?? "";
     expect(token.length).toBe(43);
     expect(/^[A-Za-z0-9_-]+$/.test(token)).toBe(true);
-
-    // The one-time display is the only display: a reload shows the
-    // active-link-lost state and never the token again.
+    expect(stackGroupVersion(groupId)).toBe("1");
     await page.reload();
     await expect(
-      page.getByRole("heading", { name: `${groupName} is ready.` }),
+      page.getByRole("heading", { level: 1, name: `${groupName} is ready.` }),
     ).toBeVisible();
-    await expect(page.getByTestId("invite-link-card")).toHaveCount(0);
-    await expect(page.getByTestId("active-link-lost")).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     expect(await page.content()).not.toContain(token);
+    await page
+      .getByRole("button", { name: "Invite people", exact: true })
+      .click();
+    await expect(input).toBeVisible();
+    expect((await input.inputValue()) === linkText).toBe(true);
+    expect(stackGroupVersion(groupId)).toBe("1");
+    await dialog.getByRole("button", { name: "Close invite dialog" }).click();
 
     // Organizer-only: a second member who is not the organizer gets a 404,
     // never the created screen or any invitation state.
@@ -411,132 +412,103 @@ test("only the explicit confirmation submits a changed payload as a new request"
   });
 });
 
-test("a stale tab refreshes the projection and never retries issuance automatically", async ({
+test("opening a stale created page never replaces an unrecoverable active invitation automatically", async ({
   page,
 }) => {
   test.setTimeout(240_000);
-  page.setDefaultTimeout(15_000);
-  const admin = stackAdminClient();
   const scope = new FixtureScope();
   await scope.run(async () => {
     const { organizerId, groupId } = await createOrganizerAndGroup(
       page,
-      admin,
+      stackAdminClient(),
       scope,
       "arj37-stale",
       "Stale tab bash",
     );
-
-    // Another tab issues first: this tab still projects version 0, so its
-    // expected version is stale.
     expect(stackGroupVersion(groupId)).toBe("0");
-    const otherTabVersion = stackIssueGeneric(organizerId, groupId);
-    expect(otherTabVersion).toBe("1");
-
-    // No reload: this tab still holds the stale version 0 projection. Its
-    // issuance is stale and the refreshed state decides the display. No
-    // token is returned and no automatic retry happens.
-    await page.getByRole("button", { name: "Create invite link" }).click();
-
-    await expect(page.getByTestId("active-link-lost")).toBeVisible();
-    await expect(page.getByTestId("stale-version-note")).toBeVisible();
-    await expect(page.getByTestId("invite-link-card")).toHaveCount(0);
-    // The stale round-trip changed nothing: still exactly one generic row
-    // at the other tab's version, and no extra issuance audit.
+    expect(stackIssueGeneric(organizerId, groupId)).toBe("1");
+    // This synthetic fixture models a pre-migration digest-only invitation.
+    runStackSql(
+      `delete from private.group_shareable_invitation_tokens where invitation_id in (select id from public.group_invitations where group_id='${groupId}' and shareable_version is not null);`,
+    );
+    await page
+      .getByRole("button", { name: "Invite people", exact: true })
+      .click();
+    await expect(
+      page.getByRole("dialog").getByText(/stop the old link from working/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Invite link" }),
+    ).toHaveCount(0);
     expect(stackGroupVersion(groupId)).toBe("1");
-    const audits = runStackSql(
-      `select count(*)::text from public.audit_events where group_id = '${groupId}'::uuid and event_type = 'invitation_issued';`,
-    ).trim();
-    expect(audits).toBe("1");
+    expect(
+      runStackSql(
+        `select count(*)::text from public.audit_events where group_id='${groupId}' and event_type='invitation_issued';`,
+      ).trim(),
+    ).toBe("1");
   });
 });
 
-test("the created screen shows the authoritative stored expiry", async ({
+test("opening the shared invitation modal preserves the authoritative stored expiry", async ({
   page,
 }) => {
   test.setTimeout(240_000);
-  page.setDefaultTimeout(15_000);
-  const admin = stackAdminClient();
   const scope = new FixtureScope();
   await scope.run(async () => {
     const { organizerId, groupId } = await createOrganizerAndGroup(
       page,
-      admin,
+      stackAdminClient(),
       scope,
       "arj37-expiry",
       "Expiry display bash",
     );
-
-    // Another session issues the link; the stored expiry is then pinned to
-    // a fixed instant so the display is checkable deterministically.
     expect(stackIssueGeneric(organizerId, groupId)).toBe("1");
     stackSetGenericExpiry(groupId, "2050-01-01 00:00:00+00");
-
+    const expiry = () =>
+      Number(
+        runStackSql(
+          `select extract(epoch from expires_at)::text from public.group_invitations where group_id='${groupId}' and shareable_version is not null;`,
+        ).trim(),
+      );
+    expect(expiry()).toBe(new Date("2050-01-01T00:00:00Z").getTime() / 1000);
     await page.reload();
-    const lostCard = page.getByTestId("active-link-lost");
-    await expect(lostCard).toBeVisible();
-    await expect(page.getByTestId("invite-link-card")).toHaveCount(0);
-
-    // The rendered expiry is the stored value formatted with the pinned
-    // deterministic locale and zone (en-IN, Asia/Kolkata) — 00:00 UTC is
-    // 05:30 India time. The same formatter computes the expectation here.
-    const expectedExpiry = new Intl.DateTimeFormat("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-      timeZone: "Asia/Kolkata",
-    }).format(new Date("2050-01-01T00:00:00Z"));
-    await expect(lostCard).toContainText(expectedExpiry);
+    await page
+      .getByRole("button", { name: "Invite people", exact: true })
+      .click();
+    await expect(
+      page.getByRole("dialog").getByRole("textbox", { name: "Invite link" }),
+    ).toBeVisible();
+    expect(expiry()).toBe(new Date("2050-01-01T00:00:00Z").getTime() / 1000);
+    expect(stackGroupVersion(groupId)).toBe("1");
   });
 });
 
-test("an issued-expired link requires confirmation before its replacement", async ({
+test("an expired invitation renews only after the organizer opens the shared modal", async ({
   page,
 }) => {
   test.setTimeout(240_000);
-  page.setDefaultTimeout(15_000);
-  const admin = stackAdminClient();
   const scope = new FixtureScope();
   await scope.run(async () => {
     const { organizerId, groupId } = await createOrganizerAndGroup(
       page,
-      admin,
+      stackAdminClient(),
       scope,
       "arj37-expired",
       "Expired replacement bash",
     );
-
-    // The stored-active generic row is pinned to the past: the projection
-    // must honestly report issued_expired, not collapse into another state.
     expect(stackIssueGeneric(organizerId, groupId)).toBe("1");
     stackSetGenericExpiry(groupId, "2026-01-01 00:00:00+00");
-
     await page.reload();
-    const expiredCard = page.getByTestId("issued-expired");
-    await expect(expiredCard).toBeVisible();
-    await expect(page.getByTestId("invite-link-card")).toHaveCount(0);
-
-    // The replacement is confirmation-gated even though the old token is
-    // already invalid.
-    await expiredCard
-      .getByRole("button", { name: "Create a new invite link" })
-      .click();
-    const confirmation = page.getByTestId("replacement-confirmation");
-    await expect(confirmation).toBeVisible();
-    await expect(confirmation).toContainText(
-      "the expired link will remain unusable",
-    );
-
-    // No issuance happened before the confirmation.
     expect(stackGroupVersion(groupId)).toBe("1");
-
-    await confirmation
-      .getByRole("button", { name: "Yes, create a new link" })
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Invite people", exact: true })
       .click();
-    const linkCard = page.getByTestId("invite-link-card");
-    await expect(linkCard).toBeVisible();
+    await expect(
+      page.getByRole("dialog").getByRole("textbox", { name: "Invite link" }),
+    ).toBeVisible();
     expect(stackGroupVersion(groupId)).toBe("2");
-    const generic = stackGenericInvitation(groupId);
-    expect(generic.status).toBe("active");
+    expect(stackGenericInvitation(groupId).status).toBe("active");
   });
 });
 
@@ -582,8 +554,12 @@ test("targeted invitations stay isolated from the generic shareable link", async
 
     // The organizer's generic compare-and-swap still starts at version 0:
     // targeted issuance never reads or advances the shared version.
-    await page.getByRole("button", { name: "Create invite link" }).click();
-    await expect(page.getByTestId("invite-link-card")).toBeVisible();
+    await page
+      .getByRole("button", { name: "Invite people", exact: true })
+      .click();
+    await expect(
+      page.getByRole("textbox", { name: "Invite link" }),
+    ).toBeVisible();
     expect(stackGroupVersion(groupId)).toBe("1");
 
     // The targeted row is untouched by the generic issuance: still active,
@@ -596,7 +572,7 @@ test("targeted invitations stay isolated from the generic shareable link", async
   });
 });
 
-test("a clipboard failure keeps the one-time link selectable and explains the fallback", async ({
+test("a clipboard failure keeps the shared modal link selectable and explains the fallback", async ({
   page,
 }) => {
   test.setTimeout(240_000);
@@ -612,10 +588,14 @@ test("a clipboard failure keeps the one-time link selectable and explains the fa
       "Clipboard failure bash",
     );
 
-    await page.getByRole("button", { name: "Create invite link" }).click();
-    const linkCard = page.getByTestId("invite-link-card");
+    await page
+      .getByRole("button", { name: "Invite people", exact: true })
+      .click();
+    const linkCard = page.getByRole("dialog");
     await expect(linkCard).toBeVisible();
-    const link = await linkCard.locator(".select-all").first().textContent();
+    const link = await linkCard
+      .getByRole("textbox", { name: "Invite link" })
+      .inputValue();
     const linkText = (link ?? "").trim();
 
     // Force the clipboard write to fail (denied permission), then copy.
@@ -633,13 +613,15 @@ test("a clipboard failure keeps the one-time link selectable and explains the fa
     // The failure is announced, and the only displayed token survives.
     // Equality is asserted as a bare boolean: a failure message must never
     // print link or token material into CI logs.
-    const failure = linkCard.getByRole("alert");
+    const failure = linkCard.getByRole("status");
     await expect(failure).toBeVisible();
-    await expect(failure).toContainText("copy it manually");
+    await expect(failure).toContainText("Select and copy the link above.");
     const afterFailure = await linkCard
-      .locator(".select-all")
-      .first()
-      .textContent();
+      .getByRole("textbox", { name: "Invite link" })
+      .inputValue();
+    await expect(
+      linkCard.getByRole("textbox", { name: "Invite link" }),
+    ).toBeFocused();
     expect((afterFailure ?? "").trim() === linkText).toBe(true);
     expect(linkText.length).toBeGreaterThan(43);
 

@@ -269,3 +269,84 @@ test("branded calendar and searchable currency submit the selected date and curr
     expect(String(saved.data.original_amount_minor)).toBe("1000");
   });
 });
+
+test("created groups offer matching invite and open actions with Home below", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const groups: string[] = [];
+    const owner = await person(scope, "Organizer Olive", groups);
+    const groupId = randomUUID();
+    groups.push(groupId);
+    runStackSql(
+      `insert into public.groups (id,name,occasion,occasion_at,time_zone,mode,organizer_id,budget_amount_minor,budget_currency) values ('${groupId}','A small celebration','Birthday','2050-05-15 18:00:00+05:30','Asia/Kolkata','wishlist_only','${owner.id}',250000,'INR'); insert into public.group_members (group_id,user_id,status,participating,joined_at,membership_generation) values ('${groupId}','${owner.id}','joined',true,clock_timestamp(),1);`,
+    );
+    await mailpitLogin(page, owner.email);
+    const route = `/groups/${groupId}/created`;
+    const ready = async () => {
+      await expect(
+        page.getByRole("heading", {
+          level: 1,
+          name: "A small celebration is ready.",
+        }),
+      ).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 0));
+    };
+    await before(page, route, ready, "created-actions");
+    await page.goto(route);
+    await ready();
+    const invite = page.getByRole("button", {
+      name: "Invite people",
+      exact: true,
+    });
+    const open = page.getByRole("link", { name: "Open group", exact: true });
+    const home = page.getByRole("link", { name: "Go to home", exact: true });
+    await expect(page.getByRole("button")).toHaveCount(1);
+    await expect(page.getByRole("link")).toHaveCount(2);
+    const inviteBox = (await invite.boundingBox())!;
+    const openBox = (await open.boundingBox())!;
+    const homeBox = (await home.boundingBox())!;
+    expect(Math.abs(inviteBox.y - openBox.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(inviteBox.height - openBox.height)).toBeLessThanOrEqual(1);
+    expect(Math.abs(inviteBox.width - openBox.width)).toBeLessThanOrEqual(1);
+    expect(openBox.x).toBeGreaterThan(inviteBox.x);
+    expect(homeBox.y).toBeGreaterThan(inviteBox.y + inviteBox.height);
+    expect(Math.abs(homeBox.x - inviteBox.x)).toBeLessThanOrEqual(1);
+    await expect(open).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await invite.hover();
+    await expect(invite).toHaveCSS("cursor", "pointer");
+    await page.mouse.move(0, 0);
+    await capture(page, "created-actions-after");
+    expect(
+      runStackSql(
+        `select shareable_invitation_version::text from public.groups where id='${groupId}';`,
+      ).trim(),
+    ).toBe("0");
+    await invite.click();
+    const dialog = page.getByRole("dialog", {
+      name: "A small celebration is ready.",
+    });
+    const link = dialog.getByLabel("Invite link");
+    await expect(link).toBeVisible();
+    await expect(
+      dialog.getByRole("link", { name: "Share on WhatsApp", exact: true }),
+    ).toBeVisible();
+    await link.evaluate((el) => {
+      (el as HTMLInputElement).value =
+        `https://example.invalid/invite/${"R".repeat(43)}`;
+    });
+    await capture(page, "created-invite-modal");
+    await page.keyboard.press("Escape");
+    await expect(invite).toBeFocused();
+    await open.click();
+    await expect(page).toHaveURL(`/groups/${groupId}`);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "A small celebration" }),
+    ).toBeVisible();
+    await page.goto(route);
+    await home.click();
+    await expect(page).toHaveURL(/\/home$/);
+  });
+});

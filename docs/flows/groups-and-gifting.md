@@ -11,7 +11,7 @@ The organizer supplies:
 5. Gifting mode
 6. Participation confirmation
 
-After creation, the organizer receives a shareable invitation link and email/share actions, including a WhatsApp-friendly share path.
+After creation, the organizer sees **Invite people** and **Open group** side by side, with **Go to home** below on the left. Invite people opens the same invitation dialog used in the room. The dialog reads or creates the usable generic link only after that click, offers copy and WhatsApp sharing, and recovers the same saved active link on subsequent opens. A live legacy digest-only invitation requires the explicit replacement action before rotation. Creating or reloading the confirmation page never issues a link; organizer-only access and invitation authorization are reverified server-side.
 
 Sharing a generic invitation link provides a dynamic banner containing the group
 name, current organizer's display name, and the occasion date in the group's own
@@ -69,7 +69,6 @@ No assignments or mandatory checklist. Members may browse, react, copy, and rese
 - Selecting the same reaction removes it.
 - Reactions remain visible to eligible members, including the wishlist owner.
 - Reservations and gifting progress never appear in reaction activity.
-
 
 ## Invite more people from the room
 

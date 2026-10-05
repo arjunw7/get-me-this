@@ -19,7 +19,7 @@ import {
  * inferring success from membership alone.
  *
  * Privacy: the raw invitation token is held in memory only (it is read from
- * the created screen's one-time display, exactly as a recipient receives
+ * the created screen's organizer invitation modal, exactly as a recipient receives
  * it), never logged, never asserted into output, and never persisted in any
  * artifact. Collected evidence carries no token, code, or email material.
  */
@@ -181,12 +181,17 @@ async function createGroupAndToken(
     }
   });
 
-  await page.getByRole("button", { name: "Create invite link" }).click();
-  const linkCard = page.getByTestId("invite-link-card");
+  await page
+    .getByRole("button", { name: "Invite people", exact: true })
+    .click();
+  const linkCard = page.getByRole("dialog");
   await expect(linkCard).toBeVisible();
-  const href = (await linkCard.locator(".select-all").textContent()) ?? "";
+  const href = await linkCard
+    .getByRole("textbox", { name: "Invite link" })
+    .inputValue();
   const token = href.split("/invite/")[1] ?? "";
   expect(token).toHaveLength(43);
+  await linkCard.getByRole("button", { name: "Close invite dialog" }).click();
   return { token, groupId, extraUserIds };
 }
 
