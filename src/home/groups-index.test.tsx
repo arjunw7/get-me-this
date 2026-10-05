@@ -48,6 +48,33 @@ describe("Groups index", () => {
     await user.click(screen.getByRole("button", { name: "Join with a link" }));
     expect(push).toHaveBeenCalledWith(`/invite/${"A".repeat(43)}`);
   });
+  it("announces invite navigation immediately and prevents duplicate submissions", () => {
+    render(<GroupsIndex groups={{ status: "ready", groups: [] }} />);
+    const field = screen.getByRole("textbox", { name: "Invite link" });
+    fireEvent.change(field, { target: { value: `/invite/${"A".repeat(43)}` } });
+    const form = screen.getByRole("form", { name: "Join a group" });
+    fireEvent.submit(form);
+    expect(
+      screen.getByRole("button", { name: "Opening invite…" }),
+    ).toBeDisabled();
+    expect(form).toHaveAttribute("aria-busy", "true");
+    fireEvent.submit(form);
+    expect(push).toHaveBeenCalledTimes(1);
+  });
+  it("restores the join form if navigation cannot start", () => {
+    push.mockImplementationOnce(() => {
+      throw new Error("navigation failed");
+    });
+    render(<GroupsIndex groups={{ status: "ready", groups: [] }} />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Invite link" }), {
+      target: { value: `/invite/${"A".repeat(43)}` },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Join a group" }));
+    expect(
+      screen.getByRole("button", { name: "Join with a link" }),
+    ).toBeEnabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("couldn’t be opened");
+  });
   it("shows only actual projected groups and never fabricates an invitation", () => {
     render(
       <GroupsIndex

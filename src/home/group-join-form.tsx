@@ -8,14 +8,17 @@ export function GroupJoinForm() {
   const router = useRouter();
   const [invite, setInvite] = useState("");
   const [error, setError] = useState("");
+  const [opening, setOpening] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   return (
     <form
       noValidate
+      aria-busy={opening}
       aria-labelledby="group-join-title"
       className="rounded-surface-xl border-2 border-outline-strong bg-surface-sunken p-6 sm:p-7"
       onSubmit={(event) => {
         event.preventDefault();
+        if (opening) return;
         const destination = inviteDestination(invite, window.location.origin);
         if (!destination) {
           setError(
@@ -27,7 +30,13 @@ export function GroupJoinForm() {
           return;
         }
         setError("");
-        router.push(destination);
+        setOpening(true);
+        try {
+          router.push(destination);
+        } catch {
+          setOpening(false);
+          setError("The invite couldn’t be opened. Try again.");
+        }
       }}
     >
       <h2
@@ -45,6 +54,7 @@ export function GroupJoinForm() {
       </label>
       <input
         ref={input}
+        disabled={opening}
         id="group-invite-link"
         type="url"
         inputMode="url"
@@ -72,9 +82,10 @@ export function GroupJoinForm() {
       )}
       <button
         type="submit"
-        className="mt-4 inline-flex h-12 items-center rounded-surface border-2 border-outline-strong bg-surface-raised px-5 font-bold hover:bg-surface-page"
+        disabled={opening}
+        className="mt-4 inline-flex cursor-pointer disabled:cursor-wait disabled:opacity-60 h-12 items-center rounded-surface border-2 border-outline-strong bg-surface-raised px-5 font-bold hover:bg-surface-page"
       >
-        Join with a link
+        {opening ? "Opening invite…" : "Join with a link"}
       </button>
     </form>
   );
