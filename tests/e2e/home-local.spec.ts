@@ -150,7 +150,7 @@ test("a signed-in user with no groups sees the branded empty state", async ({
     await expect(
       page.getByRole("heading", { level: 1, name: "Welcome in, Empty." }),
     ).toBeVisible();
-    await expect(page.getByText("Step 2 · Your people")).toBeVisible();
+    await expect(page.getByText("Step 3 · Your people")).toBeVisible();
     await expect(page.getByTestId("my-group-card")).toHaveCount(0);
 
     // The empty state's Create a group entry goes to the real creation flow.

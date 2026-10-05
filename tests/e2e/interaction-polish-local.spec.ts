@@ -173,6 +173,65 @@ test("wishlist drag reorder persists with pointer and keyboard and profile hover
   });
 });
 
+test("wishlist headers omit metadata tags and public zero reactions stay quiet", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const owner = await person(scope, "Wishlist Wren");
+    await seedWishlistItems(
+      stackAdminClient(),
+      owner.id,
+      ["Ceramic cup", "Desk lamp"].map((title, index) => ({
+        id: randomUUID(),
+        title,
+        sort_position: index,
+      })),
+    );
+    await mailpitLogin(page, owner.email);
+    const ownerReady = async () => {
+      await expect(
+        page.getByRole("button", { name: "Share wishlist", exact: true }),
+      ).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 0));
+    };
+    await before(page, "/wishlist", ownerReady, "wishlist-header");
+    await page.goto("/wishlist");
+    await ownerReady();
+    await expect(page.getByText(/marigold vibe|2 things/)).toHaveCount(0);
+    await capture(page, "wishlist-header-after");
+    await page
+      .getByRole("button", { name: "Share wishlist", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Share your wishlist" });
+    const publicPath = new URL(
+      await dialog.getByLabel("Public wishlist link").inputValue(),
+    ).pathname;
+    await dialog.getByRole("button", { name: "Close sharing" }).click();
+    await page.context().clearCookies();
+    const publicReady = async () => {
+      await expect(
+        page.getByRole("heading", { name: "Ceramic cup", exact: true }),
+      ).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 0));
+    };
+    await before(page, publicPath, publicReady, "public-wishlist-display");
+    await page.goto(publicPath);
+    await publicReady();
+    await expect(
+      page.getByText(/marigold vibe|2 things|No reactions yet/),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Sign in to react", exact: true }),
+    ).toHaveCount(2);
+    await expect(
+      page.getByRole("button", { name: "Very you", exact: true }),
+    ).toHaveCount(0);
+    await capture(page, "public-wishlist-display-after");
+  });
+});
+
 test("branded calendar and searchable currency submit the selected date and currency", async ({
   page,
 }) => {
@@ -270,61 +329,62 @@ test("branded calendar and searchable currency submit the selected date and curr
   });
 });
 
-test("wishlist headers omit metadata tags and public zero reactions stay quiet", async ({
+test("first-use Home shares through the existing modal and remembers completion", async ({
   page,
 }) => {
   test.setTimeout(120_000);
   const scope = new FixtureScope();
   await scope.run(async () => {
-    const owner = await person(scope, "Wishlist Wren");
-    await seedWishlistItems(
-      stackAdminClient(),
-      owner.id,
-      ["Ceramic cup", "Desk lamp"].map((title, index) => ({
-        id: randomUUID(),
-        title,
-        sort_position: index,
-      })),
-    );
+    const owner = await person(scope, "Sharing Sam");
+    await seedWishlistItems(stackAdminClient(), owner.id, [
+      { id: randomUUID(), title: "A ceramic cup", sort_position: 0 },
+    ]);
     await mailpitLogin(page, owner.email);
-    const ownerReady = async () => {
-      await expect(
-        page.getByRole("button", { name: "Share wishlist", exact: true }),
-      ).toBeVisible();
-      await page.evaluate(() => window.scrollTo(0, 0));
-    };
-    await before(page, "/wishlist", ownerReady, "wishlist-header");
-    await page.goto("/wishlist");
-    await ownerReady();
-    await expect(page.getByText(/marigold vibe|2 things/)).toHaveCount(0);
-    await capture(page, "wishlist-header-after");
+    await before(
+      page,
+      "/home",
+      async () => {
+        await expect(
+          page.getByRole("heading", { name: "1 item on your wishlist" }),
+        ).toBeVisible();
+      },
+      "onboarding-sharing",
+    );
+    await page.goto("/home");
+    const sharing = page.getByRole("region", { name: "Share your wishlist" });
+    const group = page.getByRole("region", {
+      name: "Create a group for your next occasion",
+    });
+    await expect(sharing).toHaveAttribute("aria-current", "step");
+    await expect(page.getByText("Step 3 · Your people")).toBeVisible();
+    await capture(page, "onboarding-sharing-after");
     await page
       .getByRole("button", { name: "Share wishlist", exact: true })
       .click();
     const dialog = page.getByRole("dialog", { name: "Share your wishlist" });
-    const publicPath = new URL(
-      await dialog.getByLabel("Public wishlist link").inputValue(),
-    ).pathname;
+    await expect(dialog).toBeVisible();
+    await expect(sharing.getByText("Wishlist shared.")).toHaveCount(0);
+    // Redact the capability in visual evidence; the modal still copies its authoritative URL.
+    await dialog.getByLabel("Public wishlist link").evaluate((input) => {
+      (input as HTMLInputElement).value =
+        `https://example.invalid/s/${"S".repeat(43)}`;
+    });
+    await capture(page, "onboarding-share-modal");
+    await page
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
+    await dialog
+      .getByRole("button", { name: "Copy link", exact: true })
+      .click();
+    await expect(
+      dialog.getByText("Link copied.", { exact: true }),
+    ).toBeVisible();
     await dialog.getByRole("button", { name: "Close sharing" }).click();
-    await page.context().clearCookies();
-    const publicReady = async () => {
-      await expect(
-        page.getByRole("heading", { name: "Ceramic cup", exact: true }),
-      ).toBeVisible();
-      await page.evaluate(() => window.scrollTo(0, 0));
-    };
-    await before(page, publicPath, publicReady, "public-wishlist-display");
-    await page.goto(publicPath);
-    await publicReady();
-    await expect(
-      page.getByText(/marigold vibe|2 things|No reactions yet/),
-    ).toHaveCount(0);
-    await expect(
-      page.getByRole("link", { name: "Sign in to react", exact: true }),
-    ).toHaveCount(2);
-    await expect(
-      page.getByRole("button", { name: "Very you", exact: true }),
-    ).toHaveCount(0);
-    await capture(page, "public-wishlist-display-after");
+    await expect(sharing.getByText("Wishlist shared.")).toBeVisible();
+    await expect(group).toHaveAttribute("aria-current", "step");
+    await capture(page, "onboarding-sharing-complete");
+    await page.reload();
+    await expect(sharing.getByText("Wishlist shared.")).toBeVisible();
+    await expect(group).toHaveAttribute("aria-current", "step");
   });
 });

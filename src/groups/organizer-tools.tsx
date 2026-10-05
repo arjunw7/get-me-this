@@ -254,7 +254,7 @@ export function OrganizerTools({
         onClick={() => setOpen((value) => !value)}
         className={
           presentation === "room"
-            ? "inline-flex min-h-11 items-center gap-2 rounded-control border-2 border-outline-strong bg-surface-page px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+            ? "inline-flex cursor-pointer min-h-11 items-center gap-2 rounded-control border-2 border-outline-strong bg-surface-page px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
             : "inline-flex min-h-touch-min items-center gap-2 font-display text-heading font-bold underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-outline-strong"
         }
       >

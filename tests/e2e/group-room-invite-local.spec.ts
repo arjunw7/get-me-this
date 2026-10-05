@@ -101,6 +101,15 @@ test("organizers can invite from the room and hovering avatars stays inside the 
       exact: true,
     });
     await expect(invite).toBeVisible();
+    const tools = page.getByRole("button", {
+      name: "Organizer tools",
+      exact: true,
+    });
+    await tools.hover();
+    await expect(tools).toHaveCSS("cursor", "pointer");
+    await tools.click();
+    await expect(page.getByTestId("organizer-tools-panel")).toBeVisible();
+    await tools.click();
     await expect(invite).toHaveAttribute("aria-haspopup", "dialog");
     const region = page.getByTestId("roster-region");
     const member = page.getByTestId("roster-member-link").first();

@@ -9,14 +9,19 @@ import {
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { buttonClassName } from "@/src/ui/styles";
 import type { OwnShareState, ShareWishlistChange } from "./public-share-types";
 
 export function ShareWishlistButton({
   state,
   onChange,
+  showLabel = false,
+  onShared,
 }: {
   state: OwnShareState;
   onChange: ShareWishlistChange;
+  showLabel?: boolean;
+  onShared?: () => void;
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -41,7 +46,11 @@ export function ShareWishlistButton({
           setOrigin(window.location.origin);
           setOpen(true);
         }}
-        className="inline-flex cursor-pointer transition-colors hover:bg-surface-sunken h-11 w-11 shrink-0 items-center justify-center rounded-control border-2 border-outline-strong bg-surface-raised text-content-primary"
+        className={
+          showLabel
+            ? `${buttonClassName({ variant: "primary", size: "md" })} cursor-pointer gap-2`
+            : "inline-flex cursor-pointer transition-colors hover:bg-surface-sunken h-11 w-11 shrink-0 items-center justify-center rounded-control border-2 border-outline-strong bg-surface-raised text-content-primary"
+        }
       >
         <svg
           aria-hidden="true"
@@ -58,6 +67,7 @@ export function ShareWishlistButton({
           <circle cx="18" cy="19" r="3" />
           <path d="m8.6 10.5 6.8-4m-6.8 7 6.8 4" />
         </svg>
+        {showLabel ? "Share wishlist" : null}
       </button>
       {open
         ? createPortal(
@@ -65,6 +75,7 @@ export function ShareWishlistButton({
               state={current}
               origin={origin}
               onClose={close}
+              onShared={onShared}
               onChange={async (version, enabled) => {
                 const result = await onChange(version, enabled);
                 if (result.status === "saved") setSaved(result.state);
@@ -83,11 +94,13 @@ function ShareSheet({
   origin,
   onChange,
   onClose,
+  onShared,
 }: {
   state: OwnShareState;
   origin: string;
   onChange: ShareWishlistChange;
   onClose: () => void;
+  onShared?: () => void;
 }) {
   const id = useId();
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -160,6 +173,7 @@ function ShareSheet({
         throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(url);
       setCopyState("copied");
+      onShared?.();
     } catch {
       setCopyState("failed");
       linkInput.current?.focus();
@@ -252,6 +266,7 @@ function ShareSheet({
                 Copy link
               </button>
               <a
+                onClick={onShared}
                 href={`https://wa.me/?text=${encodeURIComponent(`Here's my wishlist on Get Me This: ${url}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
