@@ -360,14 +360,14 @@ test("a fresh owner with zero items sees the V18 empty composition and its CTA n
       expect(body, `empty state says "${phrase}"`).not.toContain(phrase);
     }
 
-    // The profile header: display name, taste line, "0 things".
+    // The profile header preserves name and taste line and omits its metadata tag.
     await expect(page.getByRole("heading", { name: "Ada" })).toBeVisible();
     await expect(
       page
         .getByRole("region", { name: "Ada", exact: true })
         .getByText("currently in my tiny-luxuries era"),
     ).toBeVisible();
-    await expect(page.getByText("0 things")).toBeVisible();
+    await expect(page.getByText("0 things")).toHaveCount(0);
     await assertProfileGeometry(page, true);
 
     // The CTA opens the functional 005f add-item flow — never a 404.
@@ -470,7 +470,7 @@ test("the populated view renders every snapshot field in the pinned read order, 
 
     await page.goto("/wishlist");
     await expect(page.getByRole("heading", { name: "Ada" })).toBeVisible();
-    await expect(page.getByText("4 things")).toBeVisible();
+    await expect(page.getByText("4 things")).toHaveCount(0);
     await assertProfileGeometry(page, false);
 
     const cards = page.getByRole("article");
@@ -595,7 +595,8 @@ test("1001 tied-boundary items are all present in the owner document", async ({
     await seedWishlistItems(admin, userId, items);
     const response = await page.goto("/wishlist");
     expect(response?.status()).toBe(200);
-    await expect(page.getByText("1001 things")).toBeVisible();
+    await expect(page.getByText("1001 things")).toHaveCount(0);
+    await expect(page.getByRole("article")).toHaveCount(1001);
     const document = await response!.text();
     expect(document).toContain("Boundary item 0000");
     expect(document).toContain("Boundary item 1000");
