@@ -269,3 +269,59 @@ test("branded calendar and searchable currency submit the selected date and curr
     expect(String(saved.data.original_amount_minor)).toBe("1000");
   });
 });
+
+test("six-row calendars stay spacious and budget entry rejects letters", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const owner = await person(scope, "Calendar Casey");
+    await mailpitLogin(page, owner.email);
+    const openCalendar = async () => {
+      await page.getByLabel("Date", { exact: true }).fill("2027-05-15");
+      await page
+        .getByRole("button", { name: "Choose date", exact: true })
+        .click();
+      await expect(
+        page.getByRole("heading", { name: "May 2027" }),
+      ).toBeVisible();
+    };
+    await before(page, "/groups/new", openCalendar, "six-row-calendar");
+    await page.goto("/groups/new");
+    await openCalendar();
+    const calendar = page.getByRole("dialog", {
+      name: "Choose date",
+      exact: true,
+    });
+    await expect(calendar.getByRole("row")).toHaveCount(7);
+    const popup = calendar.locator("..");
+    await expect
+      .poll(() => popup.evaluate((el) => el.scrollHeight - el.clientHeight))
+      .toBeLessThanOrEqual(1);
+    for (const label of ["May 1, 2027", "May 15, 2027", "May 31, 2027"]) {
+      const bounds = await calendar
+        .getByRole("button", { name: label, exact: true })
+        .boundingBox();
+      expect(bounds?.height).toBeGreaterThanOrEqual(44);
+    }
+    const bounds = await popup.boundingBox();
+    expect(bounds?.y).toBeGreaterThanOrEqual(16);
+    expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(
+      page.viewportSize()!.height - 16,
+    );
+    await capture(page, "six-row-calendar-after");
+    await calendar
+      .getByRole("button", { name: "May 31, 2027", exact: true })
+      .click();
+    await expect(page.getByLabel("Date", { exact: true })).toHaveValue(
+      "2027-05-31",
+    );
+    const amount = page.getByRole("textbox", { name: "Amount", exact: true });
+    await amount.fill("");
+    await amount.pressSequentially("12a3.45");
+    await expect(amount).toHaveValue("123.45");
+    await amount.fill("alphabetic paste");
+    await expect(amount).toHaveValue("123.45");
+  });
+});

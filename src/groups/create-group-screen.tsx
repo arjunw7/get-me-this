@@ -310,7 +310,10 @@ export function CreateGroupScreen({
                   aria-label="Amount"
                   aria-invalid={errors.budget ? true : undefined}
                   value={budget}
-                  onChange={(event) => setBudget(event.target.value)}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    if (/^\d*(?:\.\d*)?$/.test(next)) setBudget(next);
+                  }}
                   className="h-control-md w-full min-w-0 rounded-control border-2 border-outline-strong bg-surface-raised px-3.5 text-body tabular-nums outline-none focus:shadow-chunk-sm"
                 />
               </div>

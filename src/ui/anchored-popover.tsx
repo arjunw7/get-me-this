@@ -15,11 +15,13 @@ export function AnchoredPopover({
   children,
   onDismiss,
   width = 336,
+  heightLimit = 420,
 }: {
   anchor: RefObject<HTMLElement | null>;
   children: ReactNode;
   onDismiss: (restoreFocus: boolean) => void;
   width?: number;
+  heightLimit?: number;
 }) {
   const popup = useRef<HTMLDivElement>(null);
   const dismiss = useRef(onDismiss);
@@ -30,7 +32,7 @@ export function AnchoredPopover({
     left: 16,
     top: 16,
     width,
-    maxHeight: 420,
+    maxHeight: heightLimit,
   });
   useLayoutEffect(() => {
     const place = () => {
@@ -43,19 +45,19 @@ export function AnchoredPopover({
       const offsetTop = viewport?.offsetTop ?? 0;
       const availableBelow = offsetTop + viewportHeight - rect.bottom - 24;
       const availableAbove = rect.top - offsetTop - 24;
-      const above = availableBelow < 360 && availableAbove > availableBelow;
+      const contentHeight = (popup.current?.scrollHeight ?? heightLimit) + 4;
+      const desiredHeight = Math.min(heightLimit, contentHeight);
+      const above =
+        availableBelow < desiredHeight && availableAbove > availableBelow;
       const popupWidth = Math.min(
         Math.max(width, rect.width),
         viewportWidth - 32,
       );
       const maxHeight = Math.max(
         100,
-        Math.min(420, above ? availableAbove : availableBelow),
+        Math.min(heightLimit, above ? availableAbove : availableBelow),
       );
-      const height = Math.min(
-        popup.current?.scrollHeight ?? maxHeight,
-        maxHeight,
-      );
+      const height = Math.min(contentHeight, maxHeight);
       setPosition({
         left: Math.max(
           offsetLeft + 16,
@@ -101,7 +103,7 @@ export function AnchoredPopover({
       document.removeEventListener("focusin", outside);
       document.removeEventListener("keydown", escape, true);
     };
-  }, [anchor, width]);
+  }, [anchor, width, heightLimit]);
   return createPortal(
     <div
       ref={popup}
