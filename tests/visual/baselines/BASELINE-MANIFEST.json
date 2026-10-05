@@ -52,20 +52,32 @@
       "approvedDate": "2026-10-02"
     },
     "groups-created-never-issued-desktop.png": {
-      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
-      "approvedDate": "2026-10-02"
+      "approvedBy": "repository owner (explicit approval of the matched ARJ-66/ARJ-68 visual review and authorization to record and adopt it)",
+      "approvedDate": "2026-10-05",
+      "approvalManifestSha256": "4fe4b224f5654d15558a03b27cd8f15f80252e8f4ace4541aac580164a37c9e1",
+      "sourceHead": "c93027680e2fa0ada003ae3be8ddf5355aac7ed8",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37313910674/artifacts/11347937731"
     },
     "groups-created-never-issued-mobile.png": {
-      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
-      "approvedDate": "2026-10-02"
+      "approvedBy": "repository owner (explicit approval of the matched ARJ-66/ARJ-68 visual review and authorization to record and adopt it)",
+      "approvedDate": "2026-10-05",
+      "approvalManifestSha256": "4fe4b224f5654d15558a03b27cd8f15f80252e8f4ace4541aac580164a37c9e1",
+      "sourceHead": "c93027680e2fa0ada003ae3be8ddf5355aac7ed8",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37313910674/artifacts/11347937731"
     },
     "groups-created-replacement-confirmation-desktop.png": {
-      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
-      "approvedDate": "2026-10-02"
+      "approvedBy": "repository owner (explicit approval of the matched ARJ-66/ARJ-68 visual review and authorization to record and adopt it)",
+      "approvedDate": "2026-10-05",
+      "approvalManifestSha256": "4fe4b224f5654d15558a03b27cd8f15f80252e8f4ace4541aac580164a37c9e1",
+      "sourceHead": "c93027680e2fa0ada003ae3be8ddf5355aac7ed8",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37313910674/artifacts/11347937731"
     },
     "groups-created-replacement-confirmation-mobile.png": {
-      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
-      "approvedDate": "2026-10-02"
+      "approvedBy": "repository owner (explicit approval of the matched ARJ-66/ARJ-68 visual review and authorization to record and adopt it)",
+      "approvedDate": "2026-10-05",
+      "approvalManifestSha256": "4fe4b224f5654d15558a03b27cd8f15f80252e8f4ace4541aac580164a37c9e1",
+      "sourceHead": "c93027680e2fa0ada003ae3be8ddf5355aac7ed8",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37313910674/artifacts/11347937731"
     },
     "groups-created-revoked-desktop.png": {
       "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
@@ -84,12 +96,18 @@
       "approvedDate": "2026-10-02"
     },
     "groups-created-token-present-desktop.png": {
-      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
-      "approvedDate": "2026-10-02"
+      "approvedBy": "repository owner (explicit approval of the matched ARJ-66/ARJ-68 visual review and authorization to record and adopt it)",
+      "approvedDate": "2026-10-05",
+      "approvalManifestSha256": "4fe4b224f5654d15558a03b27cd8f15f80252e8f4ace4541aac580164a37c9e1",
+      "sourceHead": "c93027680e2fa0ada003ae3be8ddf5355aac7ed8",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37313910674/artifacts/11347937731"
     },
     "groups-created-token-present-mobile.png": {
-      "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
-      "approvedDate": "2026-10-02"
+      "approvedBy": "repository owner (explicit approval of the matched ARJ-66/ARJ-68 visual review and authorization to record and adopt it)",
+      "approvedDate": "2026-10-05",
+      "approvalManifestSha256": "4fe4b224f5654d15558a03b27cd8f15f80252e8f4ace4541aac580164a37c9e1",
+      "sourceHead": "c93027680e2fa0ada003ae3be8ddf5355aac7ed8",
+      "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37313910674/artifacts/11347937731"
     },
     "groups-new-conflict-desktop.png": {
       "approvedBy": "repository owner (standing full-autopilot delegation, ARJ-37 006b staging gate): preview captures from https://get-me-this-get-me-this-pr-47.up.railway.app, no raw token in any artifact",
@@ -171,16 +189,16 @@
     "groups-created-active-link-lost-mobile.png": "ff8ece37fcb37895816fd85d8fd80638e3a802ab6902aa3f9e9fe89220acd23a",
     "groups-created-issued-expired-desktop.png": "7746a67ef51df9a1a5d0ed87da9f97572ad155170b930cf2c8e8257d4c59058c",
     "groups-created-issued-expired-mobile.png": "5514c06063bdae893fac75a8298829d4bc948f2a812110b1247e4fc12ce1a76b",
-    "groups-created-never-issued-desktop.png": "221f7595f557b74633e4f8e473bef0993b5e68a644e16762089d7f4c101b04a4",
-    "groups-created-never-issued-mobile.png": "6b4f1649e0c3306fa6518e75d6541da65e5daec07e11a65ed38746dbfe038b02",
-    "groups-created-replacement-confirmation-desktop.png": "d839707bea3adee0730efe04a468777820f57ce7d675a8f089fb39847461d017",
-    "groups-created-replacement-confirmation-mobile.png": "3ecf6de662ef1dfd115497720fbffde7dc0938d131c38cb09ae60bf6f7fcd291",
+    "groups-created-never-issued-desktop.png": "bc14eb27256d6d7eb096997ae1c7fd62807c36dcfa8d1421ebfbcfe1ceae8173",
+    "groups-created-never-issued-mobile.png": "fffb1783bc6342df14dd3c4669efacdd8f0131e57f08225677d15385d3be607b",
+    "groups-created-replacement-confirmation-desktop.png": "c914b2b6f9db2ae68b639abc01535c858acb46d1e5309b924c7d12e3dedd5b17",
+    "groups-created-replacement-confirmation-mobile.png": "7bfda80948befb006eaf1d72a4494ab4847ee4167371d15d4833b057126f5d2b",
     "groups-created-revoked-desktop.png": "221f7595f557b74633e4f8e473bef0993b5e68a644e16762089d7f4c101b04a4",
     "groups-created-revoked-mobile.png": "6b4f1649e0c3306fa6518e75d6541da65e5daec07e11a65ed38746dbfe038b02",
     "groups-created-stale-desktop.png": "7ec30da9375260d4e8b050a29aa3ffa1278db224d386e736a3d73776ce5af1f1",
     "groups-created-stale-mobile.png": "22f1f2719a0c71dde4c004587e5c9a7595f91182454a5837476bde1d53989a91",
-    "groups-created-token-present-desktop.png": "d0084cb80197116dfe03583b8aeb57bfde7847766edb9f2d0e2736da19a0f3d9",
-    "groups-created-token-present-mobile.png": "f87fca74d1f7c01d108d147dc48807b38299596b60479cea507ea7c9f45afb85",
+    "groups-created-token-present-desktop.png": "786ead81c08875b10acabcdc5c457d4916b1c82e44c36ee735e46be3e6c7320f",
+    "groups-created-token-present-mobile.png": "79559cd784c37068d2ded061189bd6f5b9d7fccd41ff55cf158647e93222a6a6",
     "groups-new-conflict-desktop.png": "2a4357fe5b3c1e68e1fce72c842e648ebfe98fb10b302c526b6dcfc062032638",
     "groups-new-conflict-mobile.png": "5114ac51973ccbbe798164de5cf83cf52960194188d4d79bae6d2f30a1739c3b",
     "groups-new-empty-desktop.png": "abd226ffd6b7bcdb7666cb68c0ca69f9894ed9680a4e6721d206cab1d30b8d60",

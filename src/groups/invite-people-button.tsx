@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
+import { inviteActionClassName } from "./invite-action-styles";
 import type {
   GetGroupInviteLinkResult,
   IssueLinkActionResult,
@@ -43,7 +44,7 @@ export function InvitePeopleButton({
         type="button"
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-control border-2 border-outline-strong bg-content-primary px-4 text-sm font-bold text-surface-raised transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-outline-strong"
+        className={inviteActionClassName()}
       >
         <svg
           viewBox="0 0 24 24"

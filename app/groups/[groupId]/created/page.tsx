@@ -8,10 +8,6 @@ import {
   loadJoinedGroupName,
   loadOrganizerInvitationState,
 } from "@/src/groups/group-write";
-import {
-  refreshInvitationStateAction,
-  issueGroupInviteLinkAction,
-} from "@/src/groups/invitation-actions";
 
 export const metadata: Metadata = {
   title: "Get Me This | Group created",
@@ -55,13 +51,7 @@ export default async function GroupCreatedPage({
     <div className="min-h-screen w-full bg-surface-page text-content-primary">
       <AnalyticsIdentity userId={userId} />
       <main>
-        <CreatedScreen
-          groupId={groupId}
-          groupName={groupName}
-          initialState={invitationState}
-          issueAction={issueGroupInviteLinkAction}
-          refreshAction={refreshInvitationStateAction}
-        />
+        <CreatedScreen groupId={groupId} groupName={groupName} />
       </main>
     </div>
   );
