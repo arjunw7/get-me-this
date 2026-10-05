@@ -10,6 +10,11 @@ import {
 test.skip(!process.env.E2E_LOCAL_SUPABASE, "requires the local Supabase stack");
 
 test("the Groups index denies signed-out access", async ({ page }) => {
+  await page.goto("/invite/unavailable");
+  const recovery = page.getByRole("link", { name: "Back to Get Me This" });
+  await expect(recovery).toHaveAttribute("href", "/");
+  await recovery.hover();
+  await expect(recovery).toHaveCSS("cursor", "pointer");
   await page.goto("/groups");
   await expect(page).toHaveURL(/\/auth(?:\?|$)/);
   await expect(
@@ -31,6 +36,11 @@ test("responsive navigation connects real destinations and Home reflects saved i
       { displayName: "Shell Ada", tasteLine: "small useful things" },
       scope,
     );
+    await page.goto("/invite/unavailable");
+    const recovery = page.getByRole("link", { name: "Back to Get Me This" });
+    await expect(recovery).toHaveAttribute("href", "/home");
+    await recovery.click();
+    await expect(page).toHaveURL(/\/home$/);
     await page.goto("/home");
     await expect(
       page.getByRole("heading", { name: "Add something you’d love to get" }),
@@ -185,6 +195,82 @@ test("profile edits persist across wishlist and Home, cancellation preserves sto
       "New Ada",
     );
     await dialog.getByRole("button", { name: "Close edit profile" }).click();
+  });
+});
+
+test("Join with a link shows feedback while invitation navigation is delayed", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const admin = stackAdminClient();
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    await createSignedInFixture(
+      page,
+      admin,
+      "join-feedback",
+      { displayName: "Join Jules", tasteLine: "" },
+      scope,
+    );
+    const { mkdir } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    const capture = async (name: string) => {
+      await page.evaluate(() => document.fonts.ready);
+      const dir = process.env.E2E_INTERACTION_EVIDENCE_DIR;
+      if (dir) await mkdir(dir, { recursive: true });
+      await test.info().attach(name, {
+        body: await page.screenshot({
+          ...(dir
+            ? { path: join(dir, `${name}-${test.info().project.name}.png`) }
+            : {}),
+          fullPage: true,
+          animations: "disabled",
+          style: "#group-invite-link { color: transparent !important; }",
+        }),
+        contentType: "image/png",
+      });
+    };
+    const token = "A".repeat(43);
+    const exercise = async (origin: string, changed: boolean) => {
+      await page.goto(`${origin}/groups`);
+      await page
+        .getByRole("textbox", { name: "Invite link" })
+        .fill(`${origin}/invite/${token}`);
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await page.route(`**/invite/${token}*`, async (route) => {
+        await held;
+        await route.continue();
+      });
+      try {
+        const button = page.getByRole("button", { name: "Join with a link" });
+        await button.hover();
+        if (changed) await expect(button).toHaveCSS("cursor", "pointer");
+        await button.click({ noWaitAfter: true });
+        if (changed) {
+          await expect(
+            page.getByRole("button", { name: "Opening invite…" }),
+          ).toBeDisabled();
+          await expect(
+            page.getByRole("form", { name: "Join a group" }),
+          ).toHaveAttribute("aria-busy", "true");
+        }
+        await capture(changed ? "after" : "before");
+      } finally {
+        release();
+      }
+      await expect(page).toHaveURL(/\/invite\/unavailable$/);
+      await page.unroute(`**/invite/${token}*`);
+    };
+    if (process.env.E2E_PUBLIC_BEFORE_ORIGIN) {
+      const before = new URL(process.env.E2E_PUBLIC_BEFORE_ORIGIN);
+      if (before.protocol !== "http:" || before.hostname !== "127.0.0.1")
+        throw new Error("Before evidence requires a loopback server");
+      await exercise(before.origin, false);
+    }
+    await exercise("http://127.0.0.1:3100", true);
   });
 });
 

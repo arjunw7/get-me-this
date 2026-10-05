@@ -74,6 +74,62 @@ async function before(
   await capture(page, `${name}-before`);
 }
 
+test("six-row calendars stay spacious and budget entry rejects letters", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const owner = await person(scope, "Calendar Casey");
+    await mailpitLogin(page, owner.email);
+    const openCalendar = async () => {
+      await page.getByLabel("Date", { exact: true }).fill("2027-05-15");
+      await page
+        .getByRole("button", { name: "Choose date", exact: true })
+        .click();
+      await expect(
+        page.getByRole("heading", { name: "May 2027" }),
+      ).toBeVisible();
+    };
+    await before(page, "/groups/new", openCalendar, "six-row-calendar");
+    await page.goto("/groups/new");
+    await openCalendar();
+    const calendar = page.getByRole("dialog", {
+      name: "Choose date",
+      exact: true,
+    });
+    await expect(calendar.getByRole("row")).toHaveCount(7);
+    const popup = calendar.locator("..");
+    await expect
+      .poll(() => popup.evaluate((el) => el.scrollHeight - el.clientHeight))
+      .toBeLessThanOrEqual(1);
+    for (const label of ["May 1, 2027", "May 15, 2027", "May 31, 2027"]) {
+      const bounds = await calendar
+        .getByRole("button", { name: label, exact: true })
+        .boundingBox();
+      expect(bounds?.height).toBeGreaterThanOrEqual(44);
+    }
+    const bounds = await popup.boundingBox();
+    expect(bounds?.y).toBeGreaterThanOrEqual(16);
+    expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(
+      page.viewportSize()!.height - 16,
+    );
+    await capture(page, "six-row-calendar-after");
+    await calendar
+      .getByRole("button", { name: "May 31, 2027", exact: true })
+      .click();
+    await expect(page.getByLabel("Date", { exact: true })).toHaveValue(
+      "2027-05-31",
+    );
+    const amount = page.getByRole("textbox", { name: "Amount", exact: true });
+    await amount.fill("");
+    await amount.pressSequentially("12a3.45");
+    await expect(amount).toHaveValue("123.45");
+    await amount.fill("alphabetic paste");
+    await expect(amount).toHaveValue("123.45");
+  });
+});
+
 test("wishlist drag reorder persists with pointer and keyboard and profile hover responds", async ({
   page,
 }) => {
@@ -326,6 +382,79 @@ test("branded calendar and searchable currency submit the selected date and curr
       throw new Error("Saved item currency could not be verified");
     expect(saved.data.original_currency).toBe("JPY");
     expect(String(saved.data.original_amount_minor)).toBe("1000");
+  });
+});
+
+test("room reactions have space around icons and labels and remain usable", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const groupIds: string[] = [];
+    const owner = await person(scope, "Reaction Riley", groupIds);
+    const friend = await person(scope, "Friend Frankie");
+    const itemId = randomUUID();
+    await seedWishlistItems(stackAdminClient(), friend.id, [
+      { id: itemId, title: "Ceramic cup", sort_position: 0 },
+    ]);
+    const groupId = randomUUID();
+    groupIds.push(groupId);
+    runStackSql(
+      `insert into public.groups (id,name,occasion,occasion_at,time_zone,mode,organizer_id,budget_amount_minor,budget_currency) values ('${groupId}','A small celebration','Birthday','2050-05-15 18:00:00+05:30','Asia/Kolkata','wishlist_only','${owner.id}',250000,'INR'); ${[owner.id, friend.id].map((id) => `insert into public.group_members (group_id,user_id,status,participating,joined_at,membership_generation) values ('${groupId}','${id}','joined',true,clock_timestamp(),1);`).join(" ")}`,
+    );
+    await mailpitLogin(page, owner.email);
+    const ready = async () => {
+      await expect(
+        page.getByRole("heading", { name: "Ceramic cup", exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Very you", exact: true }),
+      ).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 0));
+    };
+    await before(page, `/groups/${groupId}`, ready, "room-reactions");
+    await page.goto(`/groups/${groupId}`, { waitUntil: "domcontentloaded" });
+    await ready();
+    for (const label of [
+      "Very you",
+      "Questionable, but supported",
+      "Want it too",
+    ]) {
+      const button = page.getByRole("button", { name: label, exact: true });
+      expect(
+        (await button.boundingBox({ timeout: 10_000 }))?.height,
+      ).toBeGreaterThanOrEqual(76);
+      const metrics = await button.evaluate((el) => {
+        const icon = el
+          .querySelector('[aria-hidden="true"]')!
+          .getBoundingClientRect();
+        const text = el
+          .querySelector("[data-reaction-label]")!
+          .getBoundingClientRect();
+        const box = el.getBoundingClientRect();
+        return {
+          height: box.height,
+          gap: text.top - icon.bottom,
+          top: icon.top - box.top,
+          bottom: box.bottom - text.bottom,
+          overflow: el.scrollWidth - el.clientWidth,
+        };
+      });
+      expect(metrics.height).toBeGreaterThanOrEqual(76);
+      expect(metrics.gap).toBeGreaterThanOrEqual(8);
+      expect(metrics.top).toBeGreaterThanOrEqual(8);
+      expect(metrics.bottom).toBeGreaterThanOrEqual(8);
+      expect(metrics.overflow).toBeLessThanOrEqual(1);
+    }
+    await capture(page, "room-reactions-after");
+    const veryYou = page.getByRole("button", { name: "Very you", exact: true });
+    await veryYou.click();
+    await expect(veryYou).toHaveAttribute("aria-pressed", "true");
+    await page.reload();
+    await expect(veryYou).toHaveAttribute("aria-pressed", "true");
+    await veryYou.click();
+    await expect(veryYou).toHaveAttribute("aria-pressed", "false");
   });
 });
 

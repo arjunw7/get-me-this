@@ -81,6 +81,21 @@ async function fillValidForm(
 }
 
 describe("CreateGroupScreen", () => {
+  it("keeps the budget numeric for typing and pasted values without losing decimals", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    const amount = screen.getByRole("textbox", { name: "Amount" });
+    await user.clear(amount);
+    await user.type(amount, "12a3b.45");
+    expect(amount).toHaveValue("123.45");
+    fireEvent.change(amount, { target: { value: "twelve" } });
+    expect(amount).toHaveValue("123.45");
+    fireEvent.change(amount, { target: { value: "1.2.3" } });
+    expect(amount).toHaveValue("123.45");
+    await user.clear(amount);
+    await user.type(amount, ".50");
+    expect(amount).toHaveValue(".50");
+  });
   it("submits the calendar date and searched currency through the existing action", async () => {
     const user = userEvent.setup();
     renderScreen();
