@@ -3,9 +3,14 @@ import http from "node:http";
 import { timingSafeEqual } from "node:crypto";
 import { ExtractionError, extractionErrorResponse } from "./errors";
 import { ExtractionLimiter } from "./limiter";
+import { productBrowserTarget } from "./product-browser-protocol";
 import { amazonTarget } from "./amazon-worker-protocol";
 export type AmazonJob = (target: URL, signal: AbortSignal) => Promise<unknown>;
-export function createAmazonWorker(secret: string, job: AmazonJob) {
+export function createAmazonWorker(
+  secret: string,
+  job: AmazonJob,
+  productJob?: AmazonJob,
+) {
   if (secret.length < 32) throw new Error("Worker authentication is missing");
   const expected = Buffer.from(`Bearer ${secret}`);
   const limiter = new ExtractionLimiter({
@@ -43,13 +48,16 @@ export function createAmazonWorker(secret: string, job: AmazonJob) {
         send(401, { code: "unavailable" });
         return;
       }
-      if (req.url !== "/extract" || req.method !== "POST") {
+      const generic =
+        req.url === "/extract-product" && productJob !== undefined;
+      const maximumInput = generic ? 4096 : 1024;
+      if ((!generic && req.url !== "/extract") || req.method !== "POST") {
         send(404, { code: "unsupported_content" });
         return;
       }
       if (
         !req.headers["content-type"]?.startsWith("application/json") ||
-        Number(req.headers["content-length"] ?? 0) > 1024
+        Number(req.headers["content-length"] ?? 0) > maximumInput
       ) {
         send(413, { code: "too_large" });
         return;
@@ -68,10 +76,10 @@ export function createAmazonWorker(secret: string, job: AmazonJob) {
           let bytes = 0;
           for await (const chunk of req) {
             bytes += chunk.length;
-            if (bytes > 1024) throw new ExtractionError("too_large");
+            if (bytes > maximumInput) throw new ExtractionError("too_large");
             chunks.push(chunk);
           }
-          const target = amazonTarget(
+          const target = (generic ? productBrowserTarget : amazonTarget)(
             JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown,
           );
           permit = limiter.acquire("worker");
@@ -79,7 +87,10 @@ export function createAmazonWorker(secret: string, job: AmazonJob) {
             send(503, { code: "unavailable" });
             return;
           }
-          const value = await job(target, controller.signal);
+          const value = await (generic ? productJob! : job)(
+            target,
+            controller.signal,
+          );
           if (controller.signal.aborted) throw new ExtractionError("timeout");
           send(200, value);
         } catch (error) {

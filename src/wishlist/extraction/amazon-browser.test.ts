@@ -63,19 +63,19 @@ describe("Railway Amazon metadata API", () => {
       }),
     );
   });
-  it.each([
-    "https://www.amazon.in/s?k=headphones",
-    "https://amzn.to/test-only-short-link",
-  ])("never sends unsupported Amazon links to Firecrawl: %s", async (url) => {
-    vi.stubEnv("FIRECRAWL_API_KEY", "test-only-key");
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
-    const { extractProductLink } = await import("./product-link");
-    await expect(extractProductLink(url)).rejects.toMatchObject({
-      code: "unsupported_content",
-    });
-    expect(fetch).not.toHaveBeenCalled();
-  });
+  it.each(["https://www.amazon.in/s?k=headphones"])(
+    "never sends unsupported Amazon links to Firecrawl: %s",
+    async (url) => {
+      vi.stubEnv("FIRECRAWL_API_KEY", "test-only-key");
+      const fetch = vi.fn();
+      vi.stubGlobal("fetch", fetch);
+      const { extractProductLink } = await import("./product-link");
+      await expect(extractProductLink(url)).rejects.toMatchObject({
+        code: "unsupported_content",
+      });
+      expect(fetch).not.toHaveBeenCalled();
+    },
+  );
   it.each([
     { ...product, status: 503 },
     { ...product, blocked: true },
@@ -156,6 +156,63 @@ describe("Railway Amazon metadata API", () => {
     ).rejects.toMatchObject({ code: "unavailable" });
   });
 });
+describe("Amazon app short links", () => {
+  it.each(["amzn.in", "amzn.to", "amzn.eu", "a.co"])(
+    "resolves %s directly to the worker and preserves the pasted URL",
+    async (host) => {
+      const input = options();
+      const short = `https://${host}/d/08uwFjwv`;
+      const writes: Uint8Array[] = [];
+      const destroy = vi.fn();
+      const resolve = vi.fn(input.transport.resolve);
+      let hops = 0;
+      const dial = vi.fn(async () => ({
+        remoteAddress: "93.184.216.34",
+        write: (bytes: Uint8Array) => {
+          writes.push(bytes);
+        },
+        destroy,
+        async *[Symbol.asyncIterator]() {
+          yield new TextEncoder().encode(
+            hops++ === 0
+              ? `HTTP/1.1 302 Found\r\nLocation: ${source}\r\n\r\n`
+              : "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 2\r\n\r\nok",
+          );
+        },
+      }));
+      const { extractProductLink } = await import("./product-link");
+      const result = await extractProductLink(short, {
+        ...input,
+        transport: { resolve, dial },
+      });
+      expect(result).toMatchObject({
+        sourceUrl: short,
+        title: product.title,
+        retailer: "amazon.in",
+      });
+      expect(dial).toHaveBeenCalledTimes(2);
+      expect(resolve).toHaveBeenCalledWith(
+        "www.amazon.in",
+        expect.any(AbortSignal),
+      );
+      expect(input.fetch).toHaveBeenCalledTimes(1);
+      expect(input.fetch).toHaveBeenCalledWith(
+        input.workerUrl,
+        expect.objectContaining({
+          body: JSON.stringify({
+            marketplace: "amazon.in",
+            asin: "B0DGTSRX3R",
+          }),
+        }),
+      );
+      expect(new TextDecoder().decode(writes[0])).not.toContain(
+        input.workerSecret,
+      );
+      expect(destroy).toHaveBeenCalled();
+    },
+  );
+});
+
 describe("Amazon DOM reader", () => {
   it("reads the product buy price, skips blank nodes and ignores MRP and recommendations", async () => {
     document.body.innerHTML = `<span id="productTitle">Blue headphones</span><input id="ASIN" value="B0DGTSRX3R"><img id="landingImage" src="https://m.media-amazon.com/images/product.jpg"><div id="corePrice_feature_div"><span class="apex-pricetopay-value"><span class="a-offscreen">₹1,699.00</span></span><span class="apex-basisprice-value"><span class="a-offscreen">₹3,790.00</span></span></div><div id="corePriceDisplay_desktop_feature_div"><span class="apex-pricetopay-value"><span class="a-offscreen"> </span></span></div><div class="a-price"><span class="a-offscreen">₹999.00</span></div><script type="application/json">{"currencyInfo":{"code":"INR"}}</script>`;

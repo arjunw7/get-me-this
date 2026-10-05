@@ -32,11 +32,20 @@ export function amazonAsin(url: URL): string | null {
       ?.toUpperCase() ?? null
   );
 }
+const shortHosts = new Set(["amzn.in", "amzn.to", "amzn.eu", "a.co"]);
+export function isAmazonShortUrl(raw: string): boolean {
+  try {
+    return shortHosts.has(parseDestinationUrl(raw).hostname);
+  } catch {
+    return false;
+  }
+}
 export function isAmazonUrl(raw: string): boolean {
   try {
-    const hostname = parseDestinationUrl(raw).hostname.replace(/^www\./u, "");
+    const url = parseDestinationUrl(raw);
     return (
-      hosts.has(hostname) || ["amzn.to", "amzn.eu", "a.co"].includes(hostname)
+      hosts.has(url.hostname.replace(/^www\./u, "")) ||
+      shortHosts.has(url.hostname)
     );
   } catch {
     return false;

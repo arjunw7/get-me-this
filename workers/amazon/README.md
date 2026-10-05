@@ -6,7 +6,7 @@ Firecrawl credits. Railway compute/network usage can cost money.
 ## API and separation
 
 Deploy the root build context with `workers/amazon/Dockerfile`, start command
-`node --conditions=react-server dist/amazon/workers/amazon/railway.js`, health
+`/usr/bin/tini -s -- node --conditions=react-server dist/amazon/workers/amazon/railway.js`, health
 path `/health`, one replica, 1 vCPU and 1 GB RAM. Use a separate private Railway
 project with no app/database credentials. The HTTPS domain targets the API's
 `PORT` (8080); never expose the loopback broker or Chromium control socket.
@@ -66,3 +66,42 @@ The local seccomp profile is the Apache-2.0 upstream
 The guarded acquisition does not have a decoded document-byte cap. The
 1 GB container limit bounds process memory; an oversized/decompression-heavy
 Amazon response can still terminate the worker and cause safe manual fallback.
+
+## General-store fallback API
+
+This image also serves authenticated `POST /extract-product` with exactly `{url}`.
+The generic job shares Amazon admission/cancellation/container limits. It runs a
+fixed DOM reader after JavaScript rendering, using its own public pinned CONNECT
+broker on loopback 8082; keep this broker private too. The Amazon `/extract` job
+retains JavaScript-disabled, selected-document-only behavior.
+
+Generic requests are HTTPS GET only, capped at 160 requests and three explicit
+redirects. Images/fonts/media, popups, subframes, automatic document navigations,
+WebSockets, service workers and dedicated/shared/blob workers are blocked. The CSP
+restriction is an additional policy, preserving stricter retailer policies. Scripts,
+stylesheets and GET XHR/fetch may load through the guarded broker. No caller scripts,
+headers, sessions or credentials are accepted. The same Railway application-enforced
+containment limitations apply with a broader renderer attack surface.
+
+Deployment order: review and deploy this upgraded image to the existing separate
+worker first, verify `/health` plus authenticated Amazon and other-store imports,
+then release the web change. The app derives `/extract-product` from its current
+Amazon worker URL and reuses its secret. No new project or variables are needed;
+optional `PRODUCT_BROWSER_URL/SECRET` allow separate service configuration. An old
+worker safely returns 404/manual fallback. Roll back both worker and app together
+if necessary; Amazon's narrow route remains compatible with the old image.
+
+Run `pnpm browser:build` and `node --conditions=react-server workers/amazon/product-check.mjs`
+where sandboxed Chromium is installed for real CSP worker-blocking, automatic
+navigation and fixed DOM-reading checks. The product benchmark is metadata evidence,
+not proof that all retailer pages or image uploads work.
+
+The image runs Tini as a child subreaper. Chromium termination can orphan renderer
+children; reaping them prevents repeated imports exhausting the process limit.
+No application dependency was added; Tini is an OS-level worker image dependency.
+
+The existing Railway service has a custom Node start-command override. Set it to
+`/usr/bin/tini -s -- node --conditions=react-server dist/amazon/workers/amazon/railway.js`
+when upgrading, or remove the override to use the Dockerfile entrypoint. Railway's
+Docker start command [overrides ENTRYPOINT](https://docs.railway.com/deployments/start-command),
+so keeping the old Node-only override would skip the process reaper.
