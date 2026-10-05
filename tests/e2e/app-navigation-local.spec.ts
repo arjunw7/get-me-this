@@ -10,6 +10,11 @@ import {
 test.skip(!process.env.E2E_LOCAL_SUPABASE, "requires the local Supabase stack");
 
 test("the Groups index denies signed-out access", async ({ page }) => {
+  await page.goto("/invite/unavailable");
+  const recovery = page.getByRole("link", { name: "Back to Get Me This" });
+  await expect(recovery).toHaveAttribute("href", "/");
+  await recovery.hover();
+  await expect(recovery).toHaveCSS("cursor", "pointer");
   await page.goto("/groups");
   await expect(page).toHaveURL(/\/auth(?:\?|$)/);
   await expect(
@@ -31,6 +36,11 @@ test("responsive navigation connects real destinations and Home reflects saved i
       { displayName: "Shell Ada", tasteLine: "small useful things" },
       scope,
     );
+    await page.goto("/invite/unavailable");
+    const recovery = page.getByRole("link", { name: "Back to Get Me This" });
+    await expect(recovery).toHaveAttribute("href", "/home");
+    await recovery.click();
+    await expect(page).toHaveURL(/\/home$/);
     await page.goto("/home");
     await expect(
       page.getByRole("heading", { name: "Add something you’d love to get" }),

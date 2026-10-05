@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Button } from "@/src/ui/button";
+import { InviteRecoveryLink } from "./recovery-link";
 
 /**
  * The joined confirmation (brief 006c): "You're in." plus the group name,
@@ -83,7 +83,11 @@ export function InviteJoinedScreen({
  * invalidated flows all render this. It never reveals whether the group,
  * invitation, target, or account exists.
  */
-export function InviteUnavailableScreen() {
+export function InviteUnavailableScreen({
+  returnHref = "/",
+}: {
+  returnHref?: "/" | "/home";
+}) {
   return (
     <div className="mx-auto w-full max-w-xl px-gutter py-10 sm:py-14">
       <span className="inline-flex h-16 w-16 -rotate-6 items-center justify-center rounded-pill border-2 border-outline-strong bg-surface-sunken shadow-chunk-sm">
@@ -114,11 +118,7 @@ export function InviteUnavailableScreen() {
       </p>
 
       <div className="mt-8">
-        <Link href="/">
-          <Button variant="secondary" size="lg">
-            Back to Get Me This
-          </Button>
-        </Link>
+        <InviteRecoveryLink href={returnHref} />
       </div>
     </div>
   );
