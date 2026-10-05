@@ -8,8 +8,17 @@ or emit analytics.
 ## Amazon product pages (independent Playwright)
 
 Amazon marketplace URLs bypass Firecrawl entirely. Recognized `dp`/`gp/product`
-ASIN links use a separately hosted, authenticated Playwright worker; unsupported
-Amazon paths and short links fail into editable manual entry without spending Firecrawl credits.
+ASIN links use a separately hosted, authenticated Playwright worker. Exact
+`amzn.in`, `amzn.to`, `amzn.eu` and `a.co` short-link hosts resolve through the
+existing guarded HTTP transport first. Every hop must be an approved Amazon
+host with public DNS and a matching socket peer; HTTPS downgrade is blocked.
+Resolution allows at most three redirects and eight seconds within the same
+30-second import budget. A bounded HTML fetch (at most 1 MiB for a final product
+prefix) establishes the final URL; no retailer scripts execute. Only a final
+Amazon `dp`/`gp/product` ASIN is sent to the worker. The pasted short URL remains
+the proposal's source URL, while the resolved marketplace supplies the retailer.
+Unsupported paths, interstitials, loops and unsafe redirects fail into editable
+manual entry without spending Firecrawl credits.
 Missing worker configuration, blocked/deleted pages and timeouts also fail safely.
 Only Amazon India has live benchmark evidence; universal extraction is not claimed.
 
