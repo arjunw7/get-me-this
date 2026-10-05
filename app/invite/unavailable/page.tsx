@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { getSessionUser } from "@/src/profile/session";
+
 import { InviteUnavailableScreen } from "@/src/invite/joined-screen";
 
 export const metadata: Metadata = {
@@ -15,10 +17,11 @@ export const dynamic = "force-dynamic";
  * revealed. The recovery page offers one navigation action; it does not
  * mutate unfinished invitation continuations.
  */
-export default function InviteUnavailablePage() {
+export default async function InviteUnavailablePage() {
+  const user = await getSessionUser();
   return (
     <main className="min-h-screen w-full bg-surface-page text-content-primary">
-      <InviteUnavailableScreen />
+      <InviteUnavailableScreen returnHref={user ? "/home" : "/"} />
     </main>
   );
 }

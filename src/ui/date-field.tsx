@@ -141,7 +141,12 @@ export function DateField({
           </svg>
         </button>
         {calendar && !disabled ? (
-          <AnchoredPopover anchor={anchor} onDismiss={close} width={352}>
+          <AnchoredPopover
+            anchor={anchor}
+            onDismiss={close}
+            width={352}
+            heightLimit={460}
+          >
             <Calendar
               id={`${id}-calendar`}
               active={calendar.active}
