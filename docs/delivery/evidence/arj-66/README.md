@@ -10,6 +10,6 @@ The regression tests failed before implementation and pass afterward. `pnpm veri
 
 Before/after screenshots use the same local synthetic owner and two items, same route and viewports and top scroll position against the main-branch build. Capability links are not rendered in the evidence.
 
-The four frozen owner-wishlist visual baselines still describe the former header. They have intentionally not been changed: adoption of the new matched baseline candidates requires explicit product/design approval under AGENTS.md and the visual-baseline workflow. This PR is a draft until that gate and the full CI visual job are satisfied.
+The repository owner approved the four matched CI owner-wishlist captures on 2026-10-05 and authorized recording and adoption. `visual-approval.json` records their exact hashes, CI source head and artifact. Only these four baselines and their per-file provenance have changed; prior approvals for all other files are preserved. Full CI must pass on the final head before merge.
 
-No schema changes or migration. Rollback is reverting the PR. No Magic Patterns mock data or editor artifacts shipped. Railway preview deployment is unavailable through the configured PR checks.
+No schema changes or migration. Rollback is reverting the PR. No Magic Patterns mock data or editor artifacts shipped. No Railway preview deployment for this PR is currently present in GitHub deployment records; earlier PR previews exist.
