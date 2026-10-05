@@ -25,10 +25,33 @@ describe("Groups index", () => {
     const form = screen.getByRole("form", { name: "Create a group" });
     const fields = new FormData(form as HTMLFormElement);
     expect(form).toHaveAttribute("action", "/groups/new");
-    expect(form).toHaveAttribute("method", "get");
+    expect(form).toHaveProperty("method", "get");
     expect(fields.get("occasion")).toBe("diwali");
     expect(fields.get("name")).toBe("Our Diwali");
     expect(screen.queryByText("Suggested")).not.toBeInTheDocument();
+  });
+  it("carries a custom occasion without replacing the user's group name", async () => {
+    const user = userEvent.setup();
+    render(<GroupsIndex groups={{ status: "ready", groups: [] }} />);
+    await user.type(
+      screen.getByRole("textbox", { name: "Group name" }),
+      "Board game night",
+    );
+    await user.click(screen.getByRole("radio", { name: "Something else" }));
+    const fields = new FormData(
+      screen.getByRole("form", { name: "Create a group" }) as HTMLFormElement,
+    );
+    expect(fields.get("occasion")).toBe("other");
+    expect(fields.get("name")).toBe("Board game night");
+  });
+  it("announces group form navigation before the destination responds", () => {
+    render(<GroupsIndex groups={{ status: "ready", groups: [] }} />);
+    const form = screen.getByRole("form", { name: "Create a group" });
+    fireEvent.submit(form);
+    expect(
+      screen.getByRole("button", { name: "Opening form…" }),
+    ).toBeDisabled();
+    expect(form).toHaveAttribute("aria-busy", "true");
   });
   it("keeps unsafe invitations on the page and opens a valid invite for review", async () => {
     const user = userEvent.setup();
