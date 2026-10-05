@@ -1,3 +1,5 @@
+import { loadOwnShareState } from "@/src/wishlist/public-share-data";
+import { changeWishlistSharing } from "@/src/wishlist/public-share-actions";
 import Link from "next/link";
 import { resolveOwnWishlistView } from "@/src/wishlist/item-views";
 import { GettingStarted } from "./getting-started";
@@ -80,6 +82,9 @@ export async function HomeScreen({
   ]);
   const starterWishlist =
     groups.status === "ready" && groups.groups.length === 0 ? wishlist : null;
+  const shareState = starterWishlist
+    ? await loadOwnShareState().catch(() => null)
+    : null;
   const firstName = displayName.trim().split(/\s+/)[0];
   return (
     <div className="min-h-screen w-full bg-surface-page pb-40 text-content-primary lg:pb-16 lg:pl-64">
@@ -114,13 +119,18 @@ export async function HomeScreen({
           {!dashboard && (
             <p className="mt-1 max-w-xl text-lg text-content-secondary">
               {starterWishlist
-                ? "Two steps to get your friends gifting you the right stuff."
+                ? "Three steps to get your friends gifting you the right stuff."
                 : "Save what you want, share it with your people, and give without guessing."}
             </p>
           )}
 
           {starterWishlist ? (
-            <GettingStarted wishlist={starterWishlist} />
+            <GettingStarted
+              key={starterWishlist.wishlistId}
+              wishlist={starterWishlist}
+              shareState={shareState}
+              onShareChange={changeWishlistSharing}
+            />
           ) : dashboard ? (
             <ActiveHome
               data={dashboard}

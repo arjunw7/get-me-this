@@ -1,0 +1,696 @@
+[
+  {
+    "store": "amazon.in",
+    "url": "https://www.amazon.in/Rockerz-450-Wireless-Bluetooth-Headphone/dp/B07PR1CL3S",
+    "expectedTitle": "boAt Rockerz 450/450R, 15 HRS Battery, 40mm Drivers, Padded Ear Cushions, Integrated Controls, Dual Modes, Bluetooth Headphones, Wireless Headphone with Mic (Luscious Black) : Amazon.in: Electronics",
+    "workerHttpStatus": 200,
+    "durationMs": 4394,
+    "result": {
+      "sourceUrl": "https://www.amazon.in/Rockerz-450-Wireless-Bluetooth-Headphone/dp/B07PR1CL3S",
+      "title": "boAt Rockerz 450/450R, 15 HRS Battery, 40mm Drivers, Padded Ear Cushions, Integrated Controls, Dual Modes, Bluetooth Headphones, Wireless Headphone with Mic (Luscious Black)",
+      "retailer": "amazon.in",
+      "candidateImageUrls": [
+        "https://m.media-amazon.com/images/I/41212WwiTgL._SY300_SX300_QL70_FMwebp_.jpg"
+      ]
+    }
+  },
+  {
+    "store": "amazon.in",
+    "url": "https://www.amazon.in/Boat-Rockerz-550-Headphone-Aesthetics/dp/B0856HNLDK",
+    "expectedTitle": "boAt Rockerz 550 Bluetooth Wireless Over Ear Headphones with Mic Upto 20 Hours Playback, 50MM Drivers, Soft Padded Ear Cushions and Physical Noise Isolation (Red) : Amazon.in: Electronics",
+    "workerHttpStatus": 200,
+    "durationMs": 4103,
+    "result": {
+      "sourceUrl": "https://www.amazon.in/Boat-Rockerz-550-Headphone-Aesthetics/dp/B0856HNLDK",
+      "title": "boAt Rockerz 550 Bluetooth Wireless Over Ear Headphones with Mic Upto 20 Hours Playback, 50MM Drivers, Soft Padded Ear Cushions and Physical Noise Isolation (Red)",
+      "retailer": "amazon.in",
+      "candidateImageUrls": [
+        "https://m.media-amazon.com/images/I/31++EV4zKZL._SX300_SY300_QL70_FMwebp_.jpg"
+      ]
+    }
+  },
+  {
+    "store": "amazon.in",
+    "url": "https://www.amazon.in/boAt-Cancelling-Bluetooth-Headphones-Immersive/dp/B09MTQ23X4",
+    "expectedTitle": "boAt Nirvana 751 ANC,65Hrs Battery,Hybrid Active Noise Cancellation(33dB),Fast Charge,Ambient Mode,Integrated Controls,Carry Pouch,Bluetooth Over Ear Headphones,Wireless Headphone with Mic(Bold Blue) : Amazon.in: Electronics",
+    "workerHttpStatus": 200,
+    "durationMs": 5830,
+    "result": {
+      "sourceUrl": "https://www.amazon.in/boAt-Cancelling-Bluetooth-Headphones-Immersive/dp/B09MTQ23X4",
+      "title": "boAt Nirvana 751 ANC, 65Hrs Battery, Hybrid Active Noise Cancellation(~33dB), Fast Charge, Ambient Mode,Integrated Controls,Carry Pouch, Bluetooth Headphones, Wireless Headphone with Mic (Bold Blue)",
+      "retailer": "amazon.in",
+      "originalAmountMinor": "279900",
+      "originalCurrency": "INR",
+      "candidateImageUrls": [
+        "https://m.media-amazon.com/images/I/311Lzi5zIsL._SY300_SX300_QL70_FMwebp_.jpg"
+      ]
+    }
+  },
+  {
+    "store": "amazon.in",
+    "url": "https://www.amazon.in/boAt-Rockerz-480-Bluetooth-Headphones/dp/B0DGTSRX3R",
+    "expectedTitle": "boAt Rockerz 480 w/RGB LEDs, 6 Light Modes, 40mm Drivers, Beast Mode, 60hrs Playback, ENx Tech, BT v5.3, Adaptive Fit & Easy Access Controls, Bluetooth Headphones(Black Sabre) : Amazon.in: Electronics",
+    "workerHttpStatus": 200,
+    "durationMs": 4369,
+    "result": {
+      "sourceUrl": "https://www.amazon.in/boAt-Rockerz-480-Bluetooth-Headphones/dp/B0DGTSRX3R",
+      "title": "boAt Rockerz 480, RGB LEDs,6 Light Modes, 40mm Drivers,Beast Mode, 60H Battery, ENx Tech, App Support, Bluetooth Headphones, Wireless Over Ear Headphone with Mic (Black Sabre)",
+      "retailer": "amazon.in",
+      "originalAmountMinor": "169900",
+      "originalCurrency": "INR",
+      "candidateImageUrls": [
+        "https://m.media-amazon.com/images/I/41VFJcUHTvL._SY300_SX300_QL70_FMwebp_.jpg"
+      ]
+    }
+  },
+  {
+    "store": "amazon.in",
+    "url": "https://www.amazon.in/boAt-Rockerz-460-Headphones-Assistant/dp/B0CC2G8L22",
+    "expectedTitle": "boAt Rockerz 460 Wireless Over Ear Headphones w/Up to 30hrs Playtime, 40mm Drivers, Beast™ Mode, ENx™, Dual Pairing, BT v5.2, Instant Voice Assistant, Adaptive Fit(Active Black) : Amazon.in: Electronics",
+    "workerHttpStatus": 200,
+    "durationMs": 4087,
+    "result": {
+      "sourceUrl": "https://www.amazon.in/boAt-Rockerz-460-Headphones-Assistant/dp/B0CC2G8L22",
+      "title": "boAt Rockerz 460, 30H Battery, 40mm Drivers, Beast Mode, ENx, Dual Pair, Adaptive Fit, Stream Ad Free Music via App Support, Bluetooth Headphones, Wireless Over Ear Headphone with Mic (Active Black)",
+      "retailer": "amazon.in",
+      "candidateImageUrls": [
+        "https://m.media-amazon.com/images/I/41yaNQICAeL._SY300_SX300_QL70_FMwebp_.jpg"
+      ]
+    }
+  },
+  {
+    "store": "amazon.in",
+    "url": "https://www.amazon.in/boAt-Rockerz-450-Pro-Headphones/dp/B08XY16Y6J",
+    "expectedTitle": "boAt Rockerz 450 Pro Bluetooth On Ear Headphones with Mic with 70 Hours Battery, 40Mm Drivers, Bluetooth V5.0 Padded Ear Cushions, Easy Access Controls and Voice Assistant(Luscious Black) : Amazon.in: Electronics",
+    "workerHttpStatus": 422,
+    "durationMs": 2233,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "amazon.in",
+    "url": "https://www.amazon.in/boAt-Rockerz-425-Bluetooth-Headphones/dp/B09QL2WWC4",
+    "expectedTitle": "boAt Rockerz 425 Bluetooth Wireless Over Ear Headphones with Mic with Signature Sound, Beast Mode(Upto 65Ms Low Latency) for Gaming Enx Tech, ASAP Charge 25H Playtime V5.2, Dual Pairing (Oceana Blue) : Amazon.in: Electronics",
+    "workerHttpStatus": 200,
+    "durationMs": 4189,
+    "result": {
+      "sourceUrl": "https://www.amazon.in/boAt-Rockerz-425-Bluetooth-Headphones/dp/B09QL2WWC4",
+      "title": "boAt Rockerz 425, ENx Tech, ASAP Charge, 25H Battery, Dual Pair, Stream Ad Free Music via App Support, Bluetooth Headphones, Wireless Over Ear Headphone with Mic (Oceana Blue)",
+      "retailer": "amazon.in",
+      "candidateImageUrls": [
+        "https://m.media-amazon.com/images/I/41luzcFCL-L._SY300_SX300_QL70_FMwebp_.jpg"
+      ]
+    }
+  },
+  {
+    "store": "amazon.in",
+    "url": "https://www.amazon.in/Boat-Rockerz-450-Lightweight-Compatibility/dp/B08667772G",
+    "expectedTitle": "boAt Rockerz 450, 15 HRS Battery, 40mm Drivers, Padded Ear Cushions, Integrated Controls, Dual Modes, Bluetooth Headphones, Wireless Headphone with Mic (Aqua Blue) : Amazon.in: Electronics",
+    "workerHttpStatus": 422,
+    "durationMs": 2156,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "amazon.in",
+    "url": "https://www.amazon.in/boAt-Airdopes-311-Pro-Low-Latency/dp/B0CZ3ZPD8B",
+    "expectedTitle": "boAt Airdopes 311 Pro  (Active Black)",
+    "workerHttpStatus": 200,
+    "durationMs": 4362,
+    "result": {
+      "sourceUrl": "https://www.amazon.in/boAt-Airdopes-311-Pro-Low-Latency/dp/B0CZ3ZPD8B",
+      "title": "boAt Airdopes 311 Pro, 50H Battery, Fast Charge,ENx Tech, Transparent LID, Low Latency,Stream Ad Free Music via App Support, Bluetooth Earbuds, TWS Ear Buds Wireless Earphones with mic (Active Black)",
+      "retailer": "amazon.in",
+      "candidateImageUrls": [
+        "https://m.media-amazon.com/images/I/316QOmb9GbL._SY300_SX300_QL70_FMwebp_.jpg"
+      ]
+    }
+  },
+  {
+    "store": "amazon.in",
+    "url": "https://www.amazon.in/boAt-Rockerz-430-Assistant-Headphones/dp/B0DGTSTQWL",
+    "expectedTitle": "boAt Rockerz 430 w/ 40mm Drivers, Beast Mode w/ 40ms Latency, 40hrs Playback, ENx Tech, Voice Assistant, BTv5.4, Adaptive Fit & Easy Access Controls, Bluetooth Over Ear Headphones(Black Sabre) : Amazon.in: Electronics",
+    "workerHttpStatus": 200,
+    "durationMs": 4075,
+    "result": {
+      "sourceUrl": "https://www.amazon.in/boAt-Rockerz-430-Assistant-Headphones/dp/B0DGTSTQWL",
+      "title": "boAt Rockerz 430, 40mm Drivers, 40ms Latency, 40H Battery, ENx Tech, Adaptive Fit, Stream Ad Free Music via App Support, Bluetooth Headphones, Wireless Over Ear Headphone with Mic (Black Sabre)",
+      "retailer": "amazon.in",
+      "candidateImageUrls": [
+        "https://m.media-amazon.com/images/I/41DbHjnENML._SY300_SX300_QL70_FMwebp_.jpg"
+      ]
+    }
+  },
+  {
+    "store": "flipkart.com",
+    "url": "https://www.flipkart.com/samsung-galaxy-buds-plus-bluetooth-headset/p/itma6e15bb1d8205",
+    "expectedTitle": "Samsung Galxy Bds Plus Bluetooth Price in India - Buy Samsung Galxy Bds Plus Bluetooth Online - Samsung : Flipkart.com",
+    "workerHttpStatus": 200,
+    "durationMs": 4012,
+    "result": {
+      "sourceUrl": "https://www.flipkart.com/samsung-galaxy-buds-plus-bluetooth-headset/p/itma6e15bb1d8205",
+      "title": "Samsung Galxy Bds Plus Bluetooth Price in India - Buy Samsung Galxy Bds Plus Bluetooth Online - Samsung : Flipkart.com",
+      "retailer": "flipkart.com",
+      "candidateImageUrls": [
+        "https://rukminim2.flixcart.com/image/1500/1500/k9vofbk0/headphone/r/l/z/galaxy-ear-buds-samsung-original-imafrkh5gnayvdvg.jpeg"
+      ]
+    }
+  },
+  {
+    "store": "flipkart.com",
+    "url": "https://www.flipkart.com/signature-vmb-5-bluetooth-without-mic/p/itma2d47cebcfdc6",
+    "expectedTitle": "Signature VMB-5 Bluetooth without Mic Price in India - Buy Signature VMB-5 Bluetooth without Mic Online - Signature : Flipkart.com",
+    "workerHttpStatus": 200,
+    "durationMs": 3471,
+    "result": {
+      "sourceUrl": "https://www.flipkart.com/signature-vmb-5-bluetooth-without-mic/p/itma2d47cebcfdc6",
+      "title": "Signature VMB-5 Bluetooth without Mic Price in India - Buy Signature VMB-5 Bluetooth without Mic Online - Signature : Flipkart.com",
+      "retailer": "flipkart.com",
+      "candidateImageUrls": [
+        "https://rukminim2.flixcart.com/image/1500/1500/j79czgw0/headphone/8/a/b/magic-sn-vmb-5-b01-original-imaek92h8eayygra.jpeg"
+      ]
+    }
+  },
+  {
+    "store": "flipkart.com",
+    "url": "https://www.flipkart.com/digitribe-dt-0500-5-w-bluetooth-speaker/p/itm7c9ec39ce3821",
+    "expectedTitle": "Buy Digitribe DT-0500 5 W Bluetooth Speaker Online from Flipkart.com",
+    "workerHttpStatus": 200,
+    "durationMs": 3488,
+    "result": {
+      "sourceUrl": "https://www.flipkart.com/digitribe-dt-0500-5-w-bluetooth-speaker/p/itm7c9ec39ce3821",
+      "title": "Buy Digitribe DT-0500 5 W Bluetooth Speaker Online from Flipkart.com",
+      "retailer": "flipkart.com",
+      "candidateImageUrls": [
+        "https://rukminim2.flixcart.com/image/1500/1500/xif0q/speaker/mobile-tablet-speaker/j/f/p/dt-0500-digitribe-original-imaghtnxxnmsxad9.jpeg"
+      ]
+    }
+  },
+  {
+    "store": "nykaa.com",
+    "url": "https://www.nykaa.com/cetaphil-moisturising-cream/p/392483",
+    "expectedTitle": "Buy Cetaphil Moisturising Cream Online",
+    "workerHttpStatus": 422,
+    "durationMs": 5404,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "ikea.com",
+    "url": "https://www.ikea.com/in/en/p/lampan-led-portable-lamp-battery-operated-adjustable-colour-outdoor-white-00594614/",
+    "expectedTitle": "LAMPAN LED portable lamp, battery-operated adjustable colour/outdoor white, 24 cm (91/2\") - IKEA",
+    "workerHttpStatus": 200,
+    "durationMs": 4029,
+    "result": {
+      "sourceUrl": "https://www.ikea.com/in/en/p/lampan-led-portable-lamp-battery-operated-adjustable-colour-outdoor-white-00594614/",
+      "title": "LAMPAN LED portable lamp, battery-operated adjustable colour/outdoor white, 24 cm (91/2\")",
+      "retailer": "ikea.com",
+      "candidateImageUrls": [
+        "https://www.ikea.com/in/en/images/products/lampan-led-portable-lamp-battery-operated-adjustable-colour-outdoor-white__1382314_pe962254_s5.jpg"
+      ]
+    }
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/4425385752/ceramic-mug-small-8oz-coffee-mug",
+    "expectedTitle": "Ceramic Mug // Small 8oz Coffee Mug — Handmade Pottery - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 1714,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/782905249/ceramic-mug-handmade-hand-painted",
+    "expectedTitle": "Ceramic Mug, Handmade, Hand Painted Pottery - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 1694,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/1027682680/ceramic-coffee-mug-mug-coffee-mug-mug",
+    "expectedTitle": "Ceramic Coffee Mug | Mug | Coffee Mug | Mug Handmade | Pottery Mug | Mug Handmade | Rustic Coffee Mug | Farmhouse Mug | Round Mug - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 1706,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/751461873/to-go-mug-handmade-pottery-coffee-mug",
+    "expectedTitle": "To Go Mug / Handmade Pottery Coffee Mug / Ceramic To-go Coffee Cup / Handle-free Travel Mug / Ceramic Mug / Gift for Her / Gift / Christmas - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 2288,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/93243192/unique-handmade-pottery-mug-ceramic-mug",
+    "expectedTitle": "Unique Handmade Pottery Mug | Ceramic Mug 16 Oz - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 1923,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/1751004321/handmade-ceramic-mug-drip-glaze-soup",
+    "expectedTitle": "Handmade Ceramic Mug – Drip Glaze Soup & Coffee Cup, Unique Pottery Mug With Thumb Rest Handle - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 1752,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/1476744452/made-to-order-cream-mug-16oz-ceramic",
+    "expectedTitle": "MADE TO ORDER Cream Mug 16oz, Ceramic, Pottery, Handmade, Coffeemug, Coffee Mug Cup, Handmademug, Potterymug, Blackmug Sturdy Big Large Mug - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 1845,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/1599989637/black-handmade-ceramic-mug-with-abstract",
+    "expectedTitle": "Black Handmade Ceramic Mug With Abstract Geometric Lines - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 2199,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/755242384/hers-his-ceramic-travel-mug-coffee-cup",
+    "expectedTitle": "Ceramic Travel Mug, Coffee Cup With Lid, 12-14 Oz, to Go Mug, White Blue Red, Gift for Couple - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 1859,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/1497126782/handmade-aesthetic-ceramic-mug-with",
+    "expectedTitle": "Handmade Aesthetic Ceramic Mug With Artistic Painting Picture, Hand Painted Pottery Colorful Mugs, Handcrafted Vintage Cup - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 1791,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/1867102641/handmade-ceramic-mug-earthy-minimalist",
+    "expectedTitle": "Handmade Ceramic Mug: Earthy Minimalist Cup - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 1764,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "etsy.com",
+    "url": "https://www.etsy.com/listing/1576818066/find-the-extraordinary-in-the-ordinary",
+    "expectedTitle": "Find the Extraordinary in the Ordinary. Ceramic Mug 11oz - Etsy",
+    "workerHttpStatus": 422,
+    "durationMs": 1781,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "ajio.com",
+    "url": "https://www.ajio.com/being-human-men-regular-fit-spread-collar-classic-shirt/p/703226462001",
+    "expectedTitle": "Buy OLIVE Shirts for Men by Being Human Online | Ajio.com",
+    "workerHttpStatus": 422,
+    "durationMs": 1734,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "ajio.com",
+    "url": "https://www.ajio.com/being-human-men-regular-fit-shirt-with-spread-collar/p/703211269_white",
+    "expectedTitle": "Buy White Shirts for Men by Being Human Online | Ajio.com",
+    "workerHttpStatus": 422,
+    "durationMs": 1820,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "ajio.com",
+    "url": "https://www.ajio.com/peter-england-men-slim-fit-shirt-with-patch-pocket/p/442411586002",
+    "expectedTitle": "Buy Black Shirts for Men by PETER ENGLAND Online | Ajio.com",
+    "workerHttpStatus": 422,
+    "durationMs": 1530,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "ajio.com",
+    "url": "https://www.ajio.com/ajio-shirt-with-patch-pocket/p/460083441007",
+    "expectedTitle": "Buy Black Shirts for Men by AJIO Online | Ajio.com",
+    "workerHttpStatus": 422,
+    "durationMs": 3698,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "ajio.com",
+    "url": "https://www.ajio.com/teentrums-band-collar-cotton-shirt/p/465340977_white",
+    "expectedTitle": "Buy White Shirts for Boys by TEENTRUMS Online | Ajio.com",
+    "workerHttpStatus": 422,
+    "durationMs": 1415,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "ajio.com",
+    "url": "https://www.ajio.com/peter-england-men-slim-fit-shirt-with-patch-pocket/p/442452737_lightblue",
+    "expectedTitle": "Buy Blue Shirts for Men by PETER ENGLAND Online | Ajio.com",
+    "workerHttpStatus": 422,
+    "durationMs": 1596,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "ajio.com",
+    "url": "https://www.ajio.com/teentrums-contrast-taping-band-collar-shirt/p/465380717_peach",
+    "expectedTitle": "Buy Peach Shirts for Boys by TEENTRUMS Online | Ajio.com",
+    "workerHttpStatus": 422,
+    "durationMs": 1523,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "nicobar.com",
+    "url": "https://www.nicobar.com/products/nico-mug",
+    "expectedTitle": "",
+    "workerHttpStatus": 200,
+    "durationMs": 3217,
+    "result": {
+      "sourceUrl": "https://www.nicobar.com/products/nico-mug",
+      "title": "Nico Mug",
+      "retailer": "nicobar.com",
+      "candidateImageUrls": [
+        "http://www.nicobar.com/cdn/shop/products/3_ebc3e20e-cbab-4871-818d-bc7fe615be33_1024x.jpg?v=1703656344"
+      ]
+    }
+  },
+  {
+    "store": "nicobar.com",
+    "url": "https://www.nicobar.com/products/singha-mug",
+    "expectedTitle": "Singha mug – Nicobar",
+    "workerHttpStatus": 200,
+    "durationMs": 4543,
+    "result": {
+      "sourceUrl": "https://www.nicobar.com/products/singha-mug",
+      "title": "Singha mug",
+      "retailer": "nicobar.com",
+      "candidateImageUrls": [
+        "http://www.nicobar.com/cdn/shop/files/ALPHABET-MUG_GIF-1-min_1024x.gif?v=1728653625"
+      ]
+    }
+  },
+  {
+    "store": "nicobar.com",
+    "url": "https://www.nicobar.com/products/aasma-mug",
+    "expectedTitle": "Aasma Mug – Nicobar",
+    "workerHttpStatus": 200,
+    "durationMs": 3802,
+    "result": {
+      "sourceUrl": "https://www.nicobar.com/products/aasma-mug",
+      "title": "Aasma Mug",
+      "retailer": "nicobar.com",
+      "candidateImageUrls": [
+        "http://www.nicobar.com/cdn/shop/products/3_8c64ff60-ec7f-4b16-a5c1-fbb1288cef4e_1024x.jpg?v=1624879971"
+      ]
+    }
+  },
+  {
+    "store": "nicobar.com",
+    "url": "https://www.nicobar.com/products/ele-mug-1",
+    "expectedTitle": "Ele Mug – Nicobar",
+    "workerHttpStatus": 200,
+    "durationMs": 4191,
+    "result": {
+      "sourceUrl": "https://www.nicobar.com/products/ele-mug-1",
+      "title": "Ele Mug",
+      "retailer": "nicobar.com",
+      "candidateImageUrls": [
+        "http://www.nicobar.com/cdn/shop/files/NBI035659_1_1024x.jpg?v=1741003574"
+      ]
+    }
+  },
+  {
+    "store": "nicobar.com",
+    "url": "https://www.nicobar.com/products/dariya-mug",
+    "expectedTitle": "Dariya Mug – Nicobar",
+    "workerHttpStatus": 200,
+    "durationMs": 5084,
+    "result": {
+      "sourceUrl": "https://www.nicobar.com/products/dariya-mug",
+      "title": "Dariya Mug",
+      "retailer": "nicobar.com",
+      "candidateImageUrls": [
+        "http://www.nicobar.com/cdn/shop/products/3_6657cfc2-29ae-4e37-97ee-2250b1fce579_1024x.jpg?v=1703656344"
+      ]
+    }
+  },
+  {
+    "store": "nicobar.com",
+    "url": "https://www.nicobar.com/products/musafir-mug-1",
+    "expectedTitle": "Musafir Mug – Nicobar",
+    "workerHttpStatus": 200,
+    "durationMs": 4100,
+    "result": {
+      "sourceUrl": "https://www.nicobar.com/products/musafir-mug-1",
+      "title": "Musafir Mug",
+      "retailer": "nicobar.com",
+      "candidateImageUrls": [
+        "http://www.nicobar.com/cdn/shop/products/1_32562a20-4fdc-444b-b4fd-0e7f58236b8e_1024x.jpg?v=1678341207"
+      ]
+    }
+  },
+  {
+    "store": "nicobar.com",
+    "url": "https://www.nicobar.com/products/hathi-mug-1",
+    "expectedTitle": "Hathi Mug – Nicobar",
+    "workerHttpStatus": 200,
+    "durationMs": 4998,
+    "result": {
+      "sourceUrl": "https://www.nicobar.com/products/hathi-mug-1",
+      "title": "Hathi Mug",
+      "retailer": "nicobar.com",
+      "candidateImageUrls": [
+        "http://www.nicobar.com/cdn/shop/products/3_82178982-3b63-485a-9ec2-e05ae8c8e770_1024x.jpg?v=1622092103"
+      ]
+    }
+  },
+  {
+    "store": "nicobar.com",
+    "url": "https://www.nicobar.com/products/barong-conical-mug",
+    "expectedTitle": "Barong Conical Mug – Nicobar",
+    "workerHttpStatus": 200,
+    "durationMs": 4318,
+    "result": {
+      "sourceUrl": "https://www.nicobar.com/products/barong-conical-mug",
+      "title": "Barong Conical Mug",
+      "retailer": "nicobar.com",
+      "candidateImageUrls": [
+        "http://www.nicobar.com/cdn/shop/files/NBI030354_1_1024x.jpg?v=1695569632"
+      ]
+    }
+  },
+  {
+    "store": "nicobar.com",
+    "url": "https://www.nicobar.com/products/novelty-mug",
+    "expectedTitle": "Novelty Mug – Nicobar",
+    "workerHttpStatus": 200,
+    "durationMs": 4928,
+    "result": {
+      "sourceUrl": "https://www.nicobar.com/products/novelty-mug",
+      "title": "Novelty Mug",
+      "retailer": "nicobar.com",
+      "candidateImageUrls": [
+        "http://www.nicobar.com/cdn/shop/products/1_6dab67be-4121-45e2-8896-b864eedaaef6_1024x.jpg?v=1662529592"
+      ]
+    }
+  },
+  {
+    "store": "nicobar.com",
+    "url": "https://www.nicobar.com/products/indus-straight-mug",
+    "expectedTitle": "Indus Straight Mug – Nicobar",
+    "workerHttpStatus": 200,
+    "durationMs": 4093,
+    "result": {
+      "sourceUrl": "https://www.nicobar.com/products/indus-straight-mug",
+      "title": "Indus Straight Mug",
+      "retailer": "nicobar.com",
+      "candidateImageUrls": [
+        "http://www.nicobar.com/cdn/shop/files/NBI045545_1_1024x.jpg?v=1752140069"
+      ]
+    }
+  },
+  {
+    "store": "thewholetruthfoods.com",
+    "url": "https://thewholetruthfoods.com/products/almond-choco-fudge-box-of-10",
+    "expectedTitle": "Almond Choco Fudge - Box of 10 - The Whole Truth Foods",
+    "workerHttpStatus": 200,
+    "durationMs": 2719,
+    "result": {
+      "sourceUrl": "https://thewholetruthfoods.com/products/almond-choco-fudge-box-of-10",
+      "title": "Almond Choco Fudge - Box of 10 - The Whole Truth Foods",
+      "retailer": "thewholetruthfoods.com",
+      "candidateImageUrls": [
+        "https://media.thewholetruthfoods.com/public/backend-assets/01KZ93D4H1EBBQ8BF4321SP5JG.jpeg?w=600"
+      ]
+    }
+  },
+  {
+    "store": "thewholetruthfoods.com",
+    "url": "https://thewholetruthfoods.com/products/55-dark-chocolate-box-of-3",
+    "expectedTitle": "55% Dark Cocoa Bar Sweetened with Dates - Pack of 3 - The Whole Truth Foods",
+    "workerHttpStatus": 422,
+    "durationMs": 2891,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "thewholetruthfoods.com",
+    "url": "https://thewholetruthfoods.com/products/cranberry-chocolate-box-of-10",
+    "expectedTitle": "Cocoa Cranberry Fudge - Box of 10 - The Whole Truth Foods",
+    "workerHttpStatus": 200,
+    "durationMs": 2391,
+    "result": {
+      "sourceUrl": "https://thewholetruthfoods.com/products/cranberry-chocolate-box-of-10",
+      "title": "Cocoa Cranberry Fudge - Box of 10 - The Whole Truth Foods",
+      "retailer": "thewholetruthfoods.com",
+      "candidateImageUrls": [
+        "https://media.thewholetruthfoods.com/public/backend-assets/01KZTA229W01RQWFWE715NK8DJ.jpeg?w=600"
+      ]
+    }
+  },
+  {
+    "store": "thewholetruthfoods.com",
+    "url": "https://thewholetruthfoods.com/products/assorted-47-dark-chocolate-sweetened-with-dates-3-bars",
+    "expectedTitle": "Assorted 47% Dark Cocoa Bar Sweetened with Dates - Pack of 3 - The Whole Truth Foods",
+    "workerHttpStatus": 422,
+    "durationMs": 3173,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "thewholetruthfoods.com",
+    "url": "https://thewholetruthfoods.com/products/71-dark-chocolate-box-of-3",
+    "expectedTitle": "71% Dark Cocoa Bar Sweetened with Dates - Pack of 3 - The Whole Truth Foods",
+    "workerHttpStatus": 422,
+    "durationMs": 2979,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "thewholetruthfoods.com",
+    "url": "https://thewholetruthfoods.com/products/orange-dark-chocolate-3-bars",
+    "expectedTitle": "Orange Dark Cocoa Bar Sweetened with Dates - Pack of 3 - The Whole Truth Foods",
+    "workerHttpStatus": 422,
+    "durationMs": 2301,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "thewholetruthfoods.com",
+    "url": "https://thewholetruthfoods.com/products/assorted-70-dark-chocolate-sweetened-with-dates-3-bars",
+    "expectedTitle": "Assorted 70% Dark Cocoa Bar Sweetened with Dates - Pack of 3 - The Whole Truth Foods",
+    "workerHttpStatus": 422,
+    "durationMs": 2140,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "thewholetruthfoods.com",
+    "url": "https://thewholetruthfoods.com/products/double-cocoa-mini-bars/",
+    "expectedTitle": "Double Cocoa Mini Protein Bars - Box of 12 - The Whole Truth Foods",
+    "workerHttpStatus": 200,
+    "durationMs": 2777,
+    "result": {
+      "sourceUrl": "https://thewholetruthfoods.com/products/double-cocoa-mini-bars/",
+      "title": "Double Cocoa Mini Protein Bars - Box of 12 - The Whole Truth Foods",
+      "retailer": "thewholetruthfoods.com",
+      "candidateImageUrls": [
+        "https://media.thewholetruthfoods.com/public/backend-assets/01M2MGD290PHH6W3G7526H4JGV.png?w=600"
+      ]
+    }
+  },
+  {
+    "store": "ikea.com",
+    "url": "https://www.ikea.com/in/en/p/ikea-365-mug-white-00282943/",
+    "expectedTitle": "IKEA 365+ mug, white, 24 cl (8 oz) - IKEA",
+    "workerHttpStatus": 200,
+    "durationMs": 4189,
+    "result": {
+      "sourceUrl": "https://www.ikea.com/in/en/p/ikea-365-mug-white-00282943/",
+      "title": "IKEA 365+ mug, white, 24 cl (8 oz)",
+      "retailer": "ikea.com",
+      "candidateImageUrls": [
+        "https://www.ikea.com/in/en/images/products/ikea-365-mug-white__0713396_pe729489_s5.jpg"
+      ]
+    }
+  },
+  {
+    "store": "ikea.com",
+    "url": "https://www.ikea.com/in/en/p/ikea-365-mug-clear-glass-60279725/",
+    "expectedTitle": "IKEA 365+ mug, clear glass, 24 cl (8 oz) - IKEA",
+    "workerHttpStatus": 200,
+    "durationMs": 4696,
+    "result": {
+      "sourceUrl": "https://www.ikea.com/in/en/p/ikea-365-mug-clear-glass-60279725/",
+      "title": "IKEA 365+ mug, clear glass, 24 cl (8 oz)",
+      "retailer": "ikea.com",
+      "candidateImageUrls": [
+        "https://www.ikea.com/in/en/images/products/ikea-365-mug-clear-glass__0713394_pe729487_s5.jpg"
+      ]
+    }
+  },
+  {
+    "store": "ikea.com",
+    "url": "https://www.ikea.com/in/en/p/vaerdera-mug-white-30277365/",
+    "expectedTitle": "VÄRDERA mug, white, 30 cl (10 oz) - IKEA",
+    "workerHttpStatus": 200,
+    "durationMs": 6206,
+    "result": {
+      "sourceUrl": "https://www.ikea.com/in/en/p/vaerdera-mug-white-30277365/",
+      "title": "VÄRDERA mug, white, 30 cl (10 oz)",
+      "retailer": "ikea.com",
+      "candidateImageUrls": [
+        "https://www.ikea.com/in/en/images/products/vaerdera-mug-white__51249_pe150726_s5.jpg"
+      ]
+    }
+  },
+  {
+    "store": "myntra.com",
+    "url": "https://www.myntra.com/casual-shoes/thesareesneakers/the-saree-sneakers-women-textured-sneakers/32445067/buy",
+    "expectedTitle": "Buy The Saree Sneakers Women Textured Sneakers - Casual Shoes for Women 32445067 | Myntra",
+    "workerHttpStatus": 422,
+    "durationMs": 5330,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "nykaa.com",
+    "url": "https://www.nykaa.com/the-derma-co-pore-minimizing-daily-face-moisturizer-with-3-niacinamide-3-pha-and-p-refinyl/p/5178098",
+    "expectedTitle": "Buy The Derma Co Pore Minimizing Moisturizer With 3% Niacinamide 3% PHA And P-Refinyl Online",
+    "workerHttpStatus": 422,
+    "durationMs": 5280,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "flipkart.com",
+    "url": "https://www.flipkart.com/techel-p-47-headphone-bluetooth-on-ear-poi7-bluetooth/p/itm75aa51ccd934c",
+    "expectedTitle": "TECHEL P-47 HEADPHONE Bluetooth(On the Ear)POI7 Bluetooth Price in India - Buy TECHEL P-47 HEADPHONE Bluetooth(On the Ear)POI7 Bluetooth Online - TECHEL : Flipkart.com",
+    "workerHttpStatus": 200,
+    "durationMs": 4355,
+    "result": {
+      "sourceUrl": "https://www.flipkart.com/techel-p-47-headphone-bluetooth-on-ear-poi7-bluetooth/p/itm75aa51ccd934c",
+      "title": "TECHEL P-47 HEADPHONE Bluetooth(On the Ear)POI7 Bluetooth Price in India - Buy TECHEL P-47 HEADPHONE Bluetooth(On the Ear)POI7 Bluetooth Online - TECHEL : Flipkart.com",
+      "retailer": "flipkart.com",
+      "candidateImageUrls": [
+        "https://rukminim2.flixcart.com/image/1500/1500/xif0q/shopsy-headphone/o/t/g/bluetooth-yes-p47-headphones-bluetooth-headphones-wireless-mbx27-original-imah2fuzyy7peh3j.jpeg"
+      ]
+    }
+  },
+  {
+    "store": "myntra.com",
+    "url": "https://www.myntra.com/casual-shoes/sneakersvilla/sneakers-villa-women-grey-sneakers/19138830/buy",
+    "expectedTitle": "Buy Sneakers Villa Women Grey Sneakers - Casual Shoes for Women 19138830 | Myntra",
+    "workerHttpStatus": 422,
+    "durationMs": 5266,
+    "error": "extraction_failed"
+  },
+  {
+    "store": "global.nicobar.com",
+    "url": "https://global.nicobar.com/products/nico-mug",
+    "expectedTitle": "Nico Mug – Nicobar Global",
+    "workerHttpStatus": 200,
+    "durationMs": 2882,
+    "result": {
+      "sourceUrl": "https://global.nicobar.com/products/nico-mug",
+      "title": "Nico Mug",
+      "retailer": "global.nicobar.com",
+      "candidateImageUrls": [
+        "http://global.nicobar.com/cdn/shop/files/3_ebc3e20e-cbab-4871-818d-bc7fe615be33_1024x.jpg?v=1737559162"
+      ]
+    }
+  }
+]
