@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { getSessionUser } from "@/src/profile/session";
+
 import { InviteUnavailableScreen } from "@/src/invite/joined-screen";
 import { DiscardProvenFlowsForm } from "@/src/invite/discard-form";
 
@@ -17,10 +19,11 @@ export const dynamic = "force-dynamic";
  * eight-envelope case), the recovery offers the explicit confirmed discard
  * of those proven flows; accepted flows are never discardable.
  */
-export default function InviteUnavailablePage() {
+export default async function InviteUnavailablePage() {
+  const user = await getSessionUser();
   return (
     <main className="min-h-screen w-full bg-surface-page text-content-primary">
-      <InviteUnavailableScreen />
+      <InviteUnavailableScreen returnHref={user ? "/home" : "/"} />
       <div className="mx-auto w-full max-w-xl px-gutter pb-10 sm:pb-14">
         <DiscardProvenFlowsForm />
       </div>
