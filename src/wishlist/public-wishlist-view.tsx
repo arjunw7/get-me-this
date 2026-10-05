@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Wordmark } from "@/src/landing/wordmark";
 import { WishlistProfileHeader } from "./wishlist-profile-header";
+import { totalReactionCount } from "@/src/groups/reactions/types";
 import { ReactionRow } from "@/src/groups/reactions/reaction-row";
 import { OwnerReactionSummaryRow } from "@/src/groups/reactions/owner-reaction-summary";
 import type {
@@ -68,7 +69,6 @@ export function PublicWishlistView({
           displayName={snapshot.displayName}
           tasteLine={snapshot.tasteLine}
           vibe={snapshot.vibe}
-          itemCount={snapshot.items.length}
           label={`${snapshot.displayName}'s profile`}
         />
         {snapshot.items.length === 0 ? (
@@ -143,7 +143,9 @@ export function PublicWishlistView({
                     <div className="mt-auto pt-2">
                       {!signedIn || snapshot.viewerIsOwner ? (
                         <>
-                          <OwnerReactionSummaryRow summary={item.reaction} />
+                          {totalReactionCount(item.reaction.counts) > 0 ? (
+                            <OwnerReactionSummaryRow summary={item.reaction} />
+                          ) : null}
                           {!signedIn ? (
                             <Link
                               href={signinHref}

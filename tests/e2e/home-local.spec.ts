@@ -185,6 +185,6 @@ test("a signed-in user with no groups sees the branded empty state", async ({
       exact: true,
     });
     await expect(profile).toBeVisible();
-    await expect(profile.getByText("0 things", { exact: true })).toBeVisible();
+    await expect(profile.getByText("0 things", { exact: true })).toHaveCount(0);
   });
 });

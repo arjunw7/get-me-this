@@ -1,0 +1,13 @@
+{
+  "approvedBy": "repository owner",
+  "approvedDate": "2026-10-05",
+  "approval": "Owner approved the matched visual review and authorized adoption and recording in this chat (\"looks good\").",
+  "sourceHead": "0ca0320a4c137848e0cacf0540a317f8e1416146",
+  "artifactUrl": "https://github.com/arjunw7/get-me-this/actions/runs/37311758503/artifacts/11346931108",
+  "files": {
+    "wishlist-empty-desktop.png": "d7724f2a87d6ad60f81405e33ff2af3f0286816a27b2548ae560b196bc467ca0",
+    "wishlist-empty-mobile.png": "44f271e2a031de624484c3c5205ea7f1826da12b0ebc7b878977290ff4ef3367",
+    "wishlist-filled-desktop.png": "f15c83c596f41132e5fc3e48d5b27d7117472c97c669e72fcad62312def2149c",
+    "wishlist-filled-mobile.png": "4fc9208ee6d29df3749803240b68185431d75155d7422fe8ee20883a5fd08925"
+  }
+}

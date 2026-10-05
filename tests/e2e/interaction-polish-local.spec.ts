@@ -229,6 +229,65 @@ test("wishlist drag reorder persists with pointer and keyboard and profile hover
   });
 });
 
+test("wishlist headers omit metadata tags and public zero reactions stay quiet", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const owner = await person(scope, "Wishlist Wren");
+    await seedWishlistItems(
+      stackAdminClient(),
+      owner.id,
+      ["Ceramic cup", "Desk lamp"].map((title, index) => ({
+        id: randomUUID(),
+        title,
+        sort_position: index,
+      })),
+    );
+    await mailpitLogin(page, owner.email);
+    const ownerReady = async () => {
+      await expect(
+        page.getByRole("button", { name: "Share wishlist", exact: true }),
+      ).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 0));
+    };
+    await before(page, "/wishlist", ownerReady, "wishlist-header");
+    await page.goto("/wishlist");
+    await ownerReady();
+    await expect(page.getByText(/marigold vibe|2 things/)).toHaveCount(0);
+    await capture(page, "wishlist-header-after");
+    await page
+      .getByRole("button", { name: "Share wishlist", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Share your wishlist" });
+    const publicPath = new URL(
+      await dialog.getByLabel("Public wishlist link").inputValue(),
+    ).pathname;
+    await dialog.getByRole("button", { name: "Close sharing" }).click();
+    await page.context().clearCookies();
+    const publicReady = async () => {
+      await expect(
+        page.getByRole("heading", { name: "Ceramic cup", exact: true }),
+      ).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 0));
+    };
+    await before(page, publicPath, publicReady, "public-wishlist-display");
+    await page.goto(publicPath);
+    await publicReady();
+    await expect(
+      page.getByText(/marigold vibe|2 things|No reactions yet/),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Sign in to react", exact: true }),
+    ).toHaveCount(2);
+    await expect(
+      page.getByRole("button", { name: "Very you", exact: true }),
+    ).toHaveCount(0);
+    await capture(page, "public-wishlist-display-after");
+  });
+});
+
 test("branded calendar and searchable currency submit the selected date and currency", async ({
   page,
 }) => {
