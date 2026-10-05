@@ -36,3 +36,53 @@ No Firecrawl request, wishlist save, image upload or production configuration ch
 - Railway preview: pending PR deployment availability.
 - Migrations: none. Rollback: revert this change; short links return to editable manual fallback.
 - No Magic Patterns mock data or editor artifacts shipped. No new dependencies, worker deployment or infrastructure changes.
+
+## Complete provider pipeline — approved extension
+
+The same PR now includes Amazon directly to its narrow Playwright route, and
+other stores through Firecrawl → independent Playwright → editable manual entry.
+Missing Firecrawl configuration/credits/errors or absent title/image trigger the
+browser; missing optional money alone does not consume browser capacity.
+Incomplete Firecrawl fields remain editable if the browser fails. Invalid/private
+URL admission failures and cancellation never start another provider.
+
+Acceptance criteria copied from the approved extension in the issue:
+
+- [x] Amazon, including supported short links, goes directly to its dedicated browser route — routing and short-link tests; live original link proof above.
+- [x] Other stores use Firecrawl first, then independent Playwright, then editable manual input — routing/client tests exercise each branch and final failure.
+- [x] Missing Firecrawl configuration, credit exhaustion and failed/incomplete extraction attempt the browser without dropping the source URL or available fields — actual adapter tests cover absent key and HTTP 402; routing tests preserve partial data.
+- [x] Preserve cancellation, safe URL admission and one overall import deadline — cancellation/blocked admission tests, eight-second Firecrawl budget inside a shared 35-second deadline.
+- [x] Keep the worker isolated, authenticated and bounded; retain Amazon’s existing restrictions — negative worker API/DTO tests, resource policy tests, guarded CONNECT regression tests and isolated Docker runtime checks. No app credentials enter Chromium.
+- [x] Verify routing, negative network/resource controls, real rendering and representative live URLs — 1,786 automated tests; real Chromium CSP test blocks network/blob/shared workers and automatic navigation, with fixed-reader title/price proof. [Final live corpus evidence](playwright-corpus.md) covers 60 unique URLs plus 27 targeted retests.
+
+Release-source `pnpm verify` passed: 181 test files / 1,786 tests, formatting,
+lint, typecheck, browser checks and production build. Two existing unrelated
+lint warnings. Independent review found worker creation, query identity and
+automatic-navigation gaps; these were fixed and re-reviewed with no further
+important findings. Retailer canonical URLs that omit selected variants remain
+a documented conservative manual-fallback limitation.
+
+A preliminary long worker run exposed unreaped Chromium children and eventual
+process-limit exhaustion. That run is not reliability evidence. Tini was added
+as an OS-level image dependency/subreaper, and the final corpus was repeated.
+A real Chromium runtime fixture confirmed all three worker creation modes blocked,
+no unexpected outbound requests, and blocked automatic document navigation.
+
+The new image needs deployment to the existing separate Railway worker before
+the app rollout. The service is currently pinned to the older Amazon-only commit;
+its custom Node start command also must become
+`/usr/bin/tini -s -- node --conditions=react-server dist/amazon/workers/amazon/railway.js`
+to retain the subreaper on Railway. No new project, API key, worker service or app
+variables are required when reusing the existing URL/secret. The PR does not
+modify production resources. Docker/local success is not Railway-source-IP proof.
+
+No UI/schema changes or screenshots/migrations apply. Local DB/stack checks remain
+blocked by another task owning port 54322; exact-head CI is the final full-stack
+check. Railway preview deployment is not available in the current service inventory.
+
+Final corpus: 30/60 title-and-image proposals, two with confirmed money; see
+[per-store results and run limitations](playwright-corpus.md). Both stable long
+runs ended with zero zombie processes. Provider failures still retain manual
+entry; the combined Firecrawl/browser historical union is not a production
+success-rate guarantee. All temporary worker containers used for this task
+were stopped after testing.
