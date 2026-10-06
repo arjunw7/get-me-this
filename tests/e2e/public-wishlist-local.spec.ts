@@ -403,6 +403,8 @@ for (const fresh of [false, true]) {
         {
           id: randomUUID(),
           title: "Public ceramic mug",
+          source_url: "https://example.com/mug",
+          retailer: "Ceramics",
           sort_position: 0,
         },
       ]);
@@ -452,6 +454,16 @@ for (const fresh of [false, true]) {
         const card = visitor
           .getByRole("list", { name: "Wishlist items" })
           .getByRole("article");
+        const storeLink = card.getByRole("link", {
+          name: "Open on Ceramics ↗ for Public ceramic mug (opens in a new tab)",
+        });
+        await expect(storeLink).toBeVisible();
+        await expect(storeLink).toHaveAttribute(
+          "href",
+          "https://example.com/mug",
+        );
+        await expect(storeLink).toHaveAttribute("target", "_blank");
+        await expect(storeLink).toHaveAttribute("rel", "noopener noreferrer");
         const veryYou = card.getByRole("button", {
           name: "Very you",
           exact: true,

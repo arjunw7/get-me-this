@@ -127,11 +127,14 @@ export function PublicWishlistView({
                     {item.sourceUrl ? (
                       <a
                         href={item.sourceUrl}
+                        aria-label={`${item.retailer?.trim() ? `Open on ${item.retailer.trim()} ↗` : "Open link ↗"} for ${item.title} (opens in a new tab)`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex min-h-11 items-center font-bold underline underline-offset-4"
                       >
-                        Original page
+                        {item.retailer?.trim()
+                          ? `Open on ${item.retailer.trim()} ↗`
+                          : "Open link ↗"}
                         <span className="sr-only">
                           {" "}
                           for {item.title} (opens in a new tab)

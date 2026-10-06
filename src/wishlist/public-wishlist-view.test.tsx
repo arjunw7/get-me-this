@@ -69,15 +69,34 @@ describe("PublicWishlistView", () => {
     expect(
       screen.getByRole("link", { name: "Sign in to react" }),
     ).toHaveAttribute("href", props.signinHref);
-    expect(screen.getByRole("link", { name: /Original page/ })).toHaveAttribute(
-      "href",
-      "https://example.com/cup",
-    );
+    expect(
+      screen.getByRole("link", {
+        name: "Open on Ceramics ↗ for A ceramic cup (opens in a new tab)",
+      }),
+    ).toHaveAttribute("href", "https://example.com/cup");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(
       screen.queryByText(/reserv|assignment|group|checklist|copy to/i),
     ).not.toBeInTheDocument();
+  });
+
+  it("uses Open link when no retailer is saved, without inventing a website name", () => {
+    render(
+      <PublicWishlistView
+        {...props}
+        snapshot={{
+          ...snapshot,
+          items: [{ ...snapshot.items[0], retailer: "   " }],
+        }}
+      />,
+    );
+    const link = screen.getByRole("link", {
+      name: "Open link ↗ for A ceramic cup (opens in a new tab)",
+    });
+    expect(link).toHaveAttribute("href", "https://example.com/cup");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
   it("keeps an owner's public reactions read-only even when signed in", () => {
