@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -422,39 +423,113 @@ test("room reactions have space around icons and labels and remain usable", asyn
       "Want it too",
     ]) {
       const button = page.getByRole("button", { name: label, exact: true });
-      expect(
-        (await button.boundingBox({ timeout: 10_000 }))?.height,
-      ).toBeGreaterThanOrEqual(76);
       const metrics = await button.evaluate((el) => {
-        const icon = el
-          .querySelector('[aria-hidden="true"]')!
+        const stamp = el.getBoundingClientRect();
+        const choice = el.parentElement!;
+        const label = choice.querySelector("[data-reaction-label]")!;
+        const text = label.getBoundingClientRect();
+        const badge = el
+          .querySelector(".reaction-stamp-counter")!
           .getBoundingClientRect();
-        const text = el
-          .querySelector("[data-reaction-label]")!
-          .getBoundingClientRect();
-        const box = el.getBoundingClientRect();
         return {
-          height: box.height,
-          gap: text.top - icon.bottom,
-          top: icon.top - box.top,
-          bottom: box.bottom - text.bottom,
-          overflow: el.scrollWidth - el.clientWidth,
+          width: stamp.width,
+          height: stamp.height,
+          gap: text.top - stamp.bottom,
+          labelOverflow: label.scrollWidth - label.clientWidth,
+          badgeOverlap: badge.left < stamp.right && badge.bottom > stamp.top,
         };
       });
-      expect(metrics.height).toBeGreaterThanOrEqual(76);
-      expect(metrics.gap).toBeGreaterThanOrEqual(8);
-      expect(metrics.top).toBeGreaterThanOrEqual(8);
-      expect(metrics.bottom).toBeGreaterThanOrEqual(8);
-      expect(metrics.overflow).toBeLessThanOrEqual(1);
+      expect(metrics.width).toBe(64);
+      expect(metrics.height).toBe(64);
+      expect(metrics.gap).toBeGreaterThanOrEqual(12);
+      expect(metrics.labelOverflow).toBeLessThanOrEqual(1);
+      expect(metrics.badgeOverlap).toBe(true);
     }
+    const accessibility = await new AxeBuilder({ page })
+      .include(".reaction-stamps")
+      .withTags(["wcag2a", "wcag2aa"])
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
     await capture(page, "room-reactions-after");
     const veryYou = page.getByRole("button", { name: "Very you", exact: true });
     await veryYou.click();
     await expect(veryYou).toHaveAttribute("aria-pressed", "true");
     await page.reload();
     await expect(veryYou).toHaveAttribute("aria-pressed", "true");
-    await veryYou.click();
+    const wantItToo = page.getByRole("button", {
+      name: "Want it too",
+      exact: true,
+    });
+    await wantItToo.click();
     await expect(veryYou).toHaveAttribute("aria-pressed", "false");
+    await expect(wantItToo).toHaveAttribute("aria-pressed", "true");
+    // The pointer remains over the selected stamp after a click: neutral
+    // hover styling must not wash out its blue fill against the white heart.
+    await expect(wantItToo).toBeEnabled();
+    await wantItToo.hover();
+    await wantItToo.evaluate((el) =>
+      Promise.all(
+        el.getAnimations({ subtree: true }).map((motion) => motion.finished),
+      ),
+    );
+    await expect(wantItToo.locator(".reaction-stamp-ink")).toHaveCSS(
+      "background-color",
+      "rgb(46, 75, 255)",
+    );
+    await expect(wantItToo.locator("svg")).toHaveCSS(
+      "color",
+      "rgb(255, 255, 255)",
+    );
+    expect(
+      await wantItToo
+        .locator("svg")
+        .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).b),
+    ).toBeLessThan(-0.1);
+    const hoverEvidenceDir = process.env.E2E_INTERACTION_EVIDENCE_DIR;
+    if (hoverEvidenceDir) {
+      await mkdir(hoverEvidenceDir, { recursive: true });
+      await page
+        .getByRole("group", { name: "React to this item", exact: true })
+        .screenshot({
+          path: path.join(
+            hoverEvidenceDir,
+            `stamp-selected-hover-${test.info().project.name}.png`,
+          ),
+          animations: "disabled",
+        });
+    }
+    await page.mouse.move(0, 0);
+    await wantItToo.evaluate((el) =>
+      Promise.all(
+        el.getAnimations({ subtree: true }).map((motion) => motion.finished),
+      ),
+    );
+    expect(
+      await wantItToo
+        .locator("svg")
+        .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).b),
+    ).toBe(0);
+    await expect(veryYou.locator(".reaction-stamp-counter")).toHaveText("0");
+    await expect(wantItToo.locator(".reaction-stamp-counter")).toHaveText("1");
+    await capture(page, "room-reactions-selected");
+    await wantItToo.click();
+    await expect(wantItToo).toHaveAttribute("aria-pressed", "false");
+    await expect(wantItToo.locator(".reaction-stamp-counter")).toHaveText("0");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await veryYou.click();
+    await expect(veryYou).toHaveAttribute("aria-pressed", "true");
+    await expect(veryYou.locator(".reaction-stamp-ink")).toHaveCSS(
+      "animation-name",
+      "none",
+    );
+    await expect(veryYou.locator(".reaction-stamp-ring")).toBeHidden();
+    await expect(veryYou).toBeEnabled();
+    await veryYou.hover();
+    await expect(veryYou.locator("svg")).toHaveCSS("transform", "none");
+    await expect(veryYou.locator("svg")).toHaveCSS(
+      "transition-property",
+      "none",
+    );
   });
 });
 

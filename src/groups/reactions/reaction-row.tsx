@@ -4,18 +4,34 @@ import { useId, useTransition } from "react";
 import { REACTION_KINDS, REACTION_LABELS, totalReactionCount } from "./types";
 import type { ReactionKind, ReactionSummaryRow } from "./types";
 
-/**
- * The approved interactive reaction row for a friend's visible item (brief
- * 007a): three choices with the approved labels, the caller's active
- * reaction visibly selected, selecting another replaces, selecting the
- * active one removes. Zero reactions shows `Be the first to react`.
- *
- * Updates apply the authoritative function result through `onReact`;
- * transient failure restores the prior state (the parent keeps the previous
- * summary and only swaps on a confirmed result). Touch targets are at least
- * 44 by 44 CSS pixels; motion is limited to a brief press, respecting
- * reduced motion.
- */
+function StampGlyph({ kind }: { kind: ReactionKind }) {
+  return (
+    <svg
+      viewBox="0 0 40 40"
+      width="32"
+      height="32"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    >
+      {kind === "very_you" ? (
+        <path d="M20 5 L23 17 L36 20 L23 23 L20 35 L17 23 L4 20 L17 17 Z" />
+      ) : kind === "questionable" ? (
+        <>
+          <path d="M12 14c0-5.5 4-9 9-9s9 3.4 9 8.4c0 5.6-6.4 6.6-8.4 11.2" />
+          <circle cx="21" cy="31" r="2" fill="currentColor" stroke="none" />
+        </>
+      ) : (
+        <path d="M20 32c-9-7.5-13-13.2-13-18.4C7 8.6 10.6 5 15 5c2.6 0 4.9 1.6 5 4.4C20.1 6.6 22.4 5 25 5c4.4 0 8 3.6 8 8.6 0 5.2-4 10.9-13 18.4Z" />
+      )}
+    </svg>
+  );
+}
+
+/** One confirmed reaction per person: switching replaces, pressing again removes. */
 export function ReactionRow({
   summary,
   onReact,
@@ -27,21 +43,22 @@ export function ReactionRow({
 }) {
   const [isPending, startTransition] = useTransition();
   const labelId = useId();
-
   const total = totalReactionCount(summary.counts);
+  const counts: Record<ReactionKind, number> = {
+    very_you: summary.counts.veryYou,
+    questionable: summary.counts.questionable,
+    want_it_too: summary.counts.wantItToo,
+  };
 
   function pick(reaction: ReactionKind) {
-    const next = summary.viewerReaction === reaction ? null : reaction;
     startTransition(async () => {
-      await onReact(next);
+      await onReact(summary.viewerReaction === reaction ? null : reaction);
     });
   }
 
   return (
     <div
-      className={
-        compact ? "mt-2 space-y-2" : "mt-3 flex flex-wrap items-center gap-2"
-      }
+      className={compact ? "mt-2 space-y-2" : "mt-3 space-y-2"}
       role="group"
       aria-labelledby={labelId}
       aria-busy={isPending}
@@ -49,68 +66,60 @@ export function ReactionRow({
       <span id={labelId} className="sr-only">
         React to this item
       </span>
-      {total === 0 ? (
-        <span className="text-sm font-semibold text-content-secondary">
-          Be the first to react
-        </span>
-      ) : (
-        <span
-          className="text-sm font-semibold text-content-secondary"
-          role="status"
-        >
-          {compact
-            ? `${total} ${total === 1 ? "reaction" : "reactions"}`
-            : `${summary.counts.veryYou} Very you · ${summary.counts.questionable} Questionable · ${summary.counts.wantItToo} Want it too`}
-        </span>
-      )}
+      <span
+        className="text-sm font-semibold text-content-secondary"
+        role={total > 0 ? "status" : undefined}
+      >
+        {total === 0
+          ? "Be the first to react"
+          : `${total} ${total === 1 ? "reaction" : "reactions"}`}
+      </span>
       <div
-        className={
-          compact
-            ? "grid grid-cols-3 gap-1 border-t-2 border-outline-subtle pt-2"
-            : "flex flex-wrap gap-2"
-        }
+        className={`reaction-stamps ${compact ? "border-t-2 border-outline-subtle" : ""}`}
       >
         {REACTION_KINDS.map((kind) => {
           const active = summary.viewerReaction === kind;
+          const name =
+            kind === "questionable"
+              ? "Questionable, but supported"
+              : REACTION_LABELS[kind];
           return (
-            <button
-              key={kind}
-              type="button"
-              aria-label={
-                kind === "questionable"
-                  ? "Questionable, but supported"
-                  : REACTION_LABELS[kind]
-              }
-              aria-pressed={active}
-              disabled={isPending}
-              onClick={() => pick(kind)}
-              className={`${compact ? "flex min-h-[76px] min-w-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-surface border-2 px-1 py-2 text-[11px]" : "min-h-11 rounded-pill border-2 px-4 text-sm"} font-bold transition-transform duration-100 motion-reduce:transition-none disabled:opacity-60 ${
-                active
-                  ? "border-outline-strong bg-accent-highlight text-content-primary"
-                  : compact
-                    ? "border-transparent text-content-primary hover:bg-surface-sunken"
-                    : "border-outline-strong bg-surface-raised text-content-primary hover:bg-accent-fresh-soft"
-              }`}
-            >
-              {compact ? (
-                <span aria-hidden="true" className="text-2xl leading-none">
-                  {kind === "very_you"
-                    ? "✧"
-                    : kind === "questionable"
-                      ? "?"
-                      : "♡"}
-                </span>
-              ) : null}
-              <span
-                {...(compact ? { "data-reaction-label": true } : {})}
-                className={compact ? "text-center leading-snug" : undefined}
+            <div key={kind} className="reaction-stamp-choice">
+              <button
+                type="button"
+                aria-label={name}
+                aria-describedby={`${labelId}-${kind}-count`}
+                aria-pressed={active}
+                disabled={isPending}
+                onClick={() => pick(kind)}
+                className="reaction-stamp"
+                data-kind={kind}
               >
+                <span
+                  key={String(active)}
+                  className={
+                    active
+                      ? "reaction-stamp-ink reaction-stamp-selected"
+                      : "reaction-stamp-ink"
+                  }
+                  aria-hidden="true"
+                >
+                  {active ? <span className="reaction-stamp-ring" /> : null}
+                  <StampGlyph kind={kind} />
+                  <span className="reaction-stamp-counter">
+                    <span key={counts[kind]} className="reaction-stamp-count">
+                      {counts[kind]}
+                    </span>
+                  </span>
+                </span>
+                <span id={`${labelId}-${kind}-count`} className="sr-only">
+                  {counts[kind]} {counts[kind] === 1 ? "reaction" : "reactions"}
+                </span>
+              </button>
+              <span data-reaction-label className="reaction-stamp-label">
                 {REACTION_LABELS[kind]}
               </span>
-              {kind === "questionable" ? (
-                <span className="sr-only">, but supported</span>
-              ) : null}
-            </button>
+            </div>
           );
         })}
       </div>
