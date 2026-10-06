@@ -856,7 +856,10 @@ test("member wishlist actions keep gifting private and confirm releases", async 
     expect(stickerBox.x + stickerBox.width).toBeGreaterThan(
       cardBox.x + cardBox.width,
     );
-    expect(stickerBox.y).toBeLessThan(cardBox.y);
+    expect(stickerBox.y).toBeLessThan(cardBox.y - 12);
+    expect(stickerBox.x + stickerBox.width).toBeGreaterThan(
+      cardBox.x + cardBox.width + 12,
+    );
     await expect(copied).toHaveCSS("rotate", "-25deg");
     await expect(
       card.getByRole("button", { name: "Copy to my wishlist" }),
@@ -864,6 +867,8 @@ test("member wishlist actions keep gifting private and confirm releases", async 
     await expect(
       card.getByRole("status").filter({ hasText: "Copied to your wishlist" }),
     ).toHaveClass("sr-only");
+    // Keep the sticky navigation at its normal top position in full-page proof.
+    await page.evaluate(() => window.scrollTo(0, 0));
     await capture(page, "wishlist-actions-copied-after");
     if (process.env.E2E_INTERACTION_EVIDENCE_DIR)
       await copied.screenshot({

@@ -8,10 +8,10 @@ export function CopyCatSticker() {
       data-copy-cat
       role="img"
       aria-label="Copy Cat — copied to your wishlist"
-      className="pointer-events-none absolute top-0 right-0 z-10 flex h-18 w-21 -rotate-[25deg] items-center justify-center text-content-primary"
+      className="pointer-events-none absolute -top-3 -right-3 z-10 flex h-18 w-21 -rotate-[25deg] items-center justify-center text-content-primary"
     >
       <Image
-        src="/stickers/copy-cat-face.png"
+        src="/stickers/copy-cat-face-bold.png"
         alt=""
         aria-hidden="true"
         width={84}
