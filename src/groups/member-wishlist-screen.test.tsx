@@ -117,7 +117,7 @@ describe("MemberWishlistScreen", () => {
     );
     const links = screen.getAllByTestId("member-wishlist-item");
     const external = within(links[0]).getByRole("link", {
-      name: /Open Pour-over kettle's original page \(opens in a new tab\)/,
+      name: /Open on.*Pour-over kettle.*opens in a new tab/,
     });
     expect(external).toHaveAttribute(
       "href",

@@ -84,7 +84,13 @@ The approved reaction UI restores the Magic Patterns Version 2 Stamp Counter con
 - Selecting the active reaction removes it.
 - Friends' items show an interactive summary and action row.
 - The user's own items show a read-only reaction summary and breakdown.
-- No reactions: `Be the first to react` for friends' items and `No reactions yet` for one's own item.
+- Interactive stamps use their individual counters without a visible total heading or divider (approved October 7, 2026); the total remains accessible to screen readers. Read-only owner summaries retain `No reactions yet`.
+
+## Member wishlist actions
+
+Approved October 7, 2026: friends' member-wishlist cards place interactive stamps above one action area. Reserve secretly is the coral primary action; Copy to my wishlist is an outlined secondary below it. The original-store link sits near the retailer and price. Reservation status sits directly above its action: Reserved by you with outlined Release reservation, or Someone’s on it without reserve/release controls. Copy remains available independently. Copy success shows one visible Copied to your wishlist ✓ confirmation; pending and failures stay beside the affected action.
+
+Release reservation uses the logout-style desktop modal/mobile bottom sheet, rendered outside the card. Keep reservation receives initial focus. The dialog explains that other eligible group members can reserve the gift and the recipient is not notified. Escape and cancellation keep the reservation; pending release blocks dismissal and repeats; errors stay in the dialog for retry. Existing authorization and anonymous coordination remain authoritative. Other gifting surfaces share these reservation state and confirmation rules; their existing card/checkout layout remains unchanged.
 
 ## Responsive application shell
 
@@ -117,3 +123,15 @@ The user approved these changes beyond the frozen prototype's native controls:
 - Wishlist reorder handles without visible up/down buttons. Pointer/touch dragging and keyboard pickup/move/drop/cancel must persist through the existing order-write contract. Drag feedback must not shift list geometry.
 
 These are user-requested design extensions. Existing visual baselines are not silently regenerated to accept them.
+
+### Member wishlist follow-up — 2026-10-07
+
+The user requested a preview of Reserve secretly and Copy to my wishlist side by side below the stamps. Both actions retain 48px height, with readable wrapping at mobile widths. Reservation status remains above the row; when someone else has reserved, Copy occupies the available row. The viewer's current saved copies initialize the disabled Copied to your wishlist state on return visits, using an owner-scoped authenticated read only. Deleting the copied item makes copying available again.
+
+### Member and group card refinements — 2026-10-07
+
+The user approved the same quiet Original store link beside the group-card retailer/price; each opens the saved external source URL. On member views, Reserved by you uses the group's green image badge instead of a second status below the reactions. Available reserve/copy actions show a pointer; pending actions show a spinner and saving label with repeat submission disabled. A successful or already-present copy replaces the copy CTA with an original Copy Cat sticker and an accessible confirmation. This presentation persists from the viewer's current owner-scoped copied state on return visits. The sticker remains a noninteractive confirmation, not another action.
+
+Store-link copy uses Open on <saved retailer name> ↗ when the trimmed saved name is present, and Open link ↗ otherwise; no host-name guess is used as the link label. The external-link warning remains in the accessible name. The user revised the artwork to a realistic innocent cat face with straight bold Copy Cat lettering overflowing the lower face, integrated into the sticker. The transparent generated asset is public/stickers/copy-cat-face-bold.png; no body or pointing paw remains.
+
+The final Copy Cat sticker sits at the card's top-right corner, rotated 25° counterclockwise and extending slightly past the right and top edges. It is offset 12px above and right of the card corner, retaining the 25° left tilt. Its white die-cut outline is three times the previous approved outline for contrast. It does not intercept clicks. Card images keep their rounded clipping while the sticker can overflow; the remaining reserve/release action uses the full row after copying. Mobile overflow must stay within the page gutter.

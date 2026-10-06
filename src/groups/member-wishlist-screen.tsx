@@ -55,6 +55,7 @@ export function MemberWishlistItemCard({
   reservedByOther = false,
   reservationBadge,
   children,
+  actions,
 }: {
   readonly item: MemberWishlistItem;
   readonly groupId: string;
@@ -64,14 +65,15 @@ export function MemberWishlistItemCard({
   readonly compact?: boolean;
   readonly reservedByOther?: boolean;
   readonly children?: React.ReactNode;
+  readonly actions?: React.ReactNode;
 }) {
   return (
     <article
       data-testid="member-wishlist-item"
-      className={`relative flex h-full flex-col overflow-hidden rounded-[26px] border-2 bg-surface-raised ${reservedByOther ? "border-outline/25 text-content-secondary" : "border-outline-strong"} ${presentation === "gifting" ? "" : "shadow-chunk"}`}
+      className={`relative flex h-full flex-col rounded-[26px] border-2 bg-surface-raised ${reservedByOther ? "border-outline/25 text-content-secondary" : "border-outline-strong"} ${presentation === "gifting" ? "" : "shadow-chunk"}`}
     >
       <div
-        className={`relative overflow-hidden bg-surface-sunken ${presentation === "gifting" ? "aspect-[4/3]" : compact ? "aspect-square" : "aspect-[5/4]"}`}
+        className={`relative overflow-hidden rounded-t-[24px] bg-surface-sunken ${presentation === "gifting" ? "aspect-[4/3]" : compact ? "aspect-square" : "aspect-[5/4]"}`}
       >
         {item.imageUrl !== null ? (
           <CardImage src={item.imageUrl} title={item.title} />
@@ -86,9 +88,12 @@ export function MemberWishlistItemCard({
             </p>
           </>
         ) : null}
-        {presentation === "room" && reservationBadge ? (
+        {(presentation === "room" ||
+          (presentation === "browse" && reservationBadge === "yours")) &&
+        reservationBadge ? (
           <div className="absolute inset-x-3 bottom-3">
             <span
+              data-reservation-badge={reservationBadge}
               className={`inline-flex items-center gap-1 rounded-pill border-2 border-outline-strong px-2.5 py-1 text-xs font-bold ${reservationBadge === "yours" ? "bg-accent-fresh" : "bg-surface-raised"}`}
             >
               <span aria-hidden="true">
@@ -134,6 +139,21 @@ export function MemberWishlistItemCard({
               )}
             </span>
           ) : null}
+          {item.sourceUrl !== null &&
+          (presentation === "browse" || presentation === "room") ? (
+            <a
+              href={item.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${item.retailer?.trim() ? `Open on ${item.retailer.trim()}` : "Open link"} for ${item.title} (opens in a new tab)`}
+              className="ml-2 inline-flex min-h-touch-min items-center gap-1 font-semibold underline underline-offset-4 text-content-secondary hover:text-content-primary"
+            >
+              {item.retailer?.trim()
+                ? `Open on ${item.retailer.trim()}`
+                : "Open link"}{" "}
+              <ExternalLinkIcon className="h-4 w-4" />
+            </a>
+          ) : null}
         </p>
         {budgetLabel ? (
           <p className="text-sm font-bold text-content-secondary">
@@ -147,8 +167,7 @@ export function MemberWishlistItemCard({
         ) : null}
         {presentation === "gifting" && !reservedByOther ? children : null}
         {item.sourceUrl !== null &&
-        presentation !== "owner" &&
-        presentation !== "room" &&
+        presentation === "gifting" &&
         !reservedByOther ? (
           <a
             href={item.sourceUrl}
@@ -167,10 +186,17 @@ export function MemberWishlistItemCard({
           </p>
         ) : null}
         {presentation !== "gifting" ? (
-          <div className="mt-auto pt-1">{children}</div>
-        ) : null}
-        {presentation === "browse" ? (
-          <CopyToWishlistButton groupId={groupId} itemId={item.itemId} />
+          <div className="mt-auto space-y-3 pt-1">
+            {children}
+            {presentation === "browse"
+              ? (actions ?? (
+                  <CopyToWishlistButton
+                    groupId={groupId}
+                    itemId={item.itemId}
+                  />
+                ))
+              : null}
+          </div>
         ) : null}
       </div>
     </article>
@@ -184,6 +210,8 @@ export function MemberWishlistScreen({
   memberDisplayName,
   items,
   itemControls,
+  itemActions,
+  itemReservationBadges,
 }: {
   readonly groupId: string;
   readonly groupName: string;
@@ -192,6 +220,8 @@ export function MemberWishlistScreen({
   readonly memberDisplayName: string;
   readonly items: readonly MemberWishlistItem[];
   readonly itemControls?: Readonly<Record<string, React.ReactNode>>;
+  readonly itemActions?: Readonly<Record<string, React.ReactNode>>;
+  readonly itemReservationBadges?: Readonly<Record<string, "yours" | "other">>;
 }) {
   return (
     <div
@@ -243,7 +273,12 @@ export function MemberWishlistScreen({
         >
           {items.map((item) => (
             <li key={item.itemId} className="flex">
-              <MemberWishlistItemCard item={item} groupId={groupId}>
+              <MemberWishlistItemCard
+                item={item}
+                groupId={groupId}
+                actions={itemActions?.[item.itemId]}
+                reservationBadge={itemReservationBadges?.[item.itemId]}
+              >
                 {itemControls?.[item.itemId]}
               </MemberWishlistItemCard>
             </li>

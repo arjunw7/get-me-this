@@ -11,7 +11,11 @@ import {
   seedWishlistItems,
   stackAdminClient,
 } from "../helpers/local-stack";
-import { deleteFixtureGroupsSql, runStackSql } from "../helpers/group-stack";
+import {
+  deleteFixtureGroupsSql,
+  runStackSql,
+  withIdentity,
+} from "../helpers/group-stack";
 import { mailpitLogin } from "../helpers/mailpit-signin";
 
 test.skip(
@@ -671,5 +675,257 @@ test("created groups offer matching invite and open actions with Home below", as
     await page.goto(route);
     await home.click();
     await expect(page).toHaveURL(/\/home$/);
+  });
+});
+
+test("member wishlist actions keep gifting private and confirm releases", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const groupIds: string[] = [];
+    const giver = await person(scope, "Gifting Grace", groupIds);
+    const recipient = await person(scope, "Wishlist Wren", groupIds);
+    const other = await person(scope, "Another friend", groupIds);
+    const groupId = randomUUID();
+    groupIds.push(groupId);
+    const itemId = randomUUID();
+    await seedWishlistItems(stackAdminClient(), recipient.id, [
+      {
+        id: itemId,
+        title: "Ceramic cup",
+        source_url: "https://shop.example.invalid/cup",
+        retailer: "Cup shop",
+        original_amount_minor: "120000",
+        original_currency: "INR",
+        note: "The sky blue one.",
+        sort_position: 0,
+      },
+    ]);
+    runStackSql(
+      `insert into public.groups (id,name,occasion,occasion_at,time_zone,mode,organizer_id,budget_amount_minor,budget_currency) values ('${groupId}','A small celebration','Birthday','2050-05-15 18:00:00+05:30','Asia/Kolkata','wishlist_only','${giver.id}',250000,'INR'); ${[giver.id, recipient.id, other.id].map((id) => `insert into public.group_members (group_id,user_id,status,participating,joined_at,membership_generation) values ('${groupId}','${id}','joined',true,clock_timestamp(),1);`).join(" ")}`,
+    );
+    await mailpitLogin(page, giver.email);
+    await page.goto(`/groups/${groupId}`);
+    await expect(
+      page.getByRole("link", { name: /Open on Cup shop/ }).first(),
+    ).toHaveAttribute("href", "https://shop.example.invalid/cup");
+    const route = `/groups/${groupId}/members/${recipient.id}/wishlist`;
+    const card = page.getByTestId("member-wishlist-item");
+    const ready = async () => {
+      await expect(
+        card.getByRole("heading", { name: "Ceramic cup", exact: true }),
+      ).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 0));
+    };
+    await before(page, route, ready, "wishlist-actions-available");
+    await page.goto(route);
+    await ready();
+    const reserve = card.getByRole("button", { name: "Reserve secretly" });
+    const copy = card.getByRole("button", { name: "Copy to my wishlist" });
+    const stamp = card.getByRole("button", { name: "Very you", exact: true });
+    expect((await reserve.boundingBox())!.y).toBeGreaterThan(
+      (await stamp.boundingBox())!.y + 64,
+    );
+    const reserveBox = (await reserve.boundingBox())!;
+    const copyBox = (await copy.boundingBox())!;
+    expect(Math.abs(copyBox.y - reserveBox.y)).toBeLessThanOrEqual(1);
+    expect(copyBox.x).toBeGreaterThan(reserveBox.x);
+    expect(reserveBox.height).toBe(48);
+    expect(copyBox.height).toBe(48);
+    await reserve.hover();
+    await expect(reserve).toHaveCSS("cursor", "pointer");
+    await copy.hover();
+    await expect(copy).toHaveCSS("cursor", "pointer");
+    await page.mouse.move(0, 0);
+    await expect(reserve).toHaveCSS("background-color", "rgb(255, 90, 54)");
+    await expect(copy).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(
+      card.getByRole("link", { name: /Open on Cup shop/ }),
+    ).toHaveAttribute("href", "https://shop.example.invalid/cup");
+    await expect(
+      card.getByRole("link", { name: /Open on Cup shop/ }).locator(".."),
+    ).toContainText("Cup shop");
+    await expect(card.locator(".reaction-stamps")).toHaveCSS(
+      "border-top-width",
+      "0px",
+    );
+    await capture(page, "wishlist-actions-available-after");
+    await reserve.click();
+    const badge = card.locator('[data-reservation-badge="yours"]');
+    await expect(badge).toBeVisible();
+    await expect(badge).toContainText("Reserved by you");
+    await expect(badge).toHaveCSS("background-color", "rgb(198, 240, 98)");
+    await expect(badge.locator("..")).toHaveClass(/absolute/);
+    await expect(
+      card.getByRole("button", { name: "Release reservation" }),
+    ).toBeEnabled();
+    await before(page, route, ready, "wishlist-actions-yours");
+    const beforeOrigin = process.env.E2E_PUBLIC_BEFORE_ORIGIN;
+    if (beforeOrigin) {
+      await card.getByRole("button", { name: "Release reservation" }).click();
+      await capture(page, "wishlist-release-before");
+      await page.getByRole("button", { name: "Keep it", exact: true }).click();
+    }
+    await page.goto(route);
+    await ready();
+    await capture(page, "wishlist-actions-yours-after");
+    const release = card.getByRole("button", { name: "Release reservation" });
+    await release.click();
+    const dialog = page.getByRole("dialog", {
+      name: "Release your reservation?",
+    });
+    await expect(
+      dialog.getByRole("button", { name: "Keep reservation" }),
+    ).toBeFocused();
+    expect(await dialog.evaluate((el) => Boolean(el.closest("article")))).toBe(
+      false,
+    );
+    const modalBox = (await dialog.boundingBox())!;
+    if (test.info().project.name === "mobile")
+      expect(modalBox.y + modalBox.height).toBe(page.viewportSize()!.height);
+    else expect(modalBox.width).toBeLessThan(600);
+    await capture(page, "wishlist-release-after");
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[role="dialog"]')
+          .withTags(["wcag2a", "wcag2aa"])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(release).toBeFocused();
+    expect(
+      runStackSql(
+        `select count(*) from public.group_item_reservations where group_id='${groupId}' and status='active';`,
+      ).trim(),
+    ).toBe("1");
+    await release.click();
+    await dialog
+      .getByRole("button", { name: "Release reservation", exact: true })
+      .click();
+    await expect(dialog).toBeHidden();
+    await expect(
+      card.getByRole("button", { name: "Reserve secretly" }),
+    ).toBeEnabled();
+    expect(
+      runStackSql(
+        `select count(*) from public.group_item_reservations where group_id='${groupId}' and status='active';`,
+      ).trim(),
+    ).toBe("0");
+    runStackSql(
+      withIdentity(
+        other.id,
+        `select public.reserve_group_item('${groupId}','${itemId}');`,
+      ),
+    );
+    await before(page, route, ready, "wishlist-actions-other");
+    await page.goto(route);
+    await ready();
+    await expect(
+      card.getByText("Someone’s on it", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      card.getByRole("button", {
+        name: /Reserve secretly|Release reservation/,
+      }),
+    ).toHaveCount(0);
+    await expect(copy).toBeEnabled();
+    expect(await card.textContent()).not.toContain("Another friend");
+    await capture(page, "wishlist-actions-other-after");
+    await copy.click();
+    const copied = card.getByTestId("copy-cat");
+    await expect(copied).toBeVisible();
+    await expect(copied).toContainText("Copy Cat");
+    await expect
+      .poll(() =>
+        copied
+          .locator("img")
+          .evaluate(
+            (img) =>
+              (img as HTMLImageElement).complete &&
+              (img as HTMLImageElement).naturalWidth > 0,
+          ),
+      )
+      .toBe(true);
+    const stickerBox = (await copied.boundingBox())!;
+    const cardBox = (await card.boundingBox())!;
+    expect(stickerBox.x + stickerBox.width).toBeGreaterThan(
+      cardBox.x + cardBox.width,
+    );
+    expect(stickerBox.y).toBeLessThan(cardBox.y - 12);
+    expect(stickerBox.x + stickerBox.width).toBeGreaterThan(
+      cardBox.x + cardBox.width + 12,
+    );
+    await expect(copied).toHaveCSS("rotate", "-25deg");
+    await expect(
+      card.getByRole("button", { name: "Copy to my wishlist" }),
+    ).toHaveCount(0);
+    await expect(
+      card.getByRole("status").filter({ hasText: "Copied to your wishlist" }),
+    ).toHaveClass("sr-only");
+    // Keep the sticky navigation at its normal top position in full-page proof.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await capture(page, "wishlist-actions-copied-after");
+    if (process.env.E2E_INTERACTION_EVIDENCE_DIR)
+      await copied.screenshot({
+        path: path.join(
+          process.env.E2E_INTERACTION_EVIDENCE_DIR,
+          `copy-cat-${test.info().project.name}.png`,
+        ),
+      });
+    await page.goto("/wishlist");
+    await page.goto(route);
+    await expect(copied).toBeVisible();
+    await page.reload();
+    await expect(copied).toBeVisible();
+    expect(
+      runStackSql(
+        `select count(*) from public.wishlist_items where owner_id='${giver.id}' and copied_from_item_id='${itemId}';`,
+      ).trim(),
+    ).toBe("1");
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-testid="member-wishlist-item"]')
+          .withTags(["wcag2a", "wcag2aa"])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+    // A copy belongs only to its copier; another member still gets the action.
+    await page.context().clearCookies();
+    await mailpitLogin(page, other.email);
+    await page.goto(route);
+    await expect(
+      card.getByRole("button", { name: "Copy to my wishlist" }),
+    ).toBeEnabled();
+    // Removing the fixture's own copy permits copying it again on a fresh visit.
+    runStackSql(
+      withIdentity(
+        giver.id,
+        `delete from public.wishlist_items where owner_id='${giver.id}' and copied_from_item_id='${itemId}';`,
+      ),
+    );
+    await page.context().clearCookies();
+    await mailpitLogin(page, giver.email);
+    await page.goto(route);
+    await expect(
+      card.getByRole("button", { name: "Copy to my wishlist" }),
+    ).toBeEnabled();
+    // The recipient's own route retains the established redirect and never
+    // exposes the private coordination controls or confirmation.
+    await page.context().clearCookies();
+    await mailpitLogin(page, recipient.email);
+    await page.goto(route);
+    await expect(page).toHaveURL(/\/wishlist$/);
+    await expect(
+      page.getByRole("button", {
+        name: /Reserve secretly|Release reservation/,
+      }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 });

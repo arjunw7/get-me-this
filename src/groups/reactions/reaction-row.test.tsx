@@ -20,7 +20,7 @@ describe("ReactionRow", () => {
   it("shows the approved zero-reaction copy and the three labeled choices", () => {
     render(<ReactionRow summary={summary()} onReact={vi.fn()} />);
 
-    expect(screen.getByText("Be the first to react")).toBeTruthy();
+    expect(screen.getByText("Be the first to react")).toHaveClass("sr-only");
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.getByRole("button", { name: "Very you" })).toBeTruthy();
     expect(
@@ -41,6 +41,7 @@ describe("ReactionRow", () => {
     );
 
     expect(screen.getByRole("status").textContent).toBe("3 reactions");
+    expect(screen.getByRole("status")).toHaveClass("sr-only");
     expect(
       screen
         .getByRole("button", { name: /Questionable, but supported/ })

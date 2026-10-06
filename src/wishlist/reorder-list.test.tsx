@@ -390,8 +390,8 @@ describe("WishlistItemsPanel", () => {
     );
     await user.click(screen.getByRole("button", { name: "Delete item" }));
 
-    expect(refresh).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "We couldn’t confirm whether the item was removed.",
     );
     expect(screen.getAllByRole("listitem")).toHaveLength(2);

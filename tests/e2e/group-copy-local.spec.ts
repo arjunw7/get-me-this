@@ -125,7 +125,10 @@ test("a joined member copies a friend's item into their own wishlist", async ({
     await expect(card.getByRole("status")).toContainText(
       "Copied to your wishlist",
     );
-    await expect(copyButton).toBeDisabled();
+    await expect(copyButton).toHaveCount(0);
+    await expect(
+      card.getByRole("img", { name: "Copy Cat — copied to your wishlist" }),
+    ).toBeVisible();
 
     // --- the copied item appears in the copier's own wishlist --------------
     await page.goto("/wishlist");
@@ -146,24 +149,22 @@ test("a joined member copies a friend's item into their own wishlist", async ({
 
     // --- the already-copied state ------------------------------------------
     await page.goto(`/groups/${groupId}/members/${friendId}/wishlist`);
-    // The affordance is a real submit control: focusable with visible
-    // focus in the tab order (the activation mechanics are covered by the
-    // component tests).
-    const alreadyButton = card.getByTestId("copy-to-wishlist");
-    // Hydration may still be swapping the server-rendered node when the
-    // page settles; retry until the focus sticks.
-    await expect(async () => {
-      await alreadyButton.focus();
-      await expect(alreadyButton).toBeFocused();
-    }).toPass({ timeout: 15_000 });
-    await alreadyButton.click();
-    await expect(card.getByRole("status")).toContainText(
-      "Already in your wishlist",
-    );
-    await expect(alreadyButton).toBeEnabled();
+    // A current copy is a persistent confirmation, not a repeat-submit action.
+    const sticker = card.getByRole("img", {
+      name: "Copy Cat — copied to your wishlist",
+    });
+    await expect(sticker).toBeVisible();
+    await expect(card.getByTestId("copy-to-wishlist")).toHaveCount(0);
+    await page.reload();
+    await expect(sticker).toBeVisible();
+    await expect(card.getByTestId("copy-to-wishlist")).toHaveCount(0);
+    expect(
+      runStackSql(
+        `select count(*) from public.wishlist_items where owner_id='${copierId}'::uuid and copied_from_item_id=(select id from public.wishlist_items where owner_id='${friendId}'::uuid and title='Copy-test kettle');`,
+      ).trim(),
+    ).toBe("1");
 
-    // Accessible at the rendered state (populated friend wishlist with the
-    // copy affordance and the already-copied report).
+    // Keep the populated read-only confirmation accessible.
     const axe = await new AxeBuilder({ page }).analyze();
     expect(axe.violations).toEqual([]);
 
