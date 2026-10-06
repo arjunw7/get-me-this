@@ -9,10 +9,11 @@ import {
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { ActionSpinner } from "../action-spinner";
 
 const ERROR_TEXT = "That didn't go through. Try again.";
 const buttonClass =
-  "flex min-h-12 w-full items-center justify-center rounded-control border-2 border-outline-strong px-4 font-display text-sm font-bold transition-transform duration-100 motion-reduce:transition-none disabled:cursor-wait disabled:opacity-60";
+  "flex min-h-12 w-full items-center justify-center gap-2 rounded-control border-2 border-outline-strong px-4 font-display text-sm font-bold transition-transform duration-100 motion-reduce:transition-none cursor-pointer disabled:cursor-default disabled:opacity-60";
 
 /** Confirmed private coordination only; the recipient never receives these controls. */
 export function ReserveAction({
@@ -129,7 +130,8 @@ export function ReserveAction({
       className={presentation === "gifting" ? "pt-3" : "mt-3"}
       aria-busy={isPending}
     >
-      {viewerState !== "unreserved" ? (
+      {viewerState !== "unreserved" &&
+      !(secondaryAction && viewerState === "yours") ? (
         <p
           className="mb-2 text-sm font-semibold text-content-secondary"
           role="status"
@@ -140,7 +142,7 @@ export function ReserveAction({
       <div
         className={
           secondaryAction
-            ? `grid gap-2 ${viewerState === "other" ? "grid-cols-1" : "grid-cols-2"}`
+            ? `wishlist-item-actions grid gap-2 ${viewerState === "other" ? "grid-cols-1" : "grid-cols-2"}`
             : undefined
         }
       >
@@ -173,6 +175,7 @@ export function ReserveAction({
             }
             className={`${buttonClass} bg-action-primary text-content-primary hover:-translate-y-0.5 active:translate-y-0.5 ${secondaryAction ? "h-12 px-2 leading-tight" : ""}`}
           >
+            {isPending ? <ActionSpinner /> : null}
             {isPending ? "Reserving…" : "Reserve secretly"}
           </button>
         ) : null}
@@ -252,6 +255,7 @@ export function ReserveAction({
                     onClick={release}
                     className={`${buttonClass} bg-action-primary text-content-primary`}
                   >
+                    {isPending ? <ActionSpinner /> : null}
                     {isPending ? "Releasing…" : "Release reservation"}
                   </button>
                 </div>

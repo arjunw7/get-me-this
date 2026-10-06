@@ -127,3 +127,11 @@ These are user-requested design extensions. Existing visual baselines are not si
 ### Member wishlist follow-up — 2026-10-07
 
 The user requested a preview of Reserve secretly and Copy to my wishlist side by side below the stamps. Both actions retain 48px height, with readable wrapping at mobile widths. Reservation status remains above the row; when someone else has reserved, Copy occupies the available row. The viewer's current saved copies initialize the disabled Copied to your wishlist state on return visits, using an owner-scoped authenticated read only. Deleting the copied item makes copying available again.
+
+### Member and group card refinements — 2026-10-07
+
+The user approved the same quiet Original store link beside the group-card retailer/price; each opens the saved external source URL. On member views, Reserved by you uses the group's green image badge instead of a second status below the reactions. Available reserve/copy actions show a pointer; pending actions show a spinner and saving label with repeat submission disabled. A successful or already-present copy replaces the copy CTA with an original Copy Cat sticker and an accessible confirmation. This presentation persists from the viewer's current owner-scoped copied state on return visits. The sticker remains a noninteractive confirmation, not another action.
+
+Store-link copy uses Open on <saved retailer name> ↗ when the trimmed saved name is present, and Open link ↗ otherwise; no host-name guess is used as the link label. The external-link warning remains in the accessible name. The user revised the artwork to a realistic innocent cat face with straight bold Copy Cat lettering overflowing the lower face, integrated into the sticker. The transparent generated asset is public/stickers/copy-cat-face.png; no body or pointing paw remains.
+
+The final Copy Cat sticker sits at the card's top-right corner, rotated 25° counterclockwise and extending slightly past the right and top edges. Its white die-cut outline is doubled for contrast. It does not intercept clicks. Card images keep their rounded clipping while the sticker can overflow; the remaining reserve/release action uses the full row after copying. Mobile overflow must stay within the page gutter.

@@ -707,6 +707,10 @@ test("member wishlist actions keep gifting private and confirm releases", async 
       `insert into public.groups (id,name,occasion,occasion_at,time_zone,mode,organizer_id,budget_amount_minor,budget_currency) values ('${groupId}','A small celebration','Birthday','2050-05-15 18:00:00+05:30','Asia/Kolkata','wishlist_only','${giver.id}',250000,'INR'); ${[giver.id, recipient.id, other.id].map((id) => `insert into public.group_members (group_id,user_id,status,participating,joined_at,membership_generation) values ('${groupId}','${id}','joined',true,clock_timestamp(),1);`).join(" ")}`,
     );
     await mailpitLogin(page, giver.email);
+    await page.goto(`/groups/${groupId}`);
+    await expect(
+      page.getByRole("link", { name: /Open on Cup shop/ }).first(),
+    ).toHaveAttribute("href", "https://shop.example.invalid/cup");
     const route = `/groups/${groupId}/members/${recipient.id}/wishlist`;
     const card = page.getByTestId("member-wishlist-item");
     const ready = async () => {
@@ -730,13 +734,18 @@ test("member wishlist actions keep gifting private and confirm releases", async 
     expect(copyBox.x).toBeGreaterThan(reserveBox.x);
     expect(reserveBox.height).toBe(48);
     expect(copyBox.height).toBe(48);
+    await reserve.hover();
+    await expect(reserve).toHaveCSS("cursor", "pointer");
+    await copy.hover();
+    await expect(copy).toHaveCSS("cursor", "pointer");
+    await page.mouse.move(0, 0);
     await expect(reserve).toHaveCSS("background-color", "rgb(255, 90, 54)");
     await expect(copy).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await expect(
-      card.getByRole("link", { name: /original page/ }),
+      card.getByRole("link", { name: /Open on Cup shop/ }),
     ).toHaveAttribute("href", "https://shop.example.invalid/cup");
     await expect(
-      card.getByRole("link", { name: /original page/ }).locator(".."),
+      card.getByRole("link", { name: /Open on Cup shop/ }).locator(".."),
     ).toContainText("Cup shop");
     await expect(card.locator(".reaction-stamps")).toHaveCSS(
       "border-top-width",
@@ -744,9 +753,11 @@ test("member wishlist actions keep gifting private and confirm releases", async 
     );
     await capture(page, "wishlist-actions-available-after");
     await reserve.click();
-    await expect(
-      card.getByText("Reserved by you", { exact: true }),
-    ).toBeVisible();
+    const badge = card.locator('[data-reservation-badge="yours"]');
+    await expect(badge).toBeVisible();
+    await expect(badge).toContainText("Reserved by you");
+    await expect(badge).toHaveCSS("background-color", "rgb(198, 240, 98)");
+    await expect(badge.locator("..")).toHaveClass(/absolute/);
     await expect(
       card.getByRole("button", { name: "Release reservation" }),
     ).toBeEnabled();
@@ -826,21 +837,46 @@ test("member wishlist actions keep gifting private and confirm releases", async 
     expect(await card.textContent()).not.toContain("Another friend");
     await capture(page, "wishlist-actions-other-after");
     await copy.click();
-    const copied = card.getByRole("button", {
-      name: "Copied to your wishlist",
-      exact: true,
-    });
-    await expect(copied).toBeDisabled();
-    await expect(copied).toContainText("✓");
+    const copied = card.getByTestId("copy-cat");
+    await expect(copied).toBeVisible();
+    await expect(copied).toContainText("Copy Cat");
+    await expect
+      .poll(() =>
+        copied
+          .locator("img")
+          .evaluate(
+            (img) =>
+              (img as HTMLImageElement).complete &&
+              (img as HTMLImageElement).naturalWidth > 0,
+          ),
+      )
+      .toBe(true);
+    const stickerBox = (await copied.boundingBox())!;
+    const cardBox = (await card.boundingBox())!;
+    expect(stickerBox.x + stickerBox.width).toBeGreaterThan(
+      cardBox.x + cardBox.width,
+    );
+    expect(stickerBox.y).toBeLessThan(cardBox.y);
+    await expect(copied).toHaveCSS("rotate", "-25deg");
+    await expect(
+      card.getByRole("button", { name: "Copy to my wishlist" }),
+    ).toHaveCount(0);
     await expect(
       card.getByRole("status").filter({ hasText: "Copied to your wishlist" }),
     ).toHaveClass("sr-only");
     await capture(page, "wishlist-actions-copied-after");
+    if (process.env.E2E_INTERACTION_EVIDENCE_DIR)
+      await copied.screenshot({
+        path: path.join(
+          process.env.E2E_INTERACTION_EVIDENCE_DIR,
+          `copy-cat-${test.info().project.name}.png`,
+        ),
+      });
     await page.goto("/wishlist");
     await page.goto(route);
-    await expect(copied).toBeDisabled();
+    await expect(copied).toBeVisible();
     await page.reload();
-    await expect(copied).toBeDisabled();
+    await expect(copied).toBeVisible();
     expect(
       runStackSql(
         `select count(*) from public.wishlist_items where owner_id='${giver.id}' and copied_from_item_id='${itemId}';`,

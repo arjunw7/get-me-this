@@ -274,3 +274,8 @@
     display: none;
   }
 }
+
+/* A confirmed copy becomes a corner sticker, leaving one full-width action. */
+.wishlist-item-actions:has([data-copy-cat]) {
+  grid-template-columns: minmax(0, 1fr);
+}

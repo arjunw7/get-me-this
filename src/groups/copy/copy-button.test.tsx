@@ -15,7 +15,7 @@ const groupId = "00000000-0000-4000-8000-0000000000a1";
 const itemId = "00000000-0000-4000-8000-0000000000b1";
 
 describe("CopyToWishlistButton", () => {
-  it("starts disabled when the source item is already copied on a fresh visit", () => {
+  it("shows the sticker without a copy action on a fresh copied visit", () => {
     render(
       <CopyToWishlistButton
         groupId={groupId}
@@ -24,8 +24,9 @@ describe("CopyToWishlistButton", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: "Copied to your wishlist" }),
-    ).toBeDisabled();
+      screen.getByRole("img", { name: "Copy Cat — copied to your wishlist" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("renders the idle copy action with the hidden inputs", async () => {
@@ -48,11 +49,10 @@ describe("CopyToWishlistButton", () => {
       screen.getByRole("button", { name: "Copy to my wishlist" }),
     );
 
-    const button = await screen.findByRole("button", {
-      name: "Copied to your wishlist",
+    await screen.findByRole("img", {
+      name: "Copy Cat — copied to your wishlist",
     });
-    expect(button).toBeDisabled();
-    expect(button).toHaveTextContent("✓");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveClass("sr-only");
     expect(screen.getByRole("status")).toHaveTextContent(
       "Copied to your wishlist",
@@ -67,13 +67,12 @@ describe("CopyToWishlistButton", () => {
       screen.getByRole("button", { name: "Copy to my wishlist" }),
     );
 
-    expect(
-      await screen.findByRole("button", {
-        name: "Already in your wishlist",
-      }),
-    ).toBeDisabled();
+    await screen.findByRole("img", {
+      name: "Copy Cat — copied to your wishlist",
+    });
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Already in your wishlist",
+      "Copied to your wishlist",
     );
   });
 
@@ -109,13 +108,15 @@ describe("CopyToWishlistButton", () => {
     );
     const pending = screen.getByRole("button", { name: "Copying…" });
     expect(pending).toBeDisabled();
+    expect(pending.querySelector("svg.animate-spin")).toBeInTheDocument();
     const calls = copyAction.mock.calls.length;
     await userEvent.click(pending);
     expect(copyAction).toHaveBeenCalledTimes(calls);
     await act(async () => finish({ status: "success" }));
     expect(
-      screen.getByRole("button", { name: "Copied to your wishlist" }),
-    ).toBeDisabled();
+      screen.getByRole("img", { name: "Copy Cat — copied to your wishlist" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("sends the group and item ids to the server action", async () => {

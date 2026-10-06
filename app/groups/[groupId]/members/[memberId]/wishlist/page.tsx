@@ -151,6 +151,13 @@ export default async function MemberWishlistPage({
         vibe={memberVibes[memberId]}
         memberDisplayName={decision.memberDisplayName}
         items={decision.items}
+        itemReservationBadges={Object.fromEntries(
+          Object.entries(reservations).flatMap(([id, state]) =>
+            state === "yours" || state === "other"
+              ? [[id, state] as const]
+              : [],
+          ),
+        )}
         itemActions={Object.fromEntries(
           decision.items.map((item) => {
             const copy = (

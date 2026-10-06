@@ -70,10 +70,10 @@ export function MemberWishlistItemCard({
   return (
     <article
       data-testid="member-wishlist-item"
-      className={`relative flex h-full flex-col overflow-hidden rounded-[26px] border-2 bg-surface-raised ${reservedByOther ? "border-outline/25 text-content-secondary" : "border-outline-strong"} ${presentation === "gifting" ? "" : "shadow-chunk"}`}
+      className={`relative flex h-full flex-col rounded-[26px] border-2 bg-surface-raised ${reservedByOther ? "border-outline/25 text-content-secondary" : "border-outline-strong"} ${presentation === "gifting" ? "" : "shadow-chunk"}`}
     >
       <div
-        className={`relative overflow-hidden bg-surface-sunken ${presentation === "gifting" ? "aspect-[4/3]" : compact ? "aspect-square" : "aspect-[5/4]"}`}
+        className={`relative overflow-hidden rounded-t-[24px] bg-surface-sunken ${presentation === "gifting" ? "aspect-[4/3]" : compact ? "aspect-square" : "aspect-[5/4]"}`}
       >
         {item.imageUrl !== null ? (
           <CardImage src={item.imageUrl} title={item.title} />
@@ -88,9 +88,12 @@ export function MemberWishlistItemCard({
             </p>
           </>
         ) : null}
-        {presentation === "room" && reservationBadge ? (
+        {(presentation === "room" ||
+          (presentation === "browse" && reservationBadge === "yours")) &&
+        reservationBadge ? (
           <div className="absolute inset-x-3 bottom-3">
             <span
+              data-reservation-badge={reservationBadge}
               className={`inline-flex items-center gap-1 rounded-pill border-2 border-outline-strong px-2.5 py-1 text-xs font-bold ${reservationBadge === "yours" ? "bg-accent-fresh" : "bg-surface-raised"}`}
             >
               <span aria-hidden="true">
@@ -136,15 +139,19 @@ export function MemberWishlistItemCard({
               )}
             </span>
           ) : null}
-          {item.sourceUrl !== null && presentation === "browse" ? (
+          {item.sourceUrl !== null &&
+          (presentation === "browse" || presentation === "room") ? (
             <a
               href={item.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={`Open ${item.title}'s original page (opens in a new tab)`}
+              aria-label={`${item.retailer?.trim() ? `Open on ${item.retailer.trim()}` : "Open link"} for ${item.title} (opens in a new tab)`}
               className="ml-2 inline-flex min-h-touch-min items-center gap-1 font-semibold underline underline-offset-4 text-content-secondary hover:text-content-primary"
             >
-              Original store <ExternalLinkIcon className="h-4 w-4" />
+              {item.retailer?.trim()
+                ? `Open on ${item.retailer.trim()}`
+                : "Open link"}{" "}
+              <ExternalLinkIcon className="h-4 w-4" />
             </a>
           ) : null}
         </p>
@@ -204,6 +211,7 @@ export function MemberWishlistScreen({
   items,
   itemControls,
   itemActions,
+  itemReservationBadges,
 }: {
   readonly groupId: string;
   readonly groupName: string;
@@ -213,6 +221,7 @@ export function MemberWishlistScreen({
   readonly items: readonly MemberWishlistItem[];
   readonly itemControls?: Readonly<Record<string, React.ReactNode>>;
   readonly itemActions?: Readonly<Record<string, React.ReactNode>>;
+  readonly itemReservationBadges?: Readonly<Record<string, "yours" | "other">>;
 }) {
   return (
     <div
@@ -268,6 +277,7 @@ export function MemberWishlistScreen({
                 item={item}
                 groupId={groupId}
                 actions={itemActions?.[item.itemId]}
+                reservationBadge={itemReservationBadges?.[item.itemId]}
               >
                 {itemControls?.[item.itemId]}
               </MemberWishlistItemCard>
