@@ -463,6 +463,52 @@ test("room reactions have space around icons and labels and remain usable", asyn
     await wantItToo.click();
     await expect(veryYou).toHaveAttribute("aria-pressed", "false");
     await expect(wantItToo).toHaveAttribute("aria-pressed", "true");
+    // The pointer remains over the selected stamp after a click: neutral
+    // hover styling must not wash out its blue fill against the white heart.
+    await expect(wantItToo).toBeEnabled();
+    await wantItToo.hover();
+    await wantItToo.evaluate((el) =>
+      Promise.all(
+        el.getAnimations({ subtree: true }).map((motion) => motion.finished),
+      ),
+    );
+    await expect(wantItToo.locator(".reaction-stamp-ink")).toHaveCSS(
+      "background-color",
+      "rgb(46, 75, 255)",
+    );
+    await expect(wantItToo.locator("svg")).toHaveCSS(
+      "color",
+      "rgb(255, 255, 255)",
+    );
+    expect(
+      await wantItToo
+        .locator("svg")
+        .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).b),
+    ).toBeLessThan(-0.1);
+    const hoverEvidenceDir = process.env.E2E_INTERACTION_EVIDENCE_DIR;
+    if (hoverEvidenceDir) {
+      await mkdir(hoverEvidenceDir, { recursive: true });
+      await page
+        .getByRole("group", { name: "React to this item", exact: true })
+        .screenshot({
+          path: path.join(
+            hoverEvidenceDir,
+            `stamp-selected-hover-${test.info().project.name}.png`,
+          ),
+          animations: "disabled",
+        });
+    }
+    await page.mouse.move(0, 0);
+    await wantItToo.evaluate((el) =>
+      Promise.all(
+        el.getAnimations({ subtree: true }).map((motion) => motion.finished),
+      ),
+    );
+    expect(
+      await wantItToo
+        .locator("svg")
+        .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).b),
+    ).toBe(0);
     await expect(veryYou.locator(".reaction-stamp-counter")).toHaveText("0");
     await expect(wantItToo.locator(".reaction-stamp-counter")).toHaveText("1");
     await capture(page, "room-reactions-selected");
@@ -477,6 +523,13 @@ test("room reactions have space around icons and labels and remain usable", asyn
       "none",
     );
     await expect(veryYou.locator(".reaction-stamp-ring")).toBeHidden();
+    await expect(veryYou).toBeEnabled();
+    await veryYou.hover();
+    await expect(veryYou.locator("svg")).toHaveCSS("transform", "none");
+    await expect(veryYou.locator("svg")).toHaveCSS(
+      "transition-property",
+      "none",
+    );
   });
 });
 

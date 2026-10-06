@@ -160,7 +160,7 @@
     box-shadow 150ms,
     transform 150ms;
 }
-.reaction-stamp:hover:not(:disabled) .reaction-stamp-ink {
+.reaction-stamp[aria-pressed="false"]:hover:not(:disabled) .reaction-stamp-ink {
   background: var(--color-surface-sunken);
 }
 .reaction-stamp[aria-pressed="true"] .reaction-stamp-ink {
@@ -178,6 +178,13 @@
 .reaction-stamp:disabled {
   cursor: wait;
   opacity: 0.6;
+}
+.reaction-stamp svg {
+  transform: rotate(0deg);
+  transition: transform 150ms var(--ease-snap);
+}
+.reaction-stamp:hover:not(:disabled) svg {
+  transform: rotate(-8deg);
 }
 .reaction-stamp-counter {
   position: absolute;
@@ -256,6 +263,11 @@
   .reaction-stamp-count,
   .reaction-stamp-ring {
     animation: none;
+    transition: none;
+  }
+  .reaction-stamp svg,
+  .reaction-stamp:hover:not(:disabled) svg {
+    transform: none;
     transition: none;
   }
   .reaction-stamp-ring {

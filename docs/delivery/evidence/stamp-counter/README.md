@@ -32,3 +32,11 @@ No migrations are required. Rollback: revert the restoration PR.
 The initial CI run had 255 passing browser/visual cases and three failures: the two copy-to-wishlist journeys found an extra live status in the zero-reaction state, and mobile navigation measured a temporarily absent element immediately after reload. Zero-reaction copy again has no live-status role, matching the prior contract; confirmed nonzero totals still announce updates. Component regressions cover both states. The navigation check now waits for both boxes before asserting the same above-bottom-navigation geometry. No visual baselines or approved stamp appearance changed.
 
 After repair, all six targeted local browser cases pass (navigation, copy-to-wishlist and stamp reactions at both approved viewports), and `pnpm verify` passes again with 183 files / 1,793 tests. No production resources changed.
+
+## Hover follow-up (October 7, 2026)
+
+The selected heart's white icon lost contrast when neutral hover styling overrode its blue fill. A settled, enabled-hover browser regression reproduced this first: expected blue `rgb(46, 75, 255)`, received neutral `rgb(244, 236, 223)`. Neutral hover now applies only to unselected stamps, preserving all active colors.
+
+The user also approved a gentle glyph-only hover tilt. Enabled stamps rotate their SVG by -8 degrees over 150ms and return on pointer leave; circles and counters retain their existing placement. Reduced motion suppresses glyph rotation and transitions. The two approved-viewport browser cases pass with selected blue/white color assertions, settled hover/leave transform assertions, reduced-motion assertions, persisted reactions, counts and Axe checks. `pnpm verify` passed again with 183 files / 1,793 tests. No baselines changed.
+
+Focused actual-browser captures show the selected heart while hovered: [mobile](stamp-selected-hover-mobile.png) and [desktop](stamp-selected-hover-desktop.png). These are additional hovered-state evidence, separate from the original matched before/after captures.
