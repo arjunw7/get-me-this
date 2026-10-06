@@ -1,22 +1,20 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useTransition,
+  type KeyboardEvent,
+} from "react";
+import { createPortal } from "react-dom";
 
-/**
- * The minimal per-item reserve affordance for eligible viewers on the 006e
- * member-wishlist browse surface (brief 007c, pinned V18 gifting-browse
- * region). States: `Reserve gift` on an unreserved eligible item,
- * `Reserved by you` with a confirmed release on the caller's own
- * reservation, and a `Reserved` chip with no identity on an item reserved
- * by another member. Losing the atomic race surfaces friendly conflict
- * feedback; transient failure restores the prior state.
- *
- * The owner never sees any of this: the owner's own wishlist gains nothing
- * in this slice (binding zero-diff requirement).
- *
- * Touch targets are at least 44 by 44 CSS pixels; release requires
- * confirmation per the design contract; motion respects reduced motion.
- */
+const ERROR_TEXT = "That didn't go through. Try again.";
+const buttonClass =
+  "flex min-h-12 w-full items-center justify-center rounded-control border-2 border-outline-strong px-4 font-display text-sm font-bold transition-transform duration-100 motion-reduce:transition-none disabled:cursor-wait disabled:opacity-60";
+
+/** Confirmed private coordination only; the recipient never receives these controls. */
 export function ReserveAction({
   viewerState,
   onReserve,
@@ -29,122 +27,146 @@ export function ReserveAction({
   onRelease: () => Promise<"released" | "error">;
 }) {
   const [isPending, startTransition] = useTransition();
+  const submitting = useRef(false);
   const [conflict, setConflict] = useState(false);
   const [failed, setFailed] = useState(false);
   const [confirmingRelease, setConfirmingRelease] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const keep = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  const restoreFocus = useRef(false);
   const labelId = useId();
 
+  useEffect(() => {
+    if (!confirmingRelease) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    keep.current?.focus();
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [confirmingRelease]);
+  useEffect(() => {
+    if (isPending && confirmingRelease) dialog.current?.focus();
+    if (!isPending && restoreFocus.current) {
+      restoreFocus.current = false;
+      trigger.current?.focus();
+    }
+  }, [isPending, confirmingRelease]);
+
+  function close() {
+    if (submitting.current || isPending) return;
+    setConfirmingRelease(false);
+    setFailed(false);
+    trigger.current?.focus();
+  }
+  function keyboard(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+    }
+    if (event.key !== "Tab") return;
+    const buttons = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>(
+        "button:not(:disabled)",
+      ),
+    );
+    if (!buttons.length) {
+      event.preventDefault();
+      return;
+    }
+    if (document.activeElement === event.currentTarget) {
+      event.preventDefault();
+      (event.shiftKey ? buttons.at(-1) : buttons[0])?.focus();
+    } else if (event.shiftKey && document.activeElement === buttons[0]) {
+      event.preventDefault();
+      buttons.at(-1)?.focus();
+    } else if (!event.shiftKey && document.activeElement === buttons.at(-1)) {
+      event.preventDefault();
+      buttons[0]?.focus();
+    }
+  }
   function reserve() {
+    if (submitting.current) return;
+    submitting.current = true;
     setConflict(false);
     setFailed(false);
     startTransition(async () => {
-      const outcome = await onReserve();
-      if (outcome === "conflict") setConflict(true);
-      if (outcome === "error") setFailed(true);
+      try {
+        const outcome = await onReserve();
+        if (outcome === "conflict") setConflict(true);
+        if (outcome === "error") setFailed(true);
+      } catch {
+        setFailed(true);
+      } finally {
+        submitting.current = false;
+      }
     });
   }
-
   function release() {
+    if (submitting.current) return;
+    submitting.current = true;
     setFailed(false);
     startTransition(async () => {
-      const outcome = await onRelease();
-      if (outcome === "released") {
-        setConfirmingRelease(false);
-      } else {
+      try {
+        const outcome = await onRelease();
+        if (outcome === "released") {
+          restoreFocus.current = true;
+          setConfirmingRelease(false);
+        } else setFailed(true);
+      } catch {
         setFailed(true);
+      } finally {
+        submitting.current = false;
       }
     });
   }
 
   return (
     <div
-      className={presentation === "gifting" ? "mt-auto pt-2" : "mt-3"}
+      className={presentation === "gifting" ? "pt-3" : "mt-3"}
       aria-busy={isPending}
     >
-      <span id={labelId} className="sr-only">
-        Gift coordination for this item
-      </span>
-      {viewerState === "other" ? (
+      {viewerState !== "unreserved" ? (
         <p
-          className="inline-flex items-center rounded-surface border-2 border-outline-strong bg-surface-raised px-3 py-1 text-sm font-semibold text-content-secondary"
+          className="mb-2 text-sm font-semibold text-content-secondary"
           role="status"
         >
-          {presentation === "gifting" ? "Reserved by someone else" : "Reserved"}
+          {viewerState === "yours" ? "Reserved by you" : "Someone’s on it"}
         </p>
-      ) : viewerState === "yours" ? (
-        confirmingRelease ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-content-primary">
-              Release your reservation?
-            </p>
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={release}
-              className="min-h-11 rounded-pill border-2 border-outline-strong bg-action-primary px-4 text-sm font-bold text-content-primary transition-transform duration-100 motion-reduce:transition-none disabled:opacity-60"
-            >
-              Release
-            </button>
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => setConfirmingRelease(false)}
-              className="min-h-11 rounded-pill border-2 border-outline-strong bg-surface-raised px-4 text-sm font-bold text-content-primary disabled:opacity-60"
-            >
-              Keep it
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <p
-              className="text-sm font-semibold text-content-primary"
-              role="status"
-            >
-              Reserved by you
-            </p>
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              disabled={isPending}
-              onClick={() => setConfirmingRelease(true)}
-              className="min-h-11 rounded-pill border-2 border-outline-strong bg-surface-raised px-4 text-sm font-bold text-content-primary transition-transform duration-100 motion-reduce:transition-none disabled:opacity-60"
-            >
-              Release reservation
-            </button>
-          </div>
-        )
-      ) : (
+      ) : null}
+      {viewerState === "yours" ? (
         <button
+          ref={trigger}
+          type="button"
+          aria-haspopup="dialog"
+          disabled={isPending}
+          onClick={() => {
+            setFailed(false);
+            setConfirmingRelease(true);
+          }}
+          className={`${buttonClass} bg-surface-raised text-content-primary hover:bg-surface-sunken`}
+        >
+          Release reservation
+        </button>
+      ) : viewerState === "unreserved" ? (
+        <button
+          ref={trigger}
           type="button"
           disabled={isPending}
           onClick={reserve}
-          aria-describedby={conflict ? `${labelId}-conflict` : undefined}
-          className={
-            presentation === "gifting"
-              ? "flex min-h-11 w-full items-center justify-center gap-2 rounded-control border-2 border-outline-strong bg-surface-raised px-3 text-sm font-bold disabled:opacity-60"
-              : "min-h-11 rounded-pill border-2 border-outline-strong bg-action-primary px-4 text-sm font-bold text-content-primary transition-transform duration-100 motion-reduce:transition-none disabled:opacity-60"
+          aria-describedby={
+            conflict
+              ? `${labelId}-conflict`
+              : failed
+                ? `${labelId}-error`
+                : undefined
           }
+          className={`${buttonClass} bg-action-primary text-content-primary hover:-translate-y-0.5 active:translate-y-0.5`}
         >
-          {presentation === "gifting" ? (
-            <>
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <rect x="4" y="10" width="16" height="11" rx="2" />
-                <path d="M8 10V6a4 4 0 0 1 8 0v4" />
-              </svg>
-              Reserve secretly
-            </>
-          ) : (
-            "Reserve gift"
-          )}
+          {isPending ? "Reserving…" : "Reserve secretly"}
         </button>
-      )}
+      ) : null}
       {conflict ? (
         <p
           id={`${labelId}-conflict`}
@@ -154,14 +176,79 @@ export function ReserveAction({
           Someone beat you to it
         </p>
       ) : null}
-      {failed ? (
+      {failed && !confirmingRelease ? (
         <p
-          className="mt-2 text-sm font-semibold text-content-secondary"
+          id={`${labelId}-error`}
           role="alert"
+          className="mt-2 text-sm font-semibold text-feedback-error"
         >
-          That didn&apos;t go through. Try again.
+          {ERROR_TEXT}
         </p>
       ) : null}
+      {confirmingRelease
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[100] flex items-end justify-center bg-content-primary/40 sm:items-center sm:p-6"
+              onClick={(event) => {
+                if (event.target === event.currentTarget) close();
+              }}
+            >
+              <div
+                ref={dialog}
+                tabIndex={-1}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={`${labelId}-title`}
+                aria-describedby={`${labelId}-description`}
+                aria-busy={isPending}
+                onKeyDown={keyboard}
+                className="relative max-h-[88dvh] w-full overflow-y-auto rounded-t-surface-xl border-2 border-outline-strong bg-surface-page p-5 pb-8 shadow-chunk-lg sm:max-w-md sm:rounded-surface-xl sm:pb-6"
+              >
+                <h2
+                  id={`${labelId}-title`}
+                  className="font-display text-2xl font-extrabold leading-tight"
+                >
+                  Release your reservation?
+                </h2>
+                <p
+                  id={`${labelId}-description`}
+                  className="mt-3 text-sm text-content-secondary"
+                >
+                  Other eligible group members will be able to reserve this
+                  gift. The recipient won’t be notified.
+                </p>
+                {failed ? (
+                  <p
+                    role="alert"
+                    className="mt-3 text-sm font-bold text-feedback-error"
+                  >
+                    {ERROR_TEXT}
+                  </p>
+                ) : null}
+                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    ref={keep}
+                    type="button"
+                    disabled={isPending}
+                    onClick={close}
+                    className={`${buttonClass} bg-surface-raised text-content-primary hover:bg-surface-sunken`}
+                  >
+                    Keep reservation
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={release}
+                    className={`${buttonClass} bg-action-primary text-content-primary`}
+                  >
+                    {isPending ? "Releasing…" : "Release reservation"}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

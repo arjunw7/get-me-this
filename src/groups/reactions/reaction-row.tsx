@@ -58,7 +58,7 @@ export function ReactionRow({
 
   return (
     <div
-      className={compact ? "mt-2 space-y-2" : "mt-3 space-y-2"}
+      className={compact ? "mt-2" : "mt-3"}
       role="group"
       aria-labelledby={labelId}
       aria-busy={isPending}
@@ -66,17 +66,12 @@ export function ReactionRow({
       <span id={labelId} className="sr-only">
         React to this item
       </span>
-      <span
-        className="text-sm font-semibold text-content-secondary"
-        role={total > 0 ? "status" : undefined}
-      >
+      <span className="sr-only" role={total > 0 ? "status" : undefined}>
         {total === 0
           ? "Be the first to react"
           : `${total} ${total === 1 ? "reaction" : "reactions"}`}
       </span>
-      <div
-        className={`reaction-stamps ${compact ? "border-t-2 border-outline-subtle" : ""}`}
-      >
+      <div className="reaction-stamps">
         {REACTION_KINDS.map((kind) => {
           const active = summary.viewerReaction === kind;
           const name =

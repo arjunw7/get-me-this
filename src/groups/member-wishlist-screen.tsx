@@ -134,6 +134,17 @@ export function MemberWishlistItemCard({
               )}
             </span>
           ) : null}
+          {item.sourceUrl !== null && presentation === "browse" ? (
+            <a
+              href={item.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Open ${item.title}'s original page (opens in a new tab)`}
+              className="ml-2 inline-flex min-h-touch-min items-center gap-1 font-semibold underline underline-offset-4 text-content-secondary hover:text-content-primary"
+            >
+              Original store <ExternalLinkIcon className="h-4 w-4" />
+            </a>
+          ) : null}
         </p>
         {budgetLabel ? (
           <p className="text-sm font-bold text-content-secondary">
@@ -147,8 +158,7 @@ export function MemberWishlistItemCard({
         ) : null}
         {presentation === "gifting" && !reservedByOther ? children : null}
         {item.sourceUrl !== null &&
-        presentation !== "owner" &&
-        presentation !== "room" &&
+        presentation === "gifting" &&
         !reservedByOther ? (
           <a
             href={item.sourceUrl}
@@ -167,10 +177,12 @@ export function MemberWishlistItemCard({
           </p>
         ) : null}
         {presentation !== "gifting" ? (
-          <div className="mt-auto pt-1">{children}</div>
-        ) : null}
-        {presentation === "browse" ? (
-          <CopyToWishlistButton groupId={groupId} itemId={item.itemId} />
+          <div className="mt-auto space-y-3 pt-1">
+            {children}
+            {presentation === "browse" ? (
+              <CopyToWishlistButton groupId={groupId} itemId={item.itemId} />
+            ) : null}
+          </div>
         ) : null}
       </div>
     </article>

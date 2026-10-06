@@ -152,17 +152,17 @@ export default async function MemberWishlistPage({
             return [
               item.itemId,
               <div key={item.itemId}>
+                {summary ? (
+                  <MemberItemReactions
+                    groupId={groupId}
+                    initialSummary={summary}
+                  />
+                ) : null}
                 {reservation ? (
                   <GiftingReserveControl
                     groupId={groupId}
                     itemId={item.itemId}
                     viewerState={reservation}
-                  />
-                ) : null}
-                {summary ? (
-                  <MemberItemReactions
-                    groupId={groupId}
-                    initialSummary={summary}
                   />
                 ) : null}
               </div>,

@@ -11,7 +11,11 @@ import {
   seedWishlistItems,
   stackAdminClient,
 } from "../helpers/local-stack";
-import { deleteFixtureGroupsSql, runStackSql } from "../helpers/group-stack";
+import {
+  deleteFixtureGroupsSql,
+  runStackSql,
+  withIdentity,
+} from "../helpers/group-stack";
 import { mailpitLogin } from "../helpers/mailpit-signin";
 
 test.skip(
@@ -671,5 +675,183 @@ test("created groups offer matching invite and open actions with Home below", as
     await page.goto(route);
     await home.click();
     await expect(page).toHaveURL(/\/home$/);
+  });
+});
+
+test("member wishlist actions keep gifting private and confirm releases", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const scope = new FixtureScope();
+  await scope.run(async () => {
+    const groupIds: string[] = [];
+    const giver = await person(scope, "Gifting Grace", groupIds);
+    const recipient = await person(scope, "Wishlist Wren", groupIds);
+    const other = await person(scope, "Another friend", groupIds);
+    const groupId = randomUUID();
+    groupIds.push(groupId);
+    const itemId = randomUUID();
+    await seedWishlistItems(stackAdminClient(), recipient.id, [
+      {
+        id: itemId,
+        title: "Ceramic cup",
+        source_url: "https://shop.example.invalid/cup",
+        retailer: "Cup shop",
+        original_amount_minor: "120000",
+        original_currency: "INR",
+        note: "The sky blue one.",
+        sort_position: 0,
+      },
+    ]);
+    runStackSql(
+      `insert into public.groups (id,name,occasion,occasion_at,time_zone,mode,organizer_id,budget_amount_minor,budget_currency) values ('${groupId}','A small celebration','Birthday','2050-05-15 18:00:00+05:30','Asia/Kolkata','wishlist_only','${giver.id}',250000,'INR'); ${[giver.id, recipient.id, other.id].map((id) => `insert into public.group_members (group_id,user_id,status,participating,joined_at,membership_generation) values ('${groupId}','${id}','joined',true,clock_timestamp(),1);`).join(" ")}`,
+    );
+    await mailpitLogin(page, giver.email);
+    const route = `/groups/${groupId}/members/${recipient.id}/wishlist`;
+    const card = page.getByTestId("member-wishlist-item");
+    const ready = async () => {
+      await expect(
+        card.getByRole("heading", { name: "Ceramic cup", exact: true }),
+      ).toBeVisible();
+      await page.evaluate(() => window.scrollTo(0, 0));
+    };
+    await before(page, route, ready, "wishlist-actions-available");
+    await page.goto(route);
+    await ready();
+    const reserve = card.getByRole("button", { name: "Reserve secretly" });
+    const copy = card.getByRole("button", { name: "Copy to my wishlist" });
+    const stamp = card.getByRole("button", { name: "Very you", exact: true });
+    expect((await reserve.boundingBox())!.y).toBeGreaterThan(
+      (await stamp.boundingBox())!.y + 64,
+    );
+    expect((await copy.boundingBox())!.y).toBeGreaterThan(
+      (await reserve.boundingBox())!.y,
+    );
+    await expect(reserve).toHaveCSS("background-color", "rgb(255, 90, 54)");
+    await expect(copy).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(
+      card.getByRole("link", { name: /original page/ }),
+    ).toHaveAttribute("href", "https://shop.example.invalid/cup");
+    await expect(
+      card.getByRole("link", { name: /original page/ }).locator(".."),
+    ).toContainText("Cup shop");
+    await expect(card.locator(".reaction-stamps")).toHaveCSS(
+      "border-top-width",
+      "0px",
+    );
+    await capture(page, "wishlist-actions-available-after");
+    await reserve.click();
+    await expect(
+      card.getByText("Reserved by you", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      card.getByRole("button", { name: "Release reservation" }),
+    ).toBeEnabled();
+    await before(page, route, ready, "wishlist-actions-yours");
+    const beforeOrigin = process.env.E2E_PUBLIC_BEFORE_ORIGIN;
+    if (beforeOrigin) {
+      await card.getByRole("button", { name: "Release reservation" }).click();
+      await capture(page, "wishlist-release-before");
+      await page.getByRole("button", { name: "Keep it", exact: true }).click();
+    }
+    await page.goto(route);
+    await ready();
+    await capture(page, "wishlist-actions-yours-after");
+    const release = card.getByRole("button", { name: "Release reservation" });
+    await release.click();
+    const dialog = page.getByRole("dialog", {
+      name: "Release your reservation?",
+    });
+    await expect(
+      dialog.getByRole("button", { name: "Keep reservation" }),
+    ).toBeFocused();
+    expect(await dialog.evaluate((el) => Boolean(el.closest("article")))).toBe(
+      false,
+    );
+    const modalBox = (await dialog.boundingBox())!;
+    if (test.info().project.name === "mobile")
+      expect(modalBox.y + modalBox.height).toBe(page.viewportSize()!.height);
+    else expect(modalBox.width).toBeLessThan(600);
+    await capture(page, "wishlist-release-after");
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[role="dialog"]')
+          .withTags(["wcag2a", "wcag2aa"])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(release).toBeFocused();
+    expect(
+      runStackSql(
+        `select count(*) from public.group_item_reservations where group_id='${groupId}' and status='active';`,
+      ).trim(),
+    ).toBe("1");
+    await release.click();
+    await dialog
+      .getByRole("button", { name: "Release reservation", exact: true })
+      .click();
+    await expect(dialog).toBeHidden();
+    await expect(
+      card.getByRole("button", { name: "Reserve secretly" }),
+    ).toBeEnabled();
+    expect(
+      runStackSql(
+        `select count(*) from public.group_item_reservations where group_id='${groupId}' and status='active';`,
+      ).trim(),
+    ).toBe("0");
+    runStackSql(
+      withIdentity(
+        other.id,
+        `select public.reserve_group_item('${groupId}','${itemId}');`,
+      ),
+    );
+    await before(page, route, ready, "wishlist-actions-other");
+    await page.goto(route);
+    await ready();
+    await expect(
+      card.getByText("Someone’s on it", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      card.getByRole("button", {
+        name: /Reserve secretly|Release reservation/,
+      }),
+    ).toHaveCount(0);
+    await expect(copy).toBeEnabled();
+    expect(await card.textContent()).not.toContain("Another friend");
+    await capture(page, "wishlist-actions-other-after");
+    await copy.click();
+    const copied = card.getByRole("button", {
+      name: "Copied to your wishlist",
+      exact: true,
+    });
+    await expect(copied).toBeDisabled();
+    await expect(copied).toContainText("✓");
+    await expect(
+      card.getByRole("status").filter({ hasText: "Copied to your wishlist" }),
+    ).toHaveClass("sr-only");
+    await capture(page, "wishlist-actions-copied-after");
+    expect(
+      (
+        await new AxeBuilder({ page })
+          .include('[data-testid="member-wishlist-item"]')
+          .withTags(["wcag2a", "wcag2aa"])
+          .analyze()
+      ).violations,
+    ).toEqual([]);
+    // The recipient's own route retains the established redirect and never
+    // exposes the private coordination controls or confirmation.
+    await page.context().clearCookies();
+    await mailpitLogin(page, recipient.email);
+    await page.goto(route);
+    await expect(page).toHaveURL(/\/wishlist$/);
+    await expect(
+      page.getByRole("button", {
+        name: /Reserve secretly|Release reservation/,
+      }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 });

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -39,6 +39,8 @@ describe("CopyToWishlistButton", () => {
       name: "Copied to your wishlist",
     });
     expect(button).toBeDisabled();
+    expect(button).toHaveTextContent("✓");
+    expect(screen.getByRole("status")).toHaveClass("sr-only");
     expect(screen.getByRole("status")).toHaveTextContent(
       "Copied to your wishlist",
     );
@@ -72,12 +74,35 @@ describe("CopyToWishlistButton", () => {
 
     expect(
       await screen.findByRole("button", {
-        name: "Couldn't copy — try again",
+        name: "Copy to my wishlist",
       }),
     ).toBeEnabled();
-    expect(screen.getByRole("status")).toHaveTextContent(
+    expect(screen.getByRole("alert")).toHaveTextContent(
       "Couldn't copy — try again",
     );
+  });
+
+  it("blocks repeat copies while the first request is pending", async () => {
+    let finish!: (state: { status: "success" }) => void;
+    copyAction.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    render(<CopyToWishlistButton groupId={groupId} itemId={itemId} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy to my wishlist" }),
+    );
+    const pending = screen.getByRole("button", { name: "Copying…" });
+    expect(pending).toBeDisabled();
+    const calls = copyAction.mock.calls.length;
+    await userEvent.click(pending);
+    expect(copyAction).toHaveBeenCalledTimes(calls);
+    await act(async () => finish({ status: "success" }));
+    expect(
+      screen.getByRole("button", { name: "Copied to your wishlist" }),
+    ).toBeDisabled();
   });
 
   it("sends the group and item ids to the server action", async () => {

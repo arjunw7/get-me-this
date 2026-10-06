@@ -84,7 +84,13 @@ The approved reaction UI restores the Magic Patterns Version 2 Stamp Counter con
 - Selecting the active reaction removes it.
 - Friends' items show an interactive summary and action row.
 - The user's own items show a read-only reaction summary and breakdown.
-- No reactions: `Be the first to react` for friends' items and `No reactions yet` for one's own item.
+- Interactive stamps use their individual counters without a visible total heading or divider (approved October 7, 2026); the total remains accessible to screen readers. Read-only owner summaries retain `No reactions yet`.
+
+## Member wishlist actions
+
+Approved October 7, 2026: friends' member-wishlist cards place interactive stamps above one action area. Reserve secretly is the coral primary action; Copy to my wishlist is an outlined secondary below it. The original-store link sits near the retailer and price. Reservation status sits directly above its action: Reserved by you with outlined Release reservation, or Someone’s on it without reserve/release controls. Copy remains available independently. Copy success shows one visible Copied to your wishlist ✓ confirmation; pending and failures stay beside the affected action.
+
+Release reservation uses the logout-style desktop modal/mobile bottom sheet, rendered outside the card. Keep reservation receives initial focus. The dialog explains that other eligible group members can reserve the gift and the recipient is not notified. Escape and cancellation keep the reservation; pending release blocks dismissal and repeats; errors stay in the dialog for retry. Existing authorization and anonymous coordination remain authoritative. Other gifting surfaces share these reservation state and confirmation rules; their existing card/checkout layout remains unchanged.
 
 ## Responsive application shell
 

@@ -13,7 +13,7 @@ const STATUS_LABELS: Record<CopyToWishlistState["status"], string> = {
   idle: "Copy to my wishlist",
   success: "Copied to your wishlist",
   already: "Already in your wishlist",
-  failure: "Couldn't copy — try again",
+  failure: "Copy to my wishlist",
 };
 
 /**
@@ -40,10 +40,8 @@ export function CopyToWishlistButton({
     INITIAL_STATE,
   );
 
-  const done = state.status === "success" || state.status === "already";
-
   return (
-    <div className="mt-auto flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       <form action={action} className="contents">
         <input type="hidden" name="groupId" value={groupId} />
         <input type="hidden" name="itemId" value={itemId} />
@@ -52,28 +50,26 @@ export function CopyToWishlistButton({
           disabled={pending || state.status === "success"}
           aria-busy={pending}
           data-testid="copy-to-wishlist"
-          className={`inline-flex min-h-touch-min items-center justify-center gap-2 rounded-control border-2 px-4 font-display text-label font-bold transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-default disabled:opacity-70 ${
-            state.status === "already"
-              ? "border-outline-strong bg-accent-info-soft text-content-primary"
-              : "border-outline-strong bg-action-primary text-content-primary hover:-translate-y-0.5 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none motion-reduce:transition-none"
-          }`}
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-control border-2 border-outline-strong bg-surface-raised px-4 font-display text-label font-bold transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-default disabled:opacity-70 motion-reduce:transition-none"
         >
           {pending ? "Copying…" : STATUS_LABELS[state.status]}
+          {state.status === "success" ? (
+            <span aria-hidden="true">✓</span>
+          ) : null}
         </button>
-        <p
-          aria-live="polite"
-          role="status"
-          className="min-h-[1em] text-sm font-semibold text-content-secondary"
-        >
+        <p aria-live="polite" role="status" className="sr-only">
           {state.status === "success"
             ? "Copied to your wishlist"
             : state.status === "already"
               ? "Already in your wishlist"
-              : state.status === "failure"
-                ? "Couldn't copy — try again"
-                : ""}
+              : ""}
         </p>
       </form>
+      {state.status === "failure" ? (
+        <p role="alert" className="text-sm font-semibold text-feedback-error">
+          Couldn&apos;t copy — try again
+        </p>
+      ) : null}
     </div>
   );
 }
