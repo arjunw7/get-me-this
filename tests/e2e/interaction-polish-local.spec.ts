@@ -724,9 +724,12 @@ test("member wishlist actions keep gifting private and confirm releases", async 
     expect((await reserve.boundingBox())!.y).toBeGreaterThan(
       (await stamp.boundingBox())!.y + 64,
     );
-    expect((await copy.boundingBox())!.y).toBeGreaterThan(
-      (await reserve.boundingBox())!.y,
-    );
+    const reserveBox = (await reserve.boundingBox())!;
+    const copyBox = (await copy.boundingBox())!;
+    expect(Math.abs(copyBox.y - reserveBox.y)).toBeLessThanOrEqual(1);
+    expect(copyBox.x).toBeGreaterThan(reserveBox.x);
+    expect(reserveBox.height).toBe(48);
+    expect(copyBox.height).toBe(48);
     await expect(reserve).toHaveCSS("background-color", "rgb(255, 90, 54)");
     await expect(copy).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await expect(
@@ -833,6 +836,16 @@ test("member wishlist actions keep gifting private and confirm releases", async 
       card.getByRole("status").filter({ hasText: "Copied to your wishlist" }),
     ).toHaveClass("sr-only");
     await capture(page, "wishlist-actions-copied-after");
+    await page.goto("/wishlist");
+    await page.goto(route);
+    await expect(copied).toBeDisabled();
+    await page.reload();
+    await expect(copied).toBeDisabled();
+    expect(
+      runStackSql(
+        `select count(*) from public.wishlist_items where owner_id='${giver.id}' and copied_from_item_id='${itemId}';`,
+      ).trim(),
+    ).toBe("1");
     expect(
       (
         await new AxeBuilder({ page })
@@ -841,6 +854,26 @@ test("member wishlist actions keep gifting private and confirm releases", async 
           .analyze()
       ).violations,
     ).toEqual([]);
+    // A copy belongs only to its copier; another member still gets the action.
+    await page.context().clearCookies();
+    await mailpitLogin(page, other.email);
+    await page.goto(route);
+    await expect(
+      card.getByRole("button", { name: "Copy to my wishlist" }),
+    ).toBeEnabled();
+    // Removing the fixture's own copy permits copying it again on a fresh visit.
+    runStackSql(
+      withIdentity(
+        giver.id,
+        `delete from public.wishlist_items where owner_id='${giver.id}' and copied_from_item_id='${itemId}';`,
+      ),
+    );
+    await page.context().clearCookies();
+    await mailpitLogin(page, giver.email);
+    await page.goto(route);
+    await expect(
+      card.getByRole("button", { name: "Copy to my wishlist" }),
+    ).toBeEnabled();
     // The recipient's own route retains the established redirect and never
     // exposes the private coordination controls or confirmation.
     await page.context().clearCookies();

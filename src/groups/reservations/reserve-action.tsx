@@ -20,9 +20,11 @@ export function ReserveAction({
   onReserve,
   onRelease,
   presentation = "default",
+  secondaryAction,
 }: {
   viewerState: "unreserved" | "yours" | "other";
   presentation?: "default" | "gifting";
+  secondaryAction?: React.ReactNode;
   onReserve: () => Promise<"reserved" | "conflict" | "error">;
   onRelease: () => Promise<"released" | "error">;
 }) {
@@ -135,38 +137,47 @@ export function ReserveAction({
           {viewerState === "yours" ? "Reserved by you" : "Someone’s on it"}
         </p>
       ) : null}
-      {viewerState === "yours" ? (
-        <button
-          ref={trigger}
-          type="button"
-          aria-haspopup="dialog"
-          disabled={isPending}
-          onClick={() => {
-            setFailed(false);
-            setConfirmingRelease(true);
-          }}
-          className={`${buttonClass} bg-surface-raised text-content-primary hover:bg-surface-sunken`}
-        >
-          Release reservation
-        </button>
-      ) : viewerState === "unreserved" ? (
-        <button
-          ref={trigger}
-          type="button"
-          disabled={isPending}
-          onClick={reserve}
-          aria-describedby={
-            conflict
-              ? `${labelId}-conflict`
-              : failed
-                ? `${labelId}-error`
-                : undefined
-          }
-          className={`${buttonClass} bg-action-primary text-content-primary hover:-translate-y-0.5 active:translate-y-0.5`}
-        >
-          {isPending ? "Reserving…" : "Reserve secretly"}
-        </button>
-      ) : null}
+      <div
+        className={
+          secondaryAction
+            ? `grid gap-2 ${viewerState === "other" ? "grid-cols-1" : "grid-cols-2"}`
+            : undefined
+        }
+      >
+        {viewerState === "yours" ? (
+          <button
+            ref={trigger}
+            type="button"
+            aria-haspopup="dialog"
+            disabled={isPending}
+            onClick={() => {
+              setFailed(false);
+              setConfirmingRelease(true);
+            }}
+            className={`${buttonClass} bg-surface-raised text-content-primary hover:bg-surface-sunken ${secondaryAction ? "h-12 px-2 leading-tight" : ""}`}
+          >
+            Release reservation
+          </button>
+        ) : viewerState === "unreserved" ? (
+          <button
+            ref={trigger}
+            type="button"
+            disabled={isPending}
+            onClick={reserve}
+            aria-describedby={
+              conflict
+                ? `${labelId}-conflict`
+                : failed
+                  ? `${labelId}-error`
+                  : undefined
+            }
+            className={`${buttonClass} bg-action-primary text-content-primary hover:-translate-y-0.5 active:translate-y-0.5 ${secondaryAction ? "h-12 px-2 leading-tight" : ""}`}
+          >
+            {isPending ? "Reserving…" : "Reserve secretly"}
+          </button>
+        ) : null}
+        {secondaryAction}
+      </div>
       {conflict ? (
         <p
           id={`${labelId}-conflict`}

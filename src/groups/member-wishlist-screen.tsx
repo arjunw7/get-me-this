@@ -55,6 +55,7 @@ export function MemberWishlistItemCard({
   reservedByOther = false,
   reservationBadge,
   children,
+  actions,
 }: {
   readonly item: MemberWishlistItem;
   readonly groupId: string;
@@ -64,6 +65,7 @@ export function MemberWishlistItemCard({
   readonly compact?: boolean;
   readonly reservedByOther?: boolean;
   readonly children?: React.ReactNode;
+  readonly actions?: React.ReactNode;
 }) {
   return (
     <article
@@ -179,9 +181,14 @@ export function MemberWishlistItemCard({
         {presentation !== "gifting" ? (
           <div className="mt-auto space-y-3 pt-1">
             {children}
-            {presentation === "browse" ? (
-              <CopyToWishlistButton groupId={groupId} itemId={item.itemId} />
-            ) : null}
+            {presentation === "browse"
+              ? (actions ?? (
+                  <CopyToWishlistButton
+                    groupId={groupId}
+                    itemId={item.itemId}
+                  />
+                ))
+              : null}
           </div>
         ) : null}
       </div>
@@ -196,6 +203,7 @@ export function MemberWishlistScreen({
   memberDisplayName,
   items,
   itemControls,
+  itemActions,
 }: {
   readonly groupId: string;
   readonly groupName: string;
@@ -204,6 +212,7 @@ export function MemberWishlistScreen({
   readonly memberDisplayName: string;
   readonly items: readonly MemberWishlistItem[];
   readonly itemControls?: Readonly<Record<string, React.ReactNode>>;
+  readonly itemActions?: Readonly<Record<string, React.ReactNode>>;
 }) {
   return (
     <div
@@ -255,7 +264,11 @@ export function MemberWishlistScreen({
         >
           {items.map((item) => (
             <li key={item.itemId} className="flex">
-              <MemberWishlistItemCard item={item} groupId={groupId}>
+              <MemberWishlistItemCard
+                item={item}
+                groupId={groupId}
+                actions={itemActions?.[item.itemId]}
+              >
                 {itemControls?.[item.itemId]}
               </MemberWishlistItemCard>
             </li>

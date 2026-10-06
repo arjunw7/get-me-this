@@ -1,3 +1,5 @@
+import { CopyToWishlistButton } from "@/src/groups/copy/copy-button";
+import { loadOwnCopiedItemIds } from "@/src/groups/copy/copy-read";
 import { loadGroupMemberVibes } from "@/src/groups/member-vibes-data";
 import { WishlistShellHeader } from "@/src/wishlist/wishlist-shell-header";
 import { getGroupItemReactionSnapshot } from "@/src/groups/reactions/reaction-write";
@@ -77,7 +79,8 @@ async function loadJoinedGroupFacts(
  *
  * Wishlist data comes from `member_wishlist_snapshot`; friend reaction and
  * reservation projections load only after authorization and the owner
- * redirect. No direct profile, item, or wishlist query exists, and the page
+ * redirect. Friend data comes only through authorized projections; the
+ * viewer's own copied-state read uses owner-only RLS after browse authorization. The page
  * assembles nothing through separate browser calls. When the target is the viewer themselves, the
  * route performs exactly one server-side redirect to the owner wishlist —
  * no member-wishlist region ever renders for the owner. The single
@@ -123,11 +126,14 @@ export default async function MemberWishlistPage({
     redirect("/wishlist");
   }
 
-  const [reactions, reservations, memberVibes] = await Promise.all([
-    getGroupItemReactionSnapshot(groupId, memberId),
-    loadGiftingItemStates(groupId, memberId, userId),
-    loadGroupMemberVibes(groupId),
-  ]);
+  const [reactions, reservations, memberVibes, copiedItems] = await Promise.all(
+    [
+      getGroupItemReactionSnapshot(groupId, memberId),
+      loadGiftingItemStates(groupId, memberId, userId),
+      loadGroupMemberVibes(groupId),
+      loadOwnCopiedItemIds(decision.items.map((item) => item.itemId)),
+    ],
+  );
 
   return (
     <main className="min-h-screen w-full bg-surface-page pb-40 text-content-primary lg:pb-16 lg:pl-64">
@@ -145,10 +151,35 @@ export default async function MemberWishlistPage({
         vibe={memberVibes[memberId]}
         memberDisplayName={decision.memberDisplayName}
         items={decision.items}
+        itemActions={Object.fromEntries(
+          decision.items.map((item) => {
+            const copy = (
+              <CopyToWishlistButton
+                groupId={groupId}
+                itemId={item.itemId}
+                initiallyCopied={copiedItems.has(item.itemId)}
+                inline
+              />
+            );
+            const reservation = reservations[item.itemId];
+            return [
+              item.itemId,
+              reservation ? (
+                <GiftingReserveControl
+                  groupId={groupId}
+                  itemId={item.itemId}
+                  viewerState={reservation}
+                  secondaryAction={copy}
+                />
+              ) : (
+                copy
+              ),
+            ];
+          }),
+        )}
         itemControls={Object.fromEntries(
           decision.items.map((item) => {
             const summary = reactions.find((row) => row.itemId === item.itemId);
-            const reservation = reservations[item.itemId];
             return [
               item.itemId,
               <div key={item.itemId}>
@@ -156,13 +187,6 @@ export default async function MemberWishlistPage({
                   <MemberItemReactions
                     groupId={groupId}
                     initialSummary={summary}
-                  />
-                ) : null}
-                {reservation ? (
-                  <GiftingReserveControl
-                    groupId={groupId}
-                    itemId={item.itemId}
-                    viewerState={reservation}
                   />
                 ) : null}
               </div>,

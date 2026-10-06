@@ -31,13 +31,20 @@ const STATUS_LABELS: Record<CopyToWishlistState["status"], string> = {
 export function CopyToWishlistButton({
   groupId,
   itemId,
+  initiallyCopied = false,
+  inline = false,
 }: {
   readonly groupId: string;
   readonly itemId: string;
+  readonly initiallyCopied?: boolean;
+  readonly inline?: boolean;
 }) {
-  const [state, action, pending] = useActionState(
+  const [state, action, pending] = useActionState<
+    CopyToWishlistState,
+    FormData
+  >(
     copyToMyWishlistAction,
-    INITIAL_STATE,
+    initiallyCopied ? { status: "success" } : INITIAL_STATE,
   );
 
   return (
@@ -47,14 +54,18 @@ export function CopyToWishlistButton({
         <input type="hidden" name="itemId" value={itemId} />
         <button
           type="submit"
-          disabled={pending || state.status === "success"}
+          disabled={
+            pending || state.status === "success" || state.status === "already"
+          }
           aria-busy={pending}
           data-testid="copy-to-wishlist"
-          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-control border-2 border-outline-strong bg-surface-raised px-4 font-display text-label font-bold transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-default disabled:opacity-70 motion-reduce:transition-none"
+          className={`inline-flex h-12 min-h-12 w-full items-center justify-center gap-2 rounded-control border-2 border-outline-strong bg-surface-raised px-4 font-display text-label font-bold transition-[transform,box-shadow] duration-[var(--duration-press)] ease-snap hover:bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-default disabled:opacity-70 motion-reduce:transition-none ${inline ? "px-2 text-sm leading-tight" : ""}`}
         >
           {pending ? "Copying…" : STATUS_LABELS[state.status]}
           {state.status === "success" ? (
-            <span aria-hidden="true">✓</span>
+            <span aria-hidden="true" className="shrink-0">
+              ✓
+            </span>
           ) : null}
         </button>
         <p aria-live="polite" role="status" className="sr-only">

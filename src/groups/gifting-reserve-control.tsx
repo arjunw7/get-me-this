@@ -10,10 +10,12 @@ export function GiftingReserveControl({
   groupId,
   itemId,
   viewerState,
+  secondaryAction,
 }: {
   groupId: string;
   itemId: string;
   viewerState: ReservationViewerState;
+  secondaryAction?: React.ReactNode;
 }) {
   return (
     <ReserveAction
@@ -21,6 +23,7 @@ export function GiftingReserveControl({
       onReserve={() => reserveGiftingItem(groupId, itemId)}
       onRelease={() => releaseGiftingItem(groupId, itemId)}
       presentation="gifting"
+      secondaryAction={secondaryAction}
     />
   );
 }

@@ -123,3 +123,7 @@ The user approved these changes beyond the frozen prototype's native controls:
 - Wishlist reorder handles without visible up/down buttons. Pointer/touch dragging and keyboard pickup/move/drop/cancel must persist through the existing order-write contract. Drag feedback must not shift list geometry.
 
 These are user-requested design extensions. Existing visual baselines are not silently regenerated to accept them.
+
+### Member wishlist follow-up — 2026-10-07
+
+The user requested a preview of Reserve secretly and Copy to my wishlist side by side below the stamps. Both actions retain 48px height, with readable wrapping at mobile widths. Reservation status remains above the row; when someone else has reserved, Copy occupies the available row. The viewer's current saved copies initialize the disabled Copied to your wishlist state on return visits, using an owner-scoped authenticated read only. Deleting the copied item makes copying available again.

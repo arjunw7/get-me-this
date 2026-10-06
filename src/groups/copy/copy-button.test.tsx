@@ -15,6 +15,19 @@ const groupId = "00000000-0000-4000-8000-0000000000a1";
 const itemId = "00000000-0000-4000-8000-0000000000b1";
 
 describe("CopyToWishlistButton", () => {
+  it("starts disabled when the source item is already copied on a fresh visit", () => {
+    render(
+      <CopyToWishlistButton
+        groupId={groupId}
+        itemId={itemId}
+        initiallyCopied
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Copied to your wishlist" }),
+    ).toBeDisabled();
+  });
+
   it("renders the idle copy action with the hidden inputs", async () => {
     copyAction.mockResolvedValue({ status: "idle" });
 
@@ -58,7 +71,7 @@ describe("CopyToWishlistButton", () => {
       await screen.findByRole("button", {
         name: "Already in your wishlist",
       }),
-    ).toBeEnabled();
+    ).toBeDisabled();
     expect(screen.getByRole("status")).toHaveTextContent(
       "Already in your wishlist",
     );
