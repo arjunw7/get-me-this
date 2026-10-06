@@ -68,7 +68,7 @@ export function ReactionRow({
       </span>
       <span
         className="text-sm font-semibold text-content-secondary"
-        role="status"
+        role={total > 0 ? "status" : undefined}
       >
         {total === 0
           ? "Be the first to react"

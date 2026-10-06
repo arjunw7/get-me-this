@@ -26,3 +26,9 @@ The before server was built from exact `origin/main`; the after server was built
 No Railway PR preview is configured in the current checks, so no preview URL is available. Local browser proof uses production builds. No production resources were modified or deployed. No Magic Patterns mock data, avatar fixtures, editor artifacts, routing, animation dependency, or preview plumbing were shipped. The original SVG appearance was adapted as a visual specification using existing semantic tokens and CSS.
 
 No migrations are required. Rollback: revert the restoration PR.
+
+## CI follow-up (October 7, 2026)
+
+The initial CI run had 255 passing browser/visual cases and three failures: the two copy-to-wishlist journeys found an extra live status in the zero-reaction state, and mobile navigation measured a temporarily absent element immediately after reload. Zero-reaction copy again has no live-status role, matching the prior contract; confirmed nonzero totals still announce updates. Component regressions cover both states. The navigation check now waits for both boxes before asserting the same above-bottom-navigation geometry. No visual baselines or approved stamp appearance changed.
+
+After repair, all six targeted local browser cases pass (navigation, copy-to-wishlist and stamp reactions at both approved viewports), and `pnpm verify` passes again with 183 files / 1,793 tests. No production resources changed.

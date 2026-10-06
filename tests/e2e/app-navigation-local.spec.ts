@@ -125,9 +125,17 @@ test("responsive navigation connects real destinations and Home reflects saved i
     await expect(add).toHaveCount(1);
     if (page.viewportSize()!.width < 1024) {
       await expect(add).toHaveCSS("position", "fixed");
-      const actionBox = await add.boundingBox();
-      const navBox = await navigation.boundingBox();
-      expect(actionBox!.y + actionBox!.height).toBeLessThan(navBox!.y);
+      // Reload hydration can briefly replace the navigation between locator
+      // resolution and measurement. Wait for both boxes and the same geometry.
+      await expect
+        .poll(async () => {
+          const actionBox = await add.boundingBox();
+          const navBox = await navigation.boundingBox();
+          return Boolean(
+            actionBox && navBox && actionBox.y + actionBox.height < navBox.y,
+          );
+        })
+        .toBe(true);
     }
     await add.click();
     await expect(page).toHaveURL(/\/wishlist\/items\/new$/);

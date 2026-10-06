@@ -21,6 +21,7 @@ describe("ReactionRow", () => {
     render(<ReactionRow summary={summary()} onReact={vi.fn()} />);
 
     expect(screen.getByText("Be the first to react")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
     expect(screen.getByRole("button", { name: "Very you" })).toBeTruthy();
     expect(
       screen.getByRole("button", { name: /Questionable, but supported/ }),
@@ -28,7 +29,7 @@ describe("ReactionRow", () => {
     expect(screen.getByRole("button", { name: "Want it too" })).toBeTruthy();
   });
 
-  it("marks the caller's active reaction as pressed", () => {
+  it("marks the caller's active reaction as pressed and announces confirmed totals", () => {
     render(
       <ReactionRow
         summary={summary({
@@ -39,6 +40,7 @@ describe("ReactionRow", () => {
       />,
     );
 
+    expect(screen.getByRole("status").textContent).toBe("3 reactions");
     expect(
       screen
         .getByRole("button", { name: /Questionable, but supported/ })
