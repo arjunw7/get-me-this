@@ -75,7 +75,7 @@ The saved choice drives the person’s wishlist and profile accents wherever the
 
 ## Reactions
 
-The approved reaction UI follows a familiar social-post model, not rubber stamps or chips.
+The approved reaction UI restores the Magic Patterns Version 2 Stamp Counter concept (approved October 6, 2026): three round stamps with hand-drawn sparkle, question and heart glyphs, slight tilts, chunky shadows, and individual corner counters. Selected stamps use coral, yellow and blue semantic accents respectively. Keep roomy spacing and readable captions. A brief press/bounce, outward ring and rolling counter respect reduced motion. Counts come from confirmed reaction data; do not display fabricated friend avatars. This approval supersedes the Version 18 social-post treatment for reactions only.
 
 - One reaction per user per item.
 - Choices: `Very you`, `Questionable`, and `Want it too`.

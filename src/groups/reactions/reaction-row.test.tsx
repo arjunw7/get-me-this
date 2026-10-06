@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ReactionRow } from "./reaction-row";
 import type { ReactionSummaryRow } from "./types";
@@ -44,8 +44,54 @@ describe("ReactionRow", () => {
         .getByRole("button", { name: /Questionable, but supported/ })
         .getAttribute("aria-pressed"),
     ).toBe("true");
-    expect(screen.getByText(/2 Questionable/)).toBeTruthy();
+    expect(
+      within(
+        screen.getByRole("button", { name: "Questionable, but supported" }),
+      ).getByText("2"),
+    ).toBeTruthy();
   });
+
+  it.each([false, true])(
+    "keeps each stamp counter tied to its reaction (compact=%s)",
+    (compact) => {
+      const { rerender } = render(
+        <ReactionRow
+          compact={compact}
+          summary={summary({
+            counts: { veryYou: 4, questionable: 2, wantItToo: 9 },
+          })}
+          onReact={vi.fn()}
+        />,
+      );
+      for (const [name, count] of [
+        ["Very you", "4"],
+        ["Questionable, but supported", "2"],
+        ["Want it too", "9"],
+      ]) {
+        expect(
+          within(screen.getByRole("button", { name })).getByText(count),
+        ).toBeTruthy();
+      }
+      rerender(
+        <ReactionRow
+          compact={compact}
+          summary={summary({
+            counts: { veryYou: 5, questionable: 2, wantItToo: 9 },
+            viewerReaction: "very_you",
+          })}
+          onReact={vi.fn()}
+        />,
+      );
+      expect(
+        within(screen.getByRole("button", { name: "Very you" })).getByText("5"),
+      ).toBeTruthy();
+      expect(
+        screen
+          .getByRole("button", { name: "Very you" })
+          .getAttribute("aria-pressed"),
+      ).toBe("true");
+    },
+  );
 
   it("calls onReact with the chosen kind for a fresh reaction", async () => {
     const onReact = vi.fn().mockResolvedValue(undefined);

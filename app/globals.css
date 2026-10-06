@@ -107,3 +107,158 @@
     box-shadow: 4px 4px 0 var(--color-content-primary);
   }
 }
+
+/* Restored Stamp Counter concept: confirmed data supplies every counter. */
+.reaction-stamps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-width: 24rem;
+  padding: 1rem 0.25rem 0.5rem;
+}
+.reaction-stamp-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.reaction-stamp {
+  --stamp-fill: var(--color-action-primary);
+  --stamp-tilt: -3deg;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.reaction-stamp[data-kind="questionable"] {
+  --stamp-fill: var(--color-accent-highlight);
+  --stamp-tilt: 2deg;
+}
+.reaction-stamp[data-kind="want_it_too"] {
+  --stamp-fill: var(--color-accent-info);
+  --stamp-tilt: 4deg;
+}
+.reaction-stamp-ink {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  border: 2.5px solid var(--color-outline-strong);
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  color: var(--color-content-primary);
+  box-shadow: 4px 4px 0 var(--color-outline-strong);
+  transform: rotate(var(--stamp-tilt));
+  transition:
+    background-color 150ms,
+    box-shadow 150ms,
+    transform 150ms;
+}
+.reaction-stamp:hover:not(:disabled) .reaction-stamp-ink {
+  background: var(--color-surface-sunken);
+}
+.reaction-stamp[aria-pressed="true"] .reaction-stamp-ink {
+  background: var(--stamp-fill);
+  box-shadow: 2px 2px 0 var(--color-outline-strong);
+  transform: rotate(-5deg) translate(2px, 2px);
+}
+.reaction-stamp[data-kind="want_it_too"][aria-pressed="true"]
+  .reaction-stamp-ink {
+  color: var(--color-surface-raised);
+}
+.reaction-stamp:active:not(:disabled) .reaction-stamp-ink {
+  transform: rotate(var(--stamp-tilt)) translate(2px, 2px) scale(0.88);
+}
+.reaction-stamp:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.reaction-stamp-counter {
+  position: absolute;
+  right: -8px;
+  top: -8px;
+  display: flex;
+  min-width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 2px solid var(--color-outline-strong);
+  border-radius: 999px;
+  padding: 0 4px;
+  background: var(--color-surface-raised);
+  color: var(--color-content-primary);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.reaction-stamp-label {
+  color: var(--color-content-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.4;
+}
+.reaction-stamp-ring {
+  position: absolute;
+  inset: -6px;
+  border: 2px solid var(--stamp-fill);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: stamp-ring 300ms ease-out both;
+}
+.reaction-stamp-selected {
+  animation: stamp-bounce 260ms ease-out;
+}
+.reaction-stamp-count {
+  animation: stamp-count 180ms ease-out;
+}
+@keyframes stamp-bounce {
+  0% {
+    transform: rotate(-5deg) translate(2px, 2px) scale(0.84);
+  }
+  60% {
+    transform: rotate(-5deg) translate(2px, 2px) scale(1.08);
+  }
+  100% {
+    transform: rotate(-5deg) translate(2px, 2px) scale(1);
+  }
+}
+@keyframes stamp-ring {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+@keyframes stamp-count {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reaction-stamp-ink,
+  .reaction-stamp-count,
+  .reaction-stamp-ring {
+    animation: none;
+    transition: none;
+  }
+  .reaction-stamp-ring {
+    display: none;
+  }
+}

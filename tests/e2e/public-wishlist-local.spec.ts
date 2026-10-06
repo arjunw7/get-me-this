@@ -416,7 +416,7 @@ for (const fresh of [false, true]) {
         }
         await expect(
           visitor.getByRole("heading", {
-            name: "Wishlist Host's wishlist",
+            name: "Wishlist Host",
             exact: true,
           }),
         ).toBeVisible();
