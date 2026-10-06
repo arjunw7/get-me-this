@@ -16,7 +16,7 @@ The implementation-only `pnpm verify` passed: 184 files / 1,803 tests, productio
 
 The new component test failed before implementation because the component did not yet exist; all 12 focused component/view tests passed afterward. Browser evidence is captured using local production builds, synthetic accounts, matching public route/item/selection state and desktop 1440×1000 or mobile 390×844 viewports. Capability URLs are excluded from screenshot content; sharing inputs are masked. No visual baselines are updated.
 
-GitHub Actions are currently unavailable due to the account billing/spending-limit condition confirmed on PR #107: “The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings”. No billing settings were changed or unavailable jobs rerun. Railway previews are not configured in current PR checks.
+An earlier PR #107 workflow could not start because of the account billing/spending-limit condition: “The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings”. No billing settings were changed or unavailable jobs rerun. PR #108 subsequently started normally; its initial triage, install/verify, populated-state upgrade and no-provider gate jobs succeeded while stack/database suites were running. Railway previews are not configured in current PR checks.
 
 No schema, migrations, RLS, dependencies, production resources, Magic Patterns mock data or editor artifacts changed. Rollback: revert this proposal. Independent review and human merge approval remain required.
 
