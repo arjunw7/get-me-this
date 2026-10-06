@@ -136,7 +136,9 @@ describe("PublicWishlistView", () => {
     );
     await user.click(screen.getByRole("button", { name: "Want it too" }));
     expect(onReact).toHaveBeenNthCalledWith(3, "item", null);
-    expect(screen.getByText("Be the first to react")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Very you" }),
+    ).toHaveAccessibleDescription("0 reactions");
   });
 
   it("preserves the confirmed reaction and shows recovery copy on failure", async () => {
@@ -172,7 +174,9 @@ describe("PublicWishlistView", () => {
     );
     await user.click(screen.getByRole("button", { name: "Very you" }));
     expect(screen.getByRole("alert")).toBeVisible();
-    expect(screen.getByText("Be the first to react")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Very you" }),
+    ).toHaveAccessibleDescription("0 reactions");
   });
 
   it("renders an honest empty state without owner edit or add controls", () => {
@@ -210,8 +214,8 @@ it("keeps nonzero public reaction summaries visible and read-only for signed-out
       }}
     />,
   );
-  expect(screen.getByText("1 reaction")).toBeVisible();
-  expect(screen.getByText("Very you")).toBeVisible();
+  expect(screen.getByLabelText("Very you: 1 reaction")).toBeVisible();
+  expect(screen.queryByText("1 reaction")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "Very you" }),
   ).not.toBeInTheDocument();
