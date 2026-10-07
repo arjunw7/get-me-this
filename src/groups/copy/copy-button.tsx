@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import { CopyCatSticker } from "./copy-cat";
 import { ActionSpinner } from "../action-spinner";
 import {
   copyToMyWishlistAction,
@@ -10,7 +9,7 @@ import {
 
 const INITIAL_STATE: CopyToWishlistState = { status: "idle" };
 
-/** Current owner-scoped copies become a sticker; failures leave a retryable action. */
+/** A copied source loses its action; the sticker belongs to the new copy. */
 export function CopyToWishlistButton({
   groupId,
   itemId,
@@ -31,10 +30,11 @@ export function CopyToWishlistButton({
   );
   const done = state.status === "success" || state.status === "already";
   return (
-    <div className={done ? "contents" : "flex flex-col gap-2"}>
-      {done ? (
-        <CopyCatSticker />
-      ) : (
+    <div
+      data-copy-complete={done ? true : undefined}
+      className={done ? "contents" : "flex flex-col gap-2"}
+    >
+      {done ? null : (
         <form action={action} className="contents">
           <input type="hidden" name="groupId" value={groupId} />
           <input type="hidden" name="itemId" value={itemId} />

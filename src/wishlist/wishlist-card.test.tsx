@@ -441,3 +441,10 @@ describe("owner reaction summary wiring", () => {
     expect(screen.queryByText("2 reactions")).toBeNull();
   });
 });
+
+it("marks copied owner cards without exposing their source", () => {
+  render(<WishlistCard item={item({ isCopied: true })} index={0} />);
+  expect(screen.getByTestId("copy-cat")).toHaveAccessibleName(
+    "Copy Cat — copied item",
+  );
+});

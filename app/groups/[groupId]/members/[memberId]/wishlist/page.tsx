@@ -1,3 +1,4 @@
+import { loadGroupCopiedItemIds } from "@/src/groups/copy/copied-items-read";
 import { CopyToWishlistButton } from "@/src/groups/copy/copy-button";
 import { loadOwnCopiedItemIds } from "@/src/groups/copy/copy-read";
 import { loadGroupMemberVibes } from "@/src/groups/member-vibes-data";
@@ -126,14 +127,23 @@ export default async function MemberWishlistPage({
     redirect("/wishlist");
   }
 
-  const [reactions, reservations, memberVibes, copiedItems] = await Promise.all(
-    [
-      getGroupItemReactionSnapshot(groupId, memberId),
-      loadGiftingItemStates(groupId, memberId, userId),
-      loadGroupMemberVibes(groupId),
-      loadOwnCopiedItemIds(decision.items.map((item) => item.itemId)),
-    ],
-  );
+  const [
+    reactions,
+    reservations,
+    memberVibes,
+    copiedItems,
+    copiedDestinations,
+  ] = await Promise.all([
+    getGroupItemReactionSnapshot(groupId, memberId),
+    loadGiftingItemStates(groupId, memberId, userId),
+    loadGroupMemberVibes(groupId),
+    loadOwnCopiedItemIds(decision.items.map((item) => item.itemId)),
+    loadGroupCopiedItemIds(
+      groupId,
+      memberId,
+      decision.items.map((item) => item.itemId),
+    ),
+  ]);
 
   return (
     <main className="min-h-screen w-full bg-surface-page pb-40 text-content-primary lg:pb-16 lg:pl-64">
@@ -151,6 +161,7 @@ export default async function MemberWishlistPage({
         vibe={memberVibes[memberId]}
         memberDisplayName={decision.memberDisplayName}
         items={decision.items}
+        copiedItemIds={copiedDestinations}
         itemReservationBadges={Object.fromEntries(
           Object.entries(reservations).flatMap(([id, state]) =>
             state === "yours" || state === "other"

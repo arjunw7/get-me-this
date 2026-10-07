@@ -10,7 +10,7 @@ import { createSupabaseServerClient } from "@/src/supabase/server";
  * auth.uid(), and every denial class — signed-out, outsider, pending,
  * declined, left, removed, cross-group, unknown group/item, invisible
  * extraction state, own item — is the same generic `unavailable` outcome.
- * Nothing about the copy is ever written to any group-facing surface.
+ * Only a copied-destination badge is group-visible through the separately authorized projection. Source provenance remains private.
  *
  * The already-copied verdict comes from an owner-scoped pre-read of the
  * copier's own rows under the 005a `wishlist_items_select_own` policy

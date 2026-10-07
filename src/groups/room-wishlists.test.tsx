@@ -5,9 +5,13 @@ import type { GroupRoomSnapshot } from "./room-data";
 
 const reads = vi.hoisted(() => ({
   wishlist: vi.fn(),
+  copied: vi.fn(),
   friendReactions: vi.fn(),
   ownReactions: vi.fn(),
   reservations: vi.fn(),
+}));
+vi.mock("./copy/copied-items-read", () => ({
+  loadGroupCopiedItemIds: reads.copied,
 }));
 vi.mock("./member-wishlist-data", () => ({
   loadMemberWishlistSnapshot: reads.wishlist,
@@ -76,6 +80,7 @@ const item = {
 const counts = { veryYou: 1, questionable: 0, wantItToo: 0 };
 beforeEach(() => {
   vi.clearAllMocks();
+  reads.copied.mockResolvedValue(new Set());
   reads.wishlist.mockImplementation(async (_group, member) => ({
     memberDisplayName: member === "owner" ? "Riya" : "Kabir",
     items: [item],
@@ -221,4 +226,12 @@ describe("Room member ordering and badges", () => {
       ),
     ).not.toBeInTheDocument();
   });
+});
+
+it("marks the copier's group card, leaving the source card unmarked", async () => {
+  reads.copied.mockImplementation(
+    async (_group, member) => new Set(member === "owner" ? ["item"] : []),
+  );
+  render(await RoomMemberWishlists({ room, callerId: "owner" }));
+  expect(screen.getAllByTestId("copy-cat")).toHaveLength(1);
 });

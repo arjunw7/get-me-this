@@ -1,3 +1,4 @@
+import { loadGroupCopiedItemIds } from "./copy/copied-items-read";
 import { vibeClasses } from "@/src/profile/vibe";
 import type { MemberVibes } from "./member-vibes-data";
 import Link from "next/link";
@@ -45,17 +46,31 @@ export async function RoomMemberWishlists({
       );
       if (!snapshot) return null;
       const own = member.userId === callerId;
-      const [reactions, ownerReactions, reservations] = await Promise.all([
-        own
-          ? Promise.resolve([])
-          : getGroupItemReactionSnapshot(room.groupId, member.userId),
-        own ? getOwnItemReactionSummary() : Promise.resolve([]),
-        // Never request or serialize recipient-facing reservation data.
-        own
-          ? Promise.resolve({})
-          : loadGiftingItemStates(room.groupId, member.userId, callerId),
-      ]);
-      return { member, snapshot, own, reactions, ownerReactions, reservations };
+      const [reactions, ownerReactions, reservations, copiedItems] =
+        await Promise.all([
+          own
+            ? Promise.resolve([])
+            : getGroupItemReactionSnapshot(room.groupId, member.userId),
+          own ? getOwnItemReactionSummary() : Promise.resolve([]),
+          // Never request or serialize recipient-facing reservation data.
+          own
+            ? Promise.resolve({})
+            : loadGiftingItemStates(room.groupId, member.userId, callerId),
+          loadGroupCopiedItemIds(
+            room.groupId,
+            member.userId,
+            snapshot.items.map((item) => item.itemId),
+          ),
+        ]);
+      return {
+        member,
+        snapshot,
+        own,
+        reactions,
+        ownerReactions,
+        reservations,
+        copiedItems,
+      };
     }),
   );
   return (
@@ -69,6 +84,7 @@ export async function RoomMemberWishlists({
           reactions,
           ownerReactions,
           reservations,
+          copiedItems,
         } = row;
         const firstName =
           snapshot.memberDisplayName.trim().split(/\s+/)[0] ||
@@ -130,7 +146,7 @@ export async function RoomMemberWishlists({
             ) : (
               <ul
                 tabIndex={0}
-                className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-5 overflow-x-auto px-5 pb-3 pt-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-outline-strong sm:-mx-8 sm:scroll-px-8 sm:px-8"
+                className={`-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-5 overflow-x-auto px-5 pb-3 ${copiedItems.size ? "pt-8" : "pt-1"} focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-outline-strong sm:-mx-8 sm:scroll-px-8 sm:px-8`}
                 aria-label={
                   own ? "Your items" : `${snapshot.memberDisplayName}'s items`
                 }
@@ -155,6 +171,7 @@ export async function RoomMemberWishlists({
                     >
                       <MemberWishlistItemCard
                         item={item}
+                        isCopied={copiedItems.has(item.itemId)}
                         groupId={room.groupId}
                         compact
                         presentation={own ? "owner" : "room"}

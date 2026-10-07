@@ -127,8 +127,8 @@ test("a joined member copies a friend's item into their own wishlist", async ({
     );
     await expect(copyButton).toHaveCount(0);
     await expect(
-      card.getByRole("img", { name: "Copy Cat — copied to your wishlist" }),
-    ).toBeVisible();
+      card.getByRole("img", { name: "Copy Cat — copied item" }),
+    ).toHaveCount(0);
 
     // --- the copied item appears in the copier's own wishlist --------------
     await page.goto("/wishlist");
@@ -140,23 +140,28 @@ test("a joined member copies a friend's item into their own wishlist", async ({
     await expect(
       ownItem.getByRole("link", { name: "Edit Copy-test kettle" }),
     ).toBeAttached();
-    // Nothing about the copy — provenance, source owner, source group — is
+    // Only the badge is visible; source provenance and source group are never
     // rendered anywhere.
     const ownHtml = await page.content();
     expect(ownHtml).not.toContain(friendId);
     expect(ownHtml).not.toContain(GROUP_NAME);
-    expect(ownHtml).not.toContain("copied");
+    await expect(ownItem.locator("..").getByTestId("copy-cat")).toBeVisible();
+
+    await page.goto(`/groups/${groupId}`);
+    await expect(page.getByTestId("copy-cat")).toHaveCount(1);
 
     // --- the already-copied state ------------------------------------------
     await page.goto(`/groups/${groupId}/members/${friendId}/wishlist`);
-    // A current copy is a persistent confirmation, not a repeat-submit action.
+    await expect(card).toBeVisible();
+    // Returning to the source hides the action without adding a source sticker.
     const sticker = card.getByRole("img", {
-      name: "Copy Cat — copied to your wishlist",
+      name: "Copy Cat — copied item",
     });
-    await expect(sticker).toBeVisible();
+    await expect(sticker).toHaveCount(0);
     await expect(card.getByTestId("copy-to-wishlist")).toHaveCount(0);
     await page.reload();
-    await expect(sticker).toBeVisible();
+    await expect(card).toBeVisible();
+    await expect(sticker).toHaveCount(0);
     await expect(card.getByTestId("copy-to-wishlist")).toHaveCount(0);
     expect(
       runStackSql(

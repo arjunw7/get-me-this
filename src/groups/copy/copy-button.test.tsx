@@ -15,7 +15,7 @@ const groupId = "00000000-0000-4000-8000-0000000000a1";
 const itemId = "00000000-0000-4000-8000-0000000000b1";
 
 describe("CopyToWishlistButton", () => {
-  it("shows the sticker without a copy action on a fresh copied visit", () => {
+  it("hides the copy action without marking the source on a fresh copied visit", () => {
     render(
       <CopyToWishlistButton
         groupId={groupId}
@@ -23,9 +23,7 @@ describe("CopyToWishlistButton", () => {
         initiallyCopied
       />,
     );
-    expect(
-      screen.getByRole("img", { name: "Copy Cat — copied to your wishlist" }),
-    ).toBeInTheDocument();
+    expect(screen.queryByTestId("copy-cat")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
@@ -41,7 +39,7 @@ describe("CopyToWishlistButton", () => {
     expect(screen.getByRole("status")).toHaveTextContent("");
   });
 
-  it("shows the designed success confirmation after a copy", async () => {
+  it("announces success without putting the sticker on the source", async () => {
     copyAction.mockResolvedValue({ status: "success" });
 
     render(<CopyToWishlistButton groupId={groupId} itemId={itemId} />);
@@ -49,9 +47,8 @@ describe("CopyToWishlistButton", () => {
       screen.getByRole("button", { name: "Copy to my wishlist" }),
     );
 
-    await screen.findByRole("img", {
-      name: "Copy Cat — copied to your wishlist",
-    });
+    await screen.findByText("Copied to your wishlist");
+    expect(screen.queryByTestId("copy-cat")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveClass("sr-only");
     expect(screen.getByRole("status")).toHaveTextContent(
@@ -67,9 +64,8 @@ describe("CopyToWishlistButton", () => {
       screen.getByRole("button", { name: "Copy to my wishlist" }),
     );
 
-    await screen.findByRole("img", {
-      name: "Copy Cat — copied to your wishlist",
-    });
+    await screen.findByText("Copied to your wishlist");
+    expect(screen.queryByTestId("copy-cat")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
       "Copied to your wishlist",
@@ -113,9 +109,7 @@ describe("CopyToWishlistButton", () => {
     await userEvent.click(pending);
     expect(copyAction).toHaveBeenCalledTimes(calls);
     await act(async () => finish({ status: "success" }));
-    expect(
-      screen.getByRole("img", { name: "Copy Cat — copied to your wishlist" }),
-    ).toBeInTheDocument();
+    expect(screen.queryByTestId("copy-cat")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
