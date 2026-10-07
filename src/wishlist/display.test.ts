@@ -635,3 +635,13 @@ describe("approximateConversionView", () => {
     }
   });
 });
+
+it("maps private copy provenance to only a destination flag", () => {
+  const snapshot = toWishlistItemSnapshot({
+    ...baseRow(),
+    copied_from_item_id: "00000000-0000-4000-8000-000000000001",
+  });
+  expect(snapshot.isCopied).toBe(true);
+  expect(snapshot).not.toHaveProperty("copied_from_item_id");
+  expect(toWishlistItemSnapshot(baseRow()).isCopied).toBeUndefined();
+});

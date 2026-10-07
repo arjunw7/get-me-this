@@ -17,6 +17,7 @@ import { currencyMinorDigits } from "./currency-metadata";
  */
 export type WishlistItemRow = {
   id: string;
+  copied_from_item_id?: string | null;
   title: string;
   source_url: string | null;
   retailer: string | null;
@@ -334,6 +335,7 @@ export function toWishlistItemSnapshot(
   }
   return {
     id: row.id,
+    ...(row.copied_from_item_id ? { isCopied: true as boolean } : {}),
     title: row.title,
     sourceUrl: row.source_url,
     retailer: row.retailer,

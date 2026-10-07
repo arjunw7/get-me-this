@@ -202,3 +202,23 @@ it("renders the member's persisted Vibe on the header and avatar", () => {
     "text-surface-raised",
   );
 });
+
+it("shows Copy Cat only on the copied destination card", () => {
+  const copied = item({
+    itemId: "bb1d0f2e-0000-4000-8000-000000000002",
+    title: "Copied kettle",
+  });
+  render(
+    <MemberWishlistScreen
+      groupId={GROUP_ID}
+      groupName="Friends"
+      memberUserId={MEMBER_ID}
+      memberDisplayName="Copier"
+      items={[item({}), copied]}
+      copiedItemIds={new Set([copied.itemId])}
+    />,
+  );
+  const cards = screen.getAllByTestId("member-wishlist-item");
+  expect(within(cards[0]).queryByTestId("copy-cat")).not.toBeInTheDocument();
+  expect(within(cards[1]).getByTestId("copy-cat")).toBeInTheDocument();
+});

@@ -12,6 +12,7 @@ import {
   memberWishlistHeading,
 } from "./member-wishlist-view";
 import { initialsFor } from "./room-format";
+import { CopyCatSticker } from "./copy/copy-cat";
 import { CopyToWishlistButton } from "./copy/copy-button";
 
 import type { MemberWishlistItem } from "./member-wishlist-data";
@@ -52,6 +53,7 @@ export function MemberWishlistItemCard({
   presentation = "browse",
   budgetLabel,
   compact = false,
+  isCopied = false,
   reservedByOther = false,
   reservationBadge,
   children,
@@ -63,6 +65,7 @@ export function MemberWishlistItemCard({
   readonly reservationBadge?: "yours" | "other";
   readonly budgetLabel?: string;
   readonly compact?: boolean;
+  readonly isCopied?: boolean;
   readonly reservedByOther?: boolean;
   readonly children?: React.ReactNode;
   readonly actions?: React.ReactNode;
@@ -72,6 +75,7 @@ export function MemberWishlistItemCard({
       data-testid="member-wishlist-item"
       className={`relative flex h-full flex-col rounded-[26px] border-2 bg-surface-raised ${reservedByOther ? "border-outline/25 text-content-secondary" : "border-outline-strong"} ${presentation === "gifting" ? "" : "shadow-chunk"}`}
     >
+      {isCopied ? <CopyCatSticker /> : null}
       <div
         className={`relative overflow-hidden rounded-t-[24px] bg-surface-sunken ${presentation === "gifting" ? "aspect-[4/3]" : compact ? "aspect-square" : "aspect-[5/4]"}`}
       >
@@ -212,6 +216,7 @@ export function MemberWishlistScreen({
   itemControls,
   itemActions,
   itemReservationBadges,
+  copiedItemIds,
 }: {
   readonly groupId: string;
   readonly groupName: string;
@@ -219,6 +224,7 @@ export function MemberWishlistScreen({
   readonly vibe?: Vibe;
   readonly memberDisplayName: string;
   readonly items: readonly MemberWishlistItem[];
+  readonly copiedItemIds?: ReadonlySet<string>;
   readonly itemControls?: Readonly<Record<string, React.ReactNode>>;
   readonly itemActions?: Readonly<Record<string, React.ReactNode>>;
   readonly itemReservationBadges?: Readonly<Record<string, "yours" | "other">>;
@@ -268,13 +274,14 @@ export function MemberWishlistScreen({
         </section>
       ) : (
         <ul
-          className="mt-10 grid list-none gap-5 sm:grid-cols-2 xl:grid-cols-3"
+          className={`mt-10 grid list-none gap-5 sm:grid-cols-2 xl:grid-cols-3 ${copiedItemIds?.size ? "pr-3" : ""}`}
           data-testid="member-wishlist-grid"
         >
           {items.map((item) => (
             <li key={item.itemId} className="flex">
               <MemberWishlistItemCard
                 item={item}
+                isCopied={copiedItemIds?.has(item.itemId)}
                 groupId={groupId}
                 actions={itemActions?.[item.itemId]}
                 reservationBadge={itemReservationBadges?.[item.itemId]}

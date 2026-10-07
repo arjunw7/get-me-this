@@ -837,51 +837,18 @@ test("member wishlist actions keep gifting private and confirm releases", async 
     expect(await card.textContent()).not.toContain("Another friend");
     await capture(page, "wishlist-actions-other-after");
     await copy.click();
-    const copied = card.getByTestId("copy-cat");
-    await expect(copied).toBeVisible();
-    await expect(copied).toContainText("Copy Cat");
-    await expect
-      .poll(() =>
-        copied
-          .locator("img")
-          .evaluate(
-            (img) =>
-              (img as HTMLImageElement).complete &&
-              (img as HTMLImageElement).naturalWidth > 0,
-          ),
-      )
-      .toBe(true);
-    const stickerBox = (await copied.boundingBox())!;
-    const cardBox = (await card.boundingBox())!;
-    expect(stickerBox.x + stickerBox.width).toBeGreaterThan(
-      cardBox.x + cardBox.width,
-    );
-    expect(stickerBox.y).toBeLessThan(cardBox.y - 12);
-    expect(stickerBox.x + stickerBox.width).toBeGreaterThan(
-      cardBox.x + cardBox.width + 12,
-    );
-    await expect(copied).toHaveCSS("rotate", "-25deg");
-    await expect(
-      card.getByRole("button", { name: "Copy to my wishlist" }),
-    ).toHaveCount(0);
-    await expect(
-      card.getByRole("status").filter({ hasText: "Copied to your wishlist" }),
-    ).toHaveClass("sr-only");
-    // Keep the sticky navigation at its normal top position in full-page proof.
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await capture(page, "wishlist-actions-copied-after");
-    if (process.env.E2E_INTERACTION_EVIDENCE_DIR)
-      await copied.screenshot({
-        path: path.join(
-          process.env.E2E_INTERACTION_EVIDENCE_DIR,
-          `copy-cat-${test.info().project.name}.png`,
-        ),
-      });
+    await expect(card.getByTestId("copy-cat")).toHaveCount(0);
+    await expect(card.getByTestId("copy-to-wishlist")).toHaveCount(0);
+    await capture(page, "wishlist-actions-copied-source-after");
     await page.goto("/wishlist");
+    const copied = page.getByTestId("copy-cat");
+    await expect(copied).toBeVisible();
+    await expect(copied).toHaveCSS("rotate", "-25deg");
+    await capture(page, "wishlist-actions-copied-destination-after");
     await page.goto(route);
-    await expect(copied).toBeVisible();
+    await expect(card.getByTestId("copy-cat")).toHaveCount(0);
     await page.reload();
-    await expect(copied).toBeVisible();
+    await expect(card.getByTestId("copy-cat")).toHaveCount(0);
     expect(
       runStackSql(
         `select count(*) from public.wishlist_items where owner_id='${giver.id}' and copied_from_item_id='${itemId}';`,
@@ -902,6 +869,8 @@ test("member wishlist actions keep gifting private and confirm releases", async 
     await expect(
       card.getByRole("button", { name: "Copy to my wishlist" }),
     ).toBeEnabled();
+    await page.goto(`/groups/${groupId}/members/${giver.id}/wishlist`);
+    await expect(page.getByTestId("copy-cat")).toHaveCount(1);
     // Removing the fixture's own copy permits copying it again on a fresh visit.
     runStackSql(
       withIdentity(

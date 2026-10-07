@@ -35,6 +35,7 @@ export type OwnWishlist = {
 /** The explicit display-snapshot column list (never `select *`). */
 const ITEM_COLUMNS = [
   "id",
+  "copied_from_item_id",
   "title",
   "source_url",
   "retailer",

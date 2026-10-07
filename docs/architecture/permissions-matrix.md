@@ -13,7 +13,7 @@
 | View private group | No | Only if member | Yes | Yes | Yes if member |
 | View member wishlist through shared group | No | Yes | Yes | Yes | Yes if member |
 | Copy another member's item to own wishlist (007b) | No | Never own item | Yes | Yes | Yes if eligible |
-| Learn that an item was copied, by whom, or how often (007b) | No | **Never** — no read path, function, log, or event reveals copies to the source owner or third parties | Only for own copies via own owner-scoped reads (`copied_from_item_id`) | Only for own copies | Only for own copies |
+| Read raw source provenance or source-side copy counts (007b) | No | **Never** — no read path, function, log, or event exposes source provenance or source-side copy counts | Only for own copies via own owner-scoped reads (`copied_from_item_id`) | Only for own copies | Only for own copies |
 | Edit wishlist/item | No | Yes | No | No | No |
 | React to another member's item | No | No | Yes | Yes | Yes if eligible |
 | View visible reaction summary | No | Yes | Yes | Yes | Yes if member |
@@ -281,3 +281,15 @@ group membership, reservations, and assignment visibility are unchanged.
 
 See [Recoverable generic group invitations](recoverable-group-invites.md) for
 locking, action shapes, proof, and non-destructive rollback notes.
+
+## Copied destination badges
+
+Product-approved exception: joined members of the same active group may see a
+Copy Cat badge on a copied **destination** item. `group_copied_item_ids(uuid, uuid)`
+reuses `member_wishlist_snapshot` authorization and returns only visible destination
+IDs. It never returns the source item ID, source owner, group of origin, or copy
+counts. Owners read their own provenance under existing owner RLS and map it to a
+boolean; raw provenance never reaches the rendered card. Public capability links
+remain unchanged. Source cards never receive a sticker as a result of being copied.
+The existing ON DELETE SET NULL behavior clears provenance when a source disappears.
+Rollback: revoke authenticated EXECUTE, remove badge reads, then drop the function.

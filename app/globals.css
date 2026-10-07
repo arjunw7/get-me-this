@@ -275,8 +275,8 @@
   }
 }
 
-/* A confirmed copy becomes a corner sticker, leaving one full-width action. */
-.wishlist-item-actions:has([data-copy-cat]) {
+/* Hiding a completed source copy leaves one full-width reservation action. */
+.wishlist-item-actions:has([data-copy-complete]) {
   grid-template-columns: minmax(0, 1fr);
 }
 
