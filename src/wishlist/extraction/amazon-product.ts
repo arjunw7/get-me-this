@@ -70,10 +70,28 @@ const response=await page.goto(${JSON.stringify(source)},{waitUntil:'domcontentl
 await page.waitForTimeout(1500);
 const product=await page.evaluate(()=>{
  const text=(selector)=>document.querySelector(selector)?.textContent?.trim()||null;
- const prices=Array.from(document.querySelectorAll('#corePrice_feature_div .apex-pricetopay-value .a-offscreen, #corePriceDisplay_desktop_feature_div .apex-pricetopay-value .a-offscreen')).map(e=>e.textContent?.trim()).filter(Boolean).slice(0,8);
+ // Current Amazon layouts leave .a-offscreen blank and split the visible money.
+ // Read only the main product module, never other seller, MRP or unit prices.
+ const display=document.querySelector('#corePriceDisplay_desktop_feature_div');
+ const legacy=document.querySelector('#corePrice_feature_div');
+ const pricesIn=(root)=>Array.from(root?.querySelectorAll('.apex-pricetopay-value, .priceToPay')||[]).map(e=>{
+  const offscreen=e.querySelector('.a-offscreen')?.textContent?.trim();
+  if(offscreen) return offscreen;
+  const symbol=e.querySelector('.a-price-symbol')?.textContent?.trim();
+  const whole=(e.querySelector('.a-price-whole')?.textContent||'').trim().replace(/\\.$/,'');
+  const fraction=e.querySelector('.a-price-fraction');
+  const decimals=fraction?.textContent?.trim();
+  if(!symbol||!/^\\d+(?:,\\d{2,3})*$/.test(whole)||(fraction&&!/^\\d{2}$/.test(decimals||''))) return null;
+  return symbol+whole+(fraction?'.'+decimals:'');
+ }).filter(Boolean).slice(0,8);
+ const current=pricesIn(display);
+ const prices=current.length?current:pricesIn(legacy);
+ const inputAsin=document.querySelector('input#ASIN')?.value||null;
+ const moduleAsin=display?.getAttribute('data-csa-c-asin')||legacy?.getAttribute('data-csa-c-asin')||null;
+ const asin=inputAsin&&moduleAsin&&inputAsin!==moduleAsin?null:(inputAsin||moduleAsin);
  const currencies=Array.from(document.querySelectorAll('script')).flatMap(e=>Array.from((e.textContent||'').matchAll(/"currencyInfo"\\s*:\\s*\\{\\s*"code"\\s*:\\s*"([A-Z]{3})"/g),m=>m[1]));
  const unique=Array.from(new Set(currencies));
- return {title:text('#productTitle'),asin:document.querySelector('input#ASIN')?.value||null,image:document.querySelector('#landingImage')?.getAttribute('src')||null,prices,currency:unique.length===1?unique[0]:null,unavailable:/currently unavailable|temporarily out of stock/i.test(text('#availability')||''),blocked:!!document.querySelector('form[action*="validateCaptcha"],input#captchacharacters')};
+ return {title:text('#productTitle'),asin,image:document.querySelector('#landingImage')?.getAttribute('src')||null,prices,currency:unique.length===1?unique[0]:null,unavailable:/currently unavailable|temporarily out of stock/i.test(text('#availability')||''),blocked:!!document.querySelector('form[action*="validateCaptcha"],input#captchacharacters')};
 });
 console.log(JSON.stringify({...product,status:response?.status()||0,finalUrl:page.url()}));`;
 }
