@@ -442,9 +442,10 @@ describe("owner reaction summary wiring", () => {
   });
 });
 
-it("marks copied owner cards without exposing their source", () => {
+it("keeps copied-item stickers out of the standalone wishlist", () => {
   render(<WishlistCard item={item({ isCopied: true })} index={0} />);
-  expect(screen.getByTestId("copy-cat")).toHaveAccessibleName(
-    "Copy Cat — copied item",
-  );
+  expect(screen.queryByTestId("copy-cat")).toBeNull();
+  expect(
+    screen.getByRole("link", { name: `Edit ${item().title}` }),
+  ).toHaveClass("top-3");
 });
