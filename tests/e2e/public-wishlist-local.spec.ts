@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import AxeBuilder from "@axe-core/playwright";
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -138,6 +139,34 @@ async function capture(page: Page, name: string) {
     body,
     contentType: "image/png",
   });
+}
+
+async function capturePublicBefore(
+  page: Page,
+  publicPath: string,
+  name: string,
+) {
+  const origin = process.env.E2E_PUBLIC_BEFORE_ORIGIN;
+  if (!origin) return;
+  if (new URL(origin).hostname !== "127.0.0.1")
+    throw new Error("Before evidence must use a local server");
+  const context = await page
+    .context()
+    .browser()!
+    .newContext({
+      viewport: page.viewportSize(),
+      storageState: await page.context().storageState(),
+    });
+  try {
+    const before = await context.newPage();
+    await before.goto(new URL(publicPath, origin).href);
+    await expect(
+      before.getByRole("heading", { name: "Wishlist Host", exact: true }),
+    ).toBeVisible();
+    await capture(before, name);
+  } finally {
+    await context.close();
+  }
 }
 
 test("automatic sharing supports anonymous viewing, owner read-only reactions, revocation and a new link", async ({
@@ -374,6 +403,8 @@ for (const fresh of [false, true]) {
         {
           id: randomUUID(),
           title: "Public ceramic mug",
+          source_url: "https://example.com/mug",
+          retailer: "Ceramics",
           sort_position: 0,
         },
       ]);
@@ -423,6 +454,16 @@ for (const fresh of [false, true]) {
         const card = visitor
           .getByRole("list", { name: "Wishlist items" })
           .getByRole("article");
+        const storeLink = card.getByRole("link", {
+          name: "Open on Ceramics ↗ for Public ceramic mug (opens in a new tab)",
+        });
+        await expect(storeLink).toBeVisible();
+        await expect(storeLink).toHaveAttribute(
+          "href",
+          "https://example.com/mug",
+        );
+        await expect(storeLink).toHaveAttribute("target", "_blank");
+        await expect(storeLink).toHaveAttribute("rel", "noopener noreferrer");
         const veryYou = card.getByRole("button", {
           name: "Very you",
           exact: true,
@@ -433,9 +474,7 @@ for (const fresh of [false, true]) {
         });
         await expect(veryYou).toHaveAttribute("aria-pressed", "false");
         await expect(wantIt).toHaveAttribute("aria-pressed", "false");
-        await expect(
-          card.getByText("Be the first to react", { exact: true }),
-        ).toBeVisible();
+        await expect(veryYou).toHaveAccessibleDescription("0 reactions");
         await expectPublicPrivacy(visitor, owner.email);
         expect(
           runStackSql(
@@ -449,22 +488,50 @@ for (const fresh of [false, true]) {
         await wantIt.click();
         await expect(wantIt).toHaveAttribute("aria-pressed", "true");
         await expect(veryYou).toHaveAttribute("aria-pressed", "false");
-        await expect(card.getByRole("status")).toHaveText("1 reaction");
+        await expect(wantIt).toHaveAccessibleDescription("1 reaction");
+        await expect(
+          card.locator("[data-public-reactions] button"),
+        ).toHaveCount(3);
+        for (const button of await card
+          .locator("[data-public-reactions] button")
+          .all()) {
+          const bounds = await button.boundingBox();
+          expect(bounds?.height).toBeGreaterThanOrEqual(44);
+          expect(bounds?.width).toBeGreaterThanOrEqual(44);
+        }
+        const accessibility = await new AxeBuilder({ page: visitor })
+          .include("[data-public-reactions]")
+          .analyze();
+        expect(accessibility.violations).toEqual([]);
+        await capturePublicBefore(
+          visitor,
+          publicPath,
+          `public-${fresh ? "fresh" : "returning"}-reaction-before`,
+        );
         await capture(
           visitor,
           `public-${fresh ? "fresh" : "returning"}-reaction`,
         );
         await page.goto(publicPath);
-        await expect(page.getByRole("status")).toContainText("1 reaction");
+        await expect(
+          page.getByLabel("Want it too: 1 reaction", { exact: true }),
+        ).toBeVisible();
+        await capturePublicBefore(
+          page,
+          publicPath,
+          `public-${fresh ? "fresh" : "returning"}-owner-before`,
+        );
+        await capture(
+          page,
+          `public-${fresh ? "fresh" : "returning"}-owner-after`,
+        );
         await expect(
           page.getByRole("button", { name: "Want it too", exact: true }),
         ).toHaveCount(0);
         await wantIt.click();
         await expect(wantIt).toHaveAttribute("aria-pressed", "false");
         await visitor.reload();
-        await expect(
-          card.getByText("Be the first to react", { exact: true }),
-        ).toBeVisible();
+        await expect(veryYou).toHaveAccessibleDescription("0 reactions");
         await expectPublicPrivacy(visitor, owner.email);
       } finally {
         await viewerContext.close();

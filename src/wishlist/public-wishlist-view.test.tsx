@@ -69,15 +69,34 @@ describe("PublicWishlistView", () => {
     expect(
       screen.getByRole("link", { name: "Sign in to react" }),
     ).toHaveAttribute("href", props.signinHref);
-    expect(screen.getByRole("link", { name: /Original page/ })).toHaveAttribute(
-      "href",
-      "https://example.com/cup",
-    );
+    expect(
+      screen.getByRole("link", {
+        name: "Open on Ceramics ↗ for A ceramic cup (opens in a new tab)",
+      }),
+    ).toHaveAttribute("href", "https://example.com/cup");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(
       screen.queryByText(/reserv|assignment|group|checklist|copy to/i),
     ).not.toBeInTheDocument();
+  });
+
+  it("uses Open link when no retailer is saved, without inventing a website name", () => {
+    render(
+      <PublicWishlistView
+        {...props}
+        snapshot={{
+          ...snapshot,
+          items: [{ ...snapshot.items[0], retailer: "   " }],
+        }}
+      />,
+    );
+    const link = screen.getByRole("link", {
+      name: "Open link ↗ for A ceramic cup (opens in a new tab)",
+    });
+    expect(link).toHaveAttribute("href", "https://example.com/cup");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
   it("keeps an owner's public reactions read-only even when signed in", () => {
@@ -136,7 +155,9 @@ describe("PublicWishlistView", () => {
     );
     await user.click(screen.getByRole("button", { name: "Want it too" }));
     expect(onReact).toHaveBeenNthCalledWith(3, "item", null);
-    expect(screen.getByText("Be the first to react")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Very you" }),
+    ).toHaveAccessibleDescription("0 reactions");
   });
 
   it("preserves the confirmed reaction and shows recovery copy on failure", async () => {
@@ -172,7 +193,9 @@ describe("PublicWishlistView", () => {
     );
     await user.click(screen.getByRole("button", { name: "Very you" }));
     expect(screen.getByRole("alert")).toBeVisible();
-    expect(screen.getByText("Be the first to react")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Very you" }),
+    ).toHaveAccessibleDescription("0 reactions");
   });
 
   it("renders an honest empty state without owner edit or add controls", () => {
@@ -210,8 +233,8 @@ it("keeps nonzero public reaction summaries visible and read-only for signed-out
       }}
     />,
   );
-  expect(screen.getByText("1 reaction")).toBeVisible();
-  expect(screen.getByText("Very you")).toBeVisible();
+  expect(screen.getByLabelText("Very you: 1 reaction")).toBeVisible();
+  expect(screen.queryByText("1 reaction")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "Very you" }),
   ).not.toBeInTheDocument();

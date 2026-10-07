@@ -4,9 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Wordmark } from "@/src/landing/wordmark";
 import { WishlistProfileHeader } from "./wishlist-profile-header";
-import { totalReactionCount } from "@/src/groups/reactions/types";
-import { ReactionRow } from "@/src/groups/reactions/reaction-row";
-import { OwnerReactionSummaryRow } from "@/src/groups/reactions/owner-reaction-summary";
+import { PublicReactionRow } from "./public-reaction-row";
 import type {
   ReactionKind,
   ReactionSummaryRow,
@@ -129,11 +127,14 @@ export function PublicWishlistView({
                     {item.sourceUrl ? (
                       <a
                         href={item.sourceUrl}
+                        aria-label={`${item.retailer?.trim() ? `Open on ${item.retailer.trim()} ↗` : "Open link ↗"} for ${item.title} (opens in a new tab)`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex min-h-11 items-center font-bold underline underline-offset-4"
                       >
-                        Original page
+                        {item.retailer?.trim()
+                          ? `Open on ${item.retailer.trim()} ↗`
+                          : "Open link ↗"}
                         <span className="sr-only">
                           {" "}
                           for {item.title} (opens in a new tab)
@@ -143,9 +144,7 @@ export function PublicWishlistView({
                     <div className="mt-auto pt-2">
                       {!signedIn || snapshot.viewerIsOwner ? (
                         <>
-                          {totalReactionCount(item.reaction.counts) > 0 ? (
-                            <OwnerReactionSummaryRow summary={item.reaction} />
-                          ) : null}
+                          <PublicReactionRow summary={item.reaction} />
                           {!signedIn ? (
                             <Link
                               href={signinHref}
@@ -184,8 +183,7 @@ function PublicItemReactions({
   const [failed, setFailed] = useState(false);
   return (
     <>
-      <ReactionRow
-        compact
+      <PublicReactionRow
         summary={summary}
         onReact={async (reaction) => {
           setFailed(false);
