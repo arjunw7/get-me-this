@@ -841,6 +841,12 @@ test("member wishlist actions keep gifting private and confirm releases", async 
     await expect(card.getByTestId("copy-to-wishlist")).toHaveCount(0);
     await capture(page, "wishlist-actions-copied-source-after");
     await page.goto("/wishlist");
+    await expect(
+      page.getByRole("link", { name: "Edit Ceramic cup" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("copy-cat")).toHaveCount(0);
+    await capture(page, "standalone-copied-after");
+    await page.goto(`/groups/${groupId}`);
     const copied = page.getByTestId("copy-cat");
     await expect(copied).toBeVisible();
     await expect(copied).toHaveCSS("rotate", "-25deg");

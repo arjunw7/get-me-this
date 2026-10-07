@@ -145,7 +145,7 @@ test("a joined member copies a friend's item into their own wishlist", async ({
     const ownHtml = await page.content();
     expect(ownHtml).not.toContain(friendId);
     expect(ownHtml).not.toContain(GROUP_NAME);
-    await expect(ownItem.locator("..").getByTestId("copy-cat")).toBeVisible();
+    await expect(page.getByTestId("copy-cat")).toHaveCount(0);
 
     await page.goto(`/groups/${groupId}`);
     await expect(page.getByTestId("copy-cat")).toHaveCount(1);

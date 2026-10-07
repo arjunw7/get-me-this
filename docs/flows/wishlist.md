@@ -41,7 +41,7 @@ The profile’s saved **Vibe** colors its wishlist and profile accents. The owne
 
 - Owner can create, edit, reorder, and delete.
 - Other eligible users can view, react, copy, reserve, or follow the retailer link.
-- Copying creates an independent item owned by the copying user and records provenance without sharing later edits. A larger Copy Cat sticker marks the copied destination card in the copier’s own wishlist and joined group views. It never marks the original source merely because another member copied it. Member views initialize the hidden copy action state from the viewer's current own wishlist, so returning or refreshing does not offer the same copy again. Removing that copied item restores the action on the next visit.
+- Copying creates an independent item owned by the copying user and records provenance without sharing later edits. A larger Copy Cat sticker marks the copied destination card only in joined group views (the group room and group-member wishlist). Standalone and public/shared wishlists do not display the sticker. It never marks the original source merely because another member copied it. Member views initialize the hidden copy action state from the viewer's current own wishlist, so returning or refreshing does not offer the same copy again. Removing that copied item restores the action on the next visit.
 - Reservations are scoped to the viewing group, not globally across every group containing the owner.
 - The owner never receives reservation or purchasing information about their own items.
 

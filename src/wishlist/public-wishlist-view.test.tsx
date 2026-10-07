@@ -39,6 +39,13 @@ const props = {
 };
 
 describe("PublicWishlistView", () => {
+  it("keeps Copy Cat stickers out of public sharing", () => {
+    render(<PublicWishlistView {...props} />);
+    expect(screen.queryByTestId("copy-cat")).toBeNull();
+    expect(
+      screen.queryByRole("img", { name: "Copy Cat — copied item" }),
+    ).toBeNull();
+  });
   it("keeps an unsupported original currency visible without crashing the public page", () => {
     render(
       <PublicWishlistView

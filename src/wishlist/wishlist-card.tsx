@@ -1,4 +1,3 @@
-import { CopyCatSticker } from "@/src/groups/copy/copy-cat";
 import { OwnerReactionSummaryRow } from "@/src/groups/reactions/owner-reaction-summary";
 import type { OwnerReactionSummary } from "@/src/groups/reactions/reaction-write";
 import { AppIcon } from "@/src/home/app-icon";
@@ -95,7 +94,6 @@ export function WishlistCard({
 
   return (
     <div className={`relative ${tilt}`}>
-      {item.isCopied ? <CopyCatSticker /> : null}
       {showTape ? (
         <Tape className="absolute top-0 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2 -rotate-3" />
       ) : null}
@@ -113,7 +111,7 @@ export function WishlistCard({
           <Link
             href={`/wishlist/items/${item.id}/edit`}
             aria-label={`Edit ${item.title}`}
-            className={`absolute right-3 ${item.isCopied ? "bottom-3" : "top-3"} inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-outline-strong bg-surface-raised text-content-primary shadow-chunk-sm transition-transform hover:-translate-y-0.5`}
+            className="absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-outline-strong bg-surface-raised text-content-primary shadow-chunk-sm transition-transform hover:-translate-y-0.5"
           >
             <AppIcon name="edit" />
           </Link>
@@ -198,9 +196,7 @@ export function WishlistCardGrid({
   reactionSummaries?: Readonly<Record<string, OwnerReactionSummary>>;
 }) {
   return (
-    <div
-      className={`columns-1 gap-6 min-[480px]:columns-2 lg:columns-3 ${items.some((item) => item.isCopied) ? "pr-3 pt-6" : ""}`}
-    >
+    <div className="columns-1 gap-6 min-[480px]:columns-2 lg:columns-3">
       {items.map((item, index) => (
         <div key={item.id} className="mb-7 break-inside-avoid">
           <WishlistCard
