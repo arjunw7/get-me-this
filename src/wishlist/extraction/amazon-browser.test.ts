@@ -243,3 +243,95 @@ describe("Amazon DOM reader", () => {
     }
   });
 });
+
+describe("current Amazon price markup", () => {
+  async function read(html: string) {
+    document.body.innerHTML = html;
+    const output = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const page = {
+        setViewportSize: async () => {},
+        setExtraHTTPHeaders: async () => {},
+        goto: async () => ({ status: () => 200 }),
+        waitForTimeout: async () => {},
+        evaluate: async (fn: () => unknown) => fn(),
+        url: () => source,
+      };
+      await new Function(
+        "page",
+        `return (async()=>{${amazonBrowserCode(source)}})()`,
+      )(page);
+      return JSON.parse(output.mock.calls[0]![0] as string);
+    } finally {
+      output.mockRestore();
+      document.body.innerHTML = "";
+    }
+  }
+  const title = '<span id="productTitle">Blue headphones</span>';
+  const currency =
+    '<script type="application/json">{"currencyInfo":{"code":"INR"}}</script>';
+  function module(price: string) {
+    return `<div id="corePriceDisplay_desktop_feature_div" data-csa-c-asin="B0DGTSRX3R">${price}<span class="apex-basisprice-value"><span class="a-offscreen">₹139,998</span></span><span class="apex-priceperunit-value"><span class="a-offscreen">₹7,999,900</span></span></div>`;
+  }
+  it("reads a blank offscreen price from its currency symbol and whole amount", async () => {
+    const data = await read(
+      title +
+        module(
+          '<span class="apex-pricetopay-value"><span class="a-offscreen"> </span><span class="a-price-symbol">₹</span><span class="a-price-whole">79,999</span></span>',
+        ) +
+        currency,
+    );
+    expect(data).toMatchObject({
+      asin: "B0DGTSRX3R",
+      prices: ["₹79,999"],
+      currency: "INR",
+    });
+    const { amazonProposal } = await import("./amazon-product");
+    expect(amazonProposal(new URL(source), data)).toMatchObject({
+      originalAmountMinor: "7999900",
+      originalCurrency: "INR",
+    });
+  });
+  it("uses the main product display price with paise instead of alternate seller prices", async () => {
+    const legacy =
+      '<div id="corePrice_feature_div"><span class="apex-pricetopay-value"><span class="a-offscreen">₹4,599.00</span></span></div>';
+    const data = await read(
+      title +
+        legacy +
+        module(
+          '<span class="priceToPay"><span class="a-offscreen"> </span><span class="a-price-symbol">₹</span><span class="a-price-whole">4,556<span class="a-price-decimal">.</span></span><span class="a-price-fraction">81</span></span>',
+        ) +
+        module(
+          '<span class="apex-pricetopay-value"><span class="a-offscreen">₹4,599.00</span></span>',
+        ) +
+        currency,
+    );
+    expect(data.prices).toEqual(["₹4,556.81"]);
+    const { amazonProposal } = await import("./amazon-product");
+    expect(amazonProposal(new URL(source), data).originalAmountMinor).toBe(
+      "455681",
+    );
+  });
+  it("does not turn an incomplete fractional amount into a guessed whole price", async () => {
+    const data = await read(
+      title +
+        module(
+          '<span class="priceToPay"><span class="a-offscreen"></span><span class="a-price-symbol">₹</span><span class="a-price-whole">4,556.</span><span class="a-price-fraction">8</span></span>',
+        ) +
+        currency,
+    );
+    expect(data.prices).toEqual([]);
+  });
+  it("rejects conflicting product identities rather than trusting the URL", async () => {
+    const data = await read(
+      title +
+        '<input id="ASIN" value="B000000000">' +
+        module(
+          '<span class="priceToPay"><span class="a-offscreen">₹999.00</span></span>',
+        ) +
+        currency,
+    );
+    const { amazonProposal } = await import("./amazon-product");
+    expect(() => amazonProposal(new URL(source), data)).toThrow();
+  });
+});
