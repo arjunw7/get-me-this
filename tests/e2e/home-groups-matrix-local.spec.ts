@@ -97,9 +97,10 @@ for (const scenario of cases)
       });
       scenario.modes.forEach((mode, index) => {
         const groupId = groupIds[index];
+        // Keep occasions after today so Home consistently selects the first group.
         // Dedicated synthetic local fixtures; application reads still use caller RLS/RPCs.
         runStackSql(
-          `insert into public.groups (id,name,occasion,occasion_at,time_zone,mode,organizer_id,budget_amount_minor,budget_currency,location) values ('${groupId}','Matrix occasion ${index + 1}','Diwali','2026-11-${String(7 + index).padStart(2, "0")} 18:00:00+05:30','Asia/Kolkata','${mode}','${users[0]}',250000,'INR','Mumbai'); ${users.map((id) => `insert into public.group_members (group_id,user_id,status,participating,joined_at,membership_generation) values ('${groupId}','${id}','joined',true,clock_timestamp(),1);`).join(" ")}`,
+          `insert into public.groups (id,name,occasion,occasion_at,time_zone,mode,organizer_id,budget_amount_minor,budget_currency,location) values ('${groupId}','Matrix occasion ${index + 1}','Diwali',clock_timestamp() + interval '${14 + index} days','Asia/Kolkata','${mode}','${users[0]}',250000,'INR','Mumbai'); ${users.map((id) => `insert into public.group_members (group_id,user_id,status,participating,joined_at,membership_generation) values ('${groupId}','${id}','joined',true,clock_timestamp(),1);`).join(" ")}`,
         );
         if (mode === "secret_draw") {
           const result = runStackSql(
