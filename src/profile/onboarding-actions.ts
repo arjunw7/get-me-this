@@ -17,7 +17,7 @@ import type { OnboardingSubmitState } from "./onboarding-state";
  *
  * Every input is re-validated server-side on every submit (the client
  * checks are convenience, not proof): a blank display name is rejected, a
- * taste line over the approved limit is rejected — never silently
+ * taste line over the approved limit is rejected, never silently
  * truncated — and blank taste lines normalize to null under the one shared
  * whitespace rule before any write (the database trigger enforces the same
  * normalization for direct writes).
@@ -59,7 +59,7 @@ export async function completeOnboardingAction(
     return { status: "error", errors: { vibe: "invalid" } };
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("profiles")
     .update({
       display_name: validated.displayName,
@@ -67,8 +67,10 @@ export async function completeOnboardingAction(
       // Legacy submissions omit this column, retaining the database default or saved choice.
       ...(vibe !== null ? { vibe } : {}),
     })
-    .eq("id", user.id);
-  if (error) {
+    .eq("id", user.id)
+    .select("id")
+    .single();
+  if (error || !updated) {
     // A database rejection (constraint, RLS, or availability) is reported
     // honestly without provider detail; the submitted values survive in
     // the form for correction.
