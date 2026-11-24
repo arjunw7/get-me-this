@@ -11,7 +11,7 @@ import { isProfileComplete } from "./profile";
 /**
  * Server-side session and profile access for the protected routes and the
  * post-auth gate (004e). Every check re-reads the session from the provider
- * (`getUser()` validates with Supabase — a client-held session claim is
+ * (`getUser()` validates with Supabase, a client-held session claim is
  * never trusted) and the profile from the database under the owner-only
  * RLS policies of 004a.
  *
@@ -48,11 +48,22 @@ export async function getOwnProfile(
 ): Promise<SessionProfile | null> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return null;
-  const { data } = await supabase
-    .from("profiles")
-    .select("display_name, taste_line, vibe")
-    .eq("id", userId)
-    .single();
+  const read = () =>
+    supabase
+      .from("profiles")
+      .select("display_name, taste_line, vibe")
+      .eq("id", userId)
+      .single();
+  let { data, error } = await read();
+  if (error && error.code !== "PGRST116")
+    throw new Error("Could not open your Get Me This account.");
+  if (!data) {
+    const provisioned = await supabase.rpc("ensure_get_me_this_account");
+    if (provisioned.error)
+      throw new Error("Could not open your Get Me This account.");
+    ({ data, error } = await read());
+    if (error) throw new Error("Could not open your Get Me This account.");
+  }
   if (!data) return null;
   return {
     displayName: data.display_name ?? null,
@@ -63,7 +74,7 @@ export async function getOwnProfile(
 
 /**
  * The route a just-verified user should be sent to, shared by BOTH
- * verification paths (six-digit code and magic link — identical post-auth
+ * verification paths (six-digit code and magic link, identical post-auth
  * rules):
  * - incomplete profile → `/onboarding`, retaining only a validated public
  *   wishlist identifier for that explicitly supported return flow;
@@ -88,7 +99,7 @@ export async function postAuthRouteForUser(
 
 /**
  * Page-level gate for protected routes: redirects to `/auth` when signed
- * out (the safe default intent — the entry screen renders its approved
+ * out (the safe default intent, the entry screen renders its approved
  * default state) and to `/onboarding` when the profile is incomplete.
  * Returns the profile when the user may proceed.
  */

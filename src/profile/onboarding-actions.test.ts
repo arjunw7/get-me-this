@@ -31,7 +31,7 @@ import { completeOnboardingAction } from "./onboarding-actions";
 /**
  * The onboarding completion action (004e): server-side re-validation over
  * the shared rule (blank name rejected, blank taste line normalized to
- * null, over-limit rejected — never truncated), the write to the owner's
+ * null, over-limit rejected, never truncated), the write to the owner's
  * own profile row, and the fixed `/home` redirect.
  */
 
@@ -59,10 +59,14 @@ afterEach(() => {
 });
 
 /** Builds the mock query chain for the profile update. */
-function mockUpdate(result: { error: unknown }) {
+function mockUpdate(result: { error: unknown; data?: { id: string } | null }) {
   mockClient!.from.mockImplementation(() => ({
     update: () => ({
-      eq: () => Promise.resolve(result),
+      eq: () => ({
+        select: () => ({
+          single: async () => ({ data: { id: "owner" }, ...result }),
+        }),
+      }),
     }),
   }));
 }
@@ -92,7 +96,11 @@ describe("completeOnboardingAction", () => {
       mockClient!.auth.getUser.mockResolvedValue({
         data: { user: { id: "owner" } },
       });
-      const eq = vi.fn().mockResolvedValue({ error: null });
+      const eq = vi.fn().mockReturnValue({
+        select: () => ({
+          single: async () => ({ data: { id: "owner" }, error: null }),
+        }),
+      });
       const update = vi.fn().mockReturnValue({ eq });
       mockClient!.from.mockReturnValue({ update });
       await expect(
@@ -113,9 +121,13 @@ describe("completeOnboardingAction", () => {
     mockClient!.auth.getUser.mockResolvedValue({
       data: { user: { id: "owner" } },
     });
-    const update = vi
-      .fn()
-      .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    const update = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: () => ({
+          single: async () => ({ data: { id: "owner" }, error: null }),
+        }),
+      }),
+    });
     mockClient!.from.mockReturnValue({ update });
     await expect(
       completeOnboardingAction(IDLE, formData({ displayName: "Ada" })),
@@ -145,9 +157,13 @@ describe("completeOnboardingAction", () => {
     mockClient!.auth.getUser.mockResolvedValue({
       data: { user: { id: "owner" } },
     });
-    const update = vi
-      .fn()
-      .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    const update = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: () => ({
+          single: async () => ({ data: { id: "owner" }, error: null }),
+        }),
+      }),
+    });
     mockClient!.from.mockReturnValue({ update });
     await expect(
       completeOnboardingAction(
@@ -237,4 +253,15 @@ describe("completeOnboardingAction", () => {
     );
     expect(result).toEqual({ status: "error", failure: "unavailable" });
   });
+});
+
+it("does not report success when the profile update returns no row", async () => {
+  mockClient!.auth.getUser.mockResolvedValue({
+    data: { user: { id: "owner" } },
+  });
+  mockUpdate({ error: null, data: null });
+  expect(
+    await completeOnboardingAction(IDLE, formData({ displayName: "Ada" })),
+  ).toEqual({ status: "error", failure: "update-failed" });
+  expect(analytics.capture).not.toHaveBeenCalled();
 });

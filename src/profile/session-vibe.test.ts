@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   client: vi.fn(),
+  rpc: vi.fn(),
   single: vi.fn(),
   eq: vi.fn(),
   select: vi.fn(),
@@ -15,7 +16,7 @@ import { getOwnProfile } from "./session";
 
 describe("owner profile Vibe projection", () => {
   beforeEach(() => {
-    mocks.client.mockResolvedValue({ from: mocks.from });
+    mocks.client.mockResolvedValue({ from: mocks.from, rpc: mocks.rpc });
     mocks.from.mockReturnValue({ select: mocks.select });
     mocks.select.mockReturnValue({ eq: mocks.eq });
     mocks.eq.mockReturnValue({ single: mocks.single });
@@ -39,6 +40,7 @@ describe("owner profile Vibe projection", () => {
     expect((await getOwnProfile("owner-id"))?.vibe).toBe("marigold");
   });
   it("does not fabricate a profile when RLS returns no row", async () => {
+    mocks.rpc.mockResolvedValue({ error: null });
     mocks.single.mockResolvedValue({ data: null });
     expect(await getOwnProfile("other-id")).toBeNull();
   });
